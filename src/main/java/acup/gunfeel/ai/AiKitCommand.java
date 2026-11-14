@@ -73,7 +73,7 @@ public final class AiKitCommand {
 
     /** hangs "armor …", "ammo …" (and "team …") on a node: the rest of the line is the kit's words, offered word by word */
     static void words(ArgumentBuilder<CommandSourceStack, ?> node, boolean team, Guns guns, Run run) {
-        for (String word : team ? List.of("armor", "ammo", "team") : List.of("armor", "ammo")) {
+        for (String word : team ? List.of("armor", "ammo", "role", "team") : List.of("armor", "ammo", "role")) {
             node.then(Commands.literal(word).then(Commands.argument("kit", StringArgumentType.greedyString())
                     .suggests((c, b) -> suggest(c, b, word, team, guns))
                     .executes(c -> run.run(c, word + " " + StringArgumentType.getString(c, "kit")))));
@@ -135,7 +135,7 @@ public final class AiKitCommand {
     }
 
     /** a kit ready to put on: the pieces by slot (null: the slot as it is, air: emptied), the round's name, the team */
-    record Kit(Item @Nullable [] armor, @Nullable String ammo, @Nullable String team) {
+    record Kit(Item @Nullable [] armor, @Nullable String ammo, @Nullable String team, @Nullable String role) {
         /** before any mob is made: the gun they will all hold (empty: each its own) takes the round */
         void fits(ItemStack hand) throws CommandSyntaxException {
             if (ammo == null || hand.isEmpty()) return;
@@ -169,6 +169,14 @@ public final class AiKitCommand {
                 if (loaded > 0) told.append(", ").append(loaded == mobs.size() ? "" : loaded + " ").append("loading ").append(ammo);
                 not.forEach((why, n) -> told.append("; ").append(n).append(" keep").append(n == 1 ? "s its" : " their").append(" rounds: ").append(why));
             }
+            if (role != null) {
+                AiRole given = AiRole.named(role);
+                for (Mob m : mobs) {
+                    AiBot bot = AiBots.get(m);
+                    if (bot != null) AiRole.assign(bot, given);
+                }
+                told.append(given == null ? ", their roles by their guns" : ", role " + given.word());
+            }
             return told.toString();
         }
     }
@@ -197,7 +205,7 @@ public final class AiKitCommand {
                 armor[i] = item;
             }
         }
-        return new Kit(armor, p.ammo(), p.team());
+        return new Kit(armor, p.ammo(), p.team(), p.role());
     }
 
     /** the pieces on the mob; a powered piece charged */

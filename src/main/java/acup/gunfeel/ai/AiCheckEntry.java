@@ -42,6 +42,10 @@ final class AiCheckEntry {
     private boolean started;
     private int round = -1, ticks, firstIn, entriesBefore, fragsBefore, noThrowBefore, ownBlast, blastKills;
     private final float[] health = new float[SQUAD];
+    /** the shed: its floor under the roof, between its two walls; how long the four are left to it */
+    static final int SHED_X0 = 863, SHED_X1 = 864, SHED_Z0 = 13, SHED_Z1 = 15, SHED_RUN = 500;
+    private boolean shed;
+    private int faultsBefore, shedEntries, shedFaults, shedSearch, shedUnder;
     private final List<Mob> squad = new ArrayList<>(), inside = new ArrayList<>();
     private final boolean[] gotIn = new boolean[SQUAD], atDoor = new boolean[SQUAD], fellAtDoor = new boolean[SQUAD];
     private final int[] threw = new int[SQUAD];
@@ -65,6 +69,7 @@ final class AiCheckEntry {
             return false;
         }
         ticks++;
+        if (shed) return shedTick();
         int left = 0, foes = 0;
         for (int i = 0; i < squad.size(); i++) {
             Mob m = squad.get(i);
@@ -116,9 +121,68 @@ final class AiCheckEntry {
         for (Mob m : inside) m.discard();
         squad.clear();
         inside.clear();
-        if (round + 1 >= ROUNDS) return finish();
+        if (round + 1 >= ROUNDS) {
+            startShed();
+            return false;
+        }
         start(round + 1);
         return false;
+    }
+
+    /**
+     * After the rounds, a roof with an open side two wide (a shed: a wall either side, open to the south and the north)
+     * and a target lost under it: the way in there is an open side, not a doorway in a wall (X1038 stopped the server
+     * on one). The four go after it as they will; nothing is caught as a fault.
+     */
+    private void startShed() {
+        shed = true;
+        ticks = 0;
+        AiEntry.on = AiEntry.frag = true;
+        AiSquads.forget(level);
+        AiEntry.forget(level);
+        AiClearing.forget(level);
+        build(false);
+        BlockState air = Blocks.AIR.defaultBlockState(), brick = Blocks.STONE_BRICKS.defaultBlockState();
+        for (int x = WX0; x <= WX1; x++)
+            for (int z = WZ0; z <= WZ1; z++)
+                for (int h = 0; h <= 3; h++) set(x, y + h, z, air);
+        for (int[] p : LOW) set(p[0], y, p[1], air);
+        for (int z = SHED_Z0; z <= SHED_Z1; z++) {
+            for (int h = 0; h < 3; h++) {
+                set(SHED_X0 - 1, y + h, z, brick);
+                set(SHED_X1 + 1, y + h, z, brick);
+            }
+            for (int x = SHED_X0 - 1; x <= SHED_X1 + 1; x++) set(x, y + 3, z, brick);
+        }
+        TacticalMap.of(level).want(X0 + SIZE / 2, y, Z0 + SIZE / 2, SIZE / 2 + 4, 6);
+        inside.add(spawn(SHED_X0 + 0.5, SHED_Z0 + 0.5, "entry_in", 0F));
+        for (int i = 0; i < SQUAD; i++) squad.add(spawn(START_X[i], START_Z, "entry_out", 180F));
+        AiBots.refreshTargets(level);
+        entriesBefore = AiEntry.entries;
+        faultsBefore = AiRooms.faults;
+        long now = level.getGameTime();
+        for (Mob m : squad) {
+            AiBot b = AiBots.get(m);
+            for (Mob f : inside) if (b != null) b.memory.seen(f.getId(), f.getX(), f.getY(), f.getZ(), now, 0);
+        }
+    }
+
+    private boolean shedTick() {
+        // the one under the roof is gone at once: lost there, the four go after it
+        if (ticks == 2) for (Mob m : inside) m.setPos(m.getX(), m.getY() + 200, m.getZ());
+        for (Mob m : squad) {
+            AiBot b = AiBots.get(m);
+            if (m.isAlive() && b != null && b.brain instanceof AiSoldier so && so.mode() == AiSoldier.Mode.SEARCH) shedSearch++;
+            if (m.isAlive() && m.getX() > SHED_X0 - 1 && m.getX() < SHED_X1 + 2 && m.getZ() > SHED_Z0 - 1 && m.getZ() < SHED_Z1 + 2) shedUnder++;
+        }
+        if (ticks < SHED_RUN) return false;
+        shedEntries = AiEntry.entries - entriesBefore;
+        shedFaults = AiRooms.faults - faultsBefore;
+        for (Mob m : squad) m.discard();
+        for (Mob m : inside) m.discard();
+        squad.clear();
+        inside.clear();
+        return finish();
     }
 
     private void set(int x, int yy, int z, BlockState st) {
@@ -224,6 +288,9 @@ final class AiCheckEntry {
                     + " in the house down by one %.0f", names[arm], n[arm], cleared[arm], sum[arm][2], n[arm] * INSIDE, sum[arm][3], n[arm] * SQUAD,
                     n[arm] == 0 ? 0 : sum[arm][4] / n[arm], sum[arm][5], sum[arm][7], sum[arm][8], sum[arm][9], sum[arm][10], sum[arm][11], sum[arm][12], sum[arm][13]));
         check.check("entry: all rounds ran", results.size() == ROUNDS);
+        check.out(String.format(Locale.ROOT, "     entry, a roof with an open side two wide, a target lost under it, %d ticks: entries begun %d, mob ticks searching %d, under the roof %d, faults caught %d",
+                SHED_RUN, shedEntries, shedSearch, shedUnder, shedFaults));
+        check.check("entry: a target lost under a roof with an open side two wide is gone after, and nothing in the reading of it fails", shed && shedSearch > 0 && shedFaults == 0);
         check.out(String.format(Locale.ROOT, "     entry, throws not found: none lands in the room %d, one of the entry not behind the wall %d, another of its side in reach %d, a player %d",
                 AiEntry.why[0], AiEntry.why[1], AiEntry.why[2], AiEntry.why[3]));
         check.check("entry: a grenade thrown in before an entry hurts none of the squad", sum[2][12] == 0);

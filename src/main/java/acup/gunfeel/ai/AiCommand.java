@@ -31,10 +31,11 @@ import net.minecraft.server.level.ServerPlayer;
  *                          (AiThoughts); off by default
  * /armsai info             the map of this level: sections, builds, their time, block changes seen; the AI mobs and
  *                          what their looks cost
- * /armsai spawn fbi|dummy [count] [gun] [armor …] [ammo &lt;round&gt;] [team &lt;name&gt;]   AI mobs round you (NTM's FBI agent
+ * /armsai spawn fbi|dummy [count] [gun] [armor …] [ammo &lt;round&gt;] [role &lt;name&gt;] [team &lt;name&gt;]   AI mobs round you (NTM's FBI agent
  *                          or test dummy), 1 by default; in a team of the game's (made if there is none) they fight the
  *                          other teams (AiTeams); the armour they wear and the round their guns load, in any order (AiKit)
- * /armsai kit &lt;targets&gt; [armor …] [ammo &lt;round&gt;]   the AI mobs among the targets change armour, load the round
+ * /armsai kit &lt;targets&gt; [armor …] [ammo &lt;round&gt;] [role &lt;name&gt;]   the AI mobs among the targets change armour, load
+ *                          the round, take the role (what each is to its squad whatever its gun; auto: by its gun)
  * /armsai clear            every AI mob of this level goes
  * /armsai ammo infinite|&lt;rounds&gt;   what every AI mob of this level carries besides its gun
  * </pre>
@@ -198,7 +199,7 @@ public final class AiCommand {
     private static int info(CommandContext<CommandSourceStack> c) {
         TacticalMap map = TacticalMap.peek(c.getSource().getLevel());
         String text = (map == null ? "no tactical map in this level" : map.info()) + "\nAI mobs "
-                + AiBots.count(c.getSource().getLevel()) + "; senses: " + Senses.info() + "; " + CoverQuery.info();
+                + AiBots.count(c.getSource().getLevel()) + " (" + AiSquads.roles(AiBots.all(c.getSource().getLevel())) + "); senses: " + Senses.info() + "; " + CoverQuery.info();
         c.getSource().sendSuccess(() -> Component.literal(text), false);
         return 1;
     }
