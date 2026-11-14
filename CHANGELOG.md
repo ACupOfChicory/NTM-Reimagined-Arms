@@ -1,5 +1,34 @@
 # Changelog
 
+## X1082
+
+- AI soldiers cross water over a bridge or through a ford when there is one,
+  and swim only when the way round is about eight times longer; they no
+  longer walk along the bed with their heads under water. Under fire they do
+  not go into water too deep to stand in; swimming they neither fire nor
+  throw, take no cover there and make for the bank.
+- AI soldiers never walk into lava or NTM's acids, mud, toxic and
+  radioactive liquids or corium.
+- AI soldiers move through water at a walking pace instead of crawling
+  through a ford.
+
+## X1078
+
+- AI suppliers: when one falls, its stock stays where it fell for two
+  minutes, and a soldier of its side within 24 blocks, one of its squad
+  first, runs over when no enemy is in sight, picks it up and is a supplier
+  from then on (a supplier adds it to its own). Two suppliers no longer run
+  to the same soldier.
+- A squad of AI soldiers in a fight with no spare magazine left among them
+  and no supplier with any to hand out loses heart, holds back and falls
+  back, firing what is in their guns, as a squad kept under fire does. A
+  supplier coming, or a fallen one's stock picked up, and they take heart
+  again. New server setting `aiSupplyOut` (true by default).
+- `/armsai spawn` with a number and no role named now makes each mob a
+  supplier by chance, with the share of the new server setting
+  `aiSupplyShare` (0.17), from two mobs up: a squad may get none, one or
+  several. Before, one of each six was, from four up.
+
 ## X1076
 
 - The Mare's Leg kicks as it was tuned to: its recoil preset `levershot`

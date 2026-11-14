@@ -189,6 +189,7 @@ public final class AiBots {
             AiGrenades.forget(level);
             AiEntry.forget(level);
             AiClearing.forget(level);
+            AiSupply.forget(level);
             return;
         }
         AiDoors.tick();
@@ -470,6 +471,9 @@ public final class AiBots {
         if (l == null) return;
         if (!fighter(victim)) return;
         long tick = level.getGameTime();
+        // a supplier down: its stock stays where it fell (AiSupply)
+        AiBot fallen = get(victim);
+        if (fallen != null) AiSupply.fell(level, fallen, tick);
         double r2 = AiConfidence.NEAR * AiConfidence.NEAR;
         AiBot nearest = null;
         double best = Double.MAX_VALUE;

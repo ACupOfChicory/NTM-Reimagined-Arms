@@ -240,9 +240,13 @@ page. They are alphas: expect bugs and back up your world.
   others: when one of its squad is down to its last magazine or out of
   grenades, it runs over and hands a portion on, if it is not pinned down
   itself and the other is not out in the open in sight of the enemy. Its
-  stock runs out. `/armsai spawn fbi 6` makes one of each six a supplier;
+  stock runs out; when a supplier falls, one of its side picks the stock up
+  and carries on. A squad with no spare magazine left and no supplier to
+  bring one loses heart and falls back. `/armsai spawn fbi 6` makes each of
+  the six a supplier by chance (about one in six, any number in a squad);
   `role supplier` makes one by word (server keys `aiSupply`,
-  `aiSupplyMagazines`, `aiSupplyGrenades`, `aiSupplySmokes`).
+  `aiSupplyShare`, `aiSupplyOut`, `aiSupplyMagazines`, `aiSupplyGrenades`,
+  `aiSupplySmokes`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim

@@ -180,7 +180,7 @@ public final class AiCommand {
         String team = kit.team();
         var mobs = AiSpawn.spawn(c.getSource().getLevel(), c.getSource().getPosition(), kind, count, gun);
         if (team != null) for (var m : mobs) AiTeams.join(c.getSource().getLevel(), m, team);
-        // a number and no role named: the roles are dealt among them (one supplier to each six, from four up)
+        // a number and no role named: the roles are dealt among them (each a supplier by chance, aiSupplyShare, from two up)
         int dealt = kit.role() == null ? AiRole.deal(mobs, c.getSource().getLevel().getRandom()) : 0;
         String kitted = kit.putOn(mobs) + (dealt == 0 ? "" : ", " + dealt + (dealt == 1 ? " of them a supplier" : " of them suppliers"));
         int n = mobs.size();
