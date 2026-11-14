@@ -444,7 +444,8 @@ public final class AiSoldier implements AiBrain {
         }
         else if (c != null && c.state == TargetMemory.State.VISIBLE) combat(bot, level, c, tick);
         // its squad's flanker: round the side of the place they went out of sight, to cover that sees it
-        else if (c != null && c.state != TargetMemory.State.VISIBLE && flank(bot, level, c, tick)) {
+        // (not into a room ahead of those that go in together: AiEntry)
+        else if (c != null && c.state != TargetMemory.State.VISIBLE && !(AiEntry.on() && AiEntry.roomed(bot, level, c, tick)) && flank(bot, level, c, tick)) {
         }
         // gone behind cover a moment ago: a grenade over it
         else if (c != null && c.state == TargetMemory.State.LOST && tick - c.lostTick >= LOST_FIRST
@@ -527,6 +528,25 @@ public final class AiSoldier implements AiBrain {
         if (close) event(bot, tick, lost ? "a near grenade where they went out of sight, then down" : "a near grenade at one behind cover, then down");
         else event(bot, tick, lost ? "a grenade where they went out of sight" : "a grenade at one behind cover");
         return true;
+    }
+
+    /**
+     * A grenade thrown into a room before it goes in (AiEntry): counted and timed as any of its throws. Its arm goes
+     * over as it steps back (the mover walks on while it stands for the throw).
+     */
+    Entity threwInto(AiBot bot, ServerLevel level, AiGrenades.Throw t, com.hbm.items.weapon.grenade.ItemGrenadeFilling.EnumGrenadeFilling filling, long tick) {
+        planned = t.burst();
+        var g = AiGrenades.tossStick(level, bot.mob, t, filling);
+        bot.grenades--;
+        AiAdapter.keepGrenades(bot);
+        lastThrow = tick;
+        throwUntil = tick + THROW_TICKS;
+        thrown++;
+        AiVoice.say(level, bot, AiVoice.Line.FRAG_OUT, tick);
+        bot.gunner.fire(false);
+        why = Why.THROW;
+        event(bot, tick, "a grenade into the room before it goes in");
+        return g;
     }
 
     /**
@@ -1482,8 +1502,8 @@ public final class AiSoldier implements AiBrain {
         }
         mode(Mode.SEARCH, tick);
         bot.gunner.fire(false);
-        // lost in a room: beside the way in first, and in together (AiEntry)
-        Vec3 door = AiEntry.on() ? AiEntry.step(bot, level, c, tick) : null;
+        // lost in a room: beside the way in first, a grenade in, and in together (AiEntry)
+        Vec3 door = AiEntry.on() ? AiEntry.step(this, bot, level, c, tick) : null;
         if (door != null) {
             searchCell = Long.MIN_VALUE;
             watch = door;

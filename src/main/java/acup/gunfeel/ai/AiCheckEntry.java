@@ -25,7 +25,7 @@ import net.minecraft.world.phys.Vec3;
  * (they do not walk).
  */
 final class AiCheckEntry {
-    static final int X0 = 840, Z0 = 4, SIZE = 48, RUN = 1200, ROUNDS = 12, SQUAD = 4, INSIDE = 2;
+    static final int X0 = 840, Z0 = 4, SIZE = 48, RUN = 1200, ROUNDS = 36, SQUAD = 4, INSIDE = 2;
     /** the house: walls at x 859 and 869, z 10 and 18; the way in in the south wall */
     static final int WX0 = 859, WX1 = 869, WZ0 = 10, WZ1 = 18, DOOR_X = 864;
     /** in the corners by the wall with the way in: not seen from outside */
@@ -40,12 +40,13 @@ final class AiCheckEntry {
     private final ServerLevel level;
     private final int y;
     private boolean started;
-    private int round = -1, ticks, firstIn, entriesBefore;
+    private int round = -1, ticks, firstIn, entriesBefore, fragsBefore, noThrowBefore, ownBlast, blastKills;
+    private final float[] health = new float[SQUAD];
     private final List<Mob> squad = new ArrayList<>(), inside = new ArrayList<>();
     private final boolean[] gotIn = new boolean[SQUAD], atDoor = new boolean[SQUAD], fellAtDoor = new boolean[SQUAD];
     private final int[] threw = new int[SQUAD];
     private final java.util.Set<Integer> noted = new java.util.HashSet<>();
-    /** per round: {aiEntry, door, defenders left, squad left, ticks, got in, first in at, fell at the doorway, grenades, entries} */
+    /** per round: {arm, door, defenders left, squad left, ticks, got in, first in at, fell at the doorway, grenades, entries, grenades in before one, stepped out and threw none, the squad's hurt by a blast, those in the house down by one} */
     private final List<int[]> results = new ArrayList<>();
 
     AiCheckEntry(AiCheck check, ServerLevel level, int y) {
@@ -67,6 +68,17 @@ final class AiCheckEntry {
         int left = 0, foes = 0;
         for (int i = 0; i < squad.size(); i++) {
             Mob m = squad.get(i);
+            // hurt by anything but a bullet: a blast (its own side's grenades are the only ones here)
+            float h = m.isAlive() ? m.getHealth() : 0;
+            if (h < health[i]) {
+                var by = m.getLastDamageSource();
+                if (by == null || by.getDirectEntity() == null || !by.getDirectEntity().getType().toShortString().contains("bullet")) {
+                    ownBlast++;
+                    check.out(String.format(Locale.ROOT, "     entry, round %d, tick %d: one of the squad hurt %.1f at %.1f %.1f by %s", round + 1, ticks, health[i] - h, m.getX(), m.getZ(),
+                            by == null ? "?" : by.type().msgId()));
+                }
+            }
+            health[i] = h;
             boolean door = Math.abs(m.getX() - (DOOR_X + 0.5)) < 1.5 && m.getZ() > WZ1 - 0.5 && m.getZ() < WZ1 + 3;
             if (!m.isAlive()) {
                 if (atDoor[i]) fellAtDoor[i] = true;
@@ -85,6 +97,7 @@ final class AiCheckEntry {
             if (m.isAlive()) foes++;
             else if (noted.add(m.getId())) {
                 var src = m.getLastDamageSource();
+                if (src == null || src.getDirectEntity() == null || !src.getDirectEntity().getType().toShortString().contains("bullet")) blastKills++;
                 check.out(String.format(Locale.ROOT, "     entry, round %d, tick %d: one in the house down at %.1f %.1f %.1f, by %s (%s) from %s", round + 1, ticks, m.getX(), m.getY() - y, m.getZ(),
                         src == null ? "?" : src.type().msgId(), src == null || src.getDirectEntity() == null ? "-" : src.getDirectEntity().getType().toShortString(),
                         src == null || src.getEntity() == null ? "-" : String.format(Locale.ROOT, "%.1f %.1f", src.getEntity().getX(), src.getEntity().getZ())));
@@ -97,7 +110,8 @@ final class AiCheckEntry {
             if (fellAtDoor[i]) fell++;
         }
         for (int t : threw) thrown += t;
-        results.add(new int[] {round % 2, round >= ROUNDS / 2 ? 1 : 0, foes, left, ticks, in, firstIn, fell, thrown, AiEntry.entries - entriesBefore});
+        results.add(new int[] {round % 3, round >= ROUNDS / 2 ? 1 : 0, foes, left, ticks, in, firstIn, fell, thrown, AiEntry.entries - entriesBefore, AiEntry.frags - fragsBefore,
+                AiEntry.noThrow - noThrowBefore, ownBlast, blastKills});
         for (Mob m : squad) m.discard();
         for (Mob m : inside) m.discard();
         squad.clear();
@@ -162,7 +176,8 @@ final class AiCheckEntry {
         java.util.Arrays.fill(gotIn, false);
         java.util.Arrays.fill(atDoor, false);
         java.util.Arrays.fill(fellAtDoor, false);
-        AiEntry.on = r % 2 == 1;
+        AiEntry.on = r % 3 != 0;
+        AiEntry.frag = r % 3 == 2;
         AiSquads.on = true;
         AiSquads.offTeams.clear();
         AiSquads.forget(level);
@@ -173,6 +188,10 @@ final class AiCheckEntry {
         AiBots.refreshTargets(level);
         java.util.Arrays.fill(threw, 0);
         entriesBefore = AiEntry.entries;
+        fragsBefore = AiEntry.frags;
+        noThrowBefore = AiEntry.noThrow;
+        ownBlast = blastKills = 0;
+        for (int i = 0; i < SQUAD; i++) health[i] = squad.get(i).getHealth();
         long now = level.getGameTime();
         for (Mob m : squad) {
             AiBot b = AiBots.get(m);
@@ -186,24 +205,28 @@ final class AiCheckEntry {
     }
 
     private boolean finish() {
-        AiEntry.on = true;
-        String[] names = {"aiEntry off (before)", "aiEntry on"}, ways = {"an open doorway", "a shut door"};
-        double[][] sum = new double[2][10];
-        int[] n = new int[2], cleared = new int[2];
+        AiEntry.on = AiEntry.frag = true;
+        String[] names = {"aiEntry off (before)", "aiEntry on, no grenade", "aiEntry on, a grenade in first"}, ways = {"an open doorway", "a shut door"};
+        double[][] sum = new double[3][14];
+        int[] n = new int[3], cleared = new int[3];
         for (int i = 0; i < results.size(); i++) {
             int[] r = results.get(i);
             n[r[0]]++;
             for (int k = 2; k < r.length; k++) sum[r[0]][k] += r[k];
             if (r[2] == 0) cleared[r[0]]++;
             check.out(String.format(Locale.ROOT, "     entry, round %d, %s, %s: in the house %d of %d left, of the squad %d of %d, %d ticks; got in %d, the first %s;"
-                    + " fell in the doorway %d; grenades %d; entries %d", i + 1, ways[r[1]], names[r[0]], r[2], INSIDE, r[3], SQUAD, r[4], r[5],
-                    r[6] < 0 ? "never" : "at tick " + r[6], r[7], r[8], r[9]));
+                    + " fell in the doorway %d; grenades %d; entries %d, a grenade in first %d, stepped out and threw none %d; the squad hurt by a blast %d, in the house down by one %d",
+                    i + 1, ways[r[1]], names[r[0]], r[2], INSIDE, r[3], SQUAD, r[4], r[5], r[6] < 0 ? "never" : "at tick " + r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13]));
         }
-        for (int on = 0; on < 2; on++)
+        for (int arm = 0; arm < 3; arm++)
             check.out(String.format(Locale.ROOT, "     entry, %s, %d rounds: the house cleared in %d; left in the house %.0f of %d, of the squad %.0f of %d; mean %.0f ticks;"
-                    + " got in %.0f, fell in the doorway %.0f; grenades %.0f; entries %.0f", names[on], n[on], cleared[on], sum[on][2],
-                    n[on] * INSIDE, sum[on][3], n[on] * SQUAD, n[on] == 0 ? 0 : sum[on][4] / n[on], sum[on][5], sum[on][7], sum[on][8], sum[on][9]));
+                    + " got in %.0f, fell in the doorway %.0f; grenades %.0f; entries %.0f, a grenade in first %.0f, stepped out and threw none %.0f; the squad hurt by a blast %.0f,"
+                    + " in the house down by one %.0f", names[arm], n[arm], cleared[arm], sum[arm][2], n[arm] * INSIDE, sum[arm][3], n[arm] * SQUAD,
+                    n[arm] == 0 ? 0 : sum[arm][4] / n[arm], sum[arm][5], sum[arm][7], sum[arm][8], sum[arm][9], sum[arm][10], sum[arm][11], sum[arm][12], sum[arm][13]));
         check.check("entry: all rounds ran", results.size() == ROUNDS);
+        check.out(String.format(Locale.ROOT, "     entry, throws not found: none lands in the room %d, one of the entry not behind the wall %d, another of its side in reach %d, a player %d",
+                AiEntry.why[0], AiEntry.why[1], AiEntry.why[2], AiEntry.why[3]));
+        check.check("entry: a grenade thrown in before an entry hurts none of the squad", sum[2][12] == 0);
         return true;
     }
 }

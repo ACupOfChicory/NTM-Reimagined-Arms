@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers throw a grenade into a room before they go in. Stacked up
+  beside the doorway, one of them steps out before it, opens the door if
+  there is one, throws a grenade a few blocks in and steps back behind the
+  wall; the rest move a block further from the doorway, and all go in once
+  it has burst. The grenade is NTM's frag with glue (it stays where it first
+  hits) and a three seconds' fuze. It is thrown only where the burst is
+  inside the room and none of their own is in its reach unless a wall is
+  between; with one of their own already in the room they go in without it.
+  New server settings `aiEntryGrenade` (true by default) and
+  `aiEntryGrenadeFilling` (`he` by default, or `powder`: a weaker, smaller
+  burst).
+- Up to four AI soldiers stack up at one doorway, two on each side, and go
+  in together; the rest of their side that go after the same target wait
+  where they are with their guns on the doorway until those are in. One
+  entry is made for a side and a doorway, however many targets were lost in
+  the room.
+
 ## X1036
 
 - AI soldiers search a building room after room. The ones that go after a

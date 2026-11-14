@@ -50,18 +50,25 @@ public final class AiDoors {
         for (int i = from; i < Math.min(p.getNodeCount(), from + 2); i++) {
             BlockPos at = p.getNodePos(i);
             if (at.distToCenterSqr(mob.getX(), mob.getY() + 0.5, mob.getZ()) > REACH * REACH) continue;
-            BlockState state = level.getBlockState(at);
-            if (!byHand(state)) continue;
-            if (state.getBlock() instanceof DoorBlock d) {
-                if (state.getValue(DoorBlock.OPEN)) continue;
-                d.setOpen(mob, level, state, at, true);
-            } else {
-                if (state.getValue(FenceGateBlock.OPEN)) continue;
-                level.setBlock(at, state.setValue(FenceGateBlock.OPEN, true), 10);
-                level.levelEvent(null, 1008, at, 0);
-                level.gameEvent(mob, GameEvent.BLOCK_OPEN, at);
-            }
-            opened++;
+            open(level, mob, at);
         }
+    }
+
+    /** the shut door or gate a hand opens here: opened by the mob; whether there was one */
+    static boolean open(ServerLevel level, Mob mob, BlockPos at) {
+        if (!pass) return false;
+        BlockState state = level.getBlockState(at);
+        if (!byHand(state)) return false;
+        if (state.getBlock() instanceof DoorBlock d) {
+            if (state.getValue(DoorBlock.OPEN)) return false;
+            d.setOpen(mob, level, state, at, true);
+        } else {
+            if (state.getValue(FenceGateBlock.OPEN)) return false;
+            level.setBlock(at, state.setValue(FenceGateBlock.OPEN, true), 10);
+            level.levelEvent(null, 1008, at, 0);
+            level.gameEvent(mob, GameEvent.BLOCK_OPEN, at);
+        }
+        opened++;
+        return true;
     }
 }
