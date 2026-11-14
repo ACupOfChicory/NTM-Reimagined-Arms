@@ -34,6 +34,13 @@ public final class AiBot {
     AiRole role = AiRole.RIFLE;
     /** the role it was given by word (/armsai spawn … role, /armsai kit … role), null: by its gun */
     @Nullable AiRole assigned;
+    /** a supplier's stock to hand out {magazines, grenades, smoke grenades} (AiSupply), null till it is one */
+    int @Nullable [] supply;
+    /** a supplier: the one it runs to with supplies, since when; no look for one in need before this tick */
+    @Nullable AiBot supplyTo;
+    long supplyAt, supplyNext = Long.MIN_VALUE;
+    /** when it was last handed supplies */
+    long suppliedAt = Long.MIN_VALUE / 2;
     net.minecraft.world.item.@Nullable Item roleFor;
     /** what it does with what it knows; null: it only senses (a stand drives it) */
     public @Nullable AiBrain brain;

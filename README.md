@@ -236,6 +236,13 @@ page. They are alphas: expect bugs and back up your world.
   (server keys `aiRoles`, `aiBaseMagazine`). A role can be given by word
   whatever the gun: `role base` or `role rifle` after the gun in
   `/armsai spawn` and in `/armsai kit`, `role auto` to go by the gun again.
+- A squad's supplier carries magazines, grenades and smoke grenades for the
+  others: when one of its squad is down to its last magazine or out of
+  grenades, it runs over and hands a portion on, if it is not pinned down
+  itself and the other is not out in the open in sight of the enemy. Its
+  stock runs out. `/armsai spawn fbi 6` makes one of each six a supplier;
+  `role supplier` makes one by word (server keys `aiSupply`,
+  `aiSupplyMagazines`, `aiSupplyGrenades`, `aiSupplySmokes`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They go into a room together: beside the doorway first, out of the line

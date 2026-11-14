@@ -180,7 +180,9 @@ public final class AiCommand {
         String team = kit.team();
         var mobs = AiSpawn.spawn(c.getSource().getLevel(), c.getSource().getPosition(), kind, count, gun);
         if (team != null) for (var m : mobs) AiTeams.join(c.getSource().getLevel(), m, team);
-        String kitted = kit.putOn(mobs);
+        // a number and no role named: the roles are dealt among them (one supplier to each six, from four up)
+        int dealt = kit.role() == null ? AiRole.deal(mobs, c.getSource().getLevel().getRandom()) : 0;
+        String kitted = kit.putOn(mobs) + (dealt == 0 ? "" : ", " + dealt + (dealt == 1 ? " of them a supplier" : " of them suppliers"));
         int n = mobs.size();
         c.getSource().sendSuccess(() -> Component.literal(n + " AI " + kind.name().toLowerCase(java.util.Locale.ROOT) + (n == 1 ? "" : "s")
                 + " spawned" + (team == null ? "" : " in team " + team) + kitted + (n < count ? " (no room for " + (count - n) + ")" : "")), true);
