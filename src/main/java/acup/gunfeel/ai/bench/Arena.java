@@ -133,6 +133,12 @@ public final class Arena {
     // aiPairs, with every every-th pair (both sides alike) given this role by word (AiRole), and this gun if not null
     // (a grenadier needs its launcher)
     public void aiPairs(int n, int every, @org.jspecify.annotations.Nullable String role, @org.jspecify.annotations.Nullable String gun) {
+        aiPairs(n, every, role, gun, true);
+    }
+
+    // aiPairs; heard false: none hears the one across from it, they know of no one at first (their commanders bring
+    // them together: AiCommander)
+    public void aiPairs(int n, int every, @org.jspecify.annotations.Nullable String role, @org.jspecify.annotations.Nullable String gun, boolean heard) {
         acup.gunfeel.ai.AiBots.wakeAll(true);
         var board = level.getScoreboard();
         EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse("hbm:entity_fbi"));
@@ -166,7 +172,7 @@ public final class Arena {
         // behind the rows they may see nothing of each other at first: each hears the one across from it fire, as
         // fbiPairs gives each FBI the one across as its target, and goes to find them
         long tick = level.getGameTime();
-        for (int i = 0; i + 1 < made.size(); i += 2) {
+        for (int i = 0; heard && i + 1 < made.size(); i += 2) {
             Mob w = made.get(i), e = made.get(i + 1);
             acup.gunfeel.ai.AiBots.get(w).memory.heard(e.getX(), e.getY(), e.getZ(), tick, true, false);
             acup.gunfeel.ai.AiBots.get(e).memory.heard(w.getX(), w.getY(), w.getZ(), tick, true, false);

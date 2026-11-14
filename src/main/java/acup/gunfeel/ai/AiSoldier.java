@@ -319,12 +319,29 @@ public final class AiSoldier implements AiBrain {
         crouch = false;
         bot.gunner.blind = false;
         bot.gunner.low = false;
+        orderedNow = false;
         decide(bot, tick);
+        if (orderedNow) {
+            orderGoal = bot.mover.goal();
+            orderAim = bot.gunner.aimPoint();
+        } else if (orderGoal != Long.MIN_VALUE || orderAim != null) {
+            // its order over (done with, given up, held back, or something else to see to): the order's walk and look
+            // end with it, unless what it does now set its own
+            if (orderGoal != Long.MIN_VALUE && bot.mover.goal() == orderGoal) bot.mover.stop();
+            if (orderAim != null && bot.gunner.aimPoint() == orderAim) bot.gunner.aim(null);
+            orderGoal = Long.MIN_VALUE;
+            orderAim = null;
+        }
         // sliding or rolling: no shot (pose-contract §4)
         if (bot.dash.on(tick)) bot.gunner.fire(false);
         body(bot, tick);
         if (AiThoughts.on()) thoughts.note(this, bot, tick);
     }
+
+    /** it went by its side's order this tick (AiCommander); the walk and the look the order set it last */
+    private boolean orderedNow;
+    private long orderGoal = Long.MIN_VALUE;
+    private @Nullable Vec3 orderAim;
 
     /** this tick it keeps low behind low cover (the decision sets it; standing unless it does) */
     private boolean crouch;
@@ -496,6 +513,9 @@ public final class AiSoldier implements AiBrain {
             search(bot, level, c, tick);
         else if (c != null && c.state == TargetMemory.State.SEARCH) hold(bot, level, c, tick);
         else if (n != null) alert(bot, level, n, tick);
+        // knows of no one: its side's commander's order, if it has one (AiCommander)
+        else if (ordered(bot, level, tick)) {
+        }
         else idle(bot, tick);
     }
 
@@ -1695,6 +1715,22 @@ public final class AiSoldier implements AiBrain {
             bot.mover.costs(PathSearch.Cost.NONE);
             bot.mover.goTo(cell, 1.5, CREEP);
         }
+    }
+
+    /** to an area its side's commander sent its squad to, and through it (AiCommander); false: no order */
+    private boolean ordered(AiBot bot, ServerLevel level, long tick) {
+        if (!AiCommander.has(bot, tick)) return false;
+        if (mode != Mode.IDLE) {
+            bot.gunner.aim(null);
+            drop(bot);
+            bot.mover.stop();
+            watch = null;
+        }
+        if (!AiCommander.step(bot, level, tick)) return false;
+        mode(Mode.IDLE, tick);
+        why = Why.ORDER;
+        orderedNow = true;
+        return true;
     }
 
     private void idle(AiBot bot, long tick) {

@@ -96,6 +96,11 @@ public final class AiGunner {
         this.ammo = ammo;
     }
 
+    /** the place it looks at, set by aim (null: none, or a target it follows) */
+    @Nullable Vec3 aimPoint() {
+        return tracking ? null : aim;
+    }
+
     /** a place to look at (not a target it follows), or null to stop aiming */
     public void aim(@Nullable Vec3 at) {
         if (tracking) {

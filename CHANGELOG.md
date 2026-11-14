@@ -1,5 +1,22 @@
 # Changelog
 
+## X1090
+
+- AI side commanders: every five to seven seconds, for each team of AI
+  soldiers, a commander (no mob) finds the groups of their enemies, AI
+  soldiers of a team they fight and players not in creative, and sends each of
+  the team's squads that knows of no one to the nearest group within 160
+  blocks (and within twice aiRadius), two squads to a group at most, those
+  already fighting one counted; the rest stay where they are. It knows only
+  roughly where they are: an area of radius 16 blocks when one of the side saw
+  them a moment ago, wider the longer none has, up to 32, its middle off by up
+  to half the radius. The squad walks there and looks through the area with
+  its own eyes; what it sees it fights as before. After a minute in the area
+  with no one found, or when its way there cannot be walked, it gives that
+  group up for two minutes and goes for another. Lone soldiers and soldiers of
+  no team get no orders; mobs farther than aiRadius from every player are not
+  sent for. New server setting `aiCommander` (true).
+
 ## X1088
 
 - AI medics: a soldier with the new role medic carries six kits. When one of

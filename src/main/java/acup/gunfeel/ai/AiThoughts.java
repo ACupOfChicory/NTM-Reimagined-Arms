@@ -65,7 +65,8 @@ public final class AiThoughts {
         GRENADE("a grenade near: runs from where it bursts"),
         MARKSMAN("marksman: to its perch, single shots from afar"),
         GRENADIER("grenadier: a 40 mm shell lobbed at them"),
-        MEDIC("medic: to one hurt, or treating them");
+        MEDIC("medic: to one hurt, or treating them"),
+        ORDER("its side's order: to an area where they are, looks through it");
 
         final String label;
 

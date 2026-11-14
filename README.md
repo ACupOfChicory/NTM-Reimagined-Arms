@@ -265,6 +265,12 @@ page. They are alphas: expect bugs and back up your world.
   half their health back; it treats itself too. `/armsai spawn` with a number
   makes medics by chance; `role medic` makes one by word (server keys
   `aiMedic`, `aiMedicKits`, `aiMedicShare`).
+- A team of bots that knows of no one comes for you: its commander sends each
+  of its squads, two at most to one group, to roughly where you, or another
+  team it fights, are (an area of radius 16 to 32 blocks, wider the longer
+  none of them has seen you), and the squad looks through it with its own
+  eyes. A minute there with no one found, and the squad goes for another group
+  (server key `aiCommander`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim

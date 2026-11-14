@@ -128,11 +128,12 @@ public final class AiCheck {
             AiCheckMarksman marksman = new AiCheckMarksman(check, check.level, Y);
             AiCheckGrenadier grenadier = new AiCheckGrenadier(check, check.level, Y);
             AiCheckMedic medic = new AiCheckMedic(check, check.level, Y);
+            AiCheckCommander commander = new AiCheckCommander(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
             // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic");
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick);
+                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
@@ -155,6 +156,8 @@ public final class AiCheck {
                         if (legsIn.contains(names.get(at[0]))) AiLegsLog.begin();
                         AiGrenades.trace = true;
                         AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel", "entry", "supply", "water").contains(names.get(at[0]));
+                        // the commanders only in their own stage: the others' mobs know of no one by design
+                        AiCommander.on = names.get(at[0]).equals("commander");
                         AiVoice.reset();
                         AiVoice.counting = true;
                     }

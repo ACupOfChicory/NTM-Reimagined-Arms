@@ -44,6 +44,11 @@ public final class AiBot {
     AiGrenadier.@Nullable State grenadier;
     /** a medic's kits and run (AiMedic); null till it is one */
     AiMedic.@Nullable State medic;
+    /** its side's commander's order: an area to go to and look through (AiCommander), null: none */
+    AiCommander.@Nullable Order order;
+    /** the group of enemies it gave up looking for (its members' ids), not again before this tick */
+    int @Nullable [] orderFailed;
+    long orderFailedUntil = Long.MIN_VALUE;
     /** the fallen supplier's stock it goes for (AiSupply) */
     AiSupply.@Nullable Left supplyFetch;
     long supplyAt, supplyNext = Long.MIN_VALUE;

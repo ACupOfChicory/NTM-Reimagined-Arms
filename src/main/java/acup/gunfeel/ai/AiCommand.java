@@ -216,7 +216,7 @@ public final class AiCommand {
     private static int info(CommandContext<CommandSourceStack> c) {
         TacticalMap map = TacticalMap.peek(c.getSource().getLevel());
         String text = (map == null ? "no tactical map in this level" : map.info()) + "\nAI mobs "
-                + AiBots.count(c.getSource().getLevel()) + " (" + AiSquads.roles(AiBots.all(c.getSource().getLevel())) + "); senses: " + Senses.info() + "; " + CoverQuery.info() + "; " + AiMarksman.info() + "; " + AiGrenadier.info() + "; " + AiMedic.info();
+                + AiBots.count(c.getSource().getLevel()) + " (" + AiSquads.roles(AiBots.all(c.getSource().getLevel())) + "); senses: " + Senses.info() + "; " + CoverQuery.info() + "; " + AiMarksman.info() + "; " + AiGrenadier.info() + "; " + AiMedic.info() + "; " + AiCommander.info();
         AiTerrain terrain = AiTerrain.peek(c.getSource().getLevel());
         String all = terrain == null ? text : text + "\n" + terrain.info();
         c.getSource().sendSuccess(() -> Component.literal(all), false);

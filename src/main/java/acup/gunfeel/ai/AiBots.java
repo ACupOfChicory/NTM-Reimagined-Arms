@@ -190,11 +190,13 @@ public final class AiBots {
             AiEntry.forget(level);
             AiClearing.forget(level);
             AiSupply.forget(level);
+            AiCommander.forget(level);
             return;
         }
         AiDoors.tick();
         AiBlockKinds.tick();
         AiSquads.tick(level, l.bots.values());
+        AiCommander.tick(level);
         AiGrenades.tick(level);
         if (level.getGameTime() % 20 != 0) return;
         for (AiBot b : l.bots.values()) if (b.mob.isRemoved()) claimGone(l, b.mob.getId());

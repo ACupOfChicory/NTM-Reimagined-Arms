@@ -131,6 +131,12 @@ public final class AiSquads {
         }
     }
 
+    /** the level's squads as last made (AiCommander) */
+    static List<Squad> squads(ServerLevel level) {
+        PerLevel l = LEVELS.get(level);
+        return l == null ? List.of() : l.squads;
+    }
+
     static String team(AiBot b) {
         return b.mob.getTeam() == null ? "" : b.mob.getTeam().getName();
     }
