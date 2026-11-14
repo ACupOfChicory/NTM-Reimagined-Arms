@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- A squad of AI soldiers has a supplier. It carries magazines, grenades and
+  smoke grenades besides its own, and when one of its squad is down to less
+  than a spare magazine, or has no grenade left, it runs over and hands a
+  portion on. It does not go while it is pinned down itself or an enemy it
+  sees is near, nor to one standing out of cover in an enemy's sight, and
+  its stock runs out. `/armsai spawn` with a number from four up and no role
+  named makes one of each six a supplier at random; `role supplier` makes
+  one by word. Until now a soldier's two grenades and four magazines were
+  all it ever had. New server settings `aiSupply` (true by default),
+  `aiSupplyMagazines` (12), `aiSupplyGrenades` (6), `aiSupplySmokes` (3).
+
 ## X1057
 
 - An AI soldier's role can be given by word. `role base` or `role rifle`
