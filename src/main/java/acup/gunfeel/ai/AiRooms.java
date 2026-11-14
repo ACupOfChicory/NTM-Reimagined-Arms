@@ -79,12 +79,15 @@ public final class AiRooms {
 
         /** the cells one further from the opening than those beside it at room r's end, one for each of them */
         public long[] far(int r) {
-            return r == a ? farA : farB;
+            long[] near = beside(r), far = r == a ? farA : farB;
+            // a way made with none worked out (an open side): those beside it themselves
+            return far.length == near.length ? far : near;
         }
 
         /** two further from the opening than those beside it at room r's end, one for each of them */
         public long[] far2(int r) {
-            return r == a ? far2A : far2B;
+            long[] far = far(r), far2 = r == a ? far2A : far2B;
+            return far2.length == far.length ? far2 : far;
         }
 
         private Way far(PathSearch.Reader r, long[] rowA, long[] rowB) {

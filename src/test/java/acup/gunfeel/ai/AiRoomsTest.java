@@ -154,6 +154,11 @@ class AiRoomsTest {
         assertEquals(Dirs.S, w.dir);
         // outside, beside the opening: the cells before the wall's ends
         assertTrue(has(w.beside(AiRooms.OUTSIDE), 4, 10) && has(w.beside(AiRooms.OUTSIDE), 10, 10));
+        // an open side has a cell further for each cell beside it too (the entry reads them by the same number)
+        for (int end : new int[] {w.a, w.b}) {
+            assertEquals(w.beside(end).length, w.far(end).length);
+            assertEquals(w.beside(end).length, w.far2(end).length);
+        }
     }
 
     // ------------------------------------------------------------------ a cave or a building: the shell
