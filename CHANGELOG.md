@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## X1046
 
 - A fault in the AI's reading of a building no longer stops the server. If
   reading a building's rooms, going into a room or searching a building
