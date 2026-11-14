@@ -1,5 +1,14 @@
 # Changelog
 
+## X1050
+
+- A fault in the AI's reading of a building no longer stops the server. If
+  reading a building's rooms, going into a room or searching a building
+  throws, the soldier goes on as with no building there, and one line with
+  the place goes to `logs/ntm-gunfeel-debug.log` (at most one in ten
+  seconds). The reading is now also tested on tens of thousands of buildings
+  made at random.
+
 ## X1046
 
 - Fixed a second server crash of the same kind: reading a building whose

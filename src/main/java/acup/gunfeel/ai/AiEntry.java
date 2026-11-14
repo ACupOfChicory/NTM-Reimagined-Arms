@@ -108,11 +108,35 @@ public final class AiEntry {
      * (the way in), or null: it searches as before (no room there, it is in already, the entry is over).
      */
     static @Nullable Vec3 step(AiSoldier s, AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
-        Op op = find(bot, level, c, tick);
-        AiRooms.Plan plan = op.plan;
-        if (plan == null || op.way == null) return null;
-        advance(op, level, tick);
-        return step(op, plan, s, bot, level, tick);
+        try {
+            Op op = find(bot, level, c, tick);
+            AiRooms.Plan plan = op.plan;
+            if (plan == null || op.way == null) return null;
+            advance(op, level, tick);
+            return step(op, plan, s, bot, level, tick);
+        } catch (RuntimeException e) {
+            failed(bot, level, c, tick, e);
+            return null;
+        }
+    }
+
+    /**
+     * A fault in an entry: it does not stop the server. The entry for this side and target is put aside (one with no
+     * room, kept as any other: none is made again for a while), the soldier searches as before; a line in the debug
+     * log (AiRooms.fault).
+     */
+    private static void failed(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick, RuntimeException e) {
+        long lost = cell(c.lostX, c.lostY, c.lostZ);
+        AiRooms.fault("going into a room", lost, e);
+        Op none = new Op();
+        none.made = none.phaseAt = tick;
+        none.nextPlan = tick + AGAIN;
+        none.lost = lost;
+        OPS.computeIfAbsent(level, l -> new HashMap<>()).put(key(bot, c), none);
+    }
+
+    private static long key(AiBot bot, TargetMemory.Contact c) {
+        return (long) AiSquads.team(bot).hashCode() << 32 | c.id & 0xFFFFFFFFL;
     }
 
     /**
@@ -122,17 +146,22 @@ public final class AiEntry {
      */
     static boolean roomed(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
         if (!frag || !AiGrenades.on || !ReaimTimes.flag(FRAG_KEY, true)) return false;
-        Op op = find(bot, level, c, tick);
-        if (op.way == null || op.phase >= GO) return false;
-        // no grenade to throw in: one in the room ahead of them spoils nothing
-        if (bot.grenades > 0) return true;
-        for (AiBot m : op.members) if (m.grenades > 0) return true;
-        return false;
+        try {
+            Op op = find(bot, level, c, tick);
+            if (op.way == null || op.phase >= GO) return false;
+            // no grenade to throw in: one in the room ahead of them spoils nothing
+            if (bot.grenades > 0) return true;
+            for (AiBot m : op.members) if (m.grenades > 0) return true;
+            return false;
+        } catch (RuntimeException e) {
+            failed(bot, level, c, tick, e);
+            return false;
+        }
     }
 
     private static Op find(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
         Map<Long, Op> ops = OPS.computeIfAbsent(level, l -> new HashMap<>());
-        long key = (long) AiSquads.team(bot).hashCode() << 32 | c.id & 0xFFFFFFFFL, lost = cell(c.lostX, c.lostY, c.lostZ);
+        long key = key(bot, c), lost = cell(c.lostX, c.lostY, c.lostZ);
         Op op = ops.get(key);
         boolean moved = op != null && lost != op.lost && (op.plan == null || op.plan.room(lost) != op.room);
         if (op == null || tick - op.made > ENTRY_MAX || moved && tick >= op.nextPlan && (op.phase == STACK || op.phase == OVER)) {

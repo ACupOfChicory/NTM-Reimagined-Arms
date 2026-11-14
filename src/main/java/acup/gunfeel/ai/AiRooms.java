@@ -186,8 +186,46 @@ public final class AiRooms {
         return of(src, seed, wildOut, REACH, MAX_CELLS);
     }
 
-    /** the same read this far from the cell and so many cells at most (the debug view reads a whole building) */
+    /**
+     * The same read this far from the cell and so many cells at most (the debug view reads a whole building). A
+     * building that cannot be read (a fault in here) is no building: null, and a line in the debug log; nothing in
+     * here stops the server.
+     */
     static @Nullable Plan of(CellSource src, long seed, @Nullable LongOpenHashSet wildOut, int reach, int most) {
+        try {
+            return read(src, seed, wildOut, reach, most);
+        } catch (RuntimeException e) {
+            fault("reading a building", seed, e);
+            return null;
+        }
+    }
+
+    /** faults caught reading buildings and going into or through them (AiEntry, AiClearing), for the stands and tests */
+    public static int faults;
+    /** a fault is written to the debug log this often at most, nanoseconds */
+    static final long FAULT_EVERY = 10_000_000_000L;
+    private static long faultAt = Long.MIN_VALUE;
+
+    /**
+     * Something in the reading of a building or in a plan made of it threw: counted; a line in the debug log
+     * (logs/ntm-gunfeel-debug.log) with the place, at most one in FAULT_EVERY, the rest only counted. The caller goes
+     * on as with no building there.
+     */
+    static void fault(String doing, long cell, RuntimeException e) {
+        faults++;
+        long now = System.nanoTime();
+        if (faultAt != Long.MIN_VALUE && now - faultAt < FAULT_EVERY) return;
+        faultAt = now;
+        StackTraceElement[] st = e.getStackTrace();
+        StringBuilder at = new StringBuilder();
+        for (int i = 0; i < Math.min(4, st.length); i++) at.append(i == 0 ? "" : " < ").append(st[i].getClassName().replace("acup.gunfeel.ai.", "")).append('.')
+                .append(st[i].getMethodName()).append(':').append(st[i].getLineNumber());
+        acup.gunfeel.DebugLog.LOGGER.warn("armsai: {} at {} {} {} failed, the AI goes on as with no building there ({} so far): {} at {}", doing,
+                BlockPos.getX(cell), BlockPos.getY(cell), BlockPos.getZ(cell), faults, e, at);
+    }
+
+    /** the reading itself: what it throws goes to the caller (the tests) */
+    static @Nullable Plan read(CellSource src, long seed, @Nullable LongOpenHashSet wildOut, int reach, int most) {
         PathSearch.Reader r = new PathSearch.Reader(src);
         int sx = BlockPos.getX(seed), sy = BlockPos.getY(seed), sz = BlockPos.getZ(seed);
         if ((r.flags(sx, sy, sz) & SectionCells.ROOF) == 0 || !r.has(sx, sy, sz)) return null;
