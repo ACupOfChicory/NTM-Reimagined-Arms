@@ -174,8 +174,8 @@ public final class EuphImmunity {
     /** a set with the pool: its keys' prefix, its table name (the drain's rating), its pool by default, its message */
     public enum Kit {
         EUPHEMIUM("balance.immune", "euphemium", 150F, "ntmgunfeel.euph.window"),
-        DNS("balance.immune.dns", "dns", 40F, "ntmgunfeel.dns.window"),
-        FAU("balance.immune.fau", "fau", 45F, "ntmgunfeel.fau.window");
+        DNS("balance.immune.dns", "dns", 45F, "ntmgunfeel.dns.window"),
+        FAU("balance.immune.fau", "fau", 40F, "ntmgunfeel.fau.window");
 
         public final String key, set, message;
         public final float size;

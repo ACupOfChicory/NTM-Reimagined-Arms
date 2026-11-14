@@ -50,10 +50,11 @@ class BalanceKeysTest {
         // the 151 keys as the server's file had them by default at X977 (147ef53), "key=value\n" sorted: the game reads them bit for bit.
         // Not here: the 15 switches whose old lines were gone (balanceIrBeams, balanceBlastFloorShare, balanceBulletBlastCap,
         // balanceGunUnder, balanceArmorFloor, balance.final.tesla.ir, .explosive, .character.few, .hits, .table.pairs, .range.shells,
-        // .pools.gas, .head.guns, .head.gap, balance.immune.reloadHold): what they had on is fixed in the code
+        // .pools.gas, .head.guns, .head.gap, balance.immune.reloadHold): what they had on is fixed in the code.
+        // Two values are not X977's any more: balance.immune.dns.pool 45 (was 40) and balance.immune.fau.pool 40 (was 45), as balance.final.pools
         StringBuilder s = new StringBuilder();
         new java.util.TreeMap<>(BalanceKeys.ARMS).forEach((k, v) -> s.append(k).append('=').append(v).append('\n'));
-        assertEquals("1084ea0f5b8fb581187452a2efaba9beb6bedc774b1d7cce246c359ffe61553c",
+        assertEquals("4814e3c439e84e261304138f6982a30912e7fd362cfcee92888981d42d9359c1",
                 PinnedTest.sha256(s.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 

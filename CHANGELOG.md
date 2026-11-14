@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- DNS's pool is 45 and FAU's is 40 by default (`balance.immune.dns.pool`,
+  `balance.immune.fau.pool`; they were 40 and 45). These are the pools the
+  balance's scheme already counted the guns against (`balance.final.pools`),
+  so the sets now hold as long as the tables say. A server whose
+  `ntm-gunfeel-server.properties` has its own values of these keys keeps them.
 - Cleanup: commands and switches that nothing used any more are gone, with
   the dead code behind them. Nothing in the game changes: the balance, the
   AI soldiers and the picture are as they were.

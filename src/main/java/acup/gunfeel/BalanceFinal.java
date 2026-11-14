@@ -330,7 +330,7 @@ public final class BalanceFinal {
         return v == null ? kit.size : v;
     }
 
-    /** the size of a kit's pool when its key balance.immune*.pool is not set: balance.final.pools with the scheme on, X908's own off */
+    /** the size of a kit's pool when its key balance.immune*.pool is not set: balance.final.pools with the scheme on, the kit's own off */
     static float poolOf(EuphImmunity.Kit kit) {
         try {
             return on() ? (float) pools(kit) : kit.size;

@@ -244,7 +244,7 @@ public final class BalanceKeys {
         a.put("balance.final.range.home", "pistol:12 smg:12");
 
         // the pools of DNS, FAU and euphemium the scheme counts in, and their pools' size while no balance.immune*.pool is set
-        // (the pool grows with the tier). X912: dns:40 fau:45 euph:150. With balance.final off the pools are X908's.
+        // (the pool grows with the tier). X912: dns:40 fau:45 euph:150. With balance.final off the pools are the kits' own, the same.
         a.put("balance.final.pools", "dns:45 fau:40 euph:150");
 
         // Blasts on the ladder (Fable 12.3): a launcher's round's or a hand grenade's blast on a player, or on anyone in a set
@@ -416,11 +416,11 @@ public final class BalanceKeys {
         // tomb's radon gas takes the pool off while the wearer is in it. Mode formula: no invulnerability, the set's rating
         // only (as before the pool); DNS also ntm: every hit but a blast called off, blasts down to 0.001, as NTM does.
         a.put("balance.immune.dns.mode", "pool");
-        a.put("balance.immune.dns.pool", "40");
+        a.put("balance.immune.dns.pool", "45");
         a.put("balance.immune.dns.window", "15");
         a.put("balance.immune.dns.recover", "60");
         a.put("balance.immune.fau.mode", "pool");
-        a.put("balance.immune.fau.pool", "45");
+        a.put("balance.immune.fau.pool", "40");
         a.put("balance.immune.fau.window", "15");
         a.put("balance.immune.fau.recover", "60");
         ARMS = Collections.unmodifiableMap(a);
