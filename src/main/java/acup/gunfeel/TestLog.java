@@ -34,11 +34,6 @@ public final class TestLog {
     private TestLog() {
     }
 
-    // -Dntmgunfeel.testLog: the server's side on from the start (runCheckBullets, to see the log without a client)
-    static {
-        if (System.getProperty("ntmgunfeel.testLog") != null) set(false, true);
-    }
-
     public static boolean any() {
         return client || server;
     }

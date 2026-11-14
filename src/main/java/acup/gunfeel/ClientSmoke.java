@@ -36,7 +36,6 @@ public final class ClientSmoke {
     private static volatile int remaining;
     private static int serverTick;
     private static boolean passed = true, finished;
-    private static org.joml.Matrix4f drawnArm, armBefore;
     private static final boolean WEAPON_SWAY=Boolean.getBoolean("ntmgunfeel.weaponSwaySelfTest");
     private static WeaponSway.Turn observedTurn;
     private static int suppressedLag;
@@ -51,14 +50,6 @@ public final class ClientSmoke {
     static final String[] drawnBranch=new String[2];
     static void armBranch(boolean right,String branch) {
         if(ENABLED && ARM_SCREEN) drawnBranch[right?0:1]=branch;
-    }
-    static void armPose(org.joml.Matrix4f pose,boolean right) {
-        if(Boolean.getBoolean("ntmgunfeel.armEditorSelfTest") && !right) drawnArm=new org.joml.Matrix4f(pose);
-    }
-    private static void editorButton(String name) {
-        var screen=Minecraft.getInstance().gui.screen();
-        var button=screen.children().stream().filter(w->w instanceof net.minecraft.client.gui.components.Button b && b.getMessage().getString().equals(name)).findFirst().orElseThrow();
-        ((net.minecraft.client.gui.components.Button)button).onPress(new net.minecraft.client.input.KeyEvent(257,0,0));
     }
 
     private ClientSmoke() {}
@@ -178,16 +169,6 @@ public final class ClientSmoke {
                 if (ARM_SCREEN) {
                     phase=40;since=System.nanoTime();return;
                 }
-                if (Boolean.getBoolean("ntmgunfeel.armEditorSelfTest")) {
-                    var gun=net.minecraft.core.registries.BuiltInRegistries.ITEM.get(net.minecraft.resources.Identifier.parse("hbm:gun_g3")).orElseThrow().value();
-                    mc.player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(gun));
-                    Config.select("hbm:gun_g3");
-                    Grips.put("hbm:gun_g3","armLeftAdjustments","",false);
-                    Grips.put("hbm:gun_g3","armRightAdjustments","",false);Config.select("hbm:gun_g3");
-                    mc.gui.setScreen(new ArmAnimationEditor(null,gun,"hbm:gun_g3"));
-                    check(ArmAnimationPreview.active(),"редактор открыл настоящий предпросмотр G3");
-                    phase=20;since=System.nanoTime();return;
-                }
                 mc.gui.setScreen(null);
                 reset();
                 remaining = 5;
@@ -235,68 +216,6 @@ public final class ClientSmoke {
                 check(suppressedLag>0,"штатное отставание NTM отключено в настоящем рендере");
                 if(phase==36){finish();return;}
                 suppressedLag=0;observedTurn=null;phase++;since=System.nanoTime();return;
-            }
-            if (phase == 20 && elapsed() > 2) {
-                ArmAnimationPreview.play(false);ArmAnimationPreview.seek(510);
-                check(ArmAnimationPreview.millis()==510,"курсор установлен на 510 мс");
-                check(com.hbm.render.anim.HbmAnimations.getGunAnimation(0)==com.hbm.render.anim.AnimationEnums.GunAnimation.RELOAD,"тип анимации синхронизирован");
-                var expected=ArmAnimationPreview.animation().animation.getBus("PLUG").getTransformation(510);
-                var actual=com.hbm.render.anim.HbmAnimations.getRelevantTransformation("PLUG");
-                check(java.util.Arrays.equals(expected,actual),"деталь оружия перемотана к курсору");
-                phase=21;since=System.nanoTime();
-            } else if (phase == 21 && elapsed() > 1) {
-                check(ArmAnimationPreview.millis()==510,"пауза держит кадр при настоящем рендере");
-                net.minecraft.client.Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(),image -> {
-                    try(image) { image.writeToFile(Path.of("../notes/arm-editor-check.png")); }
-                    catch(java.io.IOException e) { GunFeel.LOGGER.warn("Не удалось сохранить кадр редактора",e); }
-                });
-                ArmAnimationPreview.seek(0);phase=23;since=System.nanoTime();
-            } else if(phase==23 && elapsed()>1) {
-                armBefore=drawnArm;
-                var inputs=mc.gui.screen().children().stream().filter(w->w instanceof net.minecraft.client.gui.components.EditBox).toList();
-                ((net.minecraft.client.gui.components.EditBox)inputs.get(3)).setValue("30");
-                check(ArmAnimationPreview.millis()==0,"правка показывает редактируемый момент");
-                check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",0)[3]==30,"поворот обычного хвата сохранён");
-                phase=24;since=System.nanoTime();
-            } else if(phase==24 && elapsed()>1) {
-                check(drawnArm!=null && armBefore!=null && !drawnArm.equals(armBefore,1e-4F),"изменена настоящая матрица отрисованной руки");
-                editorButton("Отменить шаг");
-                check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",0)[3]==0,"отмена вернула обычный хват");
-                editorButton("Действие →");editorButton("Одинаково весь этап");
-                ArmAnimationPreview.seek(400);
-                var inputs=mc.gui.screen().children().stream().filter(w->w instanceof net.minecraft.client.gui.components.EditBox).toList();
-                ((net.minecraft.client.gui.components.EditBox)inputs.get(0)).setValue("1");
-                check(ArmAnimationPreview.millis()==400,"правка положения сохраняет курсор внутри этапа");
-                ((net.minecraft.client.gui.components.EditBox)inputs.get(10)).setValue("20");
-                check(ArmAnimationPreview.millis()==400,"правка начала сохраняет курсор внутри этапа");
-                ((net.minecraft.client.gui.components.EditBox)inputs.get(11)).setValue("50");
-                check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",180)[5]==20,"начало действия: 20 градусов");
-                check(ArmPoseEdits.sample(Config.armLeftAdjustments,"RELOAD",585)[5]==50,"конец действия: 50 градусов");
-                check(ArmAnimationPreview.millis()==400,"правка конца сохраняет курсор внутри этапа");
-                editorButton("Касаться углом кисти");
-                check(ArmAnimationPreview.millis()==400,"смена контакта сохраняет курсор внутри этапа");
-                check(Config.armLeftPath.contains("Handle!10@"),"выбрана середина внутреннего ребра торца");
-                editorButton("Ребро: внутреннее");
-                check(Config.armLeftPath.contains("Handle!11@"),"выбрана середина внешнего ребра торца");
-                editorButton("Касаться ребром кисти");
-                check(Config.armLeftPath.contains("Handle!5@"),"выбран контакт серединой внутренней грани");
-                editorButton("Плоскость: внутренняя");
-                check(Config.armLeftPath.contains("Handle!6@"),"выбрана середина внешней грани");
-                editorButton("Касаться серединой плоскости");editorButton("Контакт: как в исходной анимации");
-                editorButton("Угол: внутренний, передний");
-                check(Config.armLeftPath.contains("Handle!2@"),"выбран другой угол кисти");
-                ArmAnimationPreview.seek(1900);
-                check(ArmAnimationPreview.millis()==1900,"перемотка вперёд");
-                ArmAnimationPreview.seek(100);
-                check(ArmAnimationPreview.millis()==100,"перемотка назад");
-                ArmAnimationPreview.play(true);ArmAnimationPreview.speed(.1);
-                phase=22;since=System.nanoTime();
-            } else if (phase == 22 && elapsed() > 1) {
-                int position=ArmAnimationPreview.millis();
-                check(position>150 && position<400,"замедление ×0,1 работает в клиенте, t="+position);
-                ((ArmAnimationEditor)mc.gui.screen()).onClose();
-                check(!ArmAnimationPreview.active(),"после закрытия предпросмотр отключён");
-                finish();return;
             }
             if (phase == 10) MobSmoke.frame();
             if (phase == 11) MobBenchmark.frame();

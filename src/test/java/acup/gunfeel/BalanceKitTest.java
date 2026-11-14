@@ -207,17 +207,17 @@ class BalanceKitTest {
         assertEquals(EuphImmunity.REFILL_PAUSE, EuphImmunity.refillPause());
         assertEquals(200, Pool.DEFAULT.hold());
         assertEquals("pool", p.getProperty("balance.immune.dns.mode"));
-        assertEquals("40", p.getProperty("balance.immune.dns.pool"));
+        assertEquals("45", p.getProperty("balance.immune.dns.pool"));
         assertEquals("15", p.getProperty("balance.immune.dns.window"));
         assertEquals("60", p.getProperty("balance.immune.dns.recover"));
         assertEquals("pool", p.getProperty("balance.immune.fau.mode"));
-        assertEquals("45", p.getProperty("balance.immune.fau.pool"));
+        assertEquals("40", p.getProperty("balance.immune.fau.pool"));
         assertEquals("15", p.getProperty("balance.immune.fau.window"));
         assertEquals("60", p.getProperty("balance.immune.fau.recover"));
         assertEquals(null, p.getProperty("balance.immune.dns"), "the old DNS switch is balance.immune.dns.mode now");
         // the kits' defaults are the shipped keys' and their drain sets the table's
-        assertEquals(40F, EuphImmunity.Kit.DNS.size);
-        assertEquals(45F, EuphImmunity.Kit.FAU.size);
+        assertEquals(45F, EuphImmunity.Kit.DNS.size);
+        assertEquals(40F, EuphImmunity.Kit.FAU.size);
         assertEquals(186F, BalanceArmor.SETS.get(EuphImmunity.Kit.DNS.set).s());
         assertEquals(168F, BalanceArmor.SETS.get(EuphImmunity.Kit.FAU.set).s());
     }

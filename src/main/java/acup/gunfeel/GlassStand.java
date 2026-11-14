@@ -83,8 +83,6 @@ final class GlassStand {
         final Map<Long, Integer> regionOf = new HashMap<>();
         // what is drawn, by region: quads over runs of clear pixels in a row, both sides (8 corners x 3 floats each)
         float[][] mesh = new float[0][];
-        // the same pixel by pixel (the first stand's drawing), only for the measurement of -PglassStandCheck
-        float[][] pixelMesh = new float[0][];
         // the front quads, for what the crosshair is on: 12 floats and the region
         final List<Pick> picks = new ArrayList<>();
         boolean[] emptyRegion = new boolean[0];
@@ -486,12 +484,12 @@ final class GlassStand {
         });
     }
 
-    // then: aim at a numbered area as the player, toggle it, undo; then the overlay timed off / old / new from two places
+    // then: aim at a numbered area as the player, toggle it, undo; then the overlay timed off / on from two places
     private static int more, moreFrames;
     private static Machine aimM;
     private static Found aimF;
     private static long lastFrame;
-    private static final String[] MODES = {"выкл", "старая", "новая"};
+    private static final String[] MODES = {"выкл", "новая"};
     private static final List<String> REPORT = new ArrayList<>();
     private static double frameSum, frameMax;
     private static int frameCount;
@@ -584,7 +582,6 @@ final class GlassStand {
         long now = System.nanoTime();
         if (moreFrames == 1) {
             overlay = mode != 0;
-            drawMode = mode == 1 ? DRAW_OLD : DRAW_NEW;
             if (mode == 0) {
                 double x0 = Double.MAX_VALUE, x1 = -Double.MAX_VALUE, z0 = Double.MAX_VALUE, z1 = -Double.MAX_VALUE;
                 synchronized (MACHINES) {
@@ -619,10 +616,7 @@ final class GlassStand {
                 drawFrames == 0 ? 0 : drawNanos / 1e6 / drawFrames, drawFrames == 0 ? 0 : drawQuads / drawFrames));
         more++;
         moreFrames = 0;
-        if (more - 2 >= 2 * MODES.length) {
-            overlay = true;
-            drawMode = DRAW_NEW;
-        }
+        if (more - 2 >= 2 * MODES.length) overlay = true;
     }
 
     private static Machine machine(String id) {
@@ -726,11 +720,8 @@ final class GlassStand {
                 if (x >= r.x0() && x <= r.x1() && y >= r.y0() && y <= r.y1()) f.regionOf.put(k, i);
             }
         }
-        List<List<float[]>> runs = new ArrayList<>(), single = new ArrayList<>();
-        for (int i = 0; i < f.regions.size(); i++) {
-            runs.add(new ArrayList<>());
-            single.add(new ArrayList<>());
-        }
+        List<List<float[]>> runs = new ArrayList<>();
+        for (int i = 0; i < f.regions.size(); i++) runs.add(new ArrayList<>());
         f.picks.clear();
         // the two triangles of a face map the texture the same way: their pixels go together
         Map<String, Cover> faces = new LinkedHashMap<>();
@@ -775,7 +766,6 @@ final class GlassStand {
                 if (r != null && r[3] == row - 1) r[3] = row;
                 else r = new int[] {first[0], row, px.get(j)[0], row, region};
                 next.put(span, r);
-                if (CHECK) for (int k = i; k <= j; k++) single.get(region).add(quad(c, px.get(k)[0], px.get(k)[1], px.get(k)[0] + 1, px.get(k)[1] + 1));
                 i = j + 1;
             }
             rects.addAll(open.values());
@@ -786,7 +776,6 @@ final class GlassStand {
             }
         }
         f.mesh = flat(runs);
-        f.pixelMesh = flat(single);
         f.decide();
         for (float[] r : f.mesh) for (int k = 0; k + 2 < r.length; k += 3) {
             AABB pt = new AABB(r[k], r[k + 1], r[k + 2], r[k], r[k + 1], r[k + 2]);
@@ -1178,8 +1167,6 @@ final class GlassStand {
 
     // ---- drawing: the lit machines in view and within 128 blocks, by region, quads over runs of pixels
 
-    private static final int DRAW_NEW = 0, DRAW_OLD = 1;
-    private static int drawMode = DRAW_NEW;
     // measured: nanoseconds spent filling the buffer and quads drawn, since the last reset
     private static long drawNanos, drawQuads, drawFrames;
 
@@ -1188,12 +1175,11 @@ final class GlassStand {
         var cs = event.getLevelRenderState().cameraRenderState;
         Vec3 cam = cs.pos;
         net.minecraft.client.renderer.culling.Frustum frustum = cs.cullFrustum;
-        boolean old = drawMode == DRAW_OLD;
         List<Machine> near = new ArrayList<>();
         synchronized (MACHINES) {
             for (Machine m : MACHINES) {
                 if (m.lit == null) continue;
-                if (old ? m.box.getCenter().distanceTo(cam) > 96 : m.lit.distanceToSqr(cam) > 128 * 128 || frustum != null && !frustum.isVisible(m.lit)) continue;
+                if (m.lit.distanceToSqr(cam) > 128 * 128 || frustum != null && !frustum.isVisible(m.lit)) continue;
                 near.add(m);
             }
         }
@@ -1205,16 +1191,11 @@ final class GlassStand {
             long quads = 0;
             float cx = (float) cam.x, cy = (float) cam.y, cz = (float) cam.z;
             for (Machine m : near) for (Found f : m.found.values()) {
-                float[][] mesh = old ? f.pixelMesh : f.mesh;
+                float[][] mesh = f.mesh;
                 for (int r = 0; r < mesh.length && r < f.emptyRegion.length; r++) {
                     boolean on = aimed != null && aimed.f() == f && (!labelled(f) || aimed.region() == r);
                     int color = f.emptyRegion[r] ? (on ? 0xC0FF7070 : EMPTY) : (on ? 0xC0A0F8FF : GLASS);
                     float[] q = mesh[r];
-                    if (old) {
-                        for (int k = 0; k + 2 < q.length; k += 3) vc.addVertex(p.pose(), q[k] - cx, q[k + 1] - cy, q[k + 2] - cz).setColor(color);
-                        quads += q.length / 12;
-                        continue;
-                    }
                     // a quad is kept on both sides of the surface (corner 0 at 0 and at 21): the side toward the camera
                     for (int k = 0; k + 23 < q.length; k += 24) {
                         float nx = q[k] - q[k + 21], ny = q[k + 1] - q[k + 22], nz = q[k + 2] - q[k + 23];

@@ -13,7 +13,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
-// /gunfeel set|unset|get <setting> [value]   per-gun override of any setting for the held gun; /gunfeel settings
+// /gunfeel set|unset <setting> [value]   per-gun override of any setting for the held gun; /gunfeel settings
 public final class GripCommand {
     private GripCommand() {
     }
@@ -37,18 +37,7 @@ public final class GripCommand {
                             Grips.put(id.toString(), key, null);
                             return settings(c);
                         })))
-                .then(Commands.literal("get").then(Commands.argument("key", StringArgumentType.word()).suggests(GripCommand::keys)
-                        .executes(c -> {
-                            Identifier id = held(c);
-                            String key = StringArgumentType.getString(c, "key");
-                            if (id == null || !checkKey(c, key)) return 0;
-                            String own = Grips.overrides(id.toString()).get(key);
-                            c.getSource().sendSuccess(() -> Component.literal(key + " = "
-                                    + (own != null ? own + "  (эта пушка)" : Config.globalValue(key) + "  (общее)")), false);
-                            return 1;
-                        })))
                 .then(Commands.literal("settings").executes(GripCommand::settings))
-                .then(Commands.literal("meshdump").executes(c -> RenderedMesh.dump(c.getSource())))
                 .then(Commands.literal("armdebug").executes(c -> {
                     Arms.debugArms = !Arms.debugArms;
                     boolean on = Arms.debugArms;
