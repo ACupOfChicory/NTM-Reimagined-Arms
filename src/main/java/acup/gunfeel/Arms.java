@@ -850,15 +850,6 @@ public final class Arms {
         return names;
     }
 
-    static float[] editorPartCenter(String name) {
-        if(frameModel==null || geometry==null)return new float[3];
-        int id=partByName(frameModel,name);
-        if(id<0)return new float[3];
-        var b=frameModel.groups[id].bounds();
-        var p=geometry.toAligned.transform(new Vector3f((b[0]+b[3])*.5F,(b[1]+b[4])*.5F,(b[2]+b[5])*.5F));
-        return new float[]{p.x,p.y,p.z};
-    }
-
     // the arm editor: the part was drawn in the last frame (a path key on it moves the hand); no frame yet = drawn
     static boolean editorPartDrawn(String name, int nth) {
         return frameModel == null || partPose(name, nth) != null;
@@ -1247,35 +1238,6 @@ public final class Arms {
         return "screen hand=" + screenText(clip, cx, top) + " cut=" + screenText(clip, cx, cut) + " vis=" + Math.round(100F * in / all) + "%";
     }
 
-    // Sexy's bottle as NTM drew it last (armdebug only), and when
-    private static final Matrix4f bottle = new Matrix4f();
-    private static long bottleAt = Long.MIN_VALUE / 2;
-
-    public static void bottleDrawn(Matrix4f pose) {
-        bottle.set(pose);
-        bottleAt = GunClock.millis();
-    }
-
-    // the bottle's share on screen (whiskey model: x, z -0.5..0.5, y 0..3) and its middle, or "" when not drawn now
-    private static String bottleOnScreen() {
-        if (GunClock.millis() - bottleAt > 100L) return "";
-        var mc = Minecraft.getInstance();
-        float fov = com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);
-        float aspect = (float) mc.getWindow().getWidth() / Math.max(1, mc.getWindow().getHeight());
-        Matrix4f clip = new Matrix4f().perspective((float) Math.toRadians(fov), aspect, 0.05F, 100F)
-                .mul(new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewStack())).mul(bottle);
-        int in = 0, all = 0;
-        for (int k = 0; k <= 8; k++) {
-            float y = 3F * k / 8F;
-            for (int a = -1; a <= 1; a++) for (int b = -1; b <= 1; b++) {
-                if (a == 0 && b == 0) continue;
-                all++;
-                if (screenPoint(clip, a * 0.5F, y, b * 0.5F) != null) in++;
-            }
-        }
-        return " bottle=" + screenText(clip, 0F, 1.5F) + " vis=" + Math.round(100F * in / all) + "%";
-    }
-
     private static float[] screenPoint(Matrix4f clip, float x, float y, float z) {
         org.joml.Vector4f v = clip.transform(new org.joml.Vector4f(x, y, z, 1F));
         if (v.w <= 1e-4F) return null;
@@ -1428,7 +1390,6 @@ public final class Arms {
             switchLastCrop[hand] = crop;
         }
         final int shown = crop;
-        ClientSmoke.armPose(m,right);
         ClientSmoke.armBranch(right, branchName());
         if (TestLog.frames()) {
             // three points of the drawn arm in camera space, for comparing in blocks: the grip (the hand end's middle,
@@ -1445,21 +1406,13 @@ public final class Arms {
                     "branch", branchName(), "contact", new Vector3f(pathContact[hand]),
                     "grip", inCamera.transformPosition(grip), "wrist", wrist, "elbow", elbow, "m", inCamera);
         }
-        if(Minecraft.getInstance().gui.screen() instanceof ArmAnimationEditor editor) {
-            float fov=com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);
-            float aspect=(float)Minecraft.getInstance().getWindow().getWidth()/Math.max(1,Minecraft.getInstance().getWindow().getHeight());
-            var point=m.transformPosition(ArmContact.pivot(right,slim,pathContact[hand]),new Vector3f());
-            var clip=new Matrix4f().perspective((float)Math.toRadians(fov),aspect,.05F,100F)
-                    .mul(new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewStack())).transform(new org.joml.Vector4f(point,1));
-            editor.anchor(right,clip);
-        }
         if (debugArms) {
             GunAnimation type = HbmAnimations.getGunAnimation(0);
             Vector3f origin = m.transformPosition(new Vector3f());
             Vector3f along = m.transformDirection(new Vector3f(0F, 1F, 0F));
             GunFeel.LOGGER.info("[armdebug] {} {} t={} {} | {} | origin={} up={} crop={} | {}", right ? "R" : "L",
                     HbmAnimations.getRelevantAnim(0) == null ? "-" : type, fmt(animMillis()), branch, right ? "" : branchNote,
-                    fmt(origin), fmt(along), shown, onScreen(m, shown, right, slim) + (right ? "" : bottleOnScreen()));
+                    fmt(origin), fmt(along), shown, onScreen(m, shown, right, slim));
             branchNote = "";
         }
         PoseStack pose = new PoseStack();

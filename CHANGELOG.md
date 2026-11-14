@@ -1,5 +1,41 @@
 # Changelog
 
+## X1076
+
+- The Mare's Leg kicks as it was tuned to: its recoil preset `levershot`
+  (the shotgun's rise and roll, a longer and slower run back, a slow sway to
+  the side) was missing from the mod's file, so the gun had the mild default
+  kick instead.
+- DNS's pool is 45 and FAU's is 40 by default (`balance.immune.dns.pool`,
+  `balance.immune.fau.pool`; they were 40 and 45). These are the pools the
+  balance's scheme already counted the guns against (`balance.final.pools`),
+  so the sets now hold as long as the tables say. A server whose
+  `ntm-gunfeel-server.properties` has its own values of these keys keeps them.
+- Cleanup, the second part: more commands and switches that nothing used are
+  gone, with the dead code behind them.
+  - `/gunfeel get <key>`. `/gunfeel set <key>` with no value shows the same
+    and more: the value, where it comes from and the defaults.
+  - `/gunfeel meshdump`, a debugging aid that wrote the triangles read around
+    the block looked at into `config/ntm-gunfeel-meshdump.txt`.
+  - The server keys `balance.final.head.guns` and `balance.final.head.gap`
+    (a kill with one click on the head for the guns listed). The list was
+    empty by default, so no gun did it; the keys are not read any more. With
+    them go the balance's two older sets of numbers kept in the code for
+    comparison.
+  - The "Arm movements (old)" button of the gun editor and its screen. The
+    arms are set in "Gun arms" (the arms editor, O): the part a hand holds,
+    the point of the hand that touches, the adjustments and the moment the
+    magazine is let go are all there. The keys it wrote are read as before.
+  - For developers: the JVM property `ntmgunfeel.testLog`, the Gradle
+    switches `-ParmEditorSelfTest` and `-PflywheelOff` (`-PmobCpuGeometry`
+    turns the same backend off), and the first, pixel-by-pixel drawing in the
+    glass stand's timing.
+- ⚠ Breaks compatibility: `/gunfeel get` and `/gunfeel meshdump` are removed;
+  a script, a command block or a datapack function that calls one of them no
+  longer works. A server that listed guns in `balance.final.head.guns` loses
+  their kill with one click on the head: the line in
+  `config/ntm-gunfeel-server.properties` does nothing now.
+
 ## X1066
 
 - Cleanup: commands and switches that nothing used any more are gone, with

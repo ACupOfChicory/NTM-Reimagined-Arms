@@ -174,8 +174,8 @@ public final class EuphImmunity {
     /** a set with the pool: its keys' prefix, its table name (the drain's rating), its pool by default, its message */
     public enum Kit {
         EUPHEMIUM("balance.immune", "euphemium", 150F, "ntmgunfeel.euph.window"),
-        DNS("balance.immune.dns", "dns", 40F, "ntmgunfeel.dns.window"),
-        FAU("balance.immune.fau", "fau", 45F, "ntmgunfeel.fau.window");
+        DNS("balance.immune.dns", "dns", 45F, "ntmgunfeel.dns.window"),
+        FAU("balance.immune.fau", "fau", 40F, "ntmgunfeel.fau.window");
 
         public final String key, set, message;
         public final float size;
@@ -293,7 +293,7 @@ public final class EuphImmunity {
         float scheme = BalanceFinal.drain(player, source);
         if (!Float.isNaN(scheme)) {
             float click = ReaimTimes.number("damageCapClick", 0.6F);
-            return Float.isFinite(click) && click > 0F && !BalanceFinal.oneShotHead(player, source) && !HeadDamage.onHead(player) ? Math.min(scheme, click * player.getMaxHealth()) : scheme;
+            return Float.isFinite(click) && click > 0F && !HeadDamage.onHead(player) ? Math.min(scheme, click * player.getMaxHealth()) : scheme;
         }
         float[] st = drainSet(kit);
         // NTM's accepted damage takes an electric hit on a powered chestplate five times (EntityDamageUtil)

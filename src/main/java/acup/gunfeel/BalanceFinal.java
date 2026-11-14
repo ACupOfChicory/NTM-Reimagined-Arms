@@ -6,10 +6,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -269,19 +267,16 @@ public final class BalanceFinal {
                 // left out
             }
         }
-        Set<String> heads = new HashSet<>();
-        for (String g : ReaimTimes.text("balance.final.head.guns", String.join(",", d.headGuns())).split("[,\\s]+")) if (!g.isBlank()) heads.add(g.trim());
         Map<String, Double> roles = new HashMap<>(d.roles());
         roles.putAll(BalanceFinalRule.roles(ReaimTimes.text("balance.final.roles", BalanceFinalRule.Params.ROLES)));
         var params = new BalanceFinalRule.Params(BalanceFinalRule.anchors(ReaimTimes.text("balance.final.ttk", BalanceFinalRule.Params.TTK)),
                 num("balance.final.ttk.min", d.tmin(), 0.05, 60), num("balance.final.ttk.max", d.tmax(), 1, 1e6), num("balance.final.ttk.below", d.below(), 1, 100),
                 beta, lo, hi, num("balance.final.energy", d.energy(), 0.01, 100), ammoK, from, most, jhp, num("balance.final.ped", d.ped(), -5, 5),
-                1.0, num("balance.final.dnsOverFau", d.dnsOverFau(), 0, 100), Set.copyOf(heads),
-                num("balance.final.head.gap", d.headGap(), -10, 10), d.laserTrench(), Map.copyOf(roles), num("balance.final.slug.pellets", d.slugPellets(), 0, 1000),
+                1.0, num("balance.final.dnsOverFau", d.dnsOverFau(), 0, 100), d.laserTrench(), Map.copyOf(roles),
+                num("balance.final.slug.pellets", d.slugPellets(), 0, 1000),
                 BalanceFinalRule.MagRule.parse(ReaimTimes.text("balance.final.mag", ""), d.mag()),
                 Map.copyOf(BalanceFinalRule.roleOfs(ReaimTimes.text("balance.final.roleOf", BalanceFinalRule.Params.ROLE_OF))),
-                Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.roles.fade", BalanceFinalRule.Params.FADE))),
-                true);
+                Map.copyOf(BalanceFinalRule.roles(ReaimTimes.text("balance.final.roles.fade", BalanceFinalRule.Params.FADE))));
         // the pairs, P the stand's (Fable №2, 1)
         List<String> bad = new ArrayList<>();
         var pairs = BalanceFinalRule.pairs(lines(), bad, true);
@@ -335,7 +330,7 @@ public final class BalanceFinal {
         return v == null ? kit.size : v;
     }
 
-    /** the size of a kit's pool when its key balance.immune*.pool is not set: balance.final.pools with the scheme on, X908's own off */
+    /** the size of a kit's pool when its key balance.immune*.pool is not set: balance.final.pools with the scheme on, the kit's own off */
     static float poolOf(EuphImmunity.Kit kit) {
         try {
             return on() ? (float) pools(kit) : kit.size;
@@ -376,8 +371,8 @@ public final class BalanceFinal {
         return h == null ? null : String.format(java.util.Locale.ROOT, "%s.%s on %s, %.3f a click", h.pair().gun(), h.pair().ammo(), h.armor().kind(), h.clickDamage());
     }
 
-    /** the scheme's view of one hit: its pair, the set it meets, the head's rule */
-    record Hit(BalanceFinalRule.Pair pair, BalanceFinalRule.Armor armor, double clickDamage, boolean oneShotHead) {
+    /** the scheme's view of one hit: its pair and the set it meets */
+    record Hit(BalanceFinalRule.Pair pair, BalanceFinalRule.Armor armor, double clickDamage) {
         /** the damage of one projectile on the body (before the part hit's multiplier) */
         float projectile() {
             return (float) (clickDamage / pair.projectiles());
@@ -409,7 +404,7 @@ public final class BalanceFinal {
         if (armor == null) return null;
         BalanceFinalRule.Armor fau = s.sets().get("fau");
         double click = s.cache().computeIfAbsent(new CacheKey(id, armor), k -> BalanceFinalRule.clickDamage(pr, armor, fau, s.refs(), s.params()));
-        return new Hit(pr, armor, click, BalanceFinalRule.headOneShot(pr, armor.hours(), s.params()));
+        return new Hit(pr, armor, click);
     }
 
     /**
@@ -453,25 +448,6 @@ public final class BalanceFinal {
         return false;
     }
 
-    /** a one-shot on the head is under way (the damage cap lets it through as a sniper's head) */
-    private record OneShot(LivingEntity target, DamageSource source) {
-    }
-
-    private static final ThreadLocal<OneShot> ONE_SHOT = new ThreadLocal<>();
-
-    /** the one-shot on the head of the hurt under way on {@code target} by {@code source} (that hurt's alone), read once (DamageCap) */
-    static boolean takeOneShot(LivingEntity target, DamageSource source) {
-        OneShot o = ONE_SHOT.get();
-        ONE_SHOT.remove();
-        return o != null && o.target() == target && o.source() == source;
-    }
-
-    /** the hit is the scheme's one-shot on the head (the pool's drain takes the whole pool) */
-    static boolean oneShotHead(LivingEntity target, DamageSource source) {
-        Hit h = hit(target, source);
-        return h != null && h.oneShotHead() && HeadDamage.onHead(target);
-    }
-
     /**
      * what the scheme leaves of a hit on {@code target} (in place of NTM's threshold and resistance and formula C), or
      * NaN when the hit is not the scheme's
@@ -484,12 +460,6 @@ public final class BalanceFinal {
         if (againThisTick(target, source)) return 0F;
         if (BalanceLog.on()) BalanceLog.hit(target, source, null, h.pair().id(), h.pair().tier(), HeadDamage.onHead(target));
         float scale = target.getMaxHealth() / (float) BalanceFinalRule.HP;
-        if (h.oneShotHead() && HeadDamage.onHead(target)) {
-            // the head's rule: the whole health (and pool) in one click, the head's multiplier after it
-            ONE_SHOT.set(new OneShot(target, source));
-            return (float) ((BalanceFinalRule.HP + h.armor().pool()) * scale / ModelHeads.multiplier(true, false) / h.pair().projectiles());
-        }
-        ONE_SHOT.remove();
         return h.projectile() * scale * range(target, source, h);
     }
 
@@ -524,7 +494,6 @@ public final class BalanceFinal {
         if (againThisTick(target, source)) return 0F;
         boolean head = HeadDamage.onHead(target);
         if (BalanceLog.on()) BalanceLog.hit(target, source, null, h.pair().id(), h.pair().tier(), head);
-        if (h.oneShotHead() && head) return (float) ((BalanceFinalRule.HP + h.armor().pool()) / h.pair().projectiles());
         float d = h.projectile() * range(target, source, h);
         return head ? Math.min(d * ModelHeads.multiplier(true, false), DamageCap.limits().head() * (float) BalanceFinalRule.HP) : d;
     }

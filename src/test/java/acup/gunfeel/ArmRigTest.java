@@ -65,8 +65,6 @@ class ArmRigTest {
     private static String describe(Object k) {
         if (k instanceof ArmRig.PathKey p) return bits(p.ms()) + p.part() + p.nth() + bits(p.at()) + bits(p.side()) + bits(p.shoulder())
                 + p.contact() + p.followShoulder() + bits(p.roll());
-        if (k instanceof ArmRigOld.PathKey p) return bits(p.ms()) + p.part() + p.nth() + bits(p.at()) + bits(p.side()) + bits(p.shoulder())
-                + p.contact() + p.followShoulder() + bits(p.roll());
         if (k instanceof float[] f) return bits(f);
         if (k instanceof List<?> l) {
             var s = new StringBuilder();
@@ -79,57 +77,6 @@ class ArmRigTest {
             return s.toString();
         }
         return String.valueOf(k);
-    }
-
-    private static String describe(ArmRig.CarrySpec c) {
-        if (c == null) return describe(ArmRigOld.NO_CARRY);
-        var s = new StringBuilder(c.part()).append(Arrays.toString(c.buses())).append(c.grab());
-        for (float[] a : c.ats()) s.append(bits(a));
-        return s.append(bits(c.dir() != null ? c.dir() : ArmRig.DEFAULT_SIDE)).toString();
-    }
-
-    private static String describe(ArmRigOld.Carry c) {
-        var s = new StringBuilder(c.part()).append(Arrays.toString(c.buses())).append(c.grab());
-        for (float[] a : c.ats()) s.append(bits(a));
-        return s.append(bits(c.dir())).toString();
-    }
-
-    private static String adjustments(java.util.function.Supplier<Map<String, TreeMap<Float, float[]>>> read) {
-        try {
-            return describe(read.get());
-        } catch (RuntimeException e) {
-            return "unreadable";
-        }
-    }
-
-    // the game reads every gun's arm data exactly as before ArmRig (the old parsers, copied from 524f0ea)
-    @Test
-    void gameReadsEveryGunAsBefore() throws Exception {
-        var jar = jar();
-        assertTrue(jar.size() >= 26, "jar arm keys: " + jar.size());
-        var times = new ArrayList<String>(List.of("", "release=2410", "later=200, release = 100,bad=x,=5"));
-        for (var e : jar.entrySet()) if (e.getKey().endsWith(".armPathTimes")) times.add(e.getValue());
-        int compared = 0;
-        for (String v : samples(jar.values())) {
-            for (String t : times) {
-                assertEquals(describe(ArmRigOld.parsePath(v, t)), describe(ArmRig.pathKeys(v, t)), "path " + v + " / " + t);
-                compared++;
-            }
-            assertEquals(describe(ArmRigOld.parseCarryKeys(v)), describe(ArmRig.carryKeys(v)), "carry keys " + v);
-            assertEquals(describe(ArmRigOld.parseKeys(v)), describe(ArmRig.angleKeys(v)), "angle keys " + v);
-            // one change since: a hidden range for a bus ("RELOAD/PumpGrip") keeps the bus as NTM names it, as paths and
-            // carry keys do (the old reader made it "RELOAD/PUMPGRIP", which no bus is, so it was never played)
-            Map<String, float[]> hidden = new HashMap<>();
-            ArmRig.ranges(v).forEach((k, x) -> {
-                assertTrue(k.equals(k.toUpperCase(Locale.ROOT)) || k.contains("/"), "hidden " + v);
-                hidden.put(k.toUpperCase(Locale.ROOT), x);
-            });
-            assertEquals(describe(new TreeMap<>(ArmRigOld.hide(v))), describe(new TreeMap<>(hidden)), "hidden " + v);
-            assertEquals(describe(ArmRigOld.carry(v)), describe(ArmRig.carry(v)), "carry " + v);
-            assertEquals(adjustments(() -> ArmRigOld.read(v)), adjustments(() -> ArmRig.adjustments(v)), "adjustments " + v);
-            compared += 5;
-        }
-        assertTrue(compared > 1000, "compared " + compared);
     }
 
     // read -> write with nothing edited gives the text back, for every kind of track and every broken variant
@@ -184,8 +131,7 @@ class ArmRigTest {
         String source = jar().get("hbm:gun_autoshotgun_sexy.armLeftPath");
         String times = "release=2410";
         var doc = ArmRig.path(source);
-        var keys = ArmRig.sorted(doc.forAnimation("RELOAD"), ArmRig.pathTimes(times));
-        var lever = keys.get(1);
+        var lever = doc.forAnimation("RELOAD").entries.get(1);
         assertEquals("Lever", lever.part);
         lever.contact = 5;
         String written = doc.write();
@@ -205,13 +151,13 @@ class ArmRigTest {
     @Test
     void aKeyWithoutSideOrTurnStaysWithoutThem() {
         var doc = ArmRig.path("INSPECT 0:grip 200:Magazine@0,1,2; RELOAD 0:grip 50:what 100:Lever@1,2,3 200:grip");
-        var keys = ArmRig.sorted(doc.forAnimation("RELOAD"), Map.of());
-        assertEquals(3, keys.size(), "the unreadable entry is not shown");
-        keys.get(1).attach("Hood", new float[] {0.5F, -2F, 3F});
+        var keys = doc.forAnimation("RELOAD").entries;
+        assertFalse(keys.get(1).valid(), "the unreadable entry stays where it was written");
+        keys.get(2).attach("Hood", new float[] {0.5F, -2F, 3F});
         assertEquals("INSPECT 0:grip 200:Magazine@0,1,2; RELOAD 0:grip 50:what 100:Hood@0.5,-2,3 200:grip", doc.write());
-        keys.get(1).attach("grip", null);
+        keys.get(2).attach("grip", null);
         assertEquals("INSPECT 0:grip 200:Magazine@0,1,2; RELOAD 0:grip 50:what 100:grip 200:grip", doc.write());
-        var side = ArmRig.sorted(ArmRig.path("RELOAD 100:Lever@1,2,3").forAnimation("RELOAD"), Map.of()).get(0);
+        var side = ArmRig.path("RELOAD 100:Lever@1,2,3").forAnimation("RELOAD").entries.get(0);
         assertNull(side.side);
         assertTrue(Float.isNaN(side.roll));
         assertArrayEquals(new float[] {0F, 0F, -1F}, side.key(Map.of()).side(), "the game's side for a key without one");
@@ -221,8 +167,8 @@ class ArmRigTest {
     void movingAKeyKeepsItsNamedMoment() {
         var times = ArmRig.pathTimes("Release=2410");
         var doc = ArmRig.path("RELOAD 0:grip release:Gun@0,0,0 release+300:grip 2800:grip");
-        var keys = ArmRig.sorted(doc.forAnimation("RELOAD"), times);
-        assertEquals(2710F, keys.get(2).ms);
+        var keys = doc.forAnimation("RELOAD").entries;
+        assertEquals(2710F, keys.get(2).key(times).ms());
         keys.get(2).retime(2750F, times);
         keys.get(1).retime(2400F, times);
         keys.get(3).retime(2900F, times);
@@ -233,25 +179,13 @@ class ArmRigTest {
     }
 
     @Test
-    void newAnimationsAndAdjustmentsAreWrittenShort() {
+    void newAnimationsAreWrittenShort() {
         var doc = ArmRig.path("RELOAD 0:grip");
         var s = doc.add("INSPECT");
         s.entries.add(ArmRig.PathEntry.grip(0));
         s.entries.add(ArmRig.PathEntry.grip(250.5F));
         assertEquals("RELOAD 0:grip; INSPECT 0:grip 250.5:grip", doc.write());
         assertEquals("INSPECT 0:grip", writeOnly("", "INSPECT"));
-
-        String g3 = "RELOAD 0.0:0.0,0.0,0.0,0.0,0.0,0.0 180.0:0.0,0.0,0.0,0.0,0.0,0.0; INSPECT 0:1,0,0,0,0,0";
-        var adj = ArmRig.adjustmentTracks(g3);
-        var reload = ArmRig.adjustments(g3).get("RELOAD");
-        ArmRig.putAdjustments(adj, "RELOAD", reload);
-        assertEquals(g3, adj.write(), "unchanged values keep their spelling");
-        reload.put(180F, new float[] {0, 0, 0, 0, 0, 20});
-        reload.put(585F, new float[] {0, 0, 0, 0, 0, 50.5F});
-        ArmRig.putAdjustments(adj, "RELOAD", reload);
-        assertEquals("RELOAD 0.0:0.0,0.0,0.0,0.0,0.0,0.0 180:0,0,0,0,0,20 585:0,0,0,0,0,50.5; INSPECT 0:1,0,0,0,0,0", adj.write());
-        ArmRig.putAdjustments(adj, "RELOAD", new TreeMap<>());
-        assertEquals("INSPECT 0:1,0,0,0,0,0", adj.write(), "an animation left without adjustments goes");
     }
 
     private static String writeOnly(String source, String animation) {
@@ -262,27 +196,9 @@ class ArmRigTest {
 
     // findings of the Sol review (2026-11-04)
     @Test
-    void editorOpensTheSegmentTheGamePlays() {
-        var doc = ArmRig.path("RELOAD 0:Lever@1,2,3 100:grip; RELOAD; reload x:bad");
-        var track = ArmRig.pathTrack(doc, "RELOAD", Map.of());
-        assertEquals(2, ArmRig.sorted(track, Map.of()).size(), "the first segment, the one the game reads");
-        assertEquals("Lever", ArmRig.sorted(track, Map.of()).get(0).part);
+    void gamePlaysTheLastSegmentItCanRead() {
         assertEquals(describe(ArmRig.pathKeys("RELOAD 0:Lever@1,2,3 100:grip", "").get("RELOAD")),
                 describe(ArmRig.pathKeys("RELOAD 0:Lever@1,2,3 100:grip; RELOAD; reload x:bad", "").get("RELOAD")));
-        assertNotNull(ArmRig.pathTrack(ArmRig.path("RELOAD x:bad"), "RELOAD", Map.of()), "nothing readable: the one written");
-        assertNull(ArmRig.pathTrack(ArmRig.path("INSPECT 0:grip"), "RELOAD", Map.of()));
-    }
-
-    @Test
-    void adjustmentsKeepEveryEntryOfAnUnchangedTime() {
-        String src = "RELOAD 0:1,0,0,0,0,0 0.0:2,0,0,0,0,0 100:0,0,0,0,0,0";
-        var doc = ArmRig.adjustmentTracks(src);
-        var track = ArmRig.adjustments(src).get("RELOAD");
-        track.put(100F, new float[] {0, 0, 0, 0, 0, 5});
-        track.put(50F, new float[] {1, 0, 0, 0, 0, 0});
-        ArmRig.putAdjustments(doc, "RELOAD", track);
-        assertEquals("RELOAD 0:1,0,0,0,0,0 0.0:2,0,0,0,0,0 50:1,0,0,0,0,0 100:0,0,0,0,0,5", doc.write());
-        assertEquals(describe(track), describe(ArmRig.adjustments(doc.write()).get("RELOAD")));
     }
 
     @Test

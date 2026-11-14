@@ -17,18 +17,8 @@ public final class ArmAnimationPreview {
     private ArmAnimationPreview() {}
     public static boolean active() {
         var mc = Minecraft.getInstance();
-        return animation != null && (mc.gui.screen() instanceof ArmAnimationEditor || mc.gui.screen() instanceof ArmEditorScreen)
+        return animation != null && mc.gui.screen() instanceof ArmEditorScreen
                 && mc.player != null && mc.player.getMainHandItem().getItem() == item;
-    }
-    static void start(GunAnimation cue) {
-        var player = Minecraft.getInstance().player;
-        if (player == null || !(player.getMainHandItem().getItem() instanceof ItemGunBaseNT gun)) {
-            clear();
-            return;
-        }
-        var stack = player.getMainHandItem().copy();
-        var factory = gun.getConfig(stack,0).getAnims(stack);
-        start(cue, factory == null ? null : factory.apply(stack,cue));
     }
     // this animation of the held gun under the cue's name (the arm editor: the reload from an empty magazine)
     static void start(GunAnimation cue, com.hbm.render.anim.BusAnimation buses) {
@@ -54,9 +44,7 @@ public final class ArmAnimationPreview {
     }
     static void seek(double time) { position = Math.clamp(time,0,duration()); sampled=GunClock.nanos(); }
     static void play(boolean value) { millis(); playing=value; }
-    static boolean playing() { return playing; }
     static void speed(double value) { millis(); speed=value; }
-    static double speed() { return speed; }
     public static double[] transform(String bus) {
         var sequence = animation.animation.getBus(bus);
         var result = sequence == null ? null : sequence.getTransformation(millis());
