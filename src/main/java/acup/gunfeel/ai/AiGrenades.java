@@ -170,11 +170,7 @@ public final class AiGrenades {
     }
 
     /** a throw: its turn, and where it bursts */
-    record Throw(float yaw, float pitch, Vec3 burst, double share) {
-        Throw(float yaw, float pitch, Vec3 burst) {
-            this(yaw, pitch, burst, 1);
-        }
-    }
+    record Throw(float yaw, float pitch, Vec3 burst, double share) {}
 
     /**
      * A frag thrown as hard as NTM throws it bursts this far off at the nearest (a lob), blocks; a near throw is
@@ -190,15 +186,9 @@ public final class AiGrenades {
 
     /**
      * How to throw at this place from where the mob stands: the pitch (turned to the place) at which NTM's frag bursts
-     * nearest it, within LAND of it; null if none does, or one of its own (or it) would be within SAFE of the burst.
-     */
-    static @Nullable Throw plan(ServerLevel level, Mob m, Vec3 at) {
-        return plan(level, m, at, false, 0);
-    }
-
-    /**
-     * The same; a smoke grenade (AiSmoke) bursts near its own as it will. {@code down} more than 0: a near throw, the
-     * mob down this high behind its cover till the burst (a burst nearer it than SAFE, CLOSE_BURST on, only shielded).
+     * nearest it, within LAND of it; null if none does, or one of its own (or it) would be within SAFE of the burst. A
+     * smoke grenade (AiSmoke) bursts near its own as it will. {@code down} more than 0: a near throw, the mob down this
+     * high behind its cover till the burst (a burst nearer it than SAFE, CLOSE_BURST on, only shielded).
      */
     static @Nullable Throw plan(ServerLevel level, Mob m, Vec3 at, boolean smoke, double down) {
         long t0 = System.nanoTime();

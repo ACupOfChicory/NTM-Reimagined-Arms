@@ -67,7 +67,7 @@ class Gl54BallisticsTest {
 
     @Test
     void beyondReachItIsTheFarthestAngle() {
-        double reach = Gl54Ballistics.maxRange();
+        double reach = Gl54Ballistics.range(Gl54Ballistics.farthestAngle(V, G, 1.0), 0.0);
         var h = Gl54Ballistics.holdover(reach + 10);
         assertFalse(h.reachable());
         assertEquals(Gl54Ballistics.farthestAngle(V, G, 1.0), h.angle(), 1e-12);
@@ -81,7 +81,8 @@ class Gl54BallisticsTest {
         double a = Gl54Ballistics.farthestAngle(V, G, 1.0);
         assertEquals(0.0245, G * V, 1e-9);
         assertTrue(Math.toDegrees(a) > 28 && Math.toDegrees(a) < 35, "angle " + Math.toDegrees(a));
-        assertTrue(Gl54Ballistics.maxRange() > 700 && Gl54Ballistics.maxRange() < 850, "range " + Gl54Ballistics.maxRange());
+        double far = Gl54Ballistics.range(a, 0.0);
+        assertTrue(far > 700 && far < 850, "range " + far);
         assertTrue(Gl54Ballistics.range(a + Math.toRadians(0.5), 0.0) == 0.0, "steeper it is gone before it lands");
     }
 

@@ -61,8 +61,8 @@ public final class AiGunner {
     static final double MUZZLE_CLEAR = 2.5;
     /** the line of fire starts this far under its eyes (NTM fires from the eyes, a gun's own offset off them) */
     static final double MUZZLE_DROP = 0.1;
-    /** shots it let go, and shots that kicked its view (the stands) */
-    public int shots, kicks;
+    /** shots it let go (the stands) */
+    public int shots;
     /** the stands: shots let go from a crouch it chose for its clear line, and shots with a block that stops bullets just past the gun (none) */
     public int shotsLow, coverShots;
     /** this tick it fires from a crouch, its line from there clear (AiSoldier sets it; the stands count its shots) */
@@ -410,7 +410,6 @@ public final class AiGunner {
             float[] d = AiRecoil.degrees(k, id, strength, burstShots, drift, aiming, lying, mob.getRandom()::nextGaussian);
             float[] moved = sight.kick(d[0], d[1], d[2], d[3], k.rebound(), skill);
             face(mob.getYHeadRot() + moved[0], Math.max(-90F, Math.min(90F, mob.getXRot() + moved[1])), skill);
-            kicks++;
         }
     }
 

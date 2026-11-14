@@ -13,7 +13,6 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.entity.projectile.EntityThrowableNT;
 
-import acup.gunfeel.PassableClip;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;

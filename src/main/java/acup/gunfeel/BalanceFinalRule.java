@@ -42,10 +42,6 @@ public final class BalanceFinalRule {
         public boolean phys() {
             return "PHYS".equals(cat);
         }
-
-        Pair withTier(double t) {
-            return new Pair(gun, ammo, t, ped, p, delay, auto, mag, reload, pellets, roundsPerClick, hands, pen, cat, rawDamage, explosive, role);
-        }
     }
 
     /**
@@ -336,7 +332,7 @@ public final class BalanceFinalRule {
 
     /**
      * the pair's character: (its tier's DPS / its own)^beta within lo..hi (bullets only); a tier of fewer than 6 pairs
-     * takes all pairs' median, or 1 with balance.final.character.few = one (Fable №2, 3.6)
+     * takes all pairs' median, or 1 with {@code fewOne} (Fable №2, 3.6)
      */
     public static double character(Pair pr, Refs refs, Params p) {
         if (!pr.phys()) return 1.0;
@@ -461,11 +457,6 @@ public final class BalanceFinalRule {
         return new Armor("mix", t / sw, h / sw, en / sw, 0);
     }
 
-    /** a line of the pairs' file, or null; P the model's (balance.final.hits = model) */
-    public static Pair parse(String line) {
-        return parse(line, false);
-    }
-
     /**
      * a line of the pairs' file, or null; {@code stand}: P the stand's (the column p_stand, Fable №2, 1; a line without
      * it: 1), else the model's (p_role, X922)
@@ -486,13 +477,8 @@ public final class BalanceFinalRule {
         }
     }
 
-    /** the pairs of the file by id (gun.ammo), {@code tiers} in place of their own (balance.final.pairTier) */
-    public static Map<String, Pair> pairs(List<String> lines, Map<String, Double> tiers, List<String> bad) {
-        return pairs(lines, tiers, bad, false);
-    }
-
-    /** the same, P the stand's ({@code stand}) or the model's */
-    public static Map<String, Pair> pairs(List<String> lines, Map<String, Double> tiers, List<String> bad, boolean stand) {
+    /** the pairs of the file by id (gun.ammo), P the stand's ({@code stand}) or the model's */
+    public static Map<String, Pair> pairs(List<String> lines, List<String> bad, boolean stand) {
         Map<String, Pair> out = new java.util.LinkedHashMap<>();
         for (String l : lines) {
             Pair pr = parse(l, stand);
@@ -500,8 +486,7 @@ public final class BalanceFinalRule {
                 if (!l.isBlank() && !l.startsWith("#") && bad != null) bad.add(l);
                 continue;
             }
-            Double t = tiers.get(pr.id());
-            out.put(pr.id(), t != null && Double.isFinite(t) ? pr.withTier(t) : pr);
+            out.put(pr.id(), pr);
         }
         return out;
     }

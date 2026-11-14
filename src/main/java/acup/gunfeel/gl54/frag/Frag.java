@@ -41,9 +41,4 @@ public final class Frag {
         FragBurst.burst(spec, level, owner, grenade, point, dir, level.getRandom().nextLong());
         return true;
     }
-
-    // the kind of the grenade that is `bullet` (null if it is not one of the GL-54's)
-    public static @Nullable GrenadeKind kindOf(EntityBulletBaseMK4 bullet) {
-        return bullet.config instanceof GrenadeType t ? t.grenade() : null;
-    }
 }

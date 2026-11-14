@@ -60,10 +60,6 @@ public final class EuphImmunity {
      */
     public record Pool(float size, int window, int recover, int hold) {
         public static final Pool DEFAULT = new Pool(150F, 300, 1200, 200);
-
-        public Pool(float size, int window, int recover) {
-            this(size, window, recover, 0);
-        }
     }
 
     /** ticks after the last hit that took from the pool before it comes back (balance.immune.refillPause's default) */
@@ -71,7 +67,7 @@ public final class EuphImmunity {
 
     /**
      * balance.immune.refillPause (5 s, as X875): seconds after the last hit that took from the pool before it comes back,
-     * for the three sets. Henry and Lincoln, whose reload is longer, wait it out by balance.immune.reloadHold instead
+     * for the three sets. Henry and Lincoln, whose reload is longer, wait it out by their reload's hold (holdOf) instead
      */
     static int refillPause() {
         float v = ReaimTimes.number("balance.immune.refillPause", REFILL_PAUSE / 20F);
@@ -84,7 +80,7 @@ public final class EuphImmunity {
     public static final class State {
         public float pool;
         public long at, lastHit = Long.MIN_VALUE / 2, windowStart = Long.MIN_VALUE / 2, windowEnd = Long.MIN_VALUE / 2, recoverEnd = Long.MIN_VALUE / 2;
-        /** the last hit's own refill pause, ticks (balance.immune.reloadHold; 0: balance.immune.refillPause's) */
+        /** the last hit's own refill pause, ticks (0: balance.immune.refillPause's) */
         public int pause;
 
         public State(float pool, long now) {
@@ -126,20 +122,7 @@ public final class EuphImmunity {
         return Math.min(p.size(), pool);
     }
 
-    /**
-     * A hit of {@code drain} (what it would do to the DNS-class set) at {@code now}; true: it is called off. An emptied
-     * pool opens the window from the next tick, the hit itself is still called off.
-     */
-    public static boolean hit(State s, long now, float drain, boolean weapon, Pool p) {
-        return hit(s, now, drain, weapon, weapon, p);
-    }
-
-    /** the same; {@code keeps}: a shot, beam or blast, which holds the window open (euphemium's melee drains, not holds) */
-    public static boolean hit(State s, long now, float drain, boolean weapon, boolean keeps, Pool p) {
-        return hit(s, now, drain, weapon, keeps, p, 0);
-    }
-
-    /** ticks a gun's hit holds the window and the refill pause past the hold (balance.immune.reloadHold) */
+    /** ticks a gun's hit holds the window and the refill pause past the hold */
     public static final int RELOAD_SLACK = 20;
 
     /**
@@ -151,7 +134,12 @@ public final class EuphImmunity {
         return reach > p.hold() ? reach + RELOAD_SLACK : p.hold();
     }
 
-    /** the same; {@code reach}: the gun's shot and reload from empty, ticks ({@link #holdOf}) */
+    /**
+     * A hit of {@code drain} (what it would do to the DNS-class set) at {@code now}; true: it is called off. An emptied
+     * pool opens the window from the next tick, the hit itself is still called off. {@code keeps}: a shot, beam or
+     * blast, which holds the window open (euphemium's melee drains, not holds); {@code reach}: the gun's shot and reload
+     * from empty, ticks ({@link #holdOf})
+     */
     public static boolean hit(State s, long now, float drain, boolean weapon, boolean keeps, Pool p, int reach) {
         Phase ph = phase(s, now);
         int hold = keeps ? holdOf(p, reach) : 0;
@@ -226,10 +214,6 @@ public final class EuphImmunity {
     /** NTM's own DNS checks (every hit but a blast called off, blasts down to 0.001) are off: modes formula and pool */
     public static boolean dnsFormula() {
         return acup.gunfeel.compat.Feature.BALANCE.on() && !Kit.DNS.mode().equals("ntm");
-    }
-
-    public static Pool pool() {
-        return pool(Kit.EUPHEMIUM);
     }
 
     public static Pool pool(Kit kit) {
@@ -324,7 +308,7 @@ public final class EuphImmunity {
         // by the kit's tier (8, 9): the power itself, a rocket's direct hit too
         int tier = kit == Kit.EUPHEMIUM ? 9 : 8;
         if (power > 1F) power = BalanceArmor.pieceBlastPower(tier, amount, power);
-        // the gun table's floor of the shot's pair (balanceArmorFloor), as BalanceArmor takes it
+        // the gun table's floor of the shot's pair, as BalanceArmor takes it
         boolean expl = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat);
         float floor = !expl || BalanceArmor.bulletBlastNow() ? BalanceGuns.floorOf(BalanceArmor.floorShot(source, expl), tier) : 1F;
         float drain = Math.min(amount, BalanceArmorRule.full(new BalanceArmorRule.Hit(amount * power, ctx.hbm$pierceDT(), ctx.hbm$pierceDR(), squeeze), s, st[1],
@@ -354,7 +338,7 @@ public final class EuphImmunity {
             if (kit == Kit.EUPHEMIUM) dropEffects(player);
             return false;
         }
-        // the gas's damage takes the pool HP for HP, as a shot (balance.final.pools.gas; Fable №2, 2.4)
+        // the gas's damage takes the pool HP for HP, as a shot (Fable №2, 2.4)
         boolean gas = gasDrains();
         // DNS and FAU: shots and blasts only; euphemium calls off every hit, its pool drained by melee as before
         String cat = kit == Kit.EUPHEMIUM ? BalanceArmor.categoryAny(source) : BalanceArmor.category(source);

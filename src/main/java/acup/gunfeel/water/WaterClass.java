@@ -13,47 +13,37 @@ import net.minecraft.core.registries.BuiltInRegistries;
 // (one block = 1 m); the bullet stops (f = 0.15) after L·ln(1/0.15) ≈ L·1.9 blocks of water. The numbers follow the
 // MythBusters measurements ("Bulletproof Water", 2005): supersonic rounds up to .50 broke up or stopped within ~0.9 m,
 // slow pistol rounds stayed dangerous to ~2.4 m, slugs went deeper; buckshot by the formula (00 pellet 3.5 g, Cd 0.45).
-// density = the projectile's density in g/cm³, for the critical angle of a skip off water, 18° / sqrt(density / 1)
-// (Birkhoff 1944, Hutchings 1976).
 public enum WaterClass {
-    PISTOL(1.25, 11.3, false),
-    RIFLE(0.65, 8.9, false),
-    HEAVY(0.7, 8.9, false),
-    AP(0.9, 7.85, false),
-    SLUG(1.4, 11.3, false),
-    SHOT(0.3, 11.3, false),
+    PISTOL(1.25, false),
+    RIFLE(0.65, false),
+    HEAVY(0.7, false),
+    AP(0.9, false),
+    SLUG(1.4, false),
+    SHOT(0.3, false),
     // 10 gauge DU: ten uranium mini-bullets 6×14 mm (~6 g, density 19), not balls: by the name
-    MINI(0.7, 19, false),
-    DART(2.0, 7.85, false),
-    GRENADE(3.0, 2.5, true),
-    ROCKET(4.0, 2.0, true),
+    MINI(0.7, false),
+    DART(2.0, false),
+    GRENADE(3.0, true),
+    ROCKET(4.0, true),
     // lasers, beams, the tau and capacitor guns: water does not slow them (steam on the surface is the effects' part)
-    BEAM(Double.POSITIVE_INFINITY, 0, false),
+    BEAM(Double.POSITIVE_INFINITY, false),
     // flamethrower fuel: goes out where it meets water
-    FLAME(0, 0, false),
+    FLAME(0, false),
     // what water does nothing to: the fire extinguisher's spray, the debug round
-    NONE(Double.POSITIVE_INFINITY, 0, false);
+    NONE(Double.POSITIVE_INFINITY, false);
 
     // stopping length L in blocks: +inf = not slowed, 0 = stops where it meets the liquid
     public final double length;
-    public final double density;
     // an impact fuze: goes off on water (the explosives part, waterFuze), skips under waterFuzeSkipAngle
     public final boolean explosive;
 
-    WaterClass(double length, double density, boolean explosive) {
+    WaterClass(double length, boolean explosive) {
         this.length = length;
-        this.density = density;
         this.explosive = explosive;
     }
 
     public boolean slows() {
         return length > 0 && length < Double.POSITIVE_INFINITY;
-    }
-
-    // the critical skip angle by the formula, degrees: lead 5.4, copper 6.0, steel 6.4, a grenade 11.4, a rocket 12.7;
-    // NaN for what does not skip. The rule itself goes by the settings (waterSkipAngle, waterFuzeSkipAngle).
-    public double formulaAngle() {
-        return density > 0 ? 18.0 / Math.sqrt(density) : Double.NaN;
     }
 
     // an expanding bullet (hollow or soft point): over the first `span` blocks of water it opens and its L falls

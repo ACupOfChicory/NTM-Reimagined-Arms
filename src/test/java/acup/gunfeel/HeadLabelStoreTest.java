@@ -26,7 +26,9 @@ class HeadLabelStoreTest {
         assertTrue(loaded.done("minecraft:wither"));
         var none=loaded.snapshot("hbm:test",Map.of());
         loaded.save("hbm:test",none,"none",Map.of());
-        assertEquals(2,new HeadLabelStore(root).completed());
+        var reloaded=new HeadLabelStore(root);
+        assertTrue(reloaded.done("minecraft:wither"));
+        assertTrue(reloaded.done("hbm:test"));
     }
     @Test void incompleteSelectionDoesNotOverwriteConfirmedExample() throws Exception {
         var store=new HeadLabelStore(root);

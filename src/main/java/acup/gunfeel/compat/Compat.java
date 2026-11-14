@@ -16,8 +16,8 @@ import org.apache.maven.artifact.versioning.VersionRange;
 // How the installed NTM fits the mod. The tested NTM versions are ntmTested in neoforge.mods.toml (a recommendation:
 // NeoForge loads any NTM). In that range everything runs as built (the build checks every mixin against that NTM).
 // Outside it HbmMixinPlugin checks each mixin into NTM and what the mod's code calls in NTM before anything is
-// applied, and turns off the systems (Feature) that do not fit; the player sees it on CompatScreen, the server in its
-// log, anyone in /gunfeel status.
+// applied, and turns off the systems (Feature) that do not fit; the player sees it on CompatClient.Warning, the server
+// in its log, anyone in /gunfeel status.
 public final class Compat {
     public static final String MOD_ID = "ntmgunfeel", HBM_ID = "hbm", HBM_CONFIG = "ntmgunfeel-hbm.mixins.json";
 

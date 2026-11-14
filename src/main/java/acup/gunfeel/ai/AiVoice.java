@@ -25,8 +25,6 @@ import net.minecraft.world.entity.Mob;
  */
 public final class AiVoice {
     public static final String KEY = "aiVoices";
-    /** off only for the stands' "before" */
-    static boolean on = true;
     /** voices the lines are recorded in (assets ntmgunfeel/sounds/ai/voice/v<n>/) */
     public static final int VOICES = 3;
     /** as loud as a sound gets (a player's aiVoiceVolume turns it down); heard this far (sounds.json's attenuation alike) */
@@ -76,7 +74,7 @@ public final class AiVoice {
     }
 
     static boolean enabled() {
-        return on && acup.gunfeel.ReaimTimes.flag(KEY, true);
+        return acup.gunfeel.ReaimTimes.flag(KEY, true);
     }
 
     /** its voice, the same each time for a mob (by its UUID's hash: kept over a reload) */

@@ -574,7 +574,7 @@ public final class BulletRules {
             #   own game): hole = old | spall | shatter | soot, scratch (a ricochet) = gouge | burn | lines, scorch
             #   (explosive and incendiary rounds) = star | blot | crater; each from the last matching line that names it,
             #   else by the block's material: stone, concrete spall/gouge/crater; glass shatter/lines/star; soft
-            #   soot/burn/blot; metal, steel, machine old/lines/star; the rest old/gouge/blot
+            #   soot/burn/blot; metal, steel, machine soot/lines/star; the rest soot/gouge/blot
             # entity <who> [particles=...] [sound=...] [to=all]   a bullet hits a creature (sound heard by the shooter,
             #   to=all: by everyone near)
             # kill <who> [particles=...] [sound=...] [to=all]     a bullet kills it

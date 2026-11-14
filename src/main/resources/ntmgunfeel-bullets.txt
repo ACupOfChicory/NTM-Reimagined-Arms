@@ -58,8 +58,8 @@ material hbm:vinyl_tile_large,hbm:vinyl_tile_small wood
 material hbm:tile_lab,hbm:tile_lab_cracked,hbm:tile_lab_broken stone
 # bullet marks (textures/effect, made on the decal generator page: review/decals) come from the block's material,
 # the same one its piercing uses: stone and concrete chip (spall, gouge, crater), glass cracks (shatter, lines, star),
-# soft ground takes a soft hole (soot, burn, blot), metal, steel and machines keep the old holes (old, lines, star),
-# the rest the old holes, a gouge, a blot. A decal line changes that for its blocks, each style from the last line
+# soft ground takes a soft hole (soot, burn, blot), and so do metal, steel and machines (soot, lines, star);
+# the rest a soot hole, a gouge, a blot. A decal line changes that for its blocks, each style from the last line
 # that names it: hole = old | spall | shatter | soot; scratch (a ricochet) = gouge | burn | lines;
 # scorch (explosive and incendiary rounds) = star | blot | crater
 # a grazing bullet bounces off hard blocks (NTM's ricochet) and digs into soft ground and wood; glass it breaks

@@ -149,9 +149,4 @@ public final class Gl54Ballistics {
     public static Holdover holdover(double distance) {
         return holdover(distance, Gl54Grenade.SPEED, Gl54Grenade.GRAVITY, AIR_DRAG);
     }
-
-    // the farthest a grenade goes at the eye's height
-    public static double maxRange() {
-        return range(farthestAngle(Gl54Grenade.SPEED, Gl54Grenade.GRAVITY, AIR_DRAG), 0);
-    }
 }

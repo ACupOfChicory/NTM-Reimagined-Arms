@@ -32,8 +32,7 @@ import net.minecraft.world.entity.player.Player;
  * <p>Blasts (balance.final.blast; Fable 12.3, BalanceBlastRule): a launcher's round's or an NTM hand grenade's blast on
  * the same targets takes the ladder's share of the health and pool, the GL-54's fragment grenades a burst's share; the
  * other blasts keep formula C (balanceBlast*). Out of it: an explosive bullet's blast on anyone but the creature it struck, and shots of no
- * pair of the table (NTM's mobs' and turrets' shots of no gun, other games' guns): NTM's numbers (balance.final.mobs =
- * ntm). Off: everything as X908.
+ * pair of the table (NTM's mobs' and turrets' shots of no gun, other games' guns): NTM's numbers. Off: everything as X908.
  */
 public final class BalanceFinal {
     private BalanceFinal() {
@@ -118,7 +117,7 @@ public final class BalanceFinal {
 
     /**
      * a beam made by the 3-argument constructor (MixinBalanceFinalBeamSub): the IR capacitor's arc (energy_tesla_ir_sub)
-     * takes the pair its shooter has just fired (balance.final.tesla.ir; Fable №2, 2.5). Its hit on the creature the
+     * takes the pair its shooter has just fired (Fable №2, 2.5). Its hit on the creature the
      * click's arc has just struck is nothing (againThisTick): an IR click is the table's click; on anyone else, a click
      * of the pair with no range rule.
      */
@@ -285,7 +284,7 @@ public final class BalanceFinal {
                 true);
         // the pairs, P the stand's (Fable №2, 1)
         List<String> bad = new ArrayList<>();
-        var pairs = BalanceFinalRule.pairs(lines(), Map.of(), bad, true);
+        var pairs = BalanceFinalRule.pairs(lines(), bad, true);
         for (String b : bad) LOGGER.warn("The balance's final pairs: a line not read: {}", b);
         List<BalanceFinalRule.Pair> formula = new ArrayList<>(pairs.values());
         Map<String, BalanceFinalRule.Armor> sets = new HashMap<>();
@@ -744,24 +743,6 @@ public final class BalanceFinal {
         if (log && BalanceLog.on()) BalanceLog.hit(target, source, projectile, id, tier, false);
         // the click is a burst whose cone all hits (the ring's fragments are the side spray, each the same)
         return (float) (click / Math.max(1, spec.cone()));
-    }
-
-    /** the stand: a blast's hits to kill near (up to a block) of a launcher's pair or "grenade.<filling>" on a set (NaN: none) */
-    static double blastNear(String pair, String set) {
-        State s = state();
-        var r = s.blast();
-        var a = s.sets().get(set);
-        if (a == null) a = BalanceFinalRule.MODEL_SETS.get(set);
-        int dot = pair.indexOf('.');
-        if (a == null || dot <= 0) return Double.NaN;
-        if (pair.startsWith("grenade.")) {
-            Double t = r.grenades().get(pair.substring(dot + 1));
-            return t == null ? Double.NaN : BalanceBlastRule.nearGrenade(BalanceBlastRule.target(t, a, s.params(), r), s.params(), r);
-        }
-        var l = r.launchers().get(pair.substring(0, dot));
-        Double round = r.rounds().get(pair.substring(dot + 1));
-        if (l == null || round == null) return Double.NaN;
-        return BalanceBlastRule.nearLauncher(l, BalanceBlastRule.target(BalanceBlastRule.pairTier(l, round, r.cap()), a, s.params(), r));
     }
 
     /** the stand: the scheme's pairs by id (gun.ammo) */

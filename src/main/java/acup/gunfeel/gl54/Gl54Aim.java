@@ -8,7 +8,7 @@ import net.minecraft.world.phys.Vec3;
 // 0.0625 down, so it moves a little with the aim, and the solution is taken again from where it then is. Aimed, NTM puts the
 // shot on the line of sight with no sideways shift (from the hip it is 0.1875 to the right); the marker is for the aimed gun.
 public final class Gl54Aim {
-    public static final double FORWARD = 0.75, DOWN = 0.0625, RIGHT = 0.0;
+    public static final double FORWARD = 0.75, DOWN = 0.0625;
 
     private Gl54Aim() {
     }
@@ -24,7 +24,7 @@ public final class Gl54Aim {
         double h = Math.hypot(f.x, f.z);
         Vec3 right = h < 1e-6 ? new Vec3(-1, 0, 0) : new Vec3(-f.z / h, 0, f.x / h);
         Vec3 up = right.cross(f);
-        return eye.add(f.scale(FORWARD)).add(up.scale(-DOWN)).add(right.scale(RIGHT));
+        return eye.add(f.scale(FORWARD)).add(up.scale(-DOWN));
     }
 
     // `look` only seeds the muzzle's place; the answer is the same for any look near the aim

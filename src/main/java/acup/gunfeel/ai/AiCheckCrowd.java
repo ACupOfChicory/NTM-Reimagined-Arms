@@ -58,10 +58,6 @@ final class AiCheckCrowd {
         return phase == Phase.DONE;
     }
 
-    private void set(int x, int yy, int z, BlockState st) {
-        level.setBlock(new BlockPos(x, yy, z), st, Block.UPDATE_CLIENTS);
-    }
-
     private static void health(Mob m) {
         var hp = m.getAttribute(Attributes.MAX_HEALTH);
         if (hp != null) hp.setBaseValue(1000);

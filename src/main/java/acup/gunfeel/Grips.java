@@ -31,7 +31,6 @@ public final class Grips {
 
     public static final Grip DEFAULT = new Grip(new float[] {0.5F, 0F, 0.33F}, new float[] {0.5F, 0F, 0.70F}, null, null);
     private static final String FILE = "ntm-gunfeel-guns.properties";
-    private static final String OLD_FILE = "ntm-gunfeel-grips.properties";
     // what this gun's settings are: the ones shipped in the jar (BUILTIN), with the player's file (USER) on top.
     // The file keeps only what differs from the jar; "" there hides a shipped value.
     private static final Map<String, String> BUILTIN = builtin();
@@ -40,9 +39,6 @@ public final class Grips {
     private static Path file;
     private static long stamp = Long.MIN_VALUE;
     private static int version;
-    private static String storedKey(String key) {
-        return key;
-    }
 
     public static int version() {
         return version;
@@ -111,40 +107,27 @@ public final class Grips {
 
     // this gun's value from the player's file, "" = hides the shipped one; null = none
     public static String own(String gun, String key) {
-        key = storedKey(key);
         String v = USER.get(gun + "." + key);
         return v != null ? v : USER.get(canon(gun) + "." + key);
     }
 
-    public static void set(Identifier id, boolean right, float x, float y, float z) {
-        set(id.toString(), right, x, y, z);
-    }
-
     // gun = "<gun id>" or "<gun id><missing parts>" for a variant (a sawn-off: "hbm:gun_maresleg-Stock-Barrel")
-    public static void set(String gun, boolean right, float x, float y, float z) {
-        set(gun, right, x, y, z, true);
-    }
-
     // save false: in effect at once, written to the file by flush() (the editor, while a slider is dragged)
     public static void set(String gun, boolean right, float x, float y, float z, boolean save) {
         gun = armsGun(gun);
         // a point in model units would win over these fractions: hide it
         String atKey = right ? "rightAt" : "leftAt";
-        String at = gun + "." + storedKey(atKey);
+        String at = gun + "." + atKey;
         if (VALUES.containsKey(gun + "." + atKey)) USER.put(at, "");
         else USER.remove(at);
         put(gun, right ? "right" : "left", ArmRig.vector(new float[] {x, y, z}), save);
     }
 
     // a point in model units for one hand (x left, y up, z to the muzzle)
-    public static void setAt(String gun, boolean right, float x, float y, float z) {
-        setAt(gun, right, x, y, z, true);
-    }
-
     public static void setAt(String gun, boolean right, float x, float y, float z, boolean save) {
         gun = armsGun(gun);
         // the point wins over fractions: the player's own ones go (the jar's stay, they are not the player's)
-        String frac = gun + "." + storedKey(right ? "right" : "left");
+        String frac = gun + "." + (right ? "right" : "left");
         if (!BUILTIN.containsKey(frac)) USER.remove(frac);
         put(gun, right ? "rightAt" : "leftAt", ArmRig.vector(new float[] {x, y, z}), save);
     }
@@ -158,7 +141,6 @@ public final class Grips {
         // a setting the gun has of its own stays its own; anything else goes to the gun it is the same as,
         // unless the gun was given arms of its own (the arm editor's "own arms")
         if (!key.equals("sameAs") && !VALUES.containsKey(gun + "." + key) && !(armKey(key) && ownArms(baseOf(gun)))) gun = canon(gun);
-        key = storedKey(key);
         String k = gun + "." + key;
         if (value == null || value.equals(BUILTIN.get(k))) USER.remove(k);
         else USER.put(k, value);
@@ -318,14 +300,6 @@ public final class Grips {
         return new ArrayList<>(out);
     }
 
-    // the gun has some arm key set (jar or player's file)
-    static boolean hasArms(String gun) {
-        String prefix = gun + ".";
-        for (Map.Entry<String, String> e : VALUES.entrySet())
-            if (e.getKey().startsWith(prefix) && armKey(e.getKey().substring(prefix.length())) && !e.getValue().isEmpty()) return true;
-        return false;
-    }
-
     // the arm keys of the shared gun and its variants ("<gun>-Barrel.left"), as this gun's keys, that this gun has not
     private static Map<String, String> armsOfShared(String gun) {
         Map<String, String> out = new TreeMap<>();
@@ -364,8 +338,8 @@ public final class Grips {
     public static void resetHand(String id, boolean right, boolean save) {
         id = armsGun(id);
         String h = right ? "right" : "left";
-        USER.remove(id + "." + storedKey(h));
-        USER.remove(id + "." + storedKey(h + "At"));
+        USER.remove(id + "." + h);
+        USER.remove(id + "." + h + "At");
         merge();
         if (save) save();
         else dirty = true;
@@ -374,21 +348,6 @@ public final class Grips {
     // the gun's own value of a key, as the player's file or the jar sets it for this gun; null = it takes the global one
     public static String gunValue(String gun, String key) {
         return overrides(gun).get(key);
-    }
-
-    public static void reset(Identifier id) {
-        reset(id.toString());
-    }
-
-    // hand positions back to the jar's (or computed from the model when the jar has none)
-    public static void reset(String id) {
-        id = armsGun(id);
-        USER.remove(id + ".right");
-        USER.remove(id + ".left");
-        USER.remove(id + ".rightAt");
-        USER.remove(id + ".leftAt");
-        merge();
-        save();
     }
 
     // "<gun id>.sameAs = <other gun id>": a gun with the same model (Sacred Dragon = Old Classic) reads and
@@ -432,12 +391,7 @@ public final class Grips {
     }
 
     private static Path file() throws IOException {
-        if (file == null) {
-            Path dir = FMLPaths.CONFIGDIR.get();
-            file = dir.resolve(FILE);
-            Path old = dir.resolve(OLD_FILE);
-            if (!Files.exists(file) && Files.exists(old)) Files.move(old, file);
-        }
+        if (file == null) file = FMLPaths.CONFIGDIR.get().resolve(FILE);
         return file;
     }
 

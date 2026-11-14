@@ -20,8 +20,4 @@ public final class FragFireRules {
     public static boolean ignites(boolean air, int flammableNeighbours) {
         return air && flammableNeighbours > 0;
     }
-
-    public static float radius() {
-        return WIDTH / 2F;
-    }
 }

@@ -14,8 +14,8 @@ import java.util.Set;
  * <p>A pair's line: {@code gun ammo mult neg pen}. The shot's damage is NTM's times {@code mult}; {@code neg} is added
  * to the ammo's armour threshold negation, {@code pen} to its armour piercing. Its extra column may give
  * {@code floor=} (the armour formula's least share b times this, on the sets of tier {@code from=}, 4 when not given, and
- * up: an armour-piercing round keeps more of itself against heavy armour, a soft one less; balanceArmorFloor) and
- * {@code under=T:mult:neg:pen} (the pair's numbers on sets below tier T; balanceGunUnder). A gun's own line (ammo {@code *}): a
+ * up: an armour-piercing round keeps more of itself against heavy armour, a soft one less) and
+ * {@code under=T:mult:neg:pen} (the pair's numbers on sets below tier T). A gun's own line (ammo {@code *}): a
  * mult for all its ammo (over its pairs; {@code -} for none) and the receiver's changes ({@code delay=}, {@code auto=},
  * {@code mag=}, {@code dmg=}).
  *
@@ -36,7 +36,7 @@ public final class BalanceGunsRule {
 
     /**
      * what a pair does to a shot; {@code floor}: the armour formula's least share b times this on the sets of tier
-     * {@code from} and up (balanceArmorFloor; 1: the formula's own); {@code tier}: the pair's tier, the table's sixth
+     * {@code from} and up (1: the formula's own); {@code tier}: the pair's tier, the table's sixth
      * column (-1: none given), which balanceArmorTierFloor goes by
      */
     public record Shot(float mult, float neg, float pen, float floor, int from, int tier, List<Under> under) {
@@ -48,10 +48,6 @@ public final class BalanceGunsRule {
 
         public Shot(float mult, float neg, float pen) {
             this(mult, neg, pen, 1F, FLOOR_FROM, -1);
-        }
-
-        public Shot(float mult, float neg, float pen, float floor, int from) {
-            this(mult, neg, pen, floor, from, -1);
         }
 
         public Shot(float mult, float neg, float pen, float floor, int from, int tier) {
@@ -75,7 +71,7 @@ public final class BalanceGunsRule {
 
     /**
      * {@code under=T:mult:neg:pen} in a pair's extra column: on a set of tier below {@code T} the pair hits with this
-     * mult, neg and pen in place of its line's (balanceGunUnder; the owner, 2026-11-12: Tau made tier 6 and 7 armour
+     * mult, neg and pen in place of its line's (the owner, 2026-11-12: Tau made tier 6 and 7 armour
      * paper). Of several, the least {@code T} above the set's tier.
      */
     public record Under(int below, float mult, float neg, float pen) {

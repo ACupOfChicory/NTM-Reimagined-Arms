@@ -17,11 +17,11 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Server, for testing until GL-54 throws its smoke grenade (operators only):
+ * Server, the operator's hand tool (operators only); clouds in play come from the GL-54's smoke and gas grenades:
  * <pre>
  * /gunsmoke                         a cloud where the player looks (the cell in front of the block hit), fanned along the look
- * /gunsmoke at x y z [count] [step] count clouds from x y z, step blocks apart along x (a stand's 8 clouds)
- * /gunsmoke kind name ...           the same of another kind (smoke)
+ * /gunsmoke at x y z [count] [step] count clouds from x y z, step blocks apart along x
+ * /gunsmoke kind name ...           the same of another kind (smoke, chlorine, phosgene, mustard, acid)
  * /gunsmoke clear                   every cloud of the level gone
  * /gunsmoke info                    clouds and the server's time on them
  * </pre>

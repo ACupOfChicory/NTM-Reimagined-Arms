@@ -53,42 +53,20 @@ public final class BulletFx {
         return id + ".f" + (last[1] + 1);
     }
 
-    // /gunfeel sounddebug: every hit's sound, what was picked and why it played or not, to the log ("[sounddebug]")
-    public static volatile boolean debugSound;
-
-    static void sd(String fmt, Object... args) {
-        if (debugSound) GunFeel.LOGGER.info("[sounddebug] " + fmt, args);
-    }
-
-    public static void blockHit(ClientLevel level, BlockHitResult hit, Vec3 dir) {
-        blockHit(level, hit, dir, false);
-    }
-
     // explosive: a round that blows up there; its own blast is loud enough, the hit sound stays at the rule's volume
     public static void blockHit(ClientLevel level, BlockHitResult hit, Vec3 dir, boolean explosive) {
         // a machine's window (MachineGlass): the sound and crumbs of glass
         boolean window = hit instanceof ModelSurface.GlassHit;
         BlockState state = window ? net.minecraft.world.level.block.Blocks.GLASS.defaultBlockState() : level.getBlockState(hit.getBlockPos());
-        if (debugSound) sd("hit {} {} at {}", BuiltInRegistries.BLOCK.getKey(state.getBlock()), hit.getBlockPos().toShortString(), hit.getLocation());
-        if (!Config.bulletFx) {
-            sd("  skipped: bulletFx off in the config");
-            return;
-        }
-        if (state.isAir()) {
-            sd("  skipped: air there on the client");
-            return;
-        }
+        if (!Config.bulletFx) return;
+        if (state.isAir()) return;
         // a cell of an NTM multiblock (the shared multiblock_cell_* blocks): the rules of its machine
         BlockState ruleState = window ? state : Cells.ruleState(level, hit.getBlockPos(), state);
-        if (debugSound && ruleState != state) sd("  cell of {}", BuiltInRegistries.BLOCK.getKey(ruleState.getBlock()));
         BulletRules.Effect fx = BulletRules.hit(ruleState);
         if (TestLog.client) TestLog.c(TestLog.shot(), "fx", "block", ruleState, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit),
                 "sound", fx.sound() == null ? "none" : fx.sound().id(), "particles", fx.particles().size(),
                 "full", state.isCollisionShapeFullBlock(level, hit.getBlockPos()), "explosive", explosive, "fxOn", Config.bulletFx);
-        if (fx.empty()) {
-            sd("  skipped: no hit rule gives it particles or a sound");
-            return;
-        }
+        if (fx.empty()) return;
         Vec3 at = hit.getLocation();
         Direction face = hit.getDirection();
         Vec3 hitAt = at;
@@ -171,22 +149,12 @@ public final class BulletFx {
                         : net.minecraft.client.Minecraft.getInstance().getModelManager().getBlockStateModelSet()
                                 .getParticleMaterial(state, level, hit.getBlockPos()).sprite().contents().name());
         BulletRules.Sound s = fx.sound();
-        if (s == null) {
-            sd("  no sound: its hit rule has none");
-            return;
-        }
+        if (s == null) return;
         String id = s.id().equalsIgnoreCase("block") ? "block" : familyOf(s.id(), r);
         SoundEvent e = id.equals("block") ? state.getSoundType().getHitSound() : event(id);
-        if (e == null) {
-            sd("  no sound: bad sound id {}", s.id());
-            return;
-        }
-        if (debugSound) sd("  rule sound {} -> {} (families {})", s.id(), e.location(), id.equals(s.id()) ? "none" : "yes");
+        if (e == null) return;
         float volume = s.volume() * (explosive ? Math.min(1F, Config.hitVolume) : Config.hitVolume);
-        if (volume <= 0F) {
-            sd("  not played: hitVolume 0");
-            return;
-        }
+        if (volume <= 0F) return;
         play(level, at, e, volume, s.pitch() * (0.9F + r.nextFloat() * 0.2F), fx.range());
     }
 
@@ -226,29 +194,15 @@ public final class BulletFx {
         if (range > fade) {
             Vec3 ear = Minecraft.getInstance().gameRenderer.mainCamera().position();
             double d = at.distanceTo(ear);
-            if (d >= range) {
-                if (debugSound) sd("  not played: {} blocks away, beyond its range {}", String.format("%.1f", d), range);
-                return;
-            }
+            if (d >= range) return;
             p = ear.add(at.subtract(ear).scale(fade / range));
         }
         // Minecraft plays no louder than volume 1: louder, the same track at the same pitch several times at once
         // (each copy at most 1, so each fades over `fade`)
         int copies = Math.min(4, Math.max(1, (int) Math.ceil(volume - 1e-3F)));
-        net.minecraft.client.resources.sounds.SimpleSoundInstance inst = null;
-        net.minecraft.client.sounds.SoundEngine.PlayResult result = null;
         for (int i = 0; i < copies; i++) {
-            inst = new net.minecraft.client.resources.sounds.SimpleSoundInstance(e, SoundSource.PLAYERS, volume / copies, pitch,
-                    RandomSource.create(seed), p.x, p.y, p.z);
-            result = sm.play(inst);
-        }
-        if (debugSound) {
-            Vec3 ear = Minecraft.getInstance().gameRenderer.mainCamera().position();
-            var w = sm.getSoundEvent(e.location());
-            sd("  played {} x{}: track {}, known {}, volume {}, pitch {}, {} blocks away (set at {}, fades over {}), result {}, active {}",
-                    e.location(), copies, inst.getSound() == null ? "?" : inst.getSound().getLocation(), w != null,
-                    String.format("%.2f", volume), String.format("%.2f", pitch), String.format("%.1f", at.distanceTo(ear)),
-                    String.format("%.1f", p.distanceTo(ear)), fade, result, sm.isActive(inst));
+            sm.play(new net.minecraft.client.resources.sounds.SimpleSoundInstance(e, SoundSource.PLAYERS, volume / copies, pitch,
+                    RandomSource.create(seed), p.x, p.y, p.z));
         }
     }
 

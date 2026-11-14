@@ -47,7 +47,6 @@ public final class Config {
     public static float modelRotate = 1.0F;
     public static float modelSpeed = 1.0F;
     public static float ntmRecoilAnim = 0.3F;
-    // all recoil (camera, gun model, NTM's recoil animation) times this while the chestplate is NTM power armor
     // all recoil times this while lying down (the prone key, or crawling under a trapdoor), as TaCZ's crawl
     public static float proneRecoil = 0.5F;
     // the prone key held lies down while it is held; off: a press lies down, the next gets up
@@ -145,7 +144,6 @@ public final class Config {
     // turn of an arm around its own axis while it loads shells, degrees; NaN = the same as armRollRight/Left
     public static float armLoadRollRight = Float.NaN;
     public static float armLoadRollLeft = Float.NaN;
-    // draw NTM's muzzle smoke rising up the screen whatever frame the renderer gives it (SPAS-12 sends it at the camera)
     public static boolean armCarryKeepAngle = false;
     public static boolean armPathBlend = false;
     public static float armSwitchMs = 0F;
@@ -266,7 +264,7 @@ public final class Config {
               not for a gun with a scope, nor for long guns
             armScaleRight, armScaleLeft: thickness of each arm holding the gun on top of armScale (not while carrying shells), 1 = unchanged
             armAimScaleRight, armAimScaleLeft: thickness of each arm holding the gun when aimed, in place of armScaleRight/Left; it goes over from one to the other as the gun comes up to the sights; 0 = the same as armScaleRight/Left
-            smokeQuality: how smoke clouds (the operator command /gunsmoke for now) are drawn: off (not drawn; inside one the screen still
+            smokeQuality: how smoke clouds (the GL-54's smoke and gas grenades, the operator command /gunsmoke) are drawn: off (not drawn; inside one the screen still
               goes grey), low, medium, high (the default) or ultra: the volume at a quarter, a third, half or the whole
               of the screen's resolution, with more steps along each ray the higher it is; slices: stacks of
               translucent layers (taken by itself with an Iris shader pack)
@@ -340,7 +338,7 @@ public final class Config {
               loaded again (F3+T), the smoke at once
             Every value except enabled can be overridden per gun in config/ntm-gunfeel-guns.properties
             (hbm\\:gun_maresleg.armRollLeft = -55) or with /gunfeel set <key> <value> for the held gun.
-            Hand positions per gun: <gun>.right / <gun>.left there, or /gunfeel grip""";
+            Hand positions per gun: <gun>.right / <gun>.left there, or the arm editor (key O)""";
 
     // quality presets: keys -> value; high is the built-in defaults
     static final java.util.Map<String, java.util.Map<String, String>> PRESETS = java.util.Map.of(

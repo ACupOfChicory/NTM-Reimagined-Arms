@@ -36,15 +36,10 @@ public enum GasKind {
     /** The cloud as the player sees it: a pale colour and the share one block at C = 1 stops. */
     public final int lookRgb;
     public final float lookAlpha;
-    public final boolean heavy;
-    /** The charge: cells of density 1 in all. */
-    public final float charge;
     public final float holdSeconds;
     public final HazardClass protection;
     /** Filter wear a tick at C = 1 (NTM's own gases wear it by 1; this applies to this mod's gases only). */
     public final float filterWear;
-    /** For a later fire-and-explosion rule; nothing reads it yet. */
-    public final boolean flammable;
     private final SmokeKind smoke;
 
     GasKind(String key, int smokeId, int rgb, float alpha, int lookRgb, float lookAlpha, boolean heavy, float charge, int holdSeconds, float fill, HazardClass protection, float filterWear) {
@@ -53,12 +48,9 @@ public enum GasKind {
         this.alpha = alpha;
         this.lookRgb = lookRgb;
         this.lookAlpha = lookAlpha;
-        this.heavy = heavy;
-        this.charge = charge;
         this.holdSeconds = holdSeconds;
         this.protection = protection;
         this.filterWear = filterWear;
-        this.flammable = false;
         float extinction = (float) -Math.log(1.0 - alpha);
         // one point to let it out of; the heavy ones sink and pool, the acid goes where it spreads
         this.smoke = new SmokeKind(smokeId, key, charge, RELEASE, 1, 0F, 0F, fill, 0.08F, heavy ? HEAVY_RISE : 0F, heavy ? HEAVY_SINK : 0.0005F,
@@ -73,11 +65,6 @@ public enum GasKind {
     /** The gas of a smoke kind, or null for smoke. */
     public static GasKind of(SmokeKind kind) {
         for (GasKind g : values()) if (g.smoke.id() == kind.id()) return g;
-        return null;
-    }
-
-    public static GasKind byKey(String key) {
-        for (GasKind g : values()) if (g.key.equals(key)) return g;
         return null;
     }
 }

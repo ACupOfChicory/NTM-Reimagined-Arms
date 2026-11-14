@@ -115,7 +115,7 @@ class WaterPathTest {
             assertNotNull(r.stop, e.getKey().name());
             double d = SURFACE - r.stop.y;
             assertEquals(e.getKey().length * Math.log(1 / 0.15), d, 1e-9);
-            assertEquals(WaterPath.stopDepth(e.getKey(), S), d, 1e-9);
+            assertEquals(WaterPath.stopDepth(e.getKey(), null, S), d, 1e-9);
             assertEquals(e.getValue(), d, 0.1, e.getKey().name());
             assertEquals(0.15, r.f, 1e-12);
             assertEquals(r.stop, r.end());
@@ -253,8 +253,9 @@ class WaterPathTest {
     void damageAndPiercingGoByEnergy() {
         var r = down(deep(), WaterClass.PISTOL, 1);
         Vec3 half = new Vec3(0.5, SURFACE - 0.5, 0.5), one = new Vec3(0.5, SURFACE - 1, 0.5);
-        assertEquals(Math.exp(-2 * 0.5 / 1.25), WaterPath.energy(r.fAt(half)), 1e-9);
-        assertEquals(Math.exp(-2 / 1.25), WaterPath.energy(r.fAt(one)), 1e-9);
+        double fh = r.fAt(half), fo = r.fAt(one);
+        assertEquals(Math.exp(-2 * 0.5 / 1.25), fh * fh, 1e-9);
+        assertEquals(Math.exp(-2 / 1.25), fo * fo, 1e-9);
         assertEquals(0.5 + 0.5 * Math.exp(-1 / 1.25), WaterPath.holeScale(r.fAt(one)), 1e-9);
         // past the stop nothing is left to hit: the path ends there
         assertTrue(r.fAt(new Vec3(0.5, 1, 0.5)) <= 0.15 + 1e-12);
@@ -415,16 +416,6 @@ class WaterPathTest {
         assertEquals(java.util.List.of(Type.ENTER, Type.EXIT, Type.ENTER, Type.EXIT), r.events.stream().map(WaterEvents.Event::type).toList());
         assertEquals(Math.exp(-2 / 2.0), r.f, 1e-9);
         assertEquals(Math.exp(-1 / 2.0), r.fAt(new Vec3(2, 0.5, 0.5)), 1e-9);
-    }
-
-    @Test
-    void skipAnglesByTheFormula() {
-        assertEquals(5.35, WaterClass.PISTOL.formulaAngle(), 0.01);
-        assertEquals(6.03, WaterClass.RIFLE.formulaAngle(), 0.01);
-        assertEquals(6.42, WaterClass.AP.formulaAngle(), 0.01);
-        assertEquals(4.13, WaterClass.MINI.formulaAngle(), 0.01);
-        assertEquals(11.38, WaterClass.GRENADE.formulaAngle(), 0.01);
-        assertEquals(12.73, WaterClass.ROCKET.formulaAngle(), 0.01);
     }
 
     // A path that meets the water exactly on the edge of its top and a side (both planes at the same t) comes in through

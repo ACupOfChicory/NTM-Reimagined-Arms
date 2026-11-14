@@ -163,12 +163,8 @@ class PistolHoldTest {
         Matrix4f pose = new Matrix4f().translation(0F, 0F, 0.875F);
         Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
         float aX = 0F, aY = -0.4F, aZ = 0.5F;
-        Vector3f old = new Vector3f(), same = new Vector3f();
-        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, old));
+        Vector3f same = new Vector3f();
         assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, same));
-        assertEquals(old.x, same.x, 0F);
-        assertEquals(old.y, same.y, 0F);
-        assertEquals(old.z, same.z, 0F);
 
         Vector3f x = new Vector3f(), y = new Vector3f(), z = new Vector3f();
         assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 0F, 1F, 1F, x));
@@ -177,7 +173,7 @@ class PistolHoldTest {
         Vector3f mx = pose.transformPosition(new Vector3f(x).add(ends[2]));
         Vector3f my = pose.transformPosition(new Vector3f(y).add(ends[2]));
         Vector3f mz = pose.transformPosition(new Vector3f(z).add(ends[2]));
-        Vector3f m0 = pose.transformPosition(new Vector3f(old).add(ends[2]));
+        Vector3f m0 = pose.transformPosition(new Vector3f(same).add(ends[2]));
         assertEquals(0F, mx.x, 1e-5F);
         assertEquals(m0.y, mx.y, 1e-5F);
         assertEquals(m0.z, mx.z, 1e-5F);
@@ -240,7 +236,7 @@ class PistolHoldTest {
         Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
         float aX = 0F, aY = -0.4F, aZ = 0.5F;
         Vector3f still = new Vector3f();
-        assertTrue(PistolHold.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, still));
+        assertTrue(PistolHold.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, still));
         // the middle at rest, in view space
         Vector3f p0 = ntm.transformPosition(new Vector3f(still).add(ends[2]));
         float len = 3F;
@@ -253,7 +249,7 @@ class PistolHoldTest {
         Matrix4f move = new Matrix4f().translation(shift).translate(pivot).rotateZ(0.25F).rotateY(0.5F).rotateX(0.5F)
                 .translate(-pivot.x, -pivot.y, -pivot.z);
         Vector3f hip = new Vector3f();
-        assertTrue(PistolHold.hip(new Matrix4f(move).mul(ntm), move, ends, aX, aY, aZ, hip));
+        assertTrue(PistolHold.hip(new Matrix4f(move).mul(ntm), move, ends, aX, aY, aZ, 1F, 1F, 1F, hip));
         assertEquals(still.x, hip.x, 1e-5F);
         assertEquals(still.y, hip.y, 1e-5F);
         assertEquals(still.z, hip.z, 1e-5F);
@@ -273,7 +269,7 @@ class PistolHoldTest {
         Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
         float aX = 0F, aY = -0.4F, aZ = 0.5F;
         Vector3f still = new Vector3f();
-        assertTrue(PistolHold.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, still));
+        assertTrue(PistolHold.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, still));
         Vector3f p0 = ntm.transformPosition(new Vector3f(still).add(ends[2]));
         // moved knows the gun only by reference: null stands for the gun drawn (no registries in a unit test)
         net.minecraft.world.item.Item item = null;
@@ -291,7 +287,7 @@ class PistolHoldTest {
         Matrix4f moved = WalkSprint.moved(item);
         for (int i = 0; i < 16; i++) assertEquals(sway.get(i / 4, i % 4), moved.get(i / 4, i % 4), 1e-6F);
         Vector3f hip = new Vector3f();
-        assertTrue(PistolHold.hip(new Matrix4f(sway).mul(ntm), moved, ends, aX, aY, aZ, hip));
+        assertTrue(PistolHold.hip(new Matrix4f(sway).mul(ntm), moved, ends, aX, aY, aZ, 1F, 1F, 1F, hip));
         Vector3f got = new Matrix4f(sway).mul(ntm).transformPosition(new Vector3f(hip).add(ends[2]));
         Vector3f want = sway.transformPosition(new Vector3f(p0));
         assertEquals(want.x, got.x, 1e-4F);
@@ -309,14 +305,15 @@ class PistolHoldTest {
         Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
         float aX = 0F, aY = -0.4F, aZ = 0.5F;
         Vector3f still = new Vector3f();
-        assertTrue(PistolHold.hip(new Matrix4f(), ntm, new Matrix4f(), ends, aX, aY, aZ, still));
+        assertTrue(PistolHold.hip(new Matrix4f(), ntm, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, still));
         // looking 135° to the side and 30° down, with the turn's sway in the pose
         Matrix4f view = new Matrix4f().rotateX(0.52F).rotateY(2.36F);
         Matrix4f inView = new Matrix4f(view).invert();
         Matrix4f sway = new Matrix4f().translation(0.05F, 0F, 0F).rotateY(0.1F);
         Matrix4f moved = new Matrix4f(inView).mul(sway).mul(view);
         Vector3f hip = new Vector3f();
-        assertTrue(PistolHold.hip(view, new Matrix4f(moved).mul(inView).mul(ntm), moved, ends, aX, aY, aZ, hip));
+        assertTrue(PistolHold.hip(view, new Matrix4f(moved).mul(inView).mul(ntm), moved,
+                ends, aX, aY, aZ, 1F, 1F, 1F, hip));
         assertEquals(still.x, hip.x, 1e-4F);
         assertEquals(still.y, hip.y, 1e-4F);
         assertEquals(still.z, hip.z, 1e-4F);

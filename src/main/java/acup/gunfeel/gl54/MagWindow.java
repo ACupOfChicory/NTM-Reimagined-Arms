@@ -42,18 +42,9 @@ public final class MagWindow {
         return out;
     }
 
-    // the index of the cell the next grenade goes in (the empty cell next to the stack), -1 when full
-    public static int insertCell(List<String> remaining) {
-        return remaining.size() >= CELLS ? -1 : CELLS - remaining.size() - 1;
-    }
-
     // the cell of the grenade that can be taken out (the leftmost), -1 when empty
     public static int takeCell(List<String> remaining) {
         return remaining.isEmpty() ? -1 : CELLS - remaining.size();
-    }
-
-    public static String first(List<String> remaining) {
-        return remaining.isEmpty() ? "" : remaining.get(0);
     }
 
     // one grenade out: the rest after taking remaining[0]

@@ -18,13 +18,16 @@ import net.minecraft.world.item.ItemStack;
 //    spreadStack = 0: only the body state that weighs most (crawl, then sneak, then move, else stand), times aim;
 //  - spreadAimKnee, spreadAimOver (Fable №3, the shotguns' aimed choke): aimed, NTM's spread past the knee counts
 //    spreadAimOver times, before all the rest; spreadHipKnee, spreadHipOver the same from the hip (the SPAS-12, which
-//    has no aim; owner 2026-11-13); a knee of 0 (the default): NTM's spread as it is;
+//    has no aim; owner 2026-11-13); a knee of 0 (the default): NTM's spread as it is (the balance's keys, BalanceKeys:
+//    not the server's file);
 //  - spreadSpeed is added per walking speed, spreadAir while off the ground;
 //  - spreadBloom is added per shot, at most spreadBloomMax, halving every spreadBloomHalfLife seconds; sneaking and
 //    crawling hold it down by their multipliers;
 //  - powerArmorSpread.<set>: in NTM's power armour and Trenchmaster (PowerArmor.spread, by the chestplate's set) what
 //    moving, the air and the bloom add counts that many times (the pace for spreadMove and spreadSpeed, spreadAir, the
-//    bloom); NTM's own spread, the stances and aiming stay. powerArmorSpread in the server's file: one for every set.
+//    bloom); NTM's own spread, the stances and aiming stay. powerArmorSpread with no set: only a power armour
+//    chestplate with no line of its own. These are the balance's keys (BalanceKeys): fixed in the mod, the server's
+//    file sets them only on the stands (-Dntmgunfeel.balanceKeys=true).
 public final class Spread {
     // per shooter: the game tick of the last shot, the bloom that shot met, and the bloom it left
     private static final class Bloom {
@@ -43,8 +46,8 @@ public final class Spread {
         String gun = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
         // the choke first, on NTM's spread alone: before the mod's multipliers and what it adds; aimed by
         // spreadAimKnee, from the hip by spreadHipKnee (the SPAS-12, which has no aim)
-        spread = aim ? SpreadModel.choke(spread, true, get(gun, "spreadAimKnee", 0F), get(gun, "spreadAimOver", 1F))
-                : SpreadModel.choke(spread, true, get(gun, "spreadHipKnee", 0F), get(gun, "spreadHipOver", 1F));
+        spread = aim ? SpreadModel.choke(spread, get(gun, "spreadAimKnee", 0F), get(gun, "spreadAimOver", 1F))
+                : SpreadModel.choke(spread, get(gun, "spreadHipKnee", 0F), get(gun, "spreadHipOver", 1F));
         boolean crawl = e.isVisuallyCrawling();
         boolean sneak = !crawl && e.isCrouching();
         var mv = e.getKnownSpeed(); // blocks moved last tick; for a player, what the client last sent

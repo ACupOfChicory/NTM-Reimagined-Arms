@@ -45,19 +45,6 @@ final class ReflexMath {
         return new double[] {s[0] + (e[0] - s[0]) * t, s[1] + (e[1] - s[1]) * t};
     }
 
-    static List<double[]> disk(double cx, double cy, double r, int n) {
-        List<double[]> out = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            double t = 2 * Math.PI * i / n;
-            out.add(new double[] {cx + r * Math.cos(t), cy + r * Math.sin(t)});
-        }
-        return out;
-    }
-
-    static List<double[]> rect(double x0, double y0, double x1, double y1) {
-        return List.of(new double[] {x0, y0}, new double[] {x1, y0}, new double[] {x1, y1}, new double[] {x0, y1});
-    }
-
     // the 3 x 5 pixel font of the range: rows from the top, '#' a lit pixel
     private static final String[][] GLYPHS = {
             {"###", "#.#", "#.#", "#.#", "###"}, {".#.", "##.", ".#.", ".#.", "###"}, {"###", "..#", "###", "#..", "###"},

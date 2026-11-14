@@ -23,9 +23,7 @@ class MagWindowTest {
         List<String> m = List.of("ap", "inc");
         List<String> after = MagWindow.insert(m, "he");
         assertEquals(List.of("he", "ap", "inc"), after);
-        assertEquals("he", MagWindow.first(after));
-        assertEquals(5, MagWindow.insertCell(m), "the empty cell next to the stack");
-        assertEquals(0, MagWindow.insertCell(List.of("a", "b", "c", "d", "e", "f", "g")));
+        assertEquals("he", after.get(0));
     }
 
     @Test
@@ -35,9 +33,9 @@ class MagWindowTest {
         m = MagWindow.insert(m, "ap");
         m = MagWindow.insert(m, "inc");
         assertEquals(List.of("inc", "ap", "he"), m);
-        assertEquals("inc", MagWindow.first(m));
+        assertEquals("inc", m.get(0));
         m = MagWindow.take(m);
-        assertEquals("ap", MagWindow.first(m));
+        assertEquals("ap", m.get(0));
         m = MagWindow.take(m);
         m = MagWindow.take(m);
         assertEquals(List.of(), m);
@@ -49,7 +47,7 @@ class MagWindowTest {
         List<String> m = List.of("a", "b", "c", "d");
         StringBuilder out = new StringBuilder();
         while (!m.isEmpty()) {
-            out.append(MagWindow.first(m));
+            out.append(m.get(0));
             m = MagWindow.take(m);
         }
         assertEquals("abcd", out.toString());
@@ -59,7 +57,6 @@ class MagWindowTest {
     void fullOrNotAGrenadeChangesNothing() {
         List<String> full = List.of("a", "b", "c", "d", "e", "f", "g", "h");
         assertSame(full, MagWindow.insert(full, "he"));
-        assertEquals(-1, MagWindow.insertCell(full));
         List<String> m = List.of("he");
         assertSame(m, MagWindow.insert(m, ""));
         assertSame(m, MagWindow.insert(m, null));

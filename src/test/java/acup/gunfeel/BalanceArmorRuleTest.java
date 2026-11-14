@@ -11,7 +11,7 @@ class BalanceArmorRuleTest {
     private static final BalanceArmorRule.Tune T = BalanceArmorRule.Tune.DEFAULT;
 
     private static float c(float d, float neg, float pen, double s, double tau) {
-        return BalanceArmorRule.full(new BalanceArmorRule.Hit(d, neg, pen, true), s, tau, T);
+        return BalanceArmorRule.full(new BalanceArmorRule.Hit(d, neg, pen, true), s, tau, T, 1.0);
     }
 
     @Test
@@ -46,16 +46,15 @@ class BalanceArmorRuleTest {
         float strong = c(1000F, 0F, 0F, 8, 1.0);
         assertTrue(strong <= 14F * 0.94F + 1e-4F && strong > 13F, "strong " + strong);
         // a blast past the raw limit is not squeezed
-        float raw = BalanceArmorRule.full(new BalanceArmorRule.Hit(100F, 0F, 0F, false), 8, 1.0, T);
+        float raw = BalanceArmorRule.full(new BalanceArmorRule.Hit(100F, 0F, 0F, false), 8, 1.0, T, 1.0);
         assertEquals(100F * 0.94F, raw, 0.5F);
         assertEquals(0F, c(0F, 5F, 0F, 8, 1.0));
     }
 
     @Test
     void floor() {
-        // the gun table's floor (balanceArmorFloor): 1 is the formula's own
+        // the gun table's floor: 1 is the formula's own
         var ap = new BalanceArmorRule.Hit(3.23F, 17.5F, 0.15F, true);
-        assertEquals(BalanceArmorRule.full(ap, 159, 6.0, T), BalanceArmorRule.full(ap, 159, 6.0, T, 1.0), 1e-6F);
         // a weak hit on CMB is all floor: the floor times it (the Ma Deuce's AP, its mult x0.345)
         float one = BalanceArmorRule.full(ap, 159, 6.0, T, 1.0), three = BalanceArmorRule.full(ap, 159, 6.0, T, 3.0);
         assertEquals(3.0, three / one, 0.15);

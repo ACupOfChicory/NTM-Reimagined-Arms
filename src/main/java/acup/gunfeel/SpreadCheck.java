@@ -1,7 +1,6 @@
 package acup.gunfeel;
 
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -176,7 +175,7 @@ public final class SpreadCheck {
                     float hipOver = ReaimTimes.number(gun + ".spreadHipOver", ReaimTimes.number("spreadHipOver", 1F));
                     float got = SPREAD.get(k);
                     float x942 = effAim ? base * stand * aimMult : (base + hip) * stand;
-                    float want = effAim ? SpreadModel.choke(base, true, knee, over) * stand * aimMult : SpreadModel.choke(base + hip, true, hipKnee, hipOver) * stand;
+                    float want = effAim ? SpreadModel.choke(base, knee, over) * stand * aimMult : SpreadModel.choke(base + hip, hipKnee, hipOver) * stand;
                     String what = c + (aim && !canAim ? " (no aim key: from the hip)" : "");
                     CHOKE_LINES.add(String.join("\t", "choke", gun, gc[1], what, f(base), f(hip), f(effAim ? knee : hipKnee), f(effAim ? over : hipOver), f(x942), f(want), f(got)));
                     boolean listed = java.util.Arrays.asList(CHOKED).contains(gc[0]);

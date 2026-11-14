@@ -25,6 +25,11 @@ class BalanceBlastRuleTest {
         return BalanceBlastRule.nearLauncher(l, BalanceBlastRule.target(BalanceBlastRule.pairTier(l, R.rounds().get(round), R.cap()), a, P, R));
     }
 
+    /** hits of a share to kill (the stand's count) */
+    private static int hitsOf(double share) {
+        return share <= 0 ? Integer.MAX_VALUE : (int) Math.ceil(1 / share - 1e-9);
+    }
+
     @Test
     void launchersNearByTable123() {
         Map<String, int[]> table = Map.of("gl54 he", new int[] {3, 5, 6, 16, 31, 124, 168}, "congolake g40_he", new int[] {2, 4, 5, 16, 21, 77, 99},
@@ -39,7 +44,7 @@ class BalanceBlastRuleTest {
         int[] direct = {2, 4, 4, 11, 21, 83, 112};
         for (int i = 0; i < SETS.length; i++) {
             double share = BalanceBlastRule.share(near("gl54", "he", SETS[i]), BalanceBlastRule.where(true, 0, 3, R.hits()));
-            assertEquals(direct[i], BalanceBlastRule.hitsOf(share), "gl54 he direct on " + SETS[i].kind());
+            assertEquals(direct[i], hitsOf(share), "gl54 he direct on " + SETS[i].kind());
         }
     }
 
@@ -59,10 +64,10 @@ class BalanceBlastRuleTest {
         // Fable 10.2 (blasts.py): 3 x T(d)/T(0) x (1 + pool/20) near, x1 at a block, x0.75 at 3, at least two
         double heHev = BalanceBlastRule.nearGrenade(BalanceBlastRule.target(1, SETS[2], P, R), P, R);
         assertEquals(3 * BalanceFinalRule.ttkOf(-2, P) / BalanceFinalRule.ttkOf(0, P), heHev, 1e-9);
-        assertEquals(12, BalanceBlastRule.hitsOf(BalanceBlastRule.share(heHev, BalanceBlastRule.where(false, 0.7, 15, R.hits()))));
-        assertEquals(16, BalanceBlastRule.hitsOf(BalanceBlastRule.share(heHev, BalanceBlastRule.where(false, 3, 15, R.hits()))));
+        assertEquals(12, hitsOf(BalanceBlastRule.share(heHev, BalanceBlastRule.where(false, 0.7, 15, R.hits()))));
+        assertEquals(16, hitsOf(BalanceBlastRule.share(heHev, BalanceBlastRule.where(false, 3, 15, R.hits()))));
         // never more than half: two hits at least
-        assertEquals(2, BalanceBlastRule.hitsOf(BalanceBlastRule.share(0.5, 1.5)));
+        assertEquals(2, hitsOf(BalanceBlastRule.share(0.5, 1.5)));
         // the edge of the reach
         assertEquals(0.4, BalanceBlastRule.where(false, 15, 15, R.hits()), 1e-9);
         assertTrue(BalanceBlastRule.where(false, 9, 15, R.hits()) < 0.75 && BalanceBlastRule.where(false, 9, 15, R.hits()) > 0.4);

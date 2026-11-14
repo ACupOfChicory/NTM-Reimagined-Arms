@@ -540,12 +540,6 @@ public final class PassableClip extends ClipContext {
         return (shell(bits) ? "!z" : "z") + java.util.Base64.getEncoder().encodeToString(bytes.toByteArray());
     }
 
-    public static String hex(long[] bits) {
-        StringBuilder b = new StringBuilder(1024);
-        for (long l : bits) b.append(String.format("%016x", l));
-        return b.toString();
-    }
-
     public static boolean cell(long[] bits, int x, int y, int z) {
         int i = x + 16 * (y + 16 * z);
         return (bits[i >> 6] >>> (i & 63) & 1L) != 0L;

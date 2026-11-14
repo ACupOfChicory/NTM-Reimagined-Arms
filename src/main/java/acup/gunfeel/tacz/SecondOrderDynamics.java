@@ -3,7 +3,7 @@
 // https://github.com/MCModderAnchor/TACZ, revision 19f14c8, src/main/java/com/tacz/guns/util/math/SecondOrderDynamics.java.
 // Changes: the package; GunTime is acup.gunfeel.tacz.GunTime; the pool's threads are daemons (TaCZ's inherit the
 // render thread's flag and keep the game from closing); target, py and pyd are volatile (written and read by both the
-// frame and the filter's thread).
+// frame and the filter's thread); stop() and its flag are dropped (never called).
 package acup.gunfeel.tacz;
 
 import net.minecraft.client.Minecraft;
@@ -34,8 +34,6 @@ public class SecondOrderDynamics {
     private float px;
 
     private volatile float target;
-
-    private boolean stop = false;
 
     /**
      * @param f  Natural frequency
@@ -75,12 +73,8 @@ public class SecondOrderDynamics {
         return py + 0.05f * pyd;
     }
 
-    public void stop() {
-        this.stop = true;
-    }
-
     private void update() {
-        while (!stop) {
+        while (true) {
             if (Minecraft.getInstance() == null || GunTime.shouldTick()) {
                 // 修正罕见的 NAN 错误
                 if (Float.isNaN(py)) {

@@ -94,8 +94,8 @@ class DecalsTest {
 
     @Test
     void laterRulesWinStyleByStyle() {
-        assertEquals(Decals.Set.DEFAULT, Decals.Set.of(List.of()));
-        Decals.Set s = Decals.Set.of(List.of(
+        assertEquals(Decals.Set.DEFAULT, Decals.Set.of(Decals.Set.DEFAULT, List.of()));
+        Decals.Set s = Decals.Set.of(Decals.Set.DEFAULT, List.of(
                 Map.of("hole", "spall", "scratch", "lines", "scorch", "crater"),
                 Map.of("hole", "shatter"),
                 Map.of("scratch", "typo", "scorch", "blot")));

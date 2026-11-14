@@ -66,7 +66,7 @@ public final class AiMover {
     /** the map's count of changed blocks at the last check: a walked path is checked the tick a block changes */
     private long seenChanges;
     private PathSearch.Cost cost = PathSearch.Cost.NONE;
-    // for /armsai info and the stands
+    // for the stands
     public int searches, failures, stuckJumps, kept;
     public long searchNanos;
 
@@ -194,7 +194,6 @@ public final class AiMover {
         return goal != Long.MIN_VALUE && tries >= TRIES;
     }
 
-    /** the cells of the path being walked, or none */
     /** for the stands' traces */
     public String state() {
         PathSearch.Result w = walking;
@@ -219,6 +218,7 @@ public final class AiMover {
         return w != null && !fresh(map, w, walkStamps);
     }
 
+    /** the cells of the path being walked, or none */
     public long[] path() {
         PathSearch.Result w = walking;
         return w == null ? new long[0] : w.cells;

@@ -18,9 +18,8 @@ public final class WaterSurface {
     private WaterSurface() {
     }
 
-    // y = the surface there; fx, fz = getFlow; gx, gz = the slope (east minus west, south minus north); depth = the
-    // water column from the surface to the bottom; b* = the top water cell
-    public record Info(double y, double fx, double fz, double gx, double gz, boolean still, double depth, int bx, int by, int bz) {
+    // y = the surface there; fx, fz = getFlow; depth = the water column from the surface to the bottom
+    public record Info(double y, double fx, double fz, boolean still, double depth) {
     }
 
     // water for the effects: any liquid but lava
@@ -89,8 +88,7 @@ public final class WaterSurface {
                 q.move(0, -1, 0);
             }
         }
-        return new Info(h, flow.x, flow.z, ((c[3] + c[2]) - (c[0] + c[1])) / 2, ((c[1] + c[2]) - (c[0] + c[3])) / 2,
-                flow.x == 0 && flow.z == 0, d, bx, by, bz);
+        return new Info(h, flow.x, flow.z, flow.x == 0 && flow.z == 0, d);
     }
 
     // the surface height at (x, z) on a cell's corners {NW, SW, SE, NE}

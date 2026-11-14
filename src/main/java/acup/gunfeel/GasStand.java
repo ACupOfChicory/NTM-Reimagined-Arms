@@ -96,7 +96,6 @@ final class GasStand {
     private static Scenario sc;
     private static final List<Sub> SUBS = new ArrayList<>();
     private static final List<String> ROWS = new ArrayList<>(), SUMMARY = new ArrayList<>();
-    private static int lastCloudId = -1;
     // client side checks
     private static float clientMaxChlorine, clientMaxK;
     private static boolean clientCough, clientNoSprint;
@@ -579,7 +578,6 @@ final class GasStand {
     // ---- the pit
 
     private static int pitStart, pitKind;
-    private static final BlockPos PIT_AT = new BlockPos(34, Y - 3, 8);
 
     private static void pitTick(ServerLevel level) {
         counter++;

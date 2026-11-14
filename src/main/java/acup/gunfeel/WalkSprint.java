@@ -208,26 +208,17 @@ public final class WalkSprint {
     /**
      * Walking: u = cycle phase 0..1 (two steps, from where the walk began), aiming 0..1. From the hip the gun leans to
      * the left and swings, the muzzle goes left and right once a cycle and the gun dips at each step; aimed it stays
-     * almost still (the measured walk while aimed).
+     * almost still (the measured walk while aimed). By the weight w: the measured turn's vector and the shift times w,
+     * so all of the turn comes in together.
      */
-    static Pose walk(float u, float aiming, boolean pistol) {
-        return walk(u, aiming, pistol, 1F);
-    }
-
-    /** The same by the weight w: the measured turn's vector and the shift times w, so all of the turn comes in together. */
     static Pose walk(float u, float aiming, boolean pistol, float w) {
         return pose(pistol ? WALK_PISTOL : WALK_LONG, pistol ? WALK_AIMED_PISTOL : WALK_AIMED_LONG, Math.clamp(aiming, 0F, 1F), u, w);
     }
 
     /**
      * Sprinting: u = cycle phase 0..1 (from where the run began), flying 0..1. The gun raised, turned to the left and
-     * leaned over, swinging with the run; flying, the same pose without the swing.
+     * leaned over, swinging with the run; flying, the same pose without the swing. By the weight w (see walk).
      */
-    static Pose sprint(float u, float flying, boolean pistol) {
-        return sprint(u, flying, pistol, 1F);
-    }
-
-    /** The same by the weight w (see walk). */
     static Pose sprint(float u, float flying, boolean pistol, float w) {
         return pose(pistol ? SPRINT_PISTOL : SPRINT_LONG, pistol ? FLY_PISTOL : FLY_LONG, Math.clamp(flying, 0F, 1F), u, w);
     }

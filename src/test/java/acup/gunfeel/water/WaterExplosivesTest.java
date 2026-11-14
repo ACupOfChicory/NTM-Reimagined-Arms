@@ -14,8 +14,8 @@ import acup.gunfeel.water.WaterPath.Cell;
 import acup.gunfeel.water.WaterPath.Settings;
 import net.minecraft.world.phys.Vec3;
 
-// The explosives' part without a world: which ammo has a fuze or sets alight, where a blast stands to water, how much
-// of it a mob in and out of the water takes, how a stopped explosive sinks, and the fuze's skip angle.
+// The explosives' part without a world: which ammo has a fuze or sets alight, where a blast stands to water, how a
+// stopped explosive sinks, and the fuze's skip angle.
 class WaterExplosivesTest {
     @Test
     void fuzesByTheAmmo() {
@@ -75,22 +75,6 @@ class WaterExplosivesTest {
         var sea = new WaterPathTest.World().pool(0, 0, 0, 20, 0, 0);
         assertNull(WaterBlast.place(sea, new Vec3(0.5, 0.5, 0.5)).surface());
         assertTrue(WaterBlast.place(sea, new Vec3(0.5, 0.5, 0.5)).inWater());
-    }
-
-    @Test
-    void aBlastInWaterReachesFurtherInItAndLessOutOfIt() {
-        // Lego.standardExplode at range 5 (b75_exp, g40_he): CrossSmooth, fixed × (1 - d / 10)
-        float fixed = 20F, size = 5F, mult = 1.5F;
-        // the mob 2 blocks off: in the air as NTM has it
-        assertEquals(20 * (1 - 2 / 10.0), WaterBlast.smooth(fixed, 2, size, false, false, mult), 1e-5);
-        // the centre and the mob in water: the range 15
-        assertEquals(20 * (1 - 2 / 15.0), WaterBlast.smooth(fixed, 2, size, true, true, mult), 1e-5);
-        // the centre in water, the mob over it: half of what it would take
-        assertEquals(0.5 * 20 * (1 - 2 / 10.0), WaterBlast.smooth(fixed, 2, size, true, false, mult), 1e-5);
-        // 12 blocks off: in water still hit, out of it not
-        assertTrue(WaterBlast.smooth(fixed, 12, size, true, true, mult) > 0);
-        assertEquals(0, WaterBlast.smooth(fixed, 12, size, true, false, mult));
-        assertEquals(0, WaterBlast.smooth(fixed, 12, size, false, false, mult));
     }
 
     @Test

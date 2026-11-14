@@ -16,12 +16,12 @@ class GunWeightTest {
     @Test
     void theFileHasEveryClassedGun() {
         Map<Weight, Long> n = GunWeight.all().values().stream().collect(Collectors.groupingBy(GunWeight.Gun::weight, Collectors.counting()));
-        assertEquals(28L, n.get(Weight.LIGHT));
-        // NTM's 23 and the GL-54
-        assertEquals(24L, n.get(Weight.MEDIUM));
+        assertEquals(23L, n.get(Weight.LIGHT));
+        // NTM's 18 and the GL-54
+        assertEquals(19L, n.get(Weight.MEDIUM));
         assertEquals(19L, n.get(Weight.HEAVY));
         assertEquals(9L, n.get(Weight.SUPER_HEAVY));
-        assertEquals(80, GunWeight.all().size(), "82 of NTM's less its 3 that are no weapons, and the GL-54");
+        assertEquals(70, GunWeight.all().size(), "72 of NTM's less its 3 that are no weapons, and the GL-54");
         for (String id : GunWeight.all().keySet()) assertTrue(id.startsWith("hbm:gun_") || id.equals("ntmgunfeel:gun_gl54"), id);
     }
 

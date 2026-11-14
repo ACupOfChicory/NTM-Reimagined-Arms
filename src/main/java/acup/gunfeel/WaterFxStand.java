@@ -363,7 +363,7 @@ final class WaterFxStand {
     // the ring at alpha a, lasting long, at the middle of the still pool
     private static void ring(Minecraft mc, float a) {
         WaterRings.clear();
-        WaterRings.add(mc.level, STILL + 3.5, Y, 0.5, 0, 1000, 3, 3, a, false, false);
+        WaterRings.add(mc.level, STILL + 3.5, Y, 0.5, 0, 1000, 3, 3, a, false);
     }
 
     // an Iris shader pack in use: the thresholds above were taken under the game's own light

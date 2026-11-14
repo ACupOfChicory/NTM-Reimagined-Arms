@@ -37,7 +37,7 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
  * shares are NTM's.
  * <li>{@code balance.vanilla0}: the combat sets of the balance's table (BalanceArmor, those with a rating) have no
  * vanilla armour points and toughness, so vanilla's armour does not come on top of formula C (the mob's claws, a
- * skeleton's arrow). The joke set (the dineutronium ingot set; starmetal with balanceS.starmetal 0) and the rest keep
+ * skeleton's arrow). The joke set (the dineutronium ingot set) and the rest keep
  * theirs. NTM's FBI agent
  * wears Security: it gets {@code balance.fbiArmor} (10) vanilla armour of its own instead, when it joins the world, so
  * it holds as before (the owner, 2026-11-10: a player's .44 takes 10-11 clicks, not 5).

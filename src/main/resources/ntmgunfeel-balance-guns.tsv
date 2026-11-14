@@ -1,8 +1,8 @@
 # The balance's damage by gun and ammo (stage 1b): NTM's damage of a shot times mult; neg is added to the ammo's
 # armour threshold negation, pen to its armour piercing. One line a pair; ammo * is the gun's own line: mult for all
 # its ammo (over the pairs) and its receiver's changes (delay = ticks after a shot, auto, mag = rounds, dmg = base
-# damage). An ammo of a gun not here: the gun's pair of the same family, else NTM's (BalanceGunsRule). A file of the
-# same name in config/ (ntm-gunfeel-balance-guns.tsv) is read instead of this one. Source: gun-multipliers-v4.md.
+# damage). An ammo of a gun not here: the gun's pair of the same family, else NTM's (BalanceGunsRule). Source:
+# gun-multipliers-v4.md.
 # A pair's extra: floor= the armour formula's least share b times this on the sets of tier from= (4 when not given) and
 # up (balanceArmorFloor): piercing rounds, slugs, explosive and flechette shells more, the same gun's soft rounds less.
 # The tier is the pair's: balanceArmorTierFloor's rules go by it (a cheap pair gets through armour far above it with

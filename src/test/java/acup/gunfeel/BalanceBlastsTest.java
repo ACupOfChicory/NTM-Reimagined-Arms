@@ -95,7 +95,7 @@ class BalanceBlastsTest {
         float edge = BalanceBlasts.hit(5F, 0F, 0F, "hev", hev.s(), hev.tau(), 1.7F, 0.9F);
         assertTrue(edge < 4.5F && edge > BalanceBlasts.hit(5F, 0F, 0F, "hev", hev.s(), hev.tau(), 1.7F), "edge " + edge);
         assertEquals(0.83F * 46F, BalanceArmor.lowFloorPower(0.83F, 46F, 9.3F), 1e-4F);
-        // balanceBlastFloorShare: the floor lifts rho only, so tier 4 takes at least T-51b's hits; Congo Lake's splash at
+        // the floor lifts rho only, so tier 4 takes at least T-51b's hits; Congo Lake's splash at
         // 3 blocks: 7 on every set of tier 4, as on T-51b (X875: 5 against 6)
         var congo = new BalanceBlasts.Boom("40 мм HE Congo Lake", true, 20, 5, 0, 0);
         var t51 = BalanceArmor.SETS.get("t51");

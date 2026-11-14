@@ -106,10 +106,6 @@ public final class Decals {
             };
         }
 
-        public static Set of(List<Map<String, String>> rules) {
-            return of(DEFAULT, rules);
-        }
-
         // `base` changed by the options of the decal rules that match a block, in file order: each style from the
         // last rule that names a known one (so a later line can change one and keep the others)
         public static Set of(Set base, List<Map<String, String>> rules) {

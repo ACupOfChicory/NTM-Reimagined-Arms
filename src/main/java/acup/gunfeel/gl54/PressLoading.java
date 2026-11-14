@@ -64,10 +64,6 @@ public final class PressLoading {
         return layout;
     }
 
-    public static boolean isGrenade(ItemStack s) {
-        return s.getItem() instanceof GrenadeItem;
-    }
-
     // one pass of the press (the block entity's performRecipe while no recipe is chosen, or a stored layout is: layout);
     // the grenades of the magazine made, null when none was
     public static List<String> perform(int selectedRecipe, List<String> layout, Container c) {

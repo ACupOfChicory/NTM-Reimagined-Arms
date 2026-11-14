@@ -10,7 +10,6 @@ import com.hbm.items.weapon.sedna.ItemGunBaseNT;
 
 import acup.gunfeel.CameraRecoil;
 import acup.gunfeel.Config;
-import acup.gunfeel.GunFeel;
 
 @Mixin(value = ItemGunBaseNT.class, remap = false)
 public abstract class MixinItemGunBaseNT {

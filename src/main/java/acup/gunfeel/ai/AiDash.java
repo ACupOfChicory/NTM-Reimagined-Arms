@@ -30,8 +30,6 @@ public final class AiDash {
     static final float SLIDE_SHARE = 0.6F, ROLL_SHARE = 0.5F;
     /** the roll's step, a share of the run's (AiMover.slow) */
     static final double ROLL_STEP = 0.5;
-    /** off only for the stands' "before" */
-    static boolean on = true;
 
     private byte kind = AiPose.NONE;
     private long since = Long.MIN_VALUE / 2, nearMiss = Long.MIN_VALUE / 2;
@@ -89,7 +87,7 @@ public final class AiDash {
         lastX = at.x;
         lastZ = at.z;
         lastAt = tick;
-        if (!on || busy || on(tick) || tick - since < AGAIN || !mob.onGround() || mob.isInWater() || mob.isPassenger()) return AiPose.NONE;
+        if (busy || on(tick) || tick - since < AGAIN || !mob.onGround() || mob.isInWater() || mob.isPassenger()) return AiPose.NONE;
         double speed = step.horizontalDistance();
         if (speed < FAST) return AiPose.NONE;
         double dx = goal.x - at.x, dz = goal.z - at.z, dist = Math.sqrt(dx * dx + dz * dz);

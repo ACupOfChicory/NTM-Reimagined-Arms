@@ -8,7 +8,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
-// powerArmorSpread and powerArmorRecoil (server settings, the balance's tiers): NTM's power armour holds the gun
+// powerArmorSpread and powerArmorRecoil (the balance's tiers, BalanceKeys): NTM's power armour holds the gun
 // steadier and takes up part of the recoil, the later the set the more. Power armour is a chestplate NTM makes as a
 // battery-powered suit (ModArmorItemPowered, ModArmorItem.isPowered): T-51, AJR, AJRO, RPA, NCRPA, BJ (with or without
 // the jetpack), Envsuit, HEV, FAU, DNS; Trenchmaster is on the table too. Not the fuelled steam and diesel suits nor
@@ -33,8 +33,8 @@ public final class PowerArmor {
 
     /**
      * The share of the spread moving, the air and the bloom add for this shooter with this gun: 1 out of the sets. In
-     * order: the gun's own {@code <gun>.powerArmorSpread}; {@code powerArmorSpread.<set>} (the server's file, else the
-     * mod's); for a power armour chestplate with no line {@code powerArmorSpread} (0.5).
+     * order: the gun's own {@code <gun>.powerArmorSpread}; {@code powerArmorSpread.<set>} (the mod's balance table;
+     * the server's file only on the stands); for a power armour chestplate with no line {@code powerArmorSpread} (0.5).
      */
     public static float spread(LivingEntity e, String gun) {
         return share(e, "powerArmorSpread", gun);

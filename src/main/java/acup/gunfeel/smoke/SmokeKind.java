@@ -6,9 +6,9 @@ import java.util.List;
  * What a cloud is made of: how it is let out, how it spreads, how long it stays and how it looks. Common code (server
  * and client); the id goes over the network, so a kind keeps its id for good.
  *
- * <p>Only plain smoke now. The gas grenades of GL-54 will add their kinds ({@code acup.gunfeel.gas.GasKind}, heavier than air: {@code lift} below 0,
- * {@code rise} below 0; their own colour and opacity); what a gas does to the living is not here, the simulation only
- * carries the concentration.
+ * <p>Plain smoke is here. The GL-54's gas grenades have their kinds in {@code acup.gunfeel.gas.GasKind} (the heavy ones
+ * heavier than air: {@code lift} below 0, {@code rise} below 0; their own colour and opacity); what a gas does to the
+ * living is not here, the simulation only carries the concentration.
  *
  * @param volume     cells of density 1 let out in all (an open field: a half sphere of about 5.5 blocks)
  * @param release    ticks over which it is let out

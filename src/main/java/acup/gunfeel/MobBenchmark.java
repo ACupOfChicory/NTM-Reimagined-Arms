@@ -56,8 +56,8 @@ final class MobBenchmark {
     private static long since,last,measuring,allocationStart,bytesStart,packetsStart;
     private static long publishStart,shapeStart,cpuStart;
     private static final long[] costs=new long[4];
-    private static final double WARM=Double.parseDouble(System.getProperty("ntmgunfeel.benchWarm","2"));
-    private static final double MEASURE=Double.parseDouble(System.getProperty("ntmgunfeel.benchSeconds","4"));
+    private static final double WARM=2;
+    private static final double MEASURE=4;
     private MobBenchmark() {}
     private static double[] limit(String text) {
         if(text.isBlank()) return new double[]{0,0};

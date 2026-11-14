@@ -22,7 +22,6 @@ import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
@@ -63,7 +62,6 @@ public class MixinCheck {
     final Map<String, byte[]> classpath = new HashMap<>();
     final Map<String, ClassNode> parsed = new HashMap<>();
     final List<String> errors = new ArrayList<>(), warnings = new ArrayList<>();
-    int defaultRequire = 1;
     int checkedInjectors;
 
     public static void main(String[] args) throws IOException {
@@ -210,7 +208,7 @@ public class MixinCheck {
             ClassNode m = mod.get(name);
             int require = requireOf.getOrDefault(name, 1);
             for (MixinProbe.Problem p : probe.check(m, require)) (p.soft() ? warnings : errors).add(p.toString());
-            checkHandlers(m, require);
+            checkHandlers(m);
         }
 
         for (String w : warnings) System.out.println("WARN  " + w);
@@ -235,7 +233,7 @@ public class MixinCheck {
     // ---------------------------------------------------------------- the handlers' own signatures (MixinProbe
     // checks that the targets are there)
 
-    void checkHandlers(ClassNode mixin, int defaultRequire) {
+    void checkHandlers(ClassNode mixin) {
         for (String target : MixinProbe.targets(mixin)) {
             ClassNode tc = cls(target);
             if (tc == null) continue;

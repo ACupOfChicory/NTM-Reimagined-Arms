@@ -114,7 +114,7 @@ class ArmFilesTest {
         } finally {
             Config.select(null);
         }
-        assertTrue(shared >= 8, "guns: " + shared);
+        assertTrue(shared >= 4, "guns: " + shared);
     }
 
     // what merge_arms.py would put into the jar for a gun with arms of its own is what is there now

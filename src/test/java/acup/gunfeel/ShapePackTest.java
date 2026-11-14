@@ -28,13 +28,11 @@ class ShapePackTest {
         in.put(lift + "@0,1,0", new long[65]);
         // a key without a place is no machine's
         in.put("hbm:steel_beam[axis=y]", cells(9));
-        for (int codec : new int[] {ShapePack.DEFLATE, ShapePack.XZ}) {
-            byte[] file = ShapePack.write(in, "1.0.3", codec);
-            assertEquals("1.0.3", ShapePack.ntmOf(file));
-            Map<String, long[]> out = ShapePack.read(file);
-            assertEquals(in.size() - 1, out.size());
-            for (var e : out.entrySet()) assertArrayEquals(in.get(e.getKey()), e.getValue(), e.getKey());
-        }
+        byte[] file = ShapePack.write(in, "1.0.3", ShapePack.XZ);
+        assertEquals("1.0.3", ShapePack.ntmOf(file));
+        Map<String, long[]> out = ShapePack.read(file);
+        assertEquals(in.size() - 1, out.size());
+        for (var e : out.entrySet()) assertArrayEquals(in.get(e.getKey()), e.getValue(), e.getKey());
     }
 
     // a shape with faces comes back with its corners on 1/16384 of a block and its texture coordinates on 1/65536

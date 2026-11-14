@@ -34,8 +34,8 @@ public final class WaterRings {
         boolean on;
         double t, delay, life, s0, s1, x, y, z, fx, fz, fm;
         float a;
-        boolean adv, air;
-        int cx = Integer.MIN_VALUE, cz = Integer.MIN_VALUE, cells, span;
+        boolean adv;
+        int cx = Integer.MIN_VALUE, cz = Integer.MIN_VALUE, span;
         double[][] allow = new double[49][];
     }
 
@@ -47,8 +47,7 @@ public final class WaterRings {
     public static int made, leftWater, widest;
     private static long lastNanos;
 
-    public static void add(Level level, double x, double y, double z, double delay, double life, double s0, double s1, float a, boolean adv,
-            boolean air) {
+    public static void add(Level level, double x, double y, double z, double delay, double life, double s0, double s1, float a, boolean adv) {
         if (!WaterFx.on()) return;
         for (Ring r : RINGS) {
             if (r.on) continue;
@@ -63,7 +62,6 @@ public final class WaterRings {
             r.y = y;
             r.z = z;
             r.adv = adv;
-            r.air = air;
             r.fx = r.fz = r.fm = 0;
             r.cx = r.cz = Integer.MIN_VALUE;
             // the cells it can reach: half its last size, plus the drift downstream (half the growth) and its own cell
@@ -91,31 +89,29 @@ public final class WaterRings {
         for (Ring d : RINGS) {
             if (!d.on) continue;
             d.t += dt;
-            if (!d.air) {
-                WaterSurface.Info s = WaterSurface.at(level, d.x, d.y + 0.4, d.z, false);
-                if (s == null || Math.abs(s.y() - d.y) > 0.3) {
-                    d.on = false;
-                    leftWater++;
-                    continue;
+            WaterSurface.Info s = WaterSurface.at(level, d.x, d.y + 0.4, d.z, false);
+            if (s == null || Math.abs(s.y() - d.y) > 0.3) {
+                d.on = false;
+                leftWater++;
+                continue;
+            }
+            if (d.adv && (s.fx() != 0 || s.fz() != 0)) {
+                double nx = d.x + s.fx() * fs * 0.5 * dt, nz = d.z + s.fz() * fs * 0.5 * dt;
+                WaterSurface.Info s2 = WaterSurface.at(level, nx, d.y + 0.4, nz, false);
+                if (s2 != null && Math.abs(s2.y() - s.y()) < 0.3) {
+                    d.x = nx;
+                    d.z = nz;
                 }
-                if (d.adv && (s.fx() != 0 || s.fz() != 0)) {
-                    double nx = d.x + s.fx() * fs * 0.5 * dt, nz = d.z + s.fz() * fs * 0.5 * dt;
-                    WaterSurface.Info s2 = WaterSurface.at(level, nx, d.y + 0.4, nz, false);
-                    if (s2 != null && Math.abs(s2.y() - s.y()) < 0.3) {
-                        d.x = nx;
-                        d.z = nz;
-                    }
-                    d.fx = s.fx();
-                    d.fz = s.fz();
-                    d.fm = Math.hypot(s.fx(), s.fz());
-                }
-                d.y = s.y();
-                int cx = (int) Math.floor(d.x), cz = (int) Math.floor(d.z);
-                if (cx != d.cx || cz != d.cz) {
-                    d.cx = cx;
-                    d.cz = cz;
-                    d.cells = WaterSurface.connected(level, cx, cz, d.y, d.allow, d.span);
-                }
+                d.fx = s.fx();
+                d.fz = s.fz();
+                d.fm = Math.hypot(s.fx(), s.fz());
+            }
+            d.y = s.y();
+            int cx = (int) Math.floor(d.x), cz = (int) Math.floor(d.z);
+            if (cx != d.cx || cz != d.cz) {
+                d.cx = cx;
+                d.cz = cz;
+                WaterSurface.connected(level, cx, cz, d.y, d.allow, d.span);
             }
             if (d.t - d.delay >= d.life) d.on = false;
         }
@@ -130,7 +126,7 @@ public final class WaterRings {
         update(level, dt);
         TextureAtlasSprite sprite = WaterParticle.sprite("ntmgunfeel:water_ring");
         SubmitNodeCollector.CustomGeometryRenderer rings = (p, vc) -> {
-            for (Ring d : RINGS) if (d.on && !d.air && d.t >= d.delay) draw(level, p, vc, d, sprite, cam);
+            for (Ring d : RINGS) if (d.on && d.t >= d.delay) draw(level, p, vc, d, sprite, cam);
         };
         // after the translucent terrain, with the game's translucent particles. Drawn before it (with the translucent
         // features) a ring wrote its depth over the water first, the water under it was not drawn, and as the ring

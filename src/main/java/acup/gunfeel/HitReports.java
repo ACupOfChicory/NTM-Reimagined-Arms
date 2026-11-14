@@ -41,10 +41,6 @@ public final class HitReports {
         return true;
     }
 
-    static boolean followed(int id) {
-        return FOLLOWED.containsKey(id);
-    }
-
     /** this player's shot not followed here (no tracers, NTM draws the round): the server decides its hits */
     public static void untracked(ShotPayload p) {
         var mc = Minecraft.getInstance();

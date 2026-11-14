@@ -181,7 +181,7 @@ public final class DamageCap {
      */
     static boolean blastFree(float raw) {
         if (!ReaimTimes.flag("damageCapBlasts", true)) return true;
-        // an explosive bullet's blast is capped at any raw damage (balanceBulletBlastCap)
+        // an explosive bullet's blast is capped at any raw damage
         return raw > BalanceArmor.explRawLimit() && !BalanceArmor.bulletBlastNow();
     }
 

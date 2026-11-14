@@ -25,7 +25,7 @@ class BalanceFinalRuleTest {
 
     private static Map<String, BalanceFinalRule.Pair> pairs() throws IOException {
         List<String> bad = new ArrayList<>();
-        var out = BalanceFinalRule.pairs(lines("ntmgunfeel-balance-final-pairs.tsv"), Map.of(), bad);
+        var out = BalanceFinalRule.pairs(lines("ntmgunfeel-balance-final-pairs.tsv"), bad, false);
         assertTrue(bad.isEmpty(), bad.toString());
         return out;
     }
@@ -124,10 +124,10 @@ class BalanceFinalRuleTest {
         cellForCell(withP("fable2-pairs-est.tsv", 6), "fable2-table-est.tsv", P);
     }
 
-    /** the pairs with the stand's P (balance.final.hits = stand) */
+    /** the pairs with the stand's P */
     private static Map<String, BalanceFinalRule.Pair> standPairs() throws IOException {
         List<String> bad = new ArrayList<>();
-        var out = BalanceFinalRule.pairs(lines("ntmgunfeel-balance-final-pairs.tsv"), Map.of(), bad, true);
+        var out = BalanceFinalRule.pairs(lines("ntmgunfeel-balance-final-pairs.tsv"), bad, true);
         assertTrue(bad.isEmpty(), bad.toString());
         return out;
     }

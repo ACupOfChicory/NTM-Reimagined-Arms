@@ -60,7 +60,7 @@ public final class SunkBullets {
     }
 
     // the water stopped a bullet (WaterFx on STOP): a body where it stopped, moving on at 1.5 blocks a second
-    static void stopped(Level level, WaterEvents.Event e) {
+    static void stopped(WaterEvents.Event e) {
         if (Config.waterBodyMax <= 0 || broken) return;
         try {
             body(e);
@@ -70,7 +70,6 @@ public final class SunkBullets {
     }
 
     private static void body(WaterEvents.Event e) {
-        Entity bullet = e.bullet();
         BulletConfig config = WaterFx.config(e);
         String ammo = WaterFx.ammo(config);
         // an impact fuze (grenades, rockets, HE and incendiary rounds): NTM's entity sinks on, the explosives part's

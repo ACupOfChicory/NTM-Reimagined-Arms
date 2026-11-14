@@ -31,8 +31,7 @@ public final class ShapePack {
     public static final String FILE = "ntmgunfeel-machine-shapes.pack";
     private static final byte[] MAGIC = {'N', 'G', 'M', 'P'};
     private static final int FORMAT = 3;
-    static final int DEFLATE = 0, XZ = 2;
-    static final int CODEC = XZ;
+    static final int XZ = 2;
 
     private record Group(int codec, int raw, byte[] packed) {
     }
@@ -126,12 +125,6 @@ public final class ShapePack {
     // the file has been read (preload)
     public static boolean ready() {
         return index != null;
-    }
-
-    // the machine (a key of its blocks) is unpacked
-    public static boolean open(String key) {
-        int at = key.lastIndexOf('@');
-        return at > 0 && OPEN.containsKey(key.substring(0, at));
     }
 
     // the index read on a thread of its own while the game starts (GunFeelMod)
@@ -459,52 +452,22 @@ public final class ShapePack {
     }
 
     private static byte[] compress(byte[] raw, int codec) throws IOException {
+        if (codec != XZ) throw new IOException("unknown codec " + codec);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        if (codec == XZ) {
-            var o = new org.tukaani.xz.LZMA2Options(org.tukaani.xz.LZMA2Options.PRESET_MAX);
-            // a dictionary no bigger than the group: unpacking takes that much memory, not the preset's 64 MB
-            o.setDictSize(Math.max(org.tukaani.xz.LZMA2Options.DICT_SIZE_MIN, Math.min(o.getDictSize(), Integer.highestOneBit(Math.max(1, raw.length - 1)) << 1)));
-            try (var x = new org.tukaani.xz.XZOutputStream(out, o, org.tukaani.xz.XZ.CHECK_NONE)) {
-                x.write(raw);
-            }
-            return out.toByteArray();
+        var o = new org.tukaani.xz.LZMA2Options(org.tukaani.xz.LZMA2Options.PRESET_MAX);
+        // a dictionary no bigger than the group: unpacking takes that much memory, not the preset's 64 MB
+        o.setDictSize(Math.max(org.tukaani.xz.LZMA2Options.DICT_SIZE_MIN, Math.min(o.getDictSize(), Integer.highestOneBit(Math.max(1, raw.length - 1)) << 1)));
+        try (var x = new org.tukaani.xz.XZOutputStream(out, o, org.tukaani.xz.XZ.CHECK_NONE)) {
+            x.write(raw);
         }
-        if (codec != DEFLATE) throw new IOException("unknown codec " + codec);
-        var d = new java.util.zip.Deflater(java.util.zip.Deflater.BEST_COMPRESSION, true);
-        try {
-            d.setInput(raw);
-            d.finish();
-            byte[] buf = new byte[65536];
-            while (!d.finished()) out.write(buf, 0, d.deflate(buf));
-            return out.toByteArray();
-        } finally {
-            d.end();
-        }
+        return out.toByteArray();
     }
 
     static byte[] decompress(byte[] packed, int n, int codec) throws IOException {
+        if (codec != XZ) throw new IOException("unknown codec " + codec);
         byte[] raw = new byte[n];
-        if (codec == XZ) {
-            try (var x = new org.tukaani.xz.XZInputStream(new ByteArrayInputStream(packed))) {
-                new DataInputStream(x).readFully(raw);
-            }
-            return raw;
-        }
-        if (codec != DEFLATE) throw new IOException("unknown codec " + codec);
-        var f = new java.util.zip.Inflater(true);
-        try {
-            f.setInput(packed);
-            int at = 0;
-            while (at < n) {
-                int got = f.inflate(raw, at, n - at);
-                if (got == 0 && (f.finished() || f.needsInput())) break;
-                at += got;
-            }
-            if (at != n) throw new IOException("short shape pack");
-        } catch (java.util.zip.DataFormatException e) {
-            throw new IOException(e);
-        } finally {
-            f.end();
+        try (var x = new org.tukaani.xz.XZInputStream(new ByteArrayInputStream(packed))) {
+            new DataInputStream(x).readFully(raw);
         }
         return raw;
     }

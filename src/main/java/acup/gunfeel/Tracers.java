@@ -869,8 +869,6 @@ public final class Tracers {
             if (len > 1e-6 && ricochet(s, level, block, vel)) {
                 // NTM's standard ricochet: a scratch, no hit effects (the server plays the ricochet's sound; on steel
                 // ours, BulletFx.ricochetSound); the bullet flies on mirrored on the face's axis unless that was its last
-                BulletFx.sd("ricochet off {} at {} (bounce {} of {})", net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(level.getBlockState(block.getBlockPos()).getBlock()),
-                        block.getBlockPos().toShortString(), s.ricochets + 1, s.config.maxRicochetCount);
                 if (TestLog.client) TestLog.c(s.id, "ricochet", "block", level.getBlockState(block.getBlockPos()), "pos", block.getBlockPos(),
                         "material", TestLog.material(level, block.getBlockPos()), "result", "bounced", "bounce", s.ricochets + 1);
                 if (Config.bulletHoles) {
@@ -1327,8 +1325,6 @@ public final class Tracers {
                     BlockHitResult fxAt = metWindow ? new ModelSurface.GlassHit(at, p.hit().getDirection(), p.hit().getBlockPos())
                             : new BlockHitResult(at, p.hit().getDirection(), p.hit().getBlockPos(), false);
                     BulletFx.blockHit(p.level(), fxAt, p.dir(), p.fx() == 2);
-                } else {
-                    BulletFx.sd("hit {} at {}: no hole on what is drawn there, no sound or particles", p.hit().getBlockPos().toShortString(), p.hit().getLocation());
                 }
             }
             Perf.add(Perf.HOLE_MAKE, ph);
@@ -1606,20 +1602,6 @@ public final class Tracers {
             if (tn == null || Math.abs(tn.dot(n)) < 0.99) continue;
             if (Math.abs(new Vector3d(at).sub(t.corner(0)).dot(tn)) > 3e-3) continue;
             if (t.weights(at, 1e-3) != null) return true;
-        }
-        return false;
-    }
-
-    // a cell of a hole at (cx, cy) on the plane: shown where the triangle under its centre shows a pixel; a cell whose
-    // centre is off them all goes by a point of it that is on one
-    private static boolean shownAt(List<RenderedMesh.Tri> same, Vector3d world, Vector3d t1, Vector3d t2, double cx, double cy, double cs) {
-        double[][] at = {{0, 0}, {-0.3, -0.3}, {0.3, -0.3}, {0.3, 0.3}, {-0.3, 0.3}};
-        for (double[] k : at) {
-            Vector3d c = new Vector3d(world).fma(cx + k[0] * cs, t1).fma(cy + k[1] * cs, t2);
-            for (RenderedMesh.Tri t : same) {
-                double[] w = t.weights(c, 1e-6);
-                if (w != null) return t.opaqueAt(w);
-            }
         }
         return false;
     }
@@ -2362,24 +2344,6 @@ public final class Tracers {
             return wt == null || pc.tri().opaqueAt(wt);
         }
         return true;
-    }
-
-    // The hole's face lies on the outside of the block's hitbox (a door, a trapdoor, a lantern): seen only from in
-    // front, like the face itself, since its far inner face shows through the see-through pixels without the hole.
-    // Faces inside the hitbox (scaffold poles, a ladder's rungs) are seen from both sides.
-    private static boolean onBoxFace(ClientLevel level, BlockPos pos, Vector3d at, Vector3d normal) {
-        int ax = Math.abs(normal.x) > 0.999 ? 0 : Math.abs(normal.y) > 0.999 ? 1 : Math.abs(normal.z) > 0.999 ? 2 : -1;
-        if (ax < 0) return false;
-        double[] p = {at.x, at.y, at.z};
-        double out = ax == 0 ? normal.x : ax == 1 ? normal.y : normal.z;
-        for (var b : level.getBlockState(pos).getCollisionShape(level, pos).toAabbs()) {
-            double[] lo = {b.minX, b.minY, b.minZ}, hi = {b.maxX, b.maxY, b.maxZ};
-            if (Math.abs(p[ax] - (out > 0 ? hi[ax] : lo[ax])) > 2e-3) continue;
-            boolean inside = true;
-            for (int i = 0; i < 3; i++) if (i != ax && (p[i] < lo[i] - 1e-3 || p[i] > hi[i] + 1e-3)) inside = false;
-            if (inside) return true;
-        }
-        return false;
     }
 
     private static Vector3d normalOf(BakedQuad q) {

@@ -106,7 +106,7 @@ public final class BalanceKeys {
         // with its own set's numbers, the rest of the body what NTM gives. Fire, radiation, gas, nuclear blasts and falling are
         // NTM's. Anyone wearing the sets: players, FBI agents, AI bots. Euphemium's and DNS's invulnerability stay NTM's. The
         // joke set (the dineutronium ingot set) keeps NTM's numbers, but a hit keeps at least balanceRoflFloor of itself;
-        // starmetal is a combat set of tier 6 with bismuth's numbers (balanceS.starmetal 0: NTM's joke set again, as X875). The GL-54's acid corrodes S as it does NTM's numbers. balanceS.<set>: each set's rating (0: NTM's numbers
+        // starmetal is a combat set of tier 6 with bismuth's numbers. The GL-54's acid corrodes S as it does NTM's numbers. balanceS.<set>: each set's rating (0: NTM's numbers
         // for that set). Off: NTM's armour as it is.
         a.put("balanceArmor", "true");
 
@@ -177,12 +177,11 @@ public final class BalanceKeys {
         a.put("balanceS.euphemium", "280");
 
         // The balance's gun damage: a shot of an NTM gun does NTM's damage times its gun and ammo's mult, and its ammo's armour
-        // threshold negation and piercing get the pair's additions (the table ntmgunfeel-balance-guns.tsv in the mod jar; a
-        // file config/ntm-gunfeel-balance-guns.tsv is read instead, checked every two seconds). An ammo with no line of its
-        // own takes its gun's nearest pair of the same kind (piercing, blast, soft); a gun with no lines is NTM's. A gun's own
-        // line changes its receiver: Heretic one shot in 12 ticks, not auto, 24 rounds; AM180 one in 3, 60 rounds; AMAT
-        // Penance one in 15, Subtlety and MAS-36 one in 17; Morning Glory base damage 40. Anyone's shots: players, NTM's mobs,
-        // AI bots. Off: NTM's damage and receivers.
+        // threshold negation and piercing get the pair's additions (the table ntmgunfeel-balance-guns.tsv in the mod jar). An
+        // ammo with no line of its own takes its gun's nearest pair of the same kind (piercing, blast, soft); a gun with no
+        // lines is NTM's. A gun's own line changes its receiver: Heretic one shot in 12 ticks, not auto, 24 rounds; AM180 one
+        // in 3, 60 rounds; AMAT Penance one in 15, Subtlety and MAS-36 one in 17; Morning Glory base damage 40. Anyone's
+        // shots: players, NTM's mobs, AI bots. Off: NTM's damage and receivers.
         a.put("balanceGuns", "true");
 
         // The balance's final scheme: a bullet or a beam of a pair of the scheme's table (ntmgunfeel-balance-final-pairs.tsv) on
@@ -465,7 +464,7 @@ public final class BalanceKeys {
         return value != null && value.trim().equalsIgnoreCase("ntm");
     }
 
-    /** a balance key's value by the switch, or null: the reader's own default (balanceTau.&lt;set&gt; and the like) */
+    /** a balance key's value by the switch, or null: the reader's own default */
     static String value(String key, boolean ntm) {
         if (ntm) {
             String v = NTM.get(key);

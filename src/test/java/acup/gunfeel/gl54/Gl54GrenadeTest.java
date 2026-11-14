@@ -56,13 +56,4 @@ class Gl54GrenadeTest {
         assertEquals(2.0, Gl54Grenade.distanceToBlock(new Vec3(13.0, 64.5, 10.5), b), 1e-9);
         assertEquals(Math.sqrt(2), Gl54Grenade.distanceToBlock(new Vec3(9.0, 63.0, 10.5), b), 1e-9);
     }
-
-    @Test
-    void candidatesAreTheBlocksWithinTheRadius() {
-        var near = Gl54Grenade.candidates(new Vec3(0.5, 0.5, 0.5));
-        assertTrue(near.contains(new BlockPos(0, 0, 0)));
-        assertTrue(near.contains(new BlockPos(3, 0, 0)));
-        assertFalse(near.contains(new BlockPos(4, 0, 0)));
-        assertFalse(near.contains(new BlockPos(3, 3, 3)));
-    }
 }

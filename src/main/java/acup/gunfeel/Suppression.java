@@ -33,8 +33,6 @@ public final class Suppression {
     // the last blast counted: the same one told twice (vanilla's within NTM's) counts once
     private static @Nullable Vec3 lastBlast;
     private static long lastBlastTick = Long.MIN_VALUE / 2;
-    // /gunfeel suppression debug: each event and the scale each tick to the log ("[suppression]")
-    public static volatile boolean debug;
     // the stand (SuppressionStand): events counted, the last flinch in degrees, the scale held still
     static int events, flinches;
     static float lastFlinch;
@@ -51,10 +49,6 @@ public final class Suppression {
 
     public static float level() {
         return SCALE.level();
-    }
-
-    public static float target() {
-        return SCALE.target();
     }
 
     // the stand: the scale at this level, still
@@ -113,7 +107,7 @@ public final class Suppression {
     private static void event(String what, float force, boolean burst, double d) {
         float added = SCALE.add(force, burst, tick);
         events++;
-        if (debug || TestLog.client) GunFeel.LOGGER.info("[suppression] {} d={} force={} added={} target={} level={}", what,
+        if (TestLog.client) GunFeel.LOGGER.info("[suppression] {} d={} force={} added={} target={} level={}", what,
                 String.format(java.util.Locale.ROOT, "%.2f", d), String.format(java.util.Locale.ROOT, "%.1f", force),
                 String.format(java.util.Locale.ROOT, "%.1f", added), String.format(java.util.Locale.ROOT, "%.1f", SCALE.target()),
                 String.format(java.util.Locale.ROOT, "%.1f", SCALE.level()));
@@ -126,7 +120,6 @@ public final class Suppression {
             p.setXRot(Math.clamp(p.getXRot() + (float) Math.sin(t) * a, -90F, 90F));
             flinches++;
             lastFlinch = a;
-            if (debug) GunFeel.LOGGER.info("[suppression] flinch {} deg", a);
         }
     }
 
@@ -145,7 +138,6 @@ public final class Suppression {
             muffled = m;
             mc.getSoundManager().refreshCategoryVolume(SoundSource.MASTER);
         }
-        if (debug && SCALE.level() > 0F) GunFeel.LOGGER.info("[suppression] tick level={} target={} muffle={}", SCALE.level(), SCALE.target(), m);
     }
 
     private static float darkStrength() {
