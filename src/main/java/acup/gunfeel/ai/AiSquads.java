@@ -120,6 +120,8 @@ public final class AiSquads {
             }
             if (s.bots.size() < 2) continue;
             roles(s, flankers);
+            // none of it with a round besides its gun's, no supplier with any: it loses heart (AiSupply)
+            AiSupply.squad(s.bots, now);
             // its confidence shared a little (AiConfidence: panic spreads, so does dash)
             float mean = 0;
             for (AiBot b : s.bots) mean += b.confidence.value(now) / s.bots.size();
