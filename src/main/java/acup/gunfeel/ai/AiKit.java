@@ -21,6 +21,7 @@ import org.jspecify.annotations.Nullable;
  *                             name they change that set's pieces
  * ammo &lt;round&gt;               the round its gun loads and reloads, of those the gun takes, by the balance's name
  *                             (r556_ap)
+ * role &lt;name&gt;                what it is to its squad whatever its gun (rifle, base), auto: by its gun again
  * team &lt;name&gt;                the game's team it joins (spawn only)
  * </pre>
  * Words only here: the items and the gun's rounds are looked up where the kit is put on (AiKitCommand).
@@ -35,7 +36,7 @@ public final class AiKit {
     /** NTM's names of the pieces of a set, by slot (BalanceArmor.setOf reads a set's name off them) */
     static final String[] SUFFIX = {"_helmet", "_plate", "_legs", "_boots"};
     static final String NONE = "none";
-    private static final List<String> WORDS = List.of("armor", "ammo", "team");
+    private static final List<String> WORDS = List.of("armor", "ammo", "role", "team");
 
     /**
      * the balance table's names of the sets (the columns of the table of clicks) and NTM's name of each; a set of the
@@ -84,19 +85,19 @@ public final class AiKit {
      * a kit as typed. armor: by slot, an item's id, "" for a slot emptied, null for a slot left as it is; null when no
      * armour was named at all
      */
-    public record Parsed(String @Nullable [] armor, @Nullable String ammo, @Nullable String team) {
+    public record Parsed(String @Nullable [] armor, @Nullable String ammo, @Nullable String team, @Nullable String role) {
         public boolean empty() {
-            return armor == null && ammo == null && team == null;
+            return armor == null && ammo == null && team == null && role == null;
         }
     }
 
-    static final Parsed NOTHING = new Parsed(null, null, null);
+    static final Parsed NOTHING = new Parsed(null, null, null, null);
 
     /** the words after the gun; {@code team}: whether a team may be named here */
     public static Parsed parse(@Nullable String text, boolean team) throws Bad {
         String[] tokens = text == null || text.isBlank() ? new String[0] : text.trim().split("\\s+");
         String[] armor = null;
-        String ammo = null, side = null;
+        String ammo = null, side = null, role = null;
         int i = 0;
         while (i < tokens.length) {
             String word = tokens[i].toLowerCase(Locale.ROOT);
@@ -112,16 +113,21 @@ public final class AiKit {
                     if (ammo != null) throw new Bad("ammo is named twice");
                     ammo = one("ammo", "a round, as in: ammo r556_ap", values).toLowerCase(Locale.ROOT);
                 }
+                case "role" -> {
+                    if (role != null) throw new Bad("role is named twice");
+                    role = one("role", "a role: " + String.join(", ", AiRole.words()), values).toLowerCase(Locale.ROOT);
+                    if (!AiRole.words().contains(role)) throw new Bad("no role '" + role + "'; the roles are: " + String.join(", ", AiRole.words()));
+                }
                 case "team" -> {
-                    if (!team) throw new Bad("a team is named when the mobs are spawned; here: armor …, ammo …");
+                    if (!team) throw new Bad("a team is named when the mobs are spawned; here: armor …, ammo …, role …");
                     if (side != null) throw new Bad("team is named twice");
                     side = one("team", "a team's name", values);
                 }
-                default -> throw new Bad("unknown word '" + tokens[from - 1] + "'; the words are: armor <set>, armor <slot>=<item> …, ammo <round>"
+                default -> throw new Bad("unknown word '" + tokens[from - 1] + "'; the words are: armor <set>, armor <slot>=<item> …, ammo <round>, role <name>"
                         + (team ? ", team <name>" : ""));
             }
         }
-        return new Parsed(armor, ammo, side);
+        return new Parsed(armor, ammo, side, role);
     }
 
     private static String one(String word, String what, List<String> values) throws Bad {
@@ -186,6 +192,7 @@ public final class AiKit {
         }
         List<String> out = new ArrayList<>();
         if ("ammo".equals(word) && values.isEmpty()) out.addAll(ammo);
+        else if ("role".equals(word) && values.isEmpty()) out.addAll(AiRole.words());
         else if ("team".equals(word) && values.isEmpty()) {
             if (teams != null) out.addAll(teams);
         } else if ("armor".equals(word)) {

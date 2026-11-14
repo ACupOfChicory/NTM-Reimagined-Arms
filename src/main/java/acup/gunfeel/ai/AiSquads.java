@@ -51,6 +51,8 @@ public final class AiSquads {
         double cx, cz;
         /** it has a base of fire and riflemen both: the base neither goes round nor after a target */
         boolean based;
+        /** who holds each role's slot: the first of the squad of that role (AiRole.of), null where none is */
+        final java.util.EnumMap<AiRole, AiBot> slots = new java.util.EnumMap<>(AiRole.class);
     }
 
     private static final class PerLevel {
@@ -151,7 +153,11 @@ public final class AiSquads {
             }
         // its base of fire (AiRole: a machine gun) stays where it is and fires; with riflemen about, one of them goes
         int rifles = 0;
-        for (AiBot b : s.bots) if (AiRole.of(b) != AiRole.BASE) rifles++;
+        for (AiBot b : s.bots) {
+            AiRole role = AiRole.of(b);
+            s.slots.putIfAbsent(role, b);
+            if (role != AiRole.BASE) rifles++;
+        }
         s.based = rifles > 0 && rifles < s.bots.size();
         if (s.target < 0) return;
         for (AiBot b : s.bots)
@@ -169,6 +175,26 @@ public final class AiSquads {
                 s.flanker = b.mob.getId();
             }
         }
+    }
+
+    /** the one of the bot's squad that holds this role's slot and is alive (itself, alone or with squads off, if that is its role), or null */
+    static @Nullable AiBot holder(AiBot bot, AiRole role) {
+        Squad s = of(bot);
+        if (s == null) return AiRole.of(bot) == role ? bot : null;
+        AiBot h = s.slots.get(role);
+        if (h != null && live(h) && AiRole.of(h) == role) return h;
+        // the holder is down or has another gun now: the next of that role, till the squads are made again
+        for (AiBot b : s.bots) if (live(b) && AiRole.of(b) == role) return b;
+        return null;
+    }
+
+    /** the level's AI mobs counted by role, as "rifle 5, base 1" */
+    static String roles(java.util.Collection<AiBot> all) {
+        int[] n = new int[AiRole.values().length];
+        for (AiBot b : all) n[AiRole.of(b).ordinal()]++;
+        StringBuilder out = new StringBuilder();
+        for (AiRole r : AiRole.values()) if (n[r.ordinal()] > 0) out.append(out.length() == 0 ? "" : ", ").append(r.word()).append(' ').append(n[r.ordinal()]);
+        return out.length() == 0 ? "none" : out.toString();
     }
 
     /** where the bot last knew the target to be (feet): seen, else lost; null if it does not know of it */
