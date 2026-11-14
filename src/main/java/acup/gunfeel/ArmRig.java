@@ -96,13 +96,6 @@ final class ArmRig {
             }
         }
 
-        // the last segment written for exactly this head (the one the game uses), or null
-        Segment<E> find(String head) {
-            Segment<E> found = null;
-            for (var s : segments) if (s.head.equals(head)) found = s;
-            return found;
-        }
-
         // the last segment the game plays for this animation ("reload" counts as RELOAD), or null
         Segment<E> forAnimation(String name) {
             Segment<E> found = null;
@@ -113,12 +106,6 @@ final class ArmRig {
         Segment<E> add(String head) {
             var s = new Segment<E>(null, head, new ArrayList<>());
             segments.add(s);
-            return s;
-        }
-
-        Segment<E> findOrAdd(String head) {
-            var s = find(head);
-            if (s == null) segments.add(s = new Segment<>(null, head, new ArrayList<>()));
             return s;
         }
 
@@ -158,7 +145,6 @@ final class ArmRig {
         float[] shoulder;               // null = no shift
         boolean follow;                 // the shoulder follows the point (">~")
         float roll = Float.NaN;         // wrist turn, NaN = armLoadRoll
-        float ms = Float.NaN;           // the time in ms, filled by sorted() for the editor
 
         private PathEntry(String raw) {
             this.raw = raw;
@@ -210,7 +196,6 @@ final class ArmRig {
         static PathEntry grip(float ms) {
             var e = new PathEntry();
             e.time = number(ms);
-            e.ms = ms;
             return e;
         }
 
@@ -237,7 +222,6 @@ final class ArmRig {
 
         // move the key to ms; a key written from a named moment stays written from it ("release+340")
         void retime(float ms, Map<String, Float> times) {
-            this.ms = ms;
             String base = momentOf(time, times);
             if (base == null) {
                 time = number(ms);
@@ -334,36 +318,6 @@ final class ArmRig {
         if (op <= 0 || Character.isDigit(e.charAt(0))) return null;
         String base = e.substring(0, op);
         return times.containsKey(base.trim().toLowerCase(Locale.ROOT)) ? base : null;
-    }
-
-    // the segment the game plays for this animation: the last one with a key it can read (a later segment without
-    // one is skipped by the game); none such -> the last one written for it, or null
-    static Segment<PathEntry> pathTrack(Tracks<PathEntry> doc, String animation, Map<String, Float> times) {
-        Segment<PathEntry> found = null;
-        for (var s : doc.segments) {
-            if (!animation(s.head).equals(animation)) continue;
-            for (var e : s.entries) {
-                if (e.key(times) != null) {
-                    found = s;
-                    break;
-                }
-            }
-        }
-        return found != null ? found : doc.forAnimation(animation);
-    }
-
-    // the keys of one animation the game uses, in time order, each with its ms (for the editor)
-    static List<PathEntry> sorted(Segment<PathEntry> s, Map<String, Float> times) {
-        var out = new ArrayList<PathEntry>();
-        if (s == null) return out;
-        for (var e : s.entries) {
-            var k = e.key(times);
-            if (k == null) continue;
-            e.ms = k.ms();
-            out.add(e);
-        }
-        out.sort(Comparator.comparingDouble(e -> e.ms));
-        return out;
     }
 
     // armLeftPath as the game plays it: per animation ("RELOAD", "RELOAD/PumpGrip") its keys in time order;
@@ -558,43 +512,6 @@ final class ArmRig {
             result.put(s.head, values);
         }
         return result;
-    }
-
-    // one animation's adjustments set to these; entries equal to ones already written stay as written
-    static void putAdjustments(Tracks<Value> doc, String animation, SortedMap<Float, float[]> track) {
-        var s = doc.findOrAdd(animation);
-        // what the game reads now at each time: the last entry written for it
-        Map<Float, float[]> now = new HashMap<>();
-        for (var o : s.entries) if (o.v() != null) now.put(o.v()[0], Arrays.copyOfRange(o.v(), 1, 7));
-        // a time whose value stays keeps every entry written for it, in place (two spellings of one time too)
-        var out = new ArrayList<Value>();
-        var kept = new HashSet<Float>();
-        for (var o : s.entries) {
-            if (o.v() == null) {
-                out.add(o);
-                continue;
-            }
-            float[] want = track.get(o.v()[0]);
-            if (want != null && Arrays.equals(want, now.get(o.v()[0]))) {
-                out.add(o);
-                kept.add(o.v()[0]);
-            }
-        }
-        // the rest written anew, each before the first entry that comes later
-        for (var e : track.entrySet()) {
-            if (kept.contains(e.getKey())) continue;
-            int at = out.size();
-            for (int j = 0; j < out.size(); j++) {
-                var v = out.get(j).v();
-                if (v != null && Float.compare(v[0], e.getKey()) > 0) {
-                    at = j;
-                    break;
-                }
-            }
-            out.add(at, adjustment(e.getKey(), e.getValue()));
-        }
-        s.entries.clear();
-        s.entries.addAll(out);
     }
 
     // ---------------------------------------------------------------- what a hand carries (armLeftCarry)

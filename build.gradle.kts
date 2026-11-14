@@ -105,7 +105,6 @@ neoForge {
         register("checkClient") {
             client()
             gameDirectory = root.resolve("run-client-check")
-            systemProperty("ntmgunfeel.armEditorSelfTest",providers.gradleProperty("armEditorSelfTest").isPresent.toString())
             // -ParmScreenSelfTest: the arm editor screen on five guns: every button, the layout, "what moves the hand" per frame
             systemProperty("ntmgunfeel.armScreenSelfTest",providers.gradleProperty("armScreenSelfTest").isPresent.toString())
             systemProperty("ntmgunfeel.weaponSwaySelfTest",providers.gradleProperty("weaponSwaySelfTest").isPresent.toString())

@@ -850,15 +850,6 @@ public final class Arms {
         return names;
     }
 
-    static float[] editorPartCenter(String name) {
-        if(frameModel==null || geometry==null)return new float[3];
-        int id=partByName(frameModel,name);
-        if(id<0)return new float[3];
-        var b=frameModel.groups[id].bounds();
-        var p=geometry.toAligned.transform(new Vector3f((b[0]+b[3])*.5F,(b[1]+b[4])*.5F,(b[2]+b[5])*.5F));
-        return new float[]{p.x,p.y,p.z};
-    }
-
     // the arm editor: the part was drawn in the last frame (a path key on it moves the hand); no frame yet = drawn
     static boolean editorPartDrawn(String name, int nth) {
         return frameModel == null || partPose(name, nth) != null;
@@ -1399,7 +1390,6 @@ public final class Arms {
             switchLastCrop[hand] = crop;
         }
         final int shown = crop;
-        ClientSmoke.armPose(m,right);
         ClientSmoke.armBranch(right, branchName());
         if (TestLog.frames()) {
             // three points of the drawn arm in camera space, for comparing in blocks: the grip (the hand end's middle,
@@ -1415,14 +1405,6 @@ public final class Arms {
                     "t", playing == null ? -1L : com.hbm.util.GameTime.now() - playing.startMillis, "crop", crop, "slim", slim,
                     "branch", branchName(), "contact", new Vector3f(pathContact[hand]),
                     "grip", inCamera.transformPosition(grip), "wrist", wrist, "elbow", elbow, "m", inCamera);
-        }
-        if(Minecraft.getInstance().gui.screen() instanceof ArmAnimationEditor editor) {
-            float fov=com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase.adjustHudFov(70F);
-            float aspect=(float)Minecraft.getInstance().getWindow().getWidth()/Math.max(1,Minecraft.getInstance().getWindow().getHeight());
-            var point=m.transformPosition(ArmContact.pivot(right,slim,pathContact[hand]),new Vector3f());
-            var clip=new Matrix4f().perspective((float)Math.toRadians(fov),aspect,.05F,100F)
-                    .mul(new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewStack())).transform(new org.joml.Vector4f(point,1));
-            editor.anchor(right,clip);
         }
         if (debugArms) {
             GunAnimation type = HbmAnimations.getGunAnimation(0);

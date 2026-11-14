@@ -23,6 +23,11 @@
     empty by default, so no gun did it; the keys are not read any more. With
     them go the balance's two older sets of numbers kept in the code for
     comparison.
+  - The "Arm movements (old)" button of the gun editor and its screen. The
+    arms are set in "Gun arms" (the arms editor, O): the part a hand holds,
+    the point of the hand that touches, the adjustments and the moment the
+    magazine is let go are all there. The keys it wrote are read as before.
+  - For developers: the Gradle switch `-ParmEditorSelfTest`.
   - For developers: the JVM properties `ntmgunfeel.benchWarm`,
     `ntmgunfeel.benchSeconds` and `ntmgunfeel.testLog`, the Gradle switches
     `-PcheckGlyphidCreases` and `-PflywheelOff` (`-PmobCpuGeometry` turns the
