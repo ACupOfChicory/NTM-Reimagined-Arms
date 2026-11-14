@@ -102,6 +102,23 @@ public final class AiClearing {
      * of the rooms checked go to its own cleared set, so the search as before does not walk them again.
      */
     static long step(AiBot bot, ServerLevel level, TargetMemory.Contact c, LongOpenHashSet cleared, long tick) {
+        try {
+            return sweep(bot, level, c, cleared, tick);
+        } catch (RuntimeException e) {
+            // a fault in a sweep does not stop the server: the sweep is put aside (one with no building, none made
+            // again for a while), the soldier searches as before; a line in the debug log
+            long lost = cell(c.lostX, c.lostY, c.lostZ);
+            AiRooms.fault("searching a building", lost, e);
+            Sweep none = new Sweep();
+            none.made = tick;
+            none.nextPlan = tick + AGAIN;
+            none.lost = lost;
+            SWEEPS.computeIfAbsent(level, l -> new HashMap<>()).put(key(bot, c.id), none);
+            return NONE;
+        }
+    }
+
+    private static long sweep(AiBot bot, ServerLevel level, TargetMemory.Contact c, LongOpenHashSet cleared, long tick) {
         Map<Long, Sweep> all = SWEEPS.computeIfAbsent(level, l -> new HashMap<>());
         long key = key(bot, c.id), lost = cell(c.lostX, c.lostY, c.lostZ);
         Sweep s = all.get(key);
