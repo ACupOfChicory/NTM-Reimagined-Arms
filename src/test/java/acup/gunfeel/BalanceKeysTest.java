@@ -35,8 +35,8 @@ class BalanceKeysTest {
 
     @Test
     void theBalancesKeys() {
-        // 104 balance* (117 up to X977, 13 old lines gone), 20 of the choke, 24 of the power armour, 5 of the abilities
-        assertEquals(153, BalanceKeys.ARMS.size());
+        // 102 balance* (117 up to X977, 15 old lines gone), 20 of the choke, 24 of the power armour, 5 of the abilities
+        assertEquals(151, BalanceKeys.ARMS.size());
         for (String k : BalanceKeys.ARMS.keySet()) assertTrue(BalanceKeys.is(k), k);
         for (String k : BalanceKeys.NTM.keySet()) assertTrue(BalanceKeys.ARMS.containsKey(k), k);
         // the keys of no line: the readers' own defaults, never the file's
@@ -47,13 +47,13 @@ class BalanceKeysTest {
 
     @Test
     void armsIsX977() throws Exception {
-        // the 153 keys as the server's file had them by default at X977 (147ef53), "key=value\n" sorted: the game reads them bit for bit.
-        // Not here: the 13 switches whose old lines were gone (balanceIrBeams, balanceBlastFloorShare, balanceBulletBlastCap,
+        // the 151 keys as the server's file had them by default at X977 (147ef53), "key=value\n" sorted: the game reads them bit for bit.
+        // Not here: the 15 switches whose old lines were gone (balanceIrBeams, balanceBlastFloorShare, balanceBulletBlastCap,
         // balanceGunUnder, balanceArmorFloor, balance.final.tesla.ir, .explosive, .character.few, .hits, .table.pairs, .range.shells,
-        // .pools.gas, balance.immune.reloadHold): what they had on is fixed in the code
+        // .pools.gas, .head.guns, .head.gap, balance.immune.reloadHold): what they had on is fixed in the code
         StringBuilder s = new StringBuilder();
         new java.util.TreeMap<>(BalanceKeys.ARMS).forEach((k, v) -> s.append(k).append('=').append(v).append('\n'));
-        assertEquals("3043e90283f80b63e3c28fce3bea6d1d743d2fccb89e7bfc31d70f71e298c7f5",
+        assertEquals("1084ea0f5b8fb581187452a2efaba9beb6bedc774b1d7cce246c359ffe61553c",
                 PinnedTest.sha256(s.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 

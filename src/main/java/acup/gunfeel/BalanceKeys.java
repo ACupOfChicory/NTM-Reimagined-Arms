@@ -308,11 +308,6 @@ public final class BalanceKeys {
         a.put("balance.final.armor.weights", "3,8,6,3");
         a.put("balance.final.armor.empty", "0");
 
-        // a one-shot on the head with these guns on a set of a tier by the hours at least gap below the pair's; empty: no gun
-        // kills with one click on the head (the scheme's head hits take damageCapHead, a sniper rifle's too)
-        a.put("balance.final.head.guns", "");
-        a.put("balance.final.head.gap", "1");
-
         // DNS is never killed quicker than FAU: its TTK at least this times FAU's
         a.put("balance.final.dnsOverFau", "1.15");
 

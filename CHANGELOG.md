@@ -18,6 +18,11 @@
     and more: the value, where it comes from and the defaults.
   - `/gunfeel meshdump`, a debugging aid that wrote the triangles read around
     the block looked at into `config/ntm-gunfeel-meshdump.txt`.
+  - The server keys `balance.final.head.guns` and `balance.final.head.gap`
+    (a kill with one click on the head for the guns listed). The list was
+    empty by default, so no gun did it; the keys are not read any more. With
+    them go the balance's two older sets of numbers kept in the code for
+    comparison.
   - For developers: the JVM properties `ntmgunfeel.benchWarm`,
     `ntmgunfeel.benchSeconds` and `ntmgunfeel.testLog`, the Gradle switches
     `-PcheckGlyphidCreases` and `-PflywheelOff` (`-PmobCpuGeometry` turns the
@@ -29,7 +34,9 @@
 - ⚠ Breaks compatibility: `/gl54mag`, `/gunfeel grip`, `/gunfeel get`,
   `/gunfeel sounddebug` and `/gunfeel meshdump` are removed; a script, a
   command block or a datapack function that calls one of them no longer
-  works.
+  works. A server that listed guns in `balance.final.head.guns` loses their
+  kill with one click on the head: the line in
+  `config/ntm-gunfeel-server.properties` does nothing now.
 
 ## X1064
 
