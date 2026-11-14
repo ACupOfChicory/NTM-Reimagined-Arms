@@ -1,5 +1,13 @@
 # Changelog
 
+## X1042
+
+- AI soldiers walking back crouched step back. They face where they aim and
+  walk back from it, as at a doorway, but crouched their legs played the walk
+  bent low ahead whichever way they went, so a soldier backing off low slid
+  backwards on legs that walked forward. Crouched, the walk is now played
+  backwards going back; standing up the legs already stepped back.
+
 ## X1040
 
 - Layer armour (NTM's steel, titanium, CMB and the rest, vanilla's iron and

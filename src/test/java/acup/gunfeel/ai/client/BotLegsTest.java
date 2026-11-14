@@ -102,6 +102,77 @@ class BotLegsTest {
         assertTrue(bent > 1.5F, "the knees bend " + bent + " rad at most");
     }
 
+    /**
+     * Through a step crouched at this heading, the share of ticks the foot on the ground (the lower, the same foot as
+     * the tick before, moving) goes with the way the mob goes, not against it: a foot on the ground goes back from the
+     * way it walks, so with it the legs walk one way and the mob goes the other.
+     */
+    static float footWithTheWay(float heading) {
+        return footWithTheWay(1F, 0.12F, heading);
+    }
+
+    static float footWithTheWay(float crouch, float speed, float heading) {
+        // the way it goes in the model: ahead is -z, its right -x
+        float mx = -Mth.sin(heading), mz = -Mth.cos(heading);
+        int n = 120, with = 0, counted = 0;
+        org.joml.Vector3f was = null;
+        boolean wasRight = false;
+        for (int i = 0; i <= n; i++) {
+            BotPoser.Parts p = posed(crouch, speed, heading, Math.min(1F, speed * 4F), BotPoser.CYCLE * i / n);
+            float r = lowest(p.rightLeg(), p.rightShin()), l = lowest(p.leftLeg(), p.leftShin());
+            boolean right = r <= l;
+            org.joml.Vector3f foot = right ? BotLegsReplayTest.footAt(p.rightLeg(), p.rightShin()) : BotLegsReplayTest.footAt(p.leftLeg(), p.leftShin());
+            if (was != null && right == wasRight) {
+                float vx = foot.x - was.x, vz = foot.z - was.z, v = (float) Math.hypot(vx, vz);
+                if (v > 0.05F) {
+                    counted++;
+                    if ((vx * mx + vz * mz) / v > 0.5F) with++;
+                }
+            }
+            was = foot;
+            wasRight = right;
+        }
+        assertTrue(counted > n / 3, "heading " + heading + ": the foot on the ground moved in " + counted + " of " + n + " ticks");
+        return with / (float) counted;
+    }
+
+    @Test
+    void crouchedTheFootOnTheGroundGoesAgainstTheWayItGoes() {
+        // ahead, back, and back on a slant: the foot on the ground goes back from the way it walks (it was played on
+        // going back too: the legs walked ahead while it went back)
+        for (float heading : new float[] { 0F, Mth.PI, Mth.PI * 0.8F, -Mth.PI * 0.8F }) {
+            float with = footWithTheWay(heading);
+            assertTrue(with < 0.1F, "heading " + heading + ": the foot on the ground goes with the way it goes " + with * 100F + "% of the ticks");
+        }
+        BotPoser.crouchBack = false;
+        try {
+            float with = footWithTheWay(Mth.PI);
+            assertTrue(with > 0.6F, "before: going back the foot on the ground went with it " + with * 100F + "% of the ticks");
+        } finally {
+            BotPoser.crouchBack = true;
+        }
+    }
+
+    @Test
+    void crouchedGoingAsideTheLegsStillStep() {
+        // played on and played backwards half and half (their steps at odds) the thighs would hardly swing: going aside
+        // and on a slant they step as wide as going ahead or back
+        float ahead = swing(0F);
+        for (float heading : new float[] { Mth.PI / 2F, -Mth.PI / 2F, Mth.PI * 0.6F, Mth.PI * 0.65F, -Mth.PI * 0.65F, Mth.PI })
+            assertTrue(swing(heading) > 0.8F * ahead, "heading " + heading + ": the thighs swing " + swing(heading) + " deg, going ahead " + ahead);
+    }
+
+    /** crouched on the move at this heading: how far the right thigh swings through a step, degrees */
+    static float swing(float heading) {
+        float lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
+        for (int i = 0; i < 60; i++) {
+            float x = posed(1F, 0.12F, heading, 1F, BotPoser.CYCLE * i / 60F).rightLeg().xRot * Mth.RAD_TO_DEG;
+            lo = Math.min(lo, x);
+            hi = Math.max(hi, x);
+        }
+        return hi - lo;
+    }
+
     @Test
     void crouchedAtAStandItIsDownOnAKnee() {
         for (float walkPos : new float[] { 0F, 2F, 5F }) {
