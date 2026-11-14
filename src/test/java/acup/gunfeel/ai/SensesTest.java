@@ -60,6 +60,30 @@ class SensesTest {
         assertTrue(open.asked <= 31 + 5 + 16);
     }
 
+    @Test
+    void aLookAddsUpTheLeavesAndGrassItGoesThroughAndStopsAtStoneOrTooThickAVeil() {
+        int leaf = STONE & ~Voxel.PROTECT_MASK | Voxel.LEAVES, grass = Voxel.GRASS;
+        Blocks b = new Blocks();
+        for (int x = 3; x < 6; x++) b.put(x, 0, 0, leaf);
+        for (int x = 6; x < 10; x++) b.put(x, 0, 0, grass);
+        assertEquals(3 + 4 * 0.25, VoxelRay.veil(b, 0.5, 0.5, 0.5, 12.5, 0.5, 0.5, 0.25, 8.5), 1e-9);
+        assertEquals(-1, VoxelRay.veil(b, 0.5, 0.5, 0.5, 12.5, 0.5, 0.5, 0.25, 3.5), "past the most it sees through");
+        // diagonally a block of leaves is longer to go through: (1,1) to (2,2) across
+        Blocks d = new Blocks();
+        d.put(1, 0, 1, leaf);
+        assertEquals(Math.sqrt(2), VoxelRay.veil(d, 0.0, 0.5, 0.0, 3.0, 0.5, 3.0, 0.25, 8.5), 1e-9);
+        // ending inside one: only the way in counts
+        assertEquals(0.5, VoxelRay.veil(b, 0.5, 0.5, 0.5, 3.5, 0.5, 0.5, 0.25, 8.5), 1e-9);
+        b.put(11, 0, 0, STONE);
+        assertEquals(-1, VoxelRay.veil(b, 0.5, 0.5, 0.5, 12.5, 0.5, 0.5, 0.25, 8.5));
+        // the map's bytes have no marks: leaves are a wall there, as before; a door's byte read as a signed int marks nothing
+        Blocks bytes = new Blocks();
+        bytes.put(3, 0, 0, (int) (byte) (leaf & 0xFF));
+        bytes.put(0, 0, 3, (int) (byte) Voxel.of(Voxel.OPEN, false, 0, false, false, true));
+        assertEquals(-1, VoxelRay.veil(bytes, 0.5, 0.5, 0.5, 9.5, 0.5, 0.5, 0.25, 8.5));
+        assertEquals(0, VoxelRay.veil(bytes, 0.5, 0.5, 0.5, 0.5, 0.5, 9.5, 0.25, 8.5), 1e-9);
+    }
+
     static final AiProfile P = new AiProfile(96, 140, 1, 8, 4, 100, 200, 1000, 4, 4);
 
     @Test

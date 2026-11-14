@@ -9,9 +9,10 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Whether a mob sees a target now: within its range and field of view (around where its head looks), and a line from
- * its eyes to the target's head, chest or legs that no hiding block crosses (glass, bars and fences do not hide) and no
- * thick smoke ({@link SmokeClouds#opticalDepth} past 3, about 5% let through); and which of the three it sees (it aims
- * at what it sees). Nothing else: no light level yet.
+ * its eyes to the target's head, chest or legs that no hiding block crosses (glass, bars and fences do not hide; leaves
+ * and grass veil it some way, {@link #VEIL}) and no thick smoke ({@link SmokeClouds#opticalDepth} past 3, about 5% let
+ * through); and which of the three it sees (it aims at what it sees). How long it takes to notice: the distance, the
+ * corner of the eye, the veil, the target lying, crouching or running. Nothing else: no light level yet.
  */
 public final class Senses {
     /** the middle of the field of view, where a target is noticed fastest: 30 degrees off the look */
@@ -26,6 +27,37 @@ public final class Senses {
     private static final int[] FIRST = {1, 0, 2};
     /** the parts the last {@link #look} that saw its target saw (server thread) */
     static int parts;
+
+    /**
+     * Leaves and grass veil a target (VoxelRay.veil, the live world's marks): seen through a veil this thick (in blocks
+     * of leaves) it would be noticed never; past MAX_VEIL it is not seen at all (the owner's word: a player is seen
+     * through about 8 blocks of leaves, no more). Behind a veil it takes longer to notice, as the share let through.
+     */
+    static final double VEIL = 9, MAX_VEIL = 8.5;
+    /** grass, block for block, as a share of leaves: it hides little (the owner's word) */
+    static final double GRASS = 0.15;
+    /** the time to notice one lying, crouching, running, as a share of the time for one standing or walking */
+    static final double LYING = 1.75, CROUCHING = 1.3, RUNNING = 0.75;
+    /** faster than this (blocks over its last tick) a mob runs: a player walks at 0.216 */
+    static final double RUN_PACE = 0.25;
+    /**
+     * A veil this thin or thinner is no hiding (noticed in under twice the time): one behind it is in plain sight, to its
+     * cover's choice and its keeping (CoverQuery, AiSoldier) and to a peek round a corner ({@link #clearLine})
+     */
+    static final double PLAIN = 4;
+
+    /** in plain sight along the line: no block that hides, and a veil of leaves and grass no thicker than {@link #PLAIN} */
+    public static boolean plain(VoxelRay.Source voxels, double x0, double y0, double z0, double x1, double y1, double z1) {
+        return VoxelRay.veil(voxels, x0, y0, z0, x1, y1, z1, GRASS, PLAIN) >= 0;
+    }
+
+    /** how its bearing moves the time to notice it: lying or crouching longer, running shorter */
+    static double bearing(LivingEntity target) {
+        double k = acup.gunfeel.Prone.lying(target) ? LYING : target.getPose() == net.minecraft.world.entity.Pose.CROUCHING ? CROUCHING : 1;
+        Vec3 mv = ((acup.gunfeel.mixin.mc.EntityAccess) target).gunfeel$lastKnownSpeed();
+        if (target.isSprinting() || mv.x * mv.x + mv.z * mv.z > RUN_PACE * RUN_PACE) k *= RUNNING;
+        return k;
+    }
 
     private Senses() {
     }
@@ -62,27 +94,33 @@ public final class Senses {
             if (cos < p.cosHalfFov()) return -1;
             boolean smoky = smoke != null && !smoke.isEmpty();
             int seen = 0;
+            double thinnest = MAX_VEIL;
             for (int k = 0; k < POINTS.length; k++) {
                 int i = whole ? k : FIRST[k];
                 if (!whole && seen != 0) break;
                 Vec3 at = leaned ? AiLean.point(target, h * POINTS[i]) : new Vec3(target.getX(), target.getY() + h * POINTS[i], target.getZ());
                 rays++;
-                if (!VoxelRay.clear(voxels, eye.x, eye.y, eye.z, at.x, at.y, at.z, Voxel.SIGHT)) continue;
+                double v = VoxelRay.veil(voxels, eye.x, eye.y, eye.z, at.x, at.y, at.z, GRASS, MAX_VEIL);
+                if (v < 0) continue;
                 if (smoky && smoke.opticalDepth(eye, at) > SMOKE_DEPTH) continue;
                 seen |= PART[i];
+                thinnest = Math.min(thinnest, v);
             }
             if (seen == 0) return -1;
             parts = seen;
-            return p.reactionTicks(d, cos < COS_CENTRE);
+            int t = p.reactionTicks(d, cos < COS_CENTRE);
+            double k = bearing(target) / (1 - thinnest / VEIL);
+            // a line that grazes a block of grass is no veil
+            return Math.abs(k - 1) < 1e-3 ? t : (int) Math.ceil(t * k);
         } finally {
             nanos += System.nanoTime() - t0;
         }
     }
 
-    /** whether a point is in plain sight from the eye (blocks and smoke only, no field of view) */
+    /** whether a point is in plain sight from the eye (blocks, a veil past {@link #PLAIN} and smoke only, no field of view) */
     public static boolean clearLine(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, Vec3 eye, Vec3 point) {
         rays++;
-        if (!VoxelRay.clear(voxels, eye.x, eye.y, eye.z, point.x, point.y, point.z, Voxel.SIGHT)) return false;
+        if (!plain(voxels, eye.x, eye.y, eye.z, point.x, point.y, point.z)) return false;
         return smoke == null || smoke.isEmpty() || smoke.opticalDepth(eye, point) <= SMOKE_DEPTH;
     }
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## X1086
+
+- AI soldiers see through leaves by how thick they are: through a block or
+  two of leaves they notice you a little later, through about eight barely,
+  through more not at all. Grass hides little.
+- Lying or crouching you are noticed later, running sooner.
+- Bullets still go through leaves, so a soldier that sees you through a bush
+  can hit you, and a soldier behind a thin bush no longer counts itself
+  hidden.
+
 ## X1082
 
 - AI soldiers cross water over a bridge or through a ford when there is one,
