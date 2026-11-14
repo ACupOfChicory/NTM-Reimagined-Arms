@@ -129,11 +129,12 @@ public final class AiCheck {
             AiCheckGrenadier grenadier = new AiCheckGrenadier(check, check.level, Y);
             AiCheckMedic medic = new AiCheckMedic(check, check.level, Y);
             AiCheckCommander commander = new AiCheckCommander(check, check.level, Y);
+            AiCheckLeaves leaves = new AiCheckLeaves(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
             // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander");
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick);
+                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick, leaves::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
@@ -415,7 +416,8 @@ public final class AiCheck {
         net.minecraft.world.entity.Mob glassBot = dummy(12.5, 10.5, 0, false), glassTarget = dummy(12.5, 17.5, 180, true);
         check("seen through glass", Senses.look(voxels, null, glassBot, glassTarget, bot.profile) >= 0);
         net.minecraft.world.entity.Mob leafBot = dummy(16.5, 10.5, 0, false), leafTarget = dummy(16.5, 17.5, 180, true);
-        check("not seen through leaves", Senses.look(voxels, null, leafBot, leafTarget, bot.profile) < 0);
+        int throughGlass = Senses.look(voxels, null, glassBot, glassTarget, bot.profile), throughLeaf = Senses.look(voxels, null, leafBot, leafTarget, bot.profile);
+        check("seen through a block of leaves, later than through glass (" + throughLeaf + " ticks, " + throughGlass + ")", throughLeaf > throughGlass);
         face(glassBot, 180);
         check("not seen behind its back", Senses.look(voxels, null, glassBot, glassTarget, bot.profile) < 0);
         face(glassBot, 0);

@@ -788,8 +788,7 @@ public final class AiSoldier implements AiBrain {
             nextExposedCheck = tick + EXPOSED_EVERY;
             long s = spot.cell();
             double look = spot.height() == 2 ? 1.6 : 0.5;
-            if (VoxelRay.clear(AiBots.voxels(level), eye.x, eye.y, eye.z, BlockPos.getX(s) + 0.5, BlockPos.getY(s) + look, BlockPos.getZ(s) + 0.5,
-                    Voxel.SIGHT)) {
+            if (Senses.plain(AiBots.voxels(level), eye.x, eye.y, eye.z, BlockPos.getX(s) + 0.5, BlockPos.getY(s) + look, BlockPos.getZ(s) + 0.5)) {
                 drop(bot);
                 relocations++;
                 nextQuery = tick;

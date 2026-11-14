@@ -1,6 +1,6 @@
 # Changelog
 
-## X1090
+## X1094
 
 - AI side commanders: every five to seven seconds, for each team of AI
   soldiers, a commander (no mob) finds the groups of their enemies, AI
@@ -17,7 +17,7 @@
   no team get no orders; mobs farther than aiRadius from every player are not
   sent for. New server setting `aiCommander` (true).
 
-## X1088
+## X1092
 
 - AI medics: a soldier with the new role medic carries six kits. When one of
   its squad, or a player of its team, falls under 60% of their health, it runs
@@ -31,7 +31,7 @@
   `aiMedicShare`, 0.12; both shares of all spawned); `role medic` makes one by
   word. New server settings `aiMedic` (true) and `aiMedicKits` (6).
 
-## X1086
+## X1090
 
 - AI grenadiers: a soldier whose gun fires 40 mm grenades (NTM's Congo Lake
   and MK108; the GL-54 with a magazine of them in) is its squad's grenadier.
@@ -48,7 +48,7 @@
   go). `/armsai spawn` and `/armsai kit` take `role grenadier`; new server
   setting `aiGrenadier` (true by default).
 
-## X1084
+## X1088
 
 - AI marksmen: a soldier with a scoped gun that is no machine gun is its
   squad's marksman. With its target 24 blocks off or farther it takes a perch
@@ -61,6 +61,16 @@
   or with no perch to be had, it fights as a rifleman. Its gun, aim and damage
   are as anyone's. `/armsai spawn` and `/armsai kit` take `role marksman`; new
   server setting `aiMarksman` (true by default).
+
+## X1086
+
+- AI soldiers see through leaves by how thick they are: through a block or
+  two of leaves they notice you a little later, through about eight barely,
+  through more not at all. Grass hides little.
+- Lying or crouching you are noticed later, running sooner.
+- Bullets still go through leaves, so a soldier that sees you through a bush
+  can hit you, and a soldier behind a thin bush no longer counts itself
+  hidden.
 
 ## X1082
 

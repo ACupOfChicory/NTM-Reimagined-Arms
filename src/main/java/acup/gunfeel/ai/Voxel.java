@@ -31,6 +31,18 @@ public final class Voxel {
     /** a door or a gate a hand opens (AiDoors.byHand), shut or open: shut, an AI mob's path goes through it all the same */
     public static final int DOOR = 1 << 7;
 
+    /**
+     * Not in the byte: marks the live world adds for a look ({@link LiveVoxels}, {@link VoxelRay#veil}). Leaves (they
+     * keep {@link #SIGHT} in the byte: the map's cells and its rays take them as hiding, as before) and grass, which a
+     * look goes some way through
+     */
+    public static final int LEAVES = 1 << 8, GRASS = 1 << 9;
+
+    /** the marks above (none on a byte read as a signed int: a door's sets its high bits) */
+    public static int veil(int v) {
+        return v < 0 ? 0 : v & (LEAVES | GRASS);
+    }
+
     /** an unloaded neighbour: as a stone wall, so no cell leans on what is not known */
     public static final byte UNKNOWN = (byte) (SOLID | SIGHT | 2 << PROTECT_SHIFT);
     public static final byte AIR = 0;
