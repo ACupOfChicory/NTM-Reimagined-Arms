@@ -54,6 +54,9 @@ public final class AiCommand {
                 .then(Commands.literal("rooms").executes(c -> rooms(c, 24))
                         .then(Commands.argument("radius", IntegerArgumentType.integer(4, 48))
                                 .executes(c -> rooms(c, IntegerArgumentType.getInteger(c, "radius")))))
+                .then(Commands.literal("terrain").executes(c -> terrain(c, 48))
+                        .then(Commands.argument("radius", IntegerArgumentType.integer(8, 96))
+                                .executes(c -> terrain(c, IntegerArgumentType.getInteger(c, "radius")))))
                 .then(Commands.literal("walls").executes(AiCommand::walls))
                 .then(Commands.literal("dump").executes(AiCommand::dump)));
         root.then(Commands.literal("info").executes(AiCommand::info));
@@ -108,6 +111,16 @@ public final class AiCommand {
         boolean on = AiDebug.toggleRooms(p, radius);
         if (!on) c.getSource().sendSuccess(() -> Component.literal("AI buildings hidden"), false);
         else for (String line : LEGEND) c.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, line, radius)), false);
+        return 1;
+    }
+
+    private static int terrain(CommandContext<CommandSourceStack> c, int radius) throws CommandSyntaxException {
+        ServerPlayer p = c.getSource().getPlayerOrException();
+        boolean on = AiDebug.toggleTerrain(p, radius);
+        c.getSource().sendSuccess(() -> Component.literal(!on ? "AI terrain hidden"
+                : "The lie of the land as the AI reads it, radius " + radius + " (again: hide): squares of 4 x 4 blocks, red where one sees nowhere to green where one sees far; "
+                        + "a white frame: a height, dark blue: a hollow, light blue: water; a green cross: under the crowns of trees; "
+                        + "over each chunk how far one sees from it (blocks) and how high it stands over the land around"), false);
         return 1;
     }
 
@@ -199,7 +212,9 @@ public final class AiCommand {
         TacticalMap map = TacticalMap.peek(c.getSource().getLevel());
         String text = (map == null ? "no tactical map in this level" : map.info()) + "\nAI mobs "
                 + AiBots.count(c.getSource().getLevel()) + "; senses: " + Senses.info() + "; " + CoverQuery.info();
-        c.getSource().sendSuccess(() -> Component.literal(text), false);
+        AiTerrain terrain = AiTerrain.peek(c.getSource().getLevel());
+        String all = terrain == null ? text : text + "\n" + terrain.info();
+        c.getSource().sendSuccess(() -> Component.literal(all), false);
         return 1;
     }
 }

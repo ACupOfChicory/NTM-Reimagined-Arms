@@ -24,5 +24,6 @@ public abstract class MixinAiBlockChange {
             at = @At("HEAD"))
     private void gunfeel$aiBlockChange(BlockPos pos, BlockState state, int flags, CallbackInfoReturnable<BlockState> ci) {
         if (TacticalMap.active && level instanceof ServerLevel server) TacticalMap.blockChanging(server, pos, state);
+        if (acup.gunfeel.ai.AiTerrain.active && level instanceof ServerLevel server) acup.gunfeel.ai.AiTerrain.blockChanging(server, pos);
     }
 }

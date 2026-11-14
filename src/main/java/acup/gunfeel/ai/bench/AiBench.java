@@ -52,7 +52,8 @@ public final class AiBench {
     // (vanilla ServerLevel.sendBlockUpdated asks every navigating mob of the level about every block whose collision
     // changed: research §1.6); boomidle: the same by fbi100idle's wanderers (Lithium asks only mobs with a path);
     // boom0: the same explosions on the empty arena, the explosion's own cost; ai100: the mod's AI mobs, two teams of
-    // 50 FBI going at each other as fbi100's (Arena.aiPairs); aiboom: the same with fbi100's explosions
+    // 50 FBI going at each other as fbi100's (Arena.aiPairs); aiboom: the same with fbi100's explosions; aiwood: ai100
+    // on the arena as land with mounds, a pond and trees all over it (Arena.wood)
     static final List<Phase> PHASES = List.of(
             new Phase("empty", 0, a -> {
             }),
@@ -65,7 +66,11 @@ public final class AiBench {
             new Phase("boom0", 0, a -> {
             }, 150, 300, 450),
             new Phase("ai100", 100, a -> a.aiPairs(100)),
-            new Phase("aiboom", 100, a -> a.aiPairs(100), 150, 300, 450));
+            new Phase("aiboom", 100, a -> a.aiPairs(100), 150, 300, 450),
+            new Phase("aiwood", 100, a -> {
+                a.wood();
+                a.aiPairs(100);
+            }));
 
     static final int WARM_TICKS = 200, MEASURE_TICKS = 600, LOOK_EVERY = 20, AFTER = 20;
     static final long WARM_NANOS = 10_000_000_000L, MEASURE_NANOS = 30_000_000_000L, STALL_NANOS = 180_000_000_000L;
@@ -351,6 +356,8 @@ public final class AiBench {
         notes.add(String.format(Locale.ROOT, "гранаты: броски %.3f мс/тик, в воздухе %.3f мс/тик; звуки посторонних %.3f мс/тик",
                 (acup.gunfeel.ai.AiGrenades.planNanos - planAt) / 1e6 / n, (acup.gunfeel.ai.AiGrenades.liveNanos - liveAt) / 1e6 / n,
                 (acup.gunfeel.ai.AiBots.bystanderNanos - byAt) / 1e6 / n));
+        var terrain = acup.gunfeel.ai.AiTerrain.peek(level);
+        if (terrain != null) notes.add(terrain.info());
         if (mobs.size() != p.mobs()) notes.add("WARN мобов " + mobs.size() + " из " + p.mobs());
         if (alive != mobs.size()) notes.add("WARN к концу осталось " + alive);
         double mobRatio = alive == 0 ? Double.NaN : (double) mobTicked / alive / n;

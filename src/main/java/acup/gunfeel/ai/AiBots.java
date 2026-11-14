@@ -275,7 +275,10 @@ public final class AiBots {
         if (l == null) return;
         long tick = level.getGameTime();
         TacticalMap map = TacticalMap.of(level);
-        if ((tick + bot.mob.getId()) % 40 == 0) map.want(bot.mob.getBlockX(), bot.mob.getBlockY(), bot.mob.getBlockZ(), WANT_RADIUS, 8);
+        if ((tick + bot.mob.getId()) % 40 == 0) {
+            map.want(bot.mob.getBlockX(), bot.mob.getBlockY(), bot.mob.getBlockZ(), WANT_RADIUS, 8);
+            if (AiTerrain.ON) AiTerrain.of(level).want(bot.mob.getBlockX(), bot.mob.getBlockZ());
+        }
         bot.tick(l.voxels, SmokeClouds.get(level), targets(l, tick), tick);
         // a shot that flies close past it is one at it: as a hit, from where it was fired
         Entity shooter = bot.prone.watchShots(level, tick);

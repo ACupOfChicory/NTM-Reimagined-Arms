@@ -209,13 +209,71 @@ public final class Arena {
         return (FORCED_TO - FORCED_FROM + 1) * (FORCED_TO - FORCED_FROM + 1);
     }
 
+    // the highest block over the ground a phase puts (a tree on a mound's top), put back to air by build()
+    static final int TOP = 10;
+    // the wood phase's mounds (centres, 7 across at the foot, 3 high) and its pond (a corner, 6 by 6, 2 deep)
+    static final int[][] MOUNDS = {{50, 64}, {78, 64}};
+    static final int MOUND_R = 7, MOUND_H = 3, POND_X = 61, POND_Z = 61, POND = 6;
+
+    static int mound(int x, int z) {
+        int h = 0;
+        for (int[] m : MOUNDS) {
+            double d = Math.hypot(x - m[0], z - m[1]);
+            if (d < MOUND_R) h = Math.max(h, 1 + (int) ((MOUND_H - 1) * (1 - d / MOUND_R) + 0.5));
+        }
+        return h;
+    }
+
+    // The same arena as land with something on it, for the terrain layers and the looks through leaves: two mounds
+    // between the sides, a pond in the middle, and trees all over, seven blocks apart, staggered: a trunk four high
+    // under a crown five across; every third one bushy, leaves down to the ground round its trunk (in the way of a
+    // look, where the others' crowns are over the heads). No trunk where the sides come in, in the houses or on the
+    // rows. Every block is put back by the next build(). The trees planted.
+    public int wood() {
+        BlockState dirt = Blocks.DIRT.defaultBlockState(), log = Blocks.OAK_LOG.defaultBlockState(), water = Blocks.WATER.defaultBlockState();
+        BlockState leaves = Blocks.OAK_LEAVES.defaultBlockState().setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true);
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        int flags = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        for (int x = 0; x < SIZE; x++)
+            for (int z = 0; z < SIZE; z++)
+                for (int h = 0; h < mound(x, z); h++) level.setBlock(p.set(x, ground + h, z), dirt, flags);
+        for (int x = POND_X; x < POND_X + POND; x++)
+            for (int z = POND_Z; z < POND_Z + POND; z++)
+                for (int d = 1; d <= 2; d++) level.setBlock(p.set(x, ground - d, z), water, flags);
+        int trees = 0;
+        for (int row = 0, z = 4; z < SIZE - 3; z += 7, row++)
+            for (int x = 6 + row % 2 * 3; x < SIZE - 3; x += 7) {
+                // where the two sides come in (aiPairs), and a little round it
+                if (x >= 29 && x <= 41 || x >= SIZE - 42 && x <= SIZE - 30) continue;
+                boolean house = false;
+                for (int[] c : HOUSES) house |= Math.abs(x - c[0]) <= 6 && Math.abs(z - c[1]) <= 6;
+                if (house || !structure(x, 0, z).isAir() || !structure(x, 1, z).isAir()) continue;
+                if (x >= POND_X - 1 && x <= POND_X + POND && z >= POND_Z - 1 && z <= POND_Z + POND) continue;
+                int base = ground + mound(x, z);
+                boolean bushy = trees % 3 == 2;
+                for (int h = 0; h < 6; h++)
+                    for (int dx = -2; dx <= 2; dx++)
+                        for (int dz = -2; dz <= 2; dz++) {
+                            int reach = h < 3 ? (bushy && h > 0 ? 1 : 0) : h < 5 ? 2 : 1;
+                            if (Math.abs(dx) > reach || Math.abs(dz) > reach) continue;
+                            int ax = x + dx, az = z + dz;
+                            if (ax < 0 || az < 0 || ax >= SIZE || az >= SIZE) continue;
+                            boolean trunk = dx == 0 && dz == 0 && h < 4;
+                            if (!trunk && !level.getBlockState(p.set(ax, base + h, az)).isAir()) continue;
+                            level.setBlock(p.set(ax, base + h, az), trunk ? log : leaves, flags);
+                        }
+                trees++;
+            }
+        return trees;
+    }
+
     // puts back every block that is not as the arena has it; the blocks changed
     int build() {
         int changed = 0;
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int x = 0; x < SIZE; x++)
             for (int z = 0; z < SIZE; z++)
-                for (int y = bottom; y <= ground + 4; y++) {
+                for (int y = bottom; y <= ground + TOP; y++) {
                     BlockState want = y < ground ? floor[y - bottom] : structure(x, y - ground, z);
                     if (level.getBlockState(p.set(x, y, z)) == want) continue;
                     level.setBlock(p, want, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
