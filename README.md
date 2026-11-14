@@ -250,6 +250,11 @@ page. They are alphas: expect bugs and back up your world.
   go into water too deep to stand in; swimming they neither fire nor throw,
   take no cover there and make for the bank. Lava and NTM's acids, mud and
   other liquids they never walk into.
+- Leaves hide you only so far: through a block or two of them a bot sees you
+  but takes longer to notice you, through about eight it hardly does, and
+  further not at all. Grass hides little. Lying down or crouching you are
+  noticed later, running sooner. Bullets go through leaves as before, so a bot
+  that sees you through a bush can hit you there.
 - They go into a room together: beside the doorway first, out of the line
   through it, then in at once, each to its own side (server key `aiEntry`).
   One of them steps out before the doorway first and throws a grenade in,

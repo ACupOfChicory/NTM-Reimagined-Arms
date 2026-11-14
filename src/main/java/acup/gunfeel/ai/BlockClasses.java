@@ -7,6 +7,10 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BushBlock;
+import net.minecraft.world.level.block.DoublePlantBlock;
+import net.minecraft.world.level.block.DryVegetationBlock;
+import net.minecraft.world.level.block.TallGrassBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.material.FluidState;
@@ -22,30 +26,39 @@ public final class BlockClasses {
     private BlockClasses() {
     }
 
-    private static byte[] values = new byte[0];
-    private static boolean[] known = new boolean[0];
+    /** each state's byte and the marks a live look reads ({@link Voxel#LEAVES}, {@link Voxel#GRASS}); 0: not worked out yet */
+    private static int[] values = new int[0];
+    private static final int KNOWN = 1 << 16;
     private static int rulesGeneration = Integer.MIN_VALUE;
 
     /** server thread only */
     public static byte of(BlockState state) {
+        return (byte) live(state);
+    }
+
+    /** the byte (as unsigned) with the marks a live look reads: {@link LiveVoxels}; server thread only */
+    public static int live(BlockState state) {
         int generation = BulletRules.generation();
         if (generation != rulesGeneration) {
             rulesGeneration = generation;
-            values = new byte[0];
-            known = new boolean[0];
+            values = new int[0];
         }
         int id = Block.BLOCK_STATE_REGISTRY.getId(state);
-        if (id < 0) return classify(state);
-        if (id >= values.length) {
-            int size = Math.max(id + 1, Math.max(1024, values.length * 2));
-            values = java.util.Arrays.copyOf(values, size);
-            known = java.util.Arrays.copyOf(known, size);
-        }
-        if (!known[id]) {
-            values[id] = classify(state);
-            known[id] = true;
-        }
-        return values[id];
+        if (id < 0) return classify(state) & 0xFF | veil(state);
+        if (id >= values.length) values = java.util.Arrays.copyOf(values, Math.max(id + 1, Math.max(1024, values.length * 2)));
+        int v = values[id];
+        if (v == 0) values[id] = v = classify(state) & 0xFF | veil(state) | KNOWN;
+        return v & ~KNOWN;
+    }
+
+    /**
+     * Leaves, and grass, ferns and bushes (short and tall, dry ones too, a dead bush) and the tall flowers: a look goes
+     * some way through them (Senses)
+     */
+    static int veil(BlockState state) {
+        if (state.is(BlockTags.LEAVES)) return Voxel.LEAVES;
+        Block b = state.getBlock();
+        return b instanceof TallGrassBlock || b instanceof DoublePlantBlock || b instanceof BushBlock || b instanceof DryVegetationBlock ? Voxel.GRASS : 0;
     }
 
     /** a block covering this much of a side, seen along x or z, hides what is behind it and stops bullets in full */

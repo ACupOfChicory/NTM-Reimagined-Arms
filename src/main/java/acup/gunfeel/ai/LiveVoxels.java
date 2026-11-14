@@ -34,6 +34,6 @@ public final class LiveVoxels implements VoxelRay.Source {
         if (last == null) return Voxel.UNKNOWN;
         LevelChunkSection s = last.getSection(last.getSectionIndex(y));
         if (s.hasOnlyAir()) return Voxel.AIR;
-        return BlockClasses.of(s.getBlockState(x & 15, y & 15, z & 15));
+        return BlockClasses.live(s.getBlockState(x & 15, y & 15, z & 15));
     }
 }
