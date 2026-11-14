@@ -27,9 +27,6 @@ public final class FireLines implements PathSearch.Cost {
     /** friends this far off at most, blocks */
     static final double REACH = 48;
 
-    /** off only for the stands' "before" */
-    static boolean on = true;
-
     /** x0, y0, z0, x1, y1, z1 a line */
     private final double[] lines;
     /** whose they are, to take them anew (server thread only); none for a fixed set */
@@ -46,9 +43,8 @@ public final class FireLines implements PathSearch.Cost {
         this.mob = mob;
     }
 
-    /** its own side's lines of fire, taken anew before each search (none now: none yet), or NONE if off */
+    /** its own side's lines of fire, taken anew before each search (none now: none yet) */
     static PathSearch.Cost of(ServerLevel level, Mob mob) {
-        if (!on) return PathSearch.Cost.NONE;
         return new FireLines(lines(level, mob), level, mob);
     }
 

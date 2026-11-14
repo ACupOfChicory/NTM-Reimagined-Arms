@@ -59,7 +59,7 @@ public final class WaterFx {
     private static int budget;
     // spawned since the stand last reset them, by kind; the surface audit's failures (WaterStand)
     public static final int[] SPAWNED = new int[WaterParticle.Kind.values().length];
-    public static int chips, below, overAir, worst;
+    public static int below, overAir;
     // events handled, by type (the stand)
     public static final int[] SPAWNED_EVENTS = new int[WaterEvents.Type.values().length];
     public static double worstBelow;
@@ -236,13 +236,12 @@ public final class WaterFx {
             double l = Math.hypot(n.x, n.z);
             if (l < 1e-6) n = new Vec3(1, 0, 0);
             else n = new Vec3(n.x / l, 0, n.z / l);
-            splashFall(level, e.at(), e.dir(), n, p, false);
+            splashFall(level, e.at(), e.dir(), n, p);
             sound(level, e.at(), e.cls(), p, pellet(e));
             return;
         }
         WaterSurface.Info s = WaterSurface.at(level, e.at().x, e.at().y + 0.05, e.at().z);
-        if (s == null) s = new WaterSurface.Info(e.at().y, e.flow().x, e.flow().z, 0, 0, e.flow().lengthSqr() < 1e-9, e.depth(), e.pos().getX(),
-                e.pos().getY(), e.pos().getZ());
+        if (s == null) s = new WaterSurface.Info(e.at().y, e.flow().x, e.flow().z, e.flow().lengthSqr() < 1e-9, e.depth());
         splashSurface(level, e.at(), e.dir(), s, p, false, false);
         sound(level, e.at(), e.cls(), p, pellet(e));
     }
@@ -276,7 +275,7 @@ public final class WaterFx {
             for (int i = 0; i < m; i++)
                 mist(level, at.x + rnd(-.15, .15), y0 + rnd(0.05, 0.3), at.z + rnd(-.15, .15), rnd(-.4, .4) * sq, rnd(0.3, 1.0) * sq, rnd(-.4, .4) * sq,
                         rnd(1.0, 1.8), rnd(0.4, 0.7) * sq, 0.35F);
-            if (s != null) WaterRings.add(level, at.x, s.y(), at.z, 0, 1.1, 0.2 * sq, 1.2 * sq, 0.6F, !s.still(), false);
+            if (s != null) WaterRings.add(level, at.x, s.y(), at.z, 0, 1.1, 0.2 * sq, 1.2 * sq, 0.6F, !s.still());
             sound(level, at, e.cls(), p * 0.6, pellet(e));
             return;
         }
@@ -303,7 +302,7 @@ public final class WaterFx {
                     rnd(-.2, .2), 10, rnd(0.05, 0.1), 1F);
         if (quietSounds(level)) level.playLocalSound(at.x, at.y, at.z, SoundEvents.BUBBLE_COLUMN_BUBBLE_POP, SoundSource.NEUTRAL, 0.25F,
                 1.2F + (float) rnd(0, 0.3), false);
-        SunkBullets.stopped(level, e);
+        SunkBullets.stopped(e);
     }
 
     // through shallow water into the bottom: crumbs of the block (BlockParticleOption) and a few bubbles
@@ -319,7 +318,6 @@ public final class WaterFx {
             double sp = Math.min(1.4, sq);
             level.addParticle(crumbs, at.x, at.y, at.z, rnd(-1, 1) * sp * 0.05, rnd(1.5, 3.5) * sp * 0.05, rnd(-1, 1) * sp * 0.05);
         }
-        chips += n;
         int b = scaled(4);
         for (int j = 0; j < b; j++)
             spawn(level, WaterParticle.Kind.RISE, at.x + rnd(-.05, .05), at.y + 0.05, at.z + rnd(-.05, .05), rnd(-.2, .2), rnd(0.3, 0.7), rnd(-.2, .2), 6,
@@ -352,8 +350,6 @@ public final class WaterFx {
     }
 
     // ---- the splash on a surface (still, sloped, shallow), the sandbox's splashSurface ----
-    static final java.util.Map<String, Integer> LAST = new java.util.LinkedHashMap<>();
-
     static void splashSurface(Level level, Vec3 p, Vec3 d, WaterSurface.Info s, double power, boolean boom, boolean skipped) {
         double sq = Math.sqrt(power);
         double fm = Math.hypot(s.fx(), s.fz()), fdx = fm > 0 ? s.fx() / fm : 0, fdz = fm > 0 ? s.fz() / fm : 0;
@@ -364,7 +360,6 @@ public final class WaterFx {
         boolean thin = s.depth() < 0.55;
         double y0 = s.y() + 0.02;
         double fs = WaterParticle.FLOW_SPEED;
-        LAST.clear();
         // the crown: leans the way the bullet went, and downstream on a flow
         int n = scaled((int) Math.round((boom ? 90 : 28) * power * (rico ? 0.35 : 0.5 + steep * 0.6) * (thin ? 0.6 : 1)));
         for (int i = 0; i < n; i++) {
@@ -375,14 +370,13 @@ public final class WaterFx {
                     rnd(1.2, 1.8), rnd(0.14, 0.26) * Math.min(1.3, sq), 1F);
             if (k != null) k.mode = 1;
         }
-        LAST.put("crown", n);
         // the jet: 2-4 ticks late, only steep and over deep enough water
         int jet = 0;
         if (!thin && !rico && (steep > 0.35 || boom)) {
             jet = scaled((int) Math.round((boom ? 40 : 8 + 10 * power) * (boom ? 1 : steep)));
             double delay = boom ? 0.05 : 0.11 + 0.06 * sq;
             int jn = jet;
-            later(level, delay, () -> {
+            later(delay, () -> {
                 for (int i = 0; i < jn; i++) {
                     double f = (double) i / jn, spd = (boom ? 7 : 3.5) * sq * (0.45 + f * 0.9) + rnd(-.3, .3);
                     WaterParticle k = drop(level, p.x + rnd(-.04, .04) * sq, y0, p.z + rnd(-.04, .04) * sq, rnd(-.25, .25) + fdx * fm * 0.9, spd,
@@ -391,7 +385,6 @@ public final class WaterFx {
                 }
             });
         }
-        LAST.put("jet", jet);
         // a skip: the plume goes on along the bullet
         int plume = 0;
         if (rico) {
@@ -404,19 +397,16 @@ public final class WaterFx {
                 if (k != null) k.mode = 1;
             }
         }
-        LAST.put("plume", plume);
         // rings: flat on the surface, drifting at half the flow, growing only downstream
         int rings = boom ? 3 : (rico ? 1 : 2);
         for (int i = 0; i < rings; i++)
             WaterRings.add(level, p.x + (rico ? hx * 0.4 : 0), s.y(), p.z + (rico ? hz * 0.4 : 0), i * 0.22, 1.3 + i * 0.2, 0.25 * sq,
-                    (1.6 + i * 0.6) * sq * (boom ? 1.6 : 1), 0.75F - i * 0.15F, fm > 0.01, false);
-        LAST.put("rings", rings);
+                    (1.6 + i * 0.6) * sq * (boom ? 1.6 : 1), 0.75F - i * 0.15F, fm > 0.01);
         int nf = scaled((int) Math.round((boom ? 40 : 8) + 6 * power));
         for (int i = 0; i < nf; i++) {
             double a = rnd(0, Math.PI * 2), r = rnd(0, 0.25) * sq, v = rnd(0.2, 0.9) * sq;
             foam(level, p.x + Math.cos(a) * r, y0, p.z + Math.sin(a) * r, Math.cos(a) * v, Math.sin(a) * v, rnd(2.5, 5), 0, 0);
         }
-        LAST.put("foam", nf);
         int nb = 0;
         if (!thin) {
             nb = scaled((int) Math.round((boom ? 60 : 12) * power * (rico ? 0.3 : 1)));
@@ -427,20 +417,17 @@ public final class WaterFx {
                         fdx * fm * fs, rnd(0.9, 1.8), fdz * fm * fs, 6, rnd(0.1, 0.16) * (boom ? 1.4 : 1), 0.9F);
             }
         }
-        LAST.put("bubbles", nb);
         int nm = scaled((int) Math.round((boom ? 28 : 4) + 5 * power));
         for (int i = 0; i < nm; i++)
             mist(level, p.x + rnd(-.2, .2) * sq, y0 + rnd(0.1, 0.5) * sq, p.z + rnd(-.2, .2) * sq, rnd(-.6, .6) * sq + (rico ? hx * 2 : 0) + fdx * fm * fs,
                     rnd(0.3, 1.4) * sq, rnd(-.6, .6) * sq + (rico ? hz * 2 : 0) + fdz * fm * fs, rnd(1.2, 2.2), rnd(0.5, 0.9) * sq, 0.35F);
-        LAST.put("mist", nm);
     }
 
     // ---- a waterfall: no rings and no jet; spray out along the face's normal and down with the stream, foam that
     // sticks to it and falls with it ----
-    static void splashFall(Level level, Vec3 p, Vec3 d, Vec3 n, double power, boolean boom) {
+    static void splashFall(Level level, Vec3 p, Vec3 d, Vec3 n, double power) {
         double sq = Math.sqrt(power), nx = n.x, nz = n.z, fall = WaterParticle.FALL_SPEED;
-        LAST.clear();
-        int k = scaled((int) Math.round((boom ? 120 : 26) * power));
+        int k = scaled((int) Math.round(26 * power));
         for (int i = 0; i < k; i++) {
             double out = rnd(1, 3.6) * sq, side = rnd(-2.4, 2.4) * sq;
             WaterParticle q = drop(level, p.x + nx * 0.05 + rnd(-.08, .08) * Math.abs(nz), p.y + rnd(-.08, .08), p.z + nz * 0.05 + rnd(-.08, .08) * Math.abs(nx),
@@ -448,17 +435,14 @@ public final class WaterFx {
                     rnd(0.9, 1.5), rnd(0.12, 0.22) * Math.min(1.3, sq), 1F);
             if (q != null) q.mode = 1;
         }
-        LAST.put("spray", k);
-        int nf = scaled((int) Math.round((boom ? 40 : 10) + 6 * power));
+        int nf = scaled((int) Math.round(10 + 6 * power));
         for (int i = 0; i < nf; i++)
             foam(level, p.x + nx * 0.04 + rnd(-.25, .25) * sq * Math.abs(nz), p.y + rnd(-.2, .3) * sq, p.z + nz * 0.04 + rnd(-.25, .25) * sq * Math.abs(nx), 0, 0,
                     rnd(3, 5), 1, -rnd(1, 4));
-        LAST.put("foam", nf);
-        int nm = scaled((int) Math.round((boom ? 24 : 4) + 4 * power));
+        int nm = scaled((int) Math.round(4 + 4 * power));
         for (int i = 0; i < nm; i++)
             mist(level, p.x + nx * 0.3, p.y + rnd(-.2, .2), p.z + nz * 0.3, nx * rnd(0.4, 1.4) * sq + rnd(-.5, .5) * Math.abs(nz), -fall * 0.25 + rnd(-.3, .3),
                     nz * rnd(0.4, 1.4) * sq + rnd(-.5, .5) * Math.abs(nx), rnd(1.2, 2), rnd(0.5, 0.8) * sq, 0.35F);
-        LAST.put("mist", nm);
     }
 
     // ---- sounds: vanilla splashes by strength; one shot's pellets do not each play one ----
@@ -500,7 +484,7 @@ public final class WaterFx {
     private static long ticks;
     private static @Nullable Level lastLevel;
 
-    private static void later(Level level, double seconds, Runnable r) {
+    private static void later(double seconds, Runnable r) {
         LATER.add(new Later(ticks + Math.max(1, Math.round(seconds * 20)), r));
     }
 
@@ -575,7 +559,7 @@ public final class WaterFx {
         if (dir.lengthSqr() < 0.25 || !wetAt(level, at)) return;
         Minecraft mc = Minecraft.getInstance();
         boolean own = mc.player != null && b.getOwner() == mc.player;
-        later(level, 0.05, () -> {
+        later(0.05, () -> {
             BulletConfig config = b.getBulletConfig();
             if (config == null || acup.gunfeel.Tracers.traced(config) || !WaterClass.Fuze.of(config).any()) return;
             // a gun's round only: not the NPCs' bolts and rockets, a cluster's bomblets, a pile's debris, a flame
@@ -721,11 +705,5 @@ public final class WaterFx {
         acup.gunfeel.GunFeel.LOGGER.info("[waterfx] audit {} {} mode {} age {} at {} {} {} by {} fluid here {} below {}", what, p.kind, p.mode, p.age(),
                 String.format("%.3f", p.x()), String.format("%.3f", p.y()), String.format("%.3f", p.z()), String.format("%.3f", d),
                 p.level().getFluidState(BlockPos.containing(p.x(), p.y(), p.z())), p.level().getFluidState(BlockPos.containing(p.x(), p.y() - 1, p.z())));
-    }
-
-    public static void resetCounts() {
-        java.util.Arrays.fill(SPAWNED, 0);
-        chips = below = overAir = 0;
-        worstBelow = 0;
     }
 }

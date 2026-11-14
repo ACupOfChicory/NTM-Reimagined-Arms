@@ -62,12 +62,6 @@ public final class AiAim {
     private final float[] offYaws = new float[KEEP], offPitches = new float[KEEP], stayYaws = new float[KEEP], stayPitches = new float[KEEP];
     private final long[] offAt = new long[KEEP];
 
-    /** starts over: a new target, or the old one after a while out of sight */
-    public void forget() {
-        target = Integer.MIN_VALUE;
-        last = Long.MIN_VALUE;
-    }
-
     /** the target's chest seen this tick, from a mob at (fromX, fromZ) */
     public void see(int id, double x, double y, double z, long tick, AiSkill skill, double fromX, double fromZ) {
         if (id != target || last == Long.MIN_VALUE || tick - last > GAP || tick <= last) {
@@ -237,13 +231,9 @@ public final class AiAim {
 
     /**
      * Whether a shot from the eye looking at (yaw, pitch) would meet a body at the spot (sx, sy, sz): across within
-     * the skill's gate times half its width, up and down within the gate times chest to head.
+     * the skill's gate times half its width, up and down within the gate times halfHeight, the part of the body up
+     * and down from the spot ({@link #HALF_HEIGHT} for a whole body, less for only the head over a wall).
      */
-    public static boolean onTarget(AiSkill skill, double ex, double ey, double ez, float yaw, float pitch, double sx, double sy, double sz) {
-        return onTarget(skill, ex, ey, ez, yaw, pitch, sx, sy, sz, HALF_HEIGHT);
-    }
-
-    /** the same for a part of a body halfHeight blocks up and down from the spot (only the head over a wall) */
     public static boolean onTarget(AiSkill skill, double ex, double ey, double ez, float yaw, float pitch, double sx, double sy, double sz,
             double halfHeight) {
         double dx = sx - ex, dy = sy - ey, dz = sz - ez, d = Math.sqrt(dx * dx + dy * dy + dz * dz);

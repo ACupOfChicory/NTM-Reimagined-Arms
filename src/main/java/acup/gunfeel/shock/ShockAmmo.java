@@ -59,10 +59,6 @@ public final class ShockAmmo {
         return config;
     }
 
-    public static boolean is(BulletConfig c) {
-        return c != null && c == config;
-    }
-
     static synchronized void setup() {
         if (config != null) return;
         config = new BulletConfig()

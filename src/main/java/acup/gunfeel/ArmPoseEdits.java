@@ -11,11 +11,6 @@ final class ArmPoseEdits {
     static Map<String,TreeMap<Float,float[]>> read(String source) {
         return ArmRig.adjustments(source);
     }
-    static String write(Map<String,TreeMap<Float,float[]>> tracks) {
-        var doc=ArmRig.adjustmentTracks("");
-        for(var track:tracks.entrySet())ArmRig.putAdjustments(doc,track.getKey(),track.getValue());
-        return doc.write();
-    }
     static float[] sample(TreeMap<Float,float[]> track,float time) {
         if(track==null || track.isEmpty())return new float[6];
         var a=track.floorEntry(time);var b=track.ceilingEntry(time);
@@ -32,9 +27,6 @@ final class ArmPoseEdits {
             if(CACHE.size()>=16)CACHE.remove(CACHE.keySet().iterator().next());CACHE.put(source,tracks);
         }
         return sample(tracks.get(cue),time);
-    }
-    static void apply(Matrix4f pose,float[] values,boolean right,boolean slim,float corner) {
-        apply(pose,values,right,slim,ArmContact.offset(1).mul(corner));
     }
     static void apply(Matrix4f pose,float[] values,boolean right,boolean slim,Vector3f contactOffset) {
         boolean changed=false;for(float value:values)if(value!=0){changed=true;break;}if(!changed)return;

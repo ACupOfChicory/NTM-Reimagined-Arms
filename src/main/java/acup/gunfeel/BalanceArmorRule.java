@@ -64,14 +64,10 @@ public final class BalanceArmorRule {
         public static final Tune DEFAULT = new Tune(8F, 14F);
     }
 
-    /** what a full set of rating {@code s} and tier {@code tau} leaves of the hit */
-    public static float full(Hit hit, double s, double tau, Tune tune) {
-        return full(hit, s, tau, tune, 1.0);
-    }
-
     /**
-     * the same with the least share {@code b·floor} (the gun table's floor of the shot's pair; at most {@code 1 − d}):
-     * {@code m = fl + (1 − d − fl)·rho³/(1 + rho³)}, {@code fl = min(1 − d, b·floor)}
+     * what a full set of rating {@code s} and tier {@code tau} leaves of the hit, with the least share {@code b·floor}
+     * (the gun table's floor of the shot's pair; at most {@code 1 − d}): {@code m = fl + (1 − d − fl)·rho³/(1 + rho³)},
+     * {@code fl = min(1 − d, b·floor)}
      */
     public static float full(Hit hit, double s, double tau, Tune tune, double floor) {
         return full(hit, s, tau, tune, floor, hit.damage());

@@ -70,10 +70,6 @@ public final class ReflexDraw {
     static final int RED = 255, GREEN = 36, BLUE = 24;
     // the pane's coating: a faint blue film, premultiplied (3% of the view behind it is taken, a little blue given back)
     static final int GLASS = (8 << 24) | (3 << 16) | (4 << 8) | 6;
-    // how far in front of the pane the shapes lie, model units
-    // none: a lift along the pane's normal would shift the dot on the screen (the eye is not on the normal), and nothing is drawn
-    // on the pane for the shapes to hide behind
-    static final double LIFT = 0.0;
 
     // Light that keeps its own brightness: the vertex colour only (fog aside), no lightmap, no shading, no overlay, blended
     // as premultiplied colour (an opaque core covers what is behind, a glow with alpha 0 only adds). Depth is tested, so the
@@ -207,23 +203,22 @@ public final class ReflexDraw {
         if (probe != null) {
             POINTS = probe;
         }
-        Vector3f lift = new Vector3f((float) (-r.normal()[0] * LIFT), (float) (-r.normal()[1] * LIFT), (float) (-r.normal()[2] * LIFT));
         collector.submitCustomGeometry(pose, type(), (p, vc) -> {
             // the tint first, the light over it, in the order given (the type is not sorted)
             for (Shape s : shapes) {
                 List<double[]> poly = s.poly();
                 for (int i = 1; i + 1 < poly.size(); i++) {
-                    corner(vc, p, r, poly.get(0), lift, s.argb());
-                    corner(vc, p, r, poly.get(i), lift, s.argb());
-                    corner(vc, p, r, poly.get(i + 1), lift, s.argb());
-                    corner(vc, p, r, poly.get(i + 1), lift, s.argb());
+                    corner(vc, p, r, poly.get(0), s.argb());
+                    corner(vc, p, r, poly.get(i), s.argb());
+                    corner(vc, p, r, poly.get(i + 1), s.argb());
+                    corner(vc, p, r, poly.get(i + 1), s.argb());
                 }
             }
             for (Cell c : cells) {
-                corner(vc, p, r, new double[] {c.a(), c.b()}, lift, c.c00());
-                corner(vc, p, r, new double[] {c.a() + cell, c.b()}, lift, c.c10());
-                corner(vc, p, r, new double[] {c.a() + cell, c.b() + cell}, lift, c.c11());
-                corner(vc, p, r, new double[] {c.a(), c.b() + cell}, lift, c.c01());
+                corner(vc, p, r, new double[] {c.a(), c.b()}, c.c00());
+                corner(vc, p, r, new double[] {c.a() + cell, c.b()}, c.c10());
+                corner(vc, p, r, new double[] {c.a() + cell, c.b() + cell}, c.c11());
+                corner(vc, p, r, new double[] {c.a(), c.b() + cell}, c.c01());
             }
         });
     }
@@ -301,8 +296,9 @@ public final class ReflexDraw {
                 (float) (r.origin()[2] + a * r.uAxis()[2] + b * r.vAxis()[2]));
     }
 
-    private static void corner(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack.Pose p, Gl54Reflex r, double[] ab, Vector3f lift, int argb) {
-        Vector3f v = point(r, ab[0], ab[1]).add(lift);
+    // on the pane itself: a lift along its normal would shift the dot on the screen (the eye is not on the normal)
+    private static void corner(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack.Pose p, Gl54Reflex r, double[] ab, int argb) {
+        Vector3f v = point(r, ab[0], ab[1]);
         vc.addVertex(p, v.x, v.y, v.z).setColor(argb);
     }
 

@@ -153,16 +153,13 @@ final class ContourSurface {
             cutTriangle(t,a,direction,lengthSquared,plane.perpendicular);
         }
     }
-    // То же, что boxes.get(index).interiorSpan(from,to).
+    // Часть отрезка [from,to] строго внутри сплошной (без меша) детали index, с отступом 1e-6 от граней; null — не проходит.
     double[] interiorSpan(int index,Vec3 from,Vec3 to) {
         var solid=solids[index];
         if(!solid.solid || !solid.span(from.x,from.y,from.z,to.x,to.y,to.z,1e-6,1-1e-6,span)) return null;
         return new double[]{span[0],span[1]};
     }
 
-    void append(List<Vec3> output,Vec3 a,Vec3 b,List<double[]> visible) {
-        append(output,a,b,visible,null);
-    }
     void append(List<Vec3> output,Vec3 a,Vec3 b,List<double[]> visible,ModelBox source) {
         Vec3 direction=b.subtract(a); double lengthSquared=direction.lengthSqr();
         if(lengthSquared<1e-16 || visible.isEmpty()) return;

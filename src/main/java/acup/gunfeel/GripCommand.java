@@ -13,8 +13,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 
-// /gunfeel grip right|left <x> <y> <z>   hand position for the held NTM gun (fractions of the model size)
-// /gunfeel grip show | reset
 // /gunfeel set|unset|get <setting> [value]   per-gun override of any setting for the held gun; /gunfeel settings
 public final class GripCommand {
     private GripCommand() {
@@ -94,13 +92,6 @@ public final class GripCommand {
                     c.getSource().sendSuccess(() -> Component.literal("Качество: " + q + " (дырки, их время и частицы; настройки, изменённые вручную, остаются)"), false);
                     return 1;
                 })))
-                .then(Commands.literal("sounddebug").executes(c -> {
-                    BulletFx.debugSound = !BulletFx.debugSound;
-                    BulletServer.debugRicochet = BulletFx.debugSound; // the built-in server of a single player world
-                    boolean on = BulletFx.debugSound;
-                    c.getSource().sendSuccess(() -> Component.literal(on ? "Отладка звуков включена: каждое попадание пишется в лог ([sounddebug])" : "Отладка звуков выключена"), false);
-                    return 1;
-                }))
                 .then(Commands.literal("testlog").executes(c -> TestLogClient.toggle(c.getSource())))
                 .then(Commands.literal("clearholes").executes(c -> {
                     int n = Tracers.clearHoles();
@@ -113,19 +104,7 @@ public final class GripCommand {
                     boolean on = Tracers.debugHoles;
                     c.getSource().sendSuccess(() -> Component.literal(on ? "Отладка дырок включена: каждое попадание пишется в лог ([holedebug])" : "Отладка дырок выключена"), false);
                     return 1;
-                }))
-                .then(Commands.literal("grip")
-                .then(Commands.literal("show").executes(c -> show(c)))
-                .then(Commands.literal("reset").executes(c -> {
-                    Identifier id = held(c);
-                    if (id == null) return 0;
-                    Grips.reset(id + missing());
-                    return show(c);
-                }))
-                .then(hand("right", true))
-                .then(hand("left", false))
-                .then(handAt("rightAt", true))
-                .then(handAt("leftAt", false))));
+                })));
     }
 
     // /gunfeel set <key> with no value: what the held gun uses now and the defaults under it
@@ -161,31 +140,6 @@ public final class GripCommand {
         return v == null ? "?" : v.isEmpty() ? "(пусто)" : v;
     }
 
-    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> hand(String name, boolean right) {
-        return Commands.literal(name).then(Commands.argument("x", FloatArgumentType.floatArg(-1F, 2F))
-                .then(Commands.argument("y", FloatArgumentType.floatArg(-1F, 2F))
-                        .then(Commands.argument("z", FloatArgumentType.floatArg(-1F, 2F)).executes(c -> {
-                            Identifier id = held(c);
-                            if (id == null) return 0;
-                            Grips.set(id + missing(), right, FloatArgumentType.getFloat(c, "x"), FloatArgumentType.getFloat(c, "y"),
-                                    FloatArgumentType.getFloat(c, "z"));
-                            return show(c);
-                        }))));
-    }
-
-    // /gunfeel grip leftAt <x> <y> <z>: the point in model units, as grip show prints it
-    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> handAt(String name, boolean right) {
-        return Commands.literal(name).then(Commands.argument("x", FloatArgumentType.floatArg())
-                .then(Commands.argument("y", FloatArgumentType.floatArg())
-                        .then(Commands.argument("z", FloatArgumentType.floatArg()).executes(c -> {
-                            Identifier id = held(c);
-                            if (id == null) return 0;
-                            Grips.setAt(id + missing(), right, FloatArgumentType.getFloat(c, "x"), FloatArgumentType.getFloat(c, "y"),
-                                    FloatArgumentType.getFloat(c, "z"));
-                            return show(c);
-                        }))));
-    }
-
     private static java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> keys(
             CommandContext<CommandSourceStack> c, com.mojang.brigadier.suggestion.SuggestionsBuilder b) {
         return net.minecraft.commands.SharedSuggestionProvider.suggest(Config.keys().stream().filter(k -> !k.equals("enabled")), b);
@@ -213,28 +167,5 @@ public final class GripCommand {
             return null;
         }
         return BuiltInRegistries.ITEM.getKey(player.getMainHandItem().getItem());
-    }
-
-    private static int show(CommandContext<CommandSourceStack> c) {
-        Identifier id = held(c);
-        if (id == null) return 0;
-        String missing = missing();
-        Grips.Grip g = Grips.get(id, missing);
-        c.getSource().sendSuccess(() -> Component.literal(id + missing
-                + "  right" + (g.rightAt() != null ? "At " + fmt(g.rightAt()) : " " + fmt(g.right()))
-                + "  left" + (g.leftAt() != null ? "At " + fmt(g.leftAt()) : " " + fmt(g.left()))), false);
-        return 1;
-    }
-
-    // model parts the held gun's variant does not draw ("-Stock-Barrel" for a sawn-off), "" = the full gun:
-    // hand positions set while holding a variant go to that variant only
-    private static String missing() {
-        var player = Minecraft.getInstance().player;
-        GunGeometry g = player == null ? null : Arms.geometry(player.getMainHandItem().getItem());
-        return g == null ? "" : g.missing;
-    }
-
-    private static String fmt(float[] v) {
-        return String.format("%.2f %.2f %.2f", v[0], v[1], v[2]);
     }
 }

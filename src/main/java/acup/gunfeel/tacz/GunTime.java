@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copied from TaCZ (Timeless and Classics Zero), MCModderAnchor/TACZ and contributors, GPL-3.0.
 // https://github.com/MCModderAnchor/TACZ, revision 19f14c8, src/main/java/com/tacz/guns/util/time/GunTime.java.
-// Changes: the package; the clock (TaCZ takes it from SimpleBedrockModel) is the Clock class at the end.
+// Changes: the package; the clock (TaCZ takes it from SimpleBedrockModel) is the Clock class at the end; epoch(),
+// resetEpoch(), isWithin(), hasElapsed() and the epoch counter are left out, nothing here calls them.
 package acup.gunfeel.tacz;
 
 
@@ -15,7 +16,6 @@ public final class GunTime {
     // TaCZ: SimpleBedrockModel's AnimationClocks.client(), a clock that stops with the single-player pause
     private static final Clock CLOCK = new Clock();
     private static volatile long originNanos = CLOCK.nowNanos();
-    private static volatile long epoch;
 
     private GunTime() {
     }
@@ -28,7 +28,6 @@ public final class GunTime {
             synchronized (GunTime.class) {
                 if (raw < originNanos) {
                     originNanos = raw;
-                    epoch++;
                 }
                 origin = originNanos;
             }
@@ -42,34 +41,6 @@ public final class GunTime {
 
     public static boolean shouldTick() {
         return CLOCK.shouldTick();
-    }
-
-    /** Changes when the client leaves a world and its animation clock resets. */
-    public static long epoch() {
-        nowNanos();
-        return epoch;
-    }
-
-    public static synchronized void resetEpoch() {
-        originNanos = CLOCK.nowNanos();
-        epoch++;
-    }
-
-    /** An unset or future timestamp is outside the window. */
-    public static boolean isWithin(long timestamp, long durationMillis) {
-        if (timestamp < 0 || durationMillis <= 0) {
-            return false;
-        }
-        long elapsed = nowMillis() - timestamp;
-        return elapsed >= 0 && elapsed < durationMillis;
-    }
-
-    public static boolean hasElapsed(long timestamp, long durationMillis) {
-        if (timestamp < 0) {
-            return false;
-        }
-        long elapsed = nowMillis() - timestamp;
-        return elapsed >= durationMillis;
     }
 
     // port: in place of SimpleBedrockModel's client clock: System.nanoTime() that does not run while the game is paused

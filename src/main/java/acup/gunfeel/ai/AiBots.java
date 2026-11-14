@@ -80,14 +80,6 @@ public final class AiBots {
         return bot != null && bot.mob == e ? bot : null;
     }
 
-    public static void detach(Mob mob) {
-        if (!(mob.level() instanceof ServerLevel level)) return;
-        PerLevel l = LEVELS.get(level);
-        if (l == null) return;
-        l.bots.remove(mob.getId());
-        claimGone(l, mob.getId());
-    }
-
     public static int count(ServerLevel level) {
         PerLevel l = LEVELS.get(level);
         return l == null ? 0 : l.bots.size();

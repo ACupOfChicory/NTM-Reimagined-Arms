@@ -157,10 +157,6 @@ public final class PistolHold {
      * The hip place for the camera's view, the pose and moved in the pose space (turned with the world): in the eye's
      * space the pose is view·pose and moved is view·moved·view⁻¹.
      */
-    static boolean hip(Matrix4f view, Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ, Vector3f out) {
-        return hip(view, pose, moved, ends, aX, aY, aZ, 1F, 1F, 1F, out);
-    }
-
     static boolean hip(Matrix4f view, Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ,
             float kx, float ky, float kz, Vector3f out) {
         if (Math.abs(view.determinant()) < 1e-12F) return false;
@@ -187,10 +183,6 @@ public final class PistolHold {
      * frame before it (moved⁻¹·m), so the sway as the camera turns and the walk's, the run's and the jump's move stay
      * on top of the hip place, as they do of the aimed one.
      */
-    static boolean hip(Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ, Vector3f out) {
-        return hip(pose, moved, ends, aX, aY, aZ, 1F, 1F, 1F, out);
-    }
-
     static boolean hip(Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ,
             float kx, float ky, float kz, Vector3f out) {
         if (Math.abs(moved.determinant()) < 1e-12F) return false;

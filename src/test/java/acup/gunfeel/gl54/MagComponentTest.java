@@ -70,13 +70,4 @@ class MagComponentTest {
                 java.util.Arrays.stream(GrenadeKind.values()).map(k -> k.key).toList());
         assertEquals("mixed", GrenadeKind.MIXED);
     }
-
-    @Test
-    void commandWordsMakeMagazines() {
-        assertEquals(List.of("he", "he", "airburst"), MagCommand.parse("he,HE, AB"));
-        assertEquals(MagContents.filled("smoke", 8).rounds(), MagCommand.parse("smoke"));
-        assertEquals(List.of(), MagCommand.parse("empty"));
-        assertEquals(null, MagCommand.parse("he,nonsense"));
-        assertEquals(null, MagCommand.parse("he,he,he,he,he,he,he,he,he"));
-    }
 }

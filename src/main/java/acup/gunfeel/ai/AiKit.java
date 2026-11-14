@@ -86,12 +86,7 @@ public final class AiKit {
      * armour was named at all
      */
     public record Parsed(String @Nullable [] armor, @Nullable String ammo, @Nullable String team, @Nullable String role) {
-        public boolean empty() {
-            return armor == null && ammo == null && team == null && role == null;
-        }
     }
-
-    static final Parsed NOTHING = new Parsed(null, null, null, null);
 
     /** the words after the gun; {@code team}: whether a team may be named here */
     public static Parsed parse(@Nullable String text, boolean team) throws Bad {

@@ -346,7 +346,6 @@ final class Gl54Stand {
 
     private static final String[] MOCK_STOCK = {"airburst:8", "airburst:8", "airburst:5", "he:8", "he:3", "inc:8", "smoke:8", "smoke:4",
             "ap:8", "chlorine:8", "phosgene:6", "mustard:8", "acid:8"};
-    private static int tick0;
 
     private static <T> T onServer(java.util.function.Supplier<T> f) {
         var server = Minecraft.getInstance().getSingleplayerServer();
@@ -424,10 +423,6 @@ final class Gl54Stand {
 
     private static boolean idle() {
         return onServer(() -> ItemGunBaseNT.getState(player().getMainHandItem(), 0) == ItemGunBaseNT.GunState.IDLE);
-    }
-
-    private static int gunCount() {
-        return onServer(() -> acup.gunfeel.gl54.GrenadeMagazine.gun(player().getMainHandItem()).count());
     }
 
     // R, then the ticks to the swap (the gun's count or magazine changes) and to idle again, one line

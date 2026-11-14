@@ -4,18 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 // A bot's confidence: falls with hits and losses, rises with its own, drifts back, shared with its squad.
 class AiConfidenceTest {
-    @BeforeEach
-    @AfterEach
-    void on() {
-        AiConfidence.on = true;
-    }
-
     @Test
     void hurtAndLossesHoldItBackAndItComesBack() {
         AiConfidence c = new AiConfidence();
@@ -101,15 +93,5 @@ class AiConfidenceTest {
         d.add(-(AiConfidence.BASE - AiConfidence.BREAK) + 0.02F, 0);
         assertFalse(d.fallsBack(0));
         assertTrue(d.holdsBack(0));
-    }
-
-    @Test
-    void offItNeitherPressesNorHoldsBack() {
-        AiConfidence c = new AiConfidence();
-        AiConfidence.on = false;
-        c.add(-1F, 0);
-        assertFalse(c.holdsBack(0));
-        assertFalse(c.fallsBack(0));
-        assertEquals(1.0, c.range(0), 1e-9);
     }
 }

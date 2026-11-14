@@ -102,11 +102,7 @@ public final class WornGear {
 
     // the part grown by what is worn over it; the same box when nothing is
     static ModelBox grow(ModelBox b, Worn worn, boolean humanoid) {
-        return grow(b, worn, humanoid, false);
-    }
-
-    static ModelBox grow(ModelBox b, Worn worn, boolean humanoid, boolean split) {
-        return grow(b, worn, humanoid, split, false);
+        return grow(b, worn, humanoid, false, false);
     }
 
     // zone: a head zone under a helmet covers its hat as well, 1.5 pixels out of the head (vanilla's armor head has

@@ -31,8 +31,8 @@ class AiKitTest {
 
     @Test
     void nothingTypedIsNoKit() {
-        assertTrue(parse(null).empty());
-        assertTrue(parse("  ").empty());
+        assertEquals(new AiKit.Parsed(null, null, null, null), parse(null));
+        assertEquals(new AiKit.Parsed(null, null, null, null), parse("  "));
     }
 
     @Test
@@ -85,7 +85,7 @@ class AiKitTest {
         AiKit.Parsed only = parse("ammo m44_ap");
         assertNull(only.armor());
         assertNull(only.team());
-        assertFalse(only.empty());
+        assertEquals("m44_ap", only.ammo());
         // the team's name as typed
         assertEquals("Red", parse("team Red").team());
     }
@@ -96,7 +96,6 @@ class AiKitTest {
         assertEquals("rifle", parse("armor hev role Rifle team red").role());
         assertEquals("auto", parse("role auto").role());
         assertNull(parse("ammo m44_ap").role());
-        assertFalse(parse("role base").empty());
         // a role is named with a kit too (/armsai kit), unlike a team
         assertTrue(bad("role nosuch", false).contains("no role 'nosuch'"));
         assertTrue(bad("role nosuch", false).contains("rifle, base"));

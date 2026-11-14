@@ -27,8 +27,6 @@ public final class AiConfidence {
     static final float SHARE = 0.25F;
     /** cover this much nearer the target than its gun's best range pressing on, farther holding back (CoverQuery.fightAt) */
     static final double PRESS_RANGE = 0.7, HOLD_RANGE = 1.4;
-    /** off only for the stands' "before" */
-    static boolean on = true;
 
     private float value = BASE;
     private long at = Long.MIN_VALUE;
@@ -102,18 +100,18 @@ public final class AiConfidence {
 
     /** pressing on this tick */
     public boolean presses(long tick) {
-        return on && value(tick) >= HIGH;
+        return value(tick) >= HIGH;
     }
 
     /** holding back this tick */
     public boolean holdsBack(long tick) {
-        return on && value(tick) <= LOW;
+        return value(tick) <= LOW;
     }
 
     /** falling back this tick (AiSoldier: to cover farther off, a squad in waves): from BREAK down, until back at LOW */
     public boolean fallsBack(long tick) {
         float v = value(tick);
-        falling = on && (v <= BREAK || falling && v < LOW);
+        falling = v <= BREAK || falling && v < LOW;
         return falling;
     }
 

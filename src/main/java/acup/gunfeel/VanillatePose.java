@@ -26,10 +26,6 @@ public final class VanillatePose {
 
     private VanillatePose() {}
 
-    public static Data read(Object visual) {
-        return snapshot(published(visual));
-    }
-
     public static Object published(Object visual) {
         try { return PUBLISHED.get(visual.getClass()).get(visual); }
         catch (IllegalAccessException ex) { throw new IllegalStateException(ex); }

@@ -93,13 +93,12 @@ class SpreadModelTest {
     /** Fable №3: the choke; the shipped keys of the shotguns (knee 0.015, over 0.3): aimed, the SPAS-12's from the hip, none for an akimbo */
     @Test
     void choke() throws IOException {
-        assertEquals(0.021F, SpreadModel.choke(0.035F, true, 0.015F, 0.3F), E);
-        assertEquals(0.018F, SpreadModel.choke(0.025F, true, 0.015F, 0.3F), E);
-        assertEquals(0.015F, SpreadModel.choke(0.015F, true, 0.015F, 0.3F), E);
-        assertEquals(0.01F, SpreadModel.choke(0.01F, true, 0.015F, 0.3F), E);
-        // from the hip, a knee of 0: NTM's spread as it is
-        assertEquals(0.035F, SpreadModel.choke(0.035F, false, 0.015F, 0.3F), E);
-        assertEquals(0.035F, SpreadModel.choke(0.035F, true, 0F, 0.3F), E);
+        assertEquals(0.021F, SpreadModel.choke(0.035F, 0.015F, 0.3F), E);
+        assertEquals(0.018F, SpreadModel.choke(0.025F, 0.015F, 0.3F), E);
+        assertEquals(0.015F, SpreadModel.choke(0.015F, 0.015F, 0.3F), E);
+        assertEquals(0.01F, SpreadModel.choke(0.01F, 0.015F, 0.3F), E);
+        // a knee of 0: NTM's spread as it is
+        assertEquals(0.035F, SpreadModel.choke(0.035F, 0F, 0.3F), E);
         Properties p = shipped();
         assertEquals(0.015F, get(p, "hbm:gun_spas12", "spreadHipKnee", 0F));
         assertEquals(0.3F, get(p, "hbm:gun_spas12", "spreadHipOver", 1F));

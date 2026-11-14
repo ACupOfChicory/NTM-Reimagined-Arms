@@ -739,20 +739,6 @@ public final class ModelHits {
         return out;
     }
 
-    // Пары концов двенадцати рёбер обычного ModelPart-куба.
-    private static final float[] BOX_EDGES = boxEdges();
-    private static float[] boxEdges() {
-        float[] edges = new float[72];
-        int at = 0;
-        for (int i = 0; i < 8; i++) for (int axis = 1; axis <= 4; axis <<= 1) if ((i & axis) == 0)
-            for (int point : new int[] {i, i | axis}) {
-                edges[at++] = (point & 1) == 0 ? 0 : 1;
-                edges[at++] = (point & 2) == 0 ? 0 : 1;
-                edges[at++] = (point & 4) == 0 ? 0 : 1;
-            }
-        return edges;
-    }
-
     public static synchronized Optional<Vec3> clip(Entity target, Vec3 from, Vec3 to, AABB fallback) {
         var dragonPart=target instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragonPart part?part:null;
         var parent=ModelPartEntities.parent(target);

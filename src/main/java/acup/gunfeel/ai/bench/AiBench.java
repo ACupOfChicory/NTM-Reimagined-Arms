@@ -41,7 +41,7 @@ public final class AiBench {
     public static final String PROPERTY = "ntmgunfeel.benchAi";
 
     // A phase: its name, the mobs it should have and what puts them on the cleared arena (Arena's spawn, grid,
-    // fbiPairs, command); booms are the measured ticks at which an explosion goes off (Arena.BOOMS, in turn).
+    // fbiPairs, aiPairs, wood); booms are the measured ticks at which an explosion goes off (Arena.BOOMS, in turn).
     // -PbenchAiPhases=empty,ai100 runs just those.
     public record Phase(String name, int mobs, Consumer<Arena> prep, int... booms) {
     }

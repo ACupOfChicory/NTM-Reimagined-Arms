@@ -148,17 +148,6 @@ public final class WaterBlast {
         return calc.of(size / w.mult, knockback / ABOVE) * ABOVE;
     }
 
-    // the numbers, for the tests: the damage a mob takes from a CrossSmooth blast (fixed × (1 - d / range)) in water
-    // and out of it, d = its distance, range = 2 × size
-    public static float smooth(float fixed, double d, float size, boolean centreWet, boolean mobWet, float mult) {
-        double range = 2 * size * (centreWet ? mult : 1);
-        double ds = d / range;
-        if (centreWet && !mobWet) ds *= mult;
-        if (ds > 1) return 0;
-        float dmg = (float) (fixed * (1 - ds));
-        return centreWet && !mobWet ? dmg * ABOVE : dmg;
-    }
-
     // the bullet whose impact this is (WaterImpact), for the event's incendiary
     static final ThreadLocal<@Nullable EntityBulletBaseMK4> BULLET = new ThreadLocal<>();
 

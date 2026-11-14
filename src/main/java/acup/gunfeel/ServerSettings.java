@@ -22,21 +22,18 @@ import org.jspecify.annotations.Nullable;
 //  - ntm-gunfeel-server.properties (bullet speed, spread, the camera recoil minimum);
 //  - the bullet shapes the server has beyond the mod jar's (config/ntm-gunfeel-bullet-shapes.properties, and on a LAN
 //    host the ones its own client made);
-//  - the balance's gun table (config/ntm-gunfeel-balance-guns.tsv, or the jar's): the guns' receivers and tooltips.
+//  - the balance's gun table (the mod's; a config/ file only on the stands, BalanceKeys.dev): the guns' receivers and
+//    tooltips.
 // The client keeps them in memory while connected and forgets them on leaving: nothing is written, so another server's
 // settings and the player's own files are never touched. In single player and on a LAN host the server is this game
 // itself and reads the same files: the client uses its files as they are (see ServerSettingsClient).
 public final class ServerSettings {
     // the server's settings as received; null: this game's own files count
     public record Snapshot(String bullets, Map<String, String> server, Map<String, String> shapes, String guns) {
-        public Snapshot(String bullets, Map<String, String> server, Map<String, String> shapes) {
-            this(bullets, server, shapes, "");
-        }
     }
 
     // rule kinds the server acts on; every other kind is what the client alone draws
     public static final Set<String> SERVER_KINDS = Set.of("break", "material", "path", "ricochet", "entity", "kill");
-    public static final Set<String> CLIENT_KINDS = Set.of("hit", "decal", "hole", "whizz", "fly");
     // past this the shapes are left out and the client goes by the mod jar's (a client-bound packet holds 1 MiB)
     static final int MAX_BYTES = 1_000_000;
 

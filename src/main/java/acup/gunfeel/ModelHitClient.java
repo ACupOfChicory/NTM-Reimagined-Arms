@@ -135,10 +135,6 @@ public final class ModelHitClient {
                 && entity.distanceToSqr(mc.player) <= ModelHits.RANGE * ModelHits.RANGE;
     }
 
-    public static void publish(LivingEntity entity, float yaw, List<ModelBox> boxes, String source) {
-        publishAt(entity,yaw,boxes,source,entity.position());
-    }
-
     public static boolean publishAt(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
         try { return publishChecked(entity,yaw,boxes,source,origin); }
         catch(RuntimeException ex) {

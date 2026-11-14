@@ -52,18 +52,11 @@ class BalanceRangeRuleTest {
         assertEquals(1 - 0.7 * 16 / 96, BalanceRangeRule.damage(R, "slug", 48), 1e-9);
         assertEquals(1 - 0.7 * 64 / 96, BalanceRangeRule.damage(R, "slug", 96), 1e-9);
         assertEquals(0.3, BalanceRangeRule.damage(R, "slug", 200), 1e-9);
-        // X942's: the shotgun's shot to 0.4 at 48, the slug to 0.4 at 64
-        var x942 = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES_X942), 8, BalanceFinalRule.roles(BalanceRangeRule.HOME));
-        assertEquals(0.7, BalanceRangeRule.damage(x942, "shotgun", 32), 1e-9);
-        assertEquals(0.4, BalanceRangeRule.damage(x942, "slug", 64), 1e-9);
         assertEquals(2.0 / 3, BalanceRangeRule.damage(R, "beam", 128), 1e-9);
-        // X922's lines: no shotgun's
-        var old = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES_X922), 8, BalanceFinalRule.roles(BalanceRangeRule.HOME));
-        assertEquals(1.0, BalanceRangeRule.damage(old, "shotgun", 100), 1e-9);
         assertEquals(1.0, BalanceRangeRule.damage(R, "airburst", 100), 1e-9);
     }
 
-    /** Fable №3, stage 3: the explosive shell's direct hit takes the line shell, else its role's; X942's lines X942 in every cell */
+    /** Fable №3, stage 3: the explosive shell's direct hit takes the line shell, else its role's; no line shell: its role's line in every cell */
     @Test
     void shellLine() {
         var l = BalanceRangeRule.lines(BalanceRangeRule.LINES);
@@ -77,11 +70,10 @@ class BalanceRangeRuleTest {
         assertEquals(0.89, BalanceRangeRule.shell(R, "shotgun", 32), 0.005);
         assertEquals(0.68, BalanceRangeRule.shell(R, "shotgun", 48), 0.005);
         assertEquals(0.46, BalanceRangeRule.shell(R, "shotgun", 64), 0.005);
-        // no shell: the role's line, X942 in every cell
-        var x942 = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES_X942), 8, BalanceFinalRule.roles(BalanceRangeRule.HOME));
-        for (String role : new String[] {"shotgun", "slug", "rifle", "beam"})
-            for (double d = 0; d <= 300; d += 0.5) assertEquals(BalanceRangeRule.damage(x942, role, d), BalanceRangeRule.shell(x942, role, d), 1e-12, role + " at " + d);
+        // no shell: the role's line in every cell
         var noShell = new BalanceRangeRule.Rule(BalanceRangeRule.lines(BalanceRangeRule.LINES.replace("shell:x1/24/0.25@80 ", "")), 8, BalanceFinalRule.roles(BalanceRangeRule.HOME));
+        for (String role : new String[] {"shotgun", "slug", "rifle", "beam"})
+            for (double d = 0; d <= 300; d += 0.5) assertEquals(BalanceRangeRule.damage(noShell, role, d), BalanceRangeRule.shell(noShell, role, d), 1e-12, role + " at " + d);
         assertEquals(BalanceRangeRule.damage(R, "shotgun", 100), BalanceRangeRule.shell(noShell, "shotgun", 100), 1e-12);
         // the line shell is no role's: a shot's pellet keeps its role's line
         assertEquals(0.6, BalanceRangeRule.damage(R, "shotgun", 48), 1e-9);

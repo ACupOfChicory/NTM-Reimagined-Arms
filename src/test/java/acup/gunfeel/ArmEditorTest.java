@@ -184,9 +184,9 @@ class ArmEditorTest {
     }
 
     // the guns of the quick run (test): the cheapest that between them show every control of the list at the end of
-    // sweep(), a gun with no animations among them; one of them (G3 Zebra Infiltrator) shares its arms with another gun,
+    // sweep(), a gun with no animations among them; one of them (G3 Zebra) shares its arms with another gun,
     // one (the double barrel) is seen as a variant too. Some 35 s of the six minutes the run of every gun takes
-    static final Set<String> QUICK = Set.of("gunfeel:no_animations", "hbm:gun_henry", "hbm:gun_double_barrel", "hbm:gun_g3_zebra_infiltrator");
+    static final Set<String> QUICK = Set.of("gunfeel:no_animations", "hbm:gun_henry", "hbm:gun_double_barrel", "hbm:gun_g3_zebra");
 
     @Test
     void everyControlDoesSomethingOrSaysWhyNot() throws Exception {

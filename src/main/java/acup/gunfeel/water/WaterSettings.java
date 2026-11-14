@@ -1,10 +1,9 @@
 package acup.gunfeel.water;
 
-import acup.gunfeel.Config;
 import acup.gunfeel.ReaimTimes;
 
 // The water keys. Physics and explosives are the server's (ntm-gunfeel-server.properties, sent to the players, so a
-// client works out the same path); the splashes are the player's own (ntm-gunfeel.properties).
+// client works out the same path); the splashes are the player's own (Config.waterSplash, read by WaterFx).
 public final class WaterSettings {
     private WaterSettings() {
     }
@@ -37,10 +36,5 @@ public final class WaterSettings {
     // waterBlastRadius: a blast in water reaches mobs in the same water out to this × its radius
     public static float blastRadius() {
         return ReaimTimes.number("waterBlastRadius", 1.5F);
-    }
-
-    // waterSplash (the player's): the client's effects where a bullet meets water
-    public static boolean splash() {
-        return Config.waterSplash;
     }
 }

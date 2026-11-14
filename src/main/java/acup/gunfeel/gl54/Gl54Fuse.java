@@ -63,8 +63,4 @@ final class Gl54Fuse {
         FUSES.remove(bullet);
         Gl54Grenade.impact(bullet, new BlockHitResult(at, Direction.UP, BlockPos.containing(at), false));
     }
-
-    static Double of(Entity e) {
-        return FUSES.get(e);
-    }
 }

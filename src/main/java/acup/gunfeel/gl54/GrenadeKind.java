@@ -21,8 +21,6 @@ public enum GrenadeKind {
 
     // the kinds a magazine can be that no single grenade is: all kinds mixed, and nothing in it
     public static final String MIXED = "mixed", EMPTY = "empty";
-    // the tip colour of the mixed magazine's sector and of a magazine without a kind
-    public static final int MIXED_COLOR = 0xFFFFFF;
     // a mixed magazine for the wheel's picture and the creative tab: pairs, in the order of the first design
     public static final List<String> SAMPLE_MIX = List.of("airburst", "airburst", "he", "he", "inc", "inc", "smoke", "smoke");
 

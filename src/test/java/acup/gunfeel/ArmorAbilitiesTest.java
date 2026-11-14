@@ -61,8 +61,9 @@ class ArmorAbilitiesTest {
     // each key off gives NTM's for its part
     @Test
     void keysOff() {
-        for (String suit : NTM.keySet()) assertEquals(NTM.get(suit), levels(suit, ArmorAbilities.Keys.NTM), suit);
-        assertEquals(3, ArmorAbilities.dashes("BISMUTH", 3, ArmorAbilities.Keys.NTM));
+        ArmorAbilities.Keys off = new ArmorAbilities.Keys(false, 0, false);
+        for (String suit : NTM.keySet()) assertEquals(NTM.get(suit), levels(suit, off), suit);
+        assertEquals(3, ArmorAbilities.dashes("BISMUTH", 3, off));
         // strength alone
         ArmorAbilities.Keys strength = new ArmorAbilities.Keys(false, 2, false);
         assertEquals(Map.of("speed", 3, "jump_boost", 3), levels("DIESEL", strength));

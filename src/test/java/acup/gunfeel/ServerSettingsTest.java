@@ -21,6 +21,9 @@ import org.junit.jupiter.api.Test;
 // The server's settings sent to the players (ServerSettings): what goes in comes out, every rule kind is either the
 // server's or the client's, and the packet stays under the client-bound limit.
 class ServerSettingsTest {
+    // rule kinds the client alone draws
+    private static final Set<String> CLIENT_KINDS = Set.of("hit", "decal", "hole", "whizz", "fly");
+
     @Test
     void whatGoesInComesOut() throws IOException {
         Map<String, String> server = new TreeMap<>(Map.of("bulletSpeed", "1.6", "hbm:gun_maresleg.spreadAim", "0.4", "ключ", "значение"));
@@ -28,7 +31,7 @@ class ServerSettingsTest {
         ServerSettings.Snapshot s = new ServerSettings.Snapshot("path somemod:railing fence\nbreak #c:glass_blocks hp 5\n", server, shapes,
                 "henry\tm44_express\t3.33\t0\t0\t2\n");
         assertEquals(s, ServerSettings.decode(ServerSettings.encode(s)));
-        ServerSettings.Snapshot empty = new ServerSettings.Snapshot("", Map.of(), Map.of());
+        ServerSettings.Snapshot empty = new ServerSettings.Snapshot("", Map.of(), Map.of(), "");
         assertEquals(empty, ServerSettings.decode(ServerSettings.encode(empty)));
     }
 
@@ -47,10 +50,10 @@ class ServerSettingsTest {
         }
         assertTrue(kinds.size() >= 11, "kinds found: " + kinds);
         for (String k : kinds) {
-            boolean server = ServerSettings.SERVER_KINDS.contains(k), client = ServerSettings.CLIENT_KINDS.contains(k);
+            boolean server = ServerSettings.SERVER_KINDS.contains(k), client = CLIENT_KINDS.contains(k);
             assertTrue(server != client, k + ": server " + server + ", client " + client);
         }
-        assertEquals(Set.of(), intersect(ServerSettings.SERVER_KINDS, ServerSettings.CLIENT_KINDS));
+        assertEquals(Set.of(), intersect(ServerSettings.SERVER_KINDS, CLIENT_KINDS));
     }
 
     private static Set<String> intersect(Set<String> a, Set<String> b) {
@@ -69,7 +72,7 @@ class ServerSettingsTest {
             r.nextBytes(noise);
             shapes.put("mod:block_" + i, "z" + java.util.Base64.getEncoder().encodeToString(noise));
         }
-        ServerSettings.Snapshot s = new ServerSettings.Snapshot("path mod:block_1 model", Map.of("bulletSpeed", "2"), shapes);
+        ServerSettings.Snapshot s = new ServerSettings.Snapshot("path mod:block_1 model", Map.of("bulletSpeed", "2"), shapes, "");
         byte[] data = ServerSettings.encodeFitting(s);
         assertTrue(data.length <= ServerSettings.MAX_BYTES, "packed " + data.length);
         ServerSettings.Snapshot got = ServerSettings.decode(data);
@@ -79,7 +82,7 @@ class ServerSettingsTest {
         // a few fit as they are
         Map<String, String> few = new TreeMap<>();
         shapes.entrySet().stream().limit(10).forEach(e -> few.put(e.getKey(), e.getValue()));
-        ServerSettings.Snapshot small = new ServerSettings.Snapshot("", Map.of(), few);
+        ServerSettings.Snapshot small = new ServerSettings.Snapshot("", Map.of(), few, "");
         assertEquals(small, ServerSettings.decode(ServerSettings.encodeFitting(small)));
     }
 

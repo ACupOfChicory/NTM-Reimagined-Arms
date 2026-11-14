@@ -77,11 +77,11 @@ class AiPoseGeometryTest {
                 for (byte stance : stances)
                     for (Vector3f p : points) {
                         // the client: shift along model X, then turn the parts above the hips around model Z
-                        float hipY = AiPoseGeometry.modelHipY(stance), hipZ = AiPoseGeometry.modelHipZ(stance);
+                        float hipY = AiPoseGeometry.modelHipY(stance);
                         Vector3f q = new Vector3f(p);
                         if (q.y < hipY) {
-                            new Matrix4f().translate(0, hipY, hipZ).rotateZ(AiPoseGeometry.modelRollRad(frac))
-                                    .translate(0, -hipY, -hipZ).transformPosition(q);
+                            new Matrix4f().translate(0, hipY, 0).rotateZ(AiPoseGeometry.modelRollRad(frac))
+                                    .translate(0, -hipY, 0).transformPosition(q);
                         }
                         q.x += AiPoseGeometry.modelShiftPx(frac);
                         Vector3f world = render(q, yaw);

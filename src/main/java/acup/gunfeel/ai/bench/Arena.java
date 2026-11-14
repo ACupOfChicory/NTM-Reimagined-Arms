@@ -6,7 +6,6 @@ import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
@@ -20,7 +19,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 
 // The ground the mob AI's stand (AiBench) runs on: x and z from 0 to 127 (chunks 0..7) on the flat world's floor.
 // Rows of cover across the field between the two sides (x = 28 ... 100, along z, staggered pieces 10 long, 2 and 1
@@ -68,10 +66,6 @@ public final class Arena {
         }
         floor = column.toArray(BlockState[]::new);
         ground = bottom + floor.length;
-    }
-
-    public MinecraftServer server() {
-        return level.getServer();
     }
 
     // ---- what the phases use
@@ -161,17 +155,6 @@ public final class Arena {
             acup.gunfeel.ai.AiBots.get(w).memory.heard(e.getX(), e.getY(), e.getZ(), tick, true, false);
             acup.gunfeel.ai.AiBots.get(e).memory.heard(w.getX(), w.getY(), w.getZ(), tick, true, false);
         }
-    }
-
-    // a command run by the server at the arena's middle, on the ground (~ ~ ~ is there), at the server's own level
-    public void command(String command) {
-        MinecraftServer s = server();
-        s.getCommands().performPrefixedCommand(s.createCommandSourceStack().withLevel(level)
-                .withPosition(new Vec3(SIZE / 2.0, ground, SIZE / 2.0)), command);
-    }
-
-    public BlockPos centre() {
-        return new BlockPos(SIZE / 2, ground, SIZE / 2);
     }
 
     // ---- the stand's own

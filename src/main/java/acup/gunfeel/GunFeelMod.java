@@ -69,7 +69,6 @@ public final class GunFeelMod {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.RegisterCommandsEvent.class,
                 e -> {
                     acup.gunfeel.smoke.SmokeCommand.register(e.getDispatcher());
-                    if (Feature.GL54.on()) acup.gunfeel.gl54.MagCommand.register(e.getDispatcher());
                     acup.gunfeel.ai.AiCommand.register(e.getDispatcher());
                     acup.gunfeel.ai.imitation.ImitationCommand.register(e.getDispatcher());
                 });

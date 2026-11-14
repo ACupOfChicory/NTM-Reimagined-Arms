@@ -59,7 +59,7 @@ public final class GasServer {
     private static final float WEAR_LUMP = 25F;
 
     // the last tick's cost, for the stand: ns spent, entities looked at
-    public static volatile long lastNanos, totalNanos, ticks;
+    public static volatile long lastNanos, ticks;
 
     private GasServer() {
     }
@@ -84,10 +84,6 @@ public final class GasServer {
 
     private static Set<LivingEntity> afflicted(Level level) {
         return AFFLICTED.computeIfAbsent(level, l -> Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>()));
-    }
-
-    public static boolean has(LivingEntity e) {
-        return e.getExistingDataOrNull(GasAttach.STATE.get()) != null;
     }
 
     public static GasState state(LivingEntity e) {
@@ -141,7 +137,6 @@ public final class GasServer {
         }
         long spent = System.nanoTime() - t0;
         lastNanos = spent;
-        totalNanos += spent;
         ticks++;
     }
 

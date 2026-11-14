@@ -25,16 +25,16 @@ import net.minecraft.world.item.ItemStack;
  *
  * <p>A piece from the table takes its share of the body (diamond's 3/8/6/3 of 20) with its own set's result; the rest
  * of the body what NTM leaves (for a body with no piece from the table, NTM's result alone). The joke set (the
- * dineutronium ingot set; starmetal with balanceS.starmetal 0) keeps NTM's numbers, but a hit keeps at least
- * balanceRoflFloor of itself. Starmetal is a combat set of tier 6 by default (bismuth's numbers). The
- * GL-54's acid corrodes the rating as it does NTM's numbers: (1 − K) of S is left.
+ * dineutronium ingot set) keeps NTM's numbers, but a hit keeps at least balanceRoflFloor of itself. Starmetal is a
+ * combat set of tier 6 (bismuth's numbers). The GL-54's acid corrodes the rating as it does NTM's numbers: (1 − K)
+ * of S is left.
  */
 public final class BalanceArmor {
     private BalanceArmor() {
     }
 
     /**
-     * a set of the table: its rating by default, its tau (for b and d; balanceTau.<set>) by default and its tier on the
+     * a set of the table: its rating by default, its tau (for b and d) by default and its tier on the
      * ladder (the blast power by tier: balanceBlastPowerLow, balanceBlastPowerRocketHigh)
      */
     record SetOf(float s, float tau, int tier) {
@@ -51,17 +51,14 @@ public final class BalanceArmor {
             Map.entry("steamsuit", new SetOf(66, 4.0F, 4)), Map.entry("hev", new SetOf(60, 4.0F, 4)),
             Map.entry("ajr", new SetOf(55, 4.0F, 4)), Map.entry("ajro", new SetOf(55, 4.0F, 4)),
             Map.entry("security", new SetOf(56, 4.0F, 4)), Map.entry("trenchmaster", new SetOf(72, 4.0F, 6)), Map.entry("bismuth", new SetOf(96, 5.0F, 6)),
-            // starmetal (review 3): a combat set of tier 6 as bismuth; balanceS.starmetal 0 makes it NTM's joke set again
+            // starmetal (review 3): a combat set of tier 6 as bismuth
             Map.entry("starmetal", new SetOf(96, 5.0F, 6)),
             Map.entry("bj", new SetOf(120, 5.0F, 6)), Map.entry("ncrpa", new SetOf(120, 5.0F, 6)),
             Map.entry("cmb", new SetOf(159, 6.0F, 7)), Map.entry("schrabidium", new SetOf(159, 6.0F, 7)),
             Map.entry("rpa", new SetOf(158, 6.0F, 7)), Map.entry("fau", new SetOf(168, 7.0F, 8)),
             Map.entry("dns", new SetOf(186, 7.5F, 8)), Map.entry("euphemium", new SetOf(280, 8.5F, 9)));
-    /**
-     * the joke sets: NTM's numbers, with a floor (starmetal only with balanceS.starmetal 0: it is a combat set of the
-     * table by default)
-     */
-    static final java.util.Set<String> ROFL = java.util.Set.of("starmetal", "dnt");
+    /** the joke set: NTM's numbers, with a floor */
+    static final java.util.Set<String> ROFL = java.util.Set.of("dnt");
 
     /** a joke set as worn now: one of ROFL with no rating of its own */
     static boolean rofl(String set) {
@@ -137,7 +134,7 @@ public final class BalanceArmor {
         if (source.is(ModDamageTypes.NUCLEAR_BLAST) || source.is(ModDamageTypes.DIGAMMA) || source.is(ModDamageTypes.RADIATION)) return null;
         String cat = DamageResistanceHandler.typeToCategory(source);
         // an infrared beam (a gun's beam of NTM's fire class: the IR capacitors of the laser guns and Lacunae) is the
-        // formula's as a beam (EN; balanceIrBeams), not NTM's fire numbers: they let it through the combat sets and the pool
+        // formula's as a beam (EN), not NTM's fire numbers: they let it through the combat sets and the pool
         if (DamageResistanceHandler.CATEGORY_FIRE.equals(cat) && irBeam(source)) return DamageResistanceHandler.CATEGORY_ENERGY;
         // balanceArmorBlasts off: blasts take NTM's numbers, bullets and beams the formula's
         if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return ReaimTimes.flag("balanceArmorBlasts", true) ? cat : null;
@@ -294,20 +291,6 @@ public final class BalanceArmor {
         return Float.isFinite(v) && v >= 1F ? v : 1F;
     }
 
-    /**
-     * NTM's blast hurts {@code target} with {@code amount}: a weapon's (a round of a launcher, or a blast of no bullet
-     * of at most balanceExplRawLimit: hand grenades) takes the blast power; an explosive bullet's blast (its gun's
-     * table multiplier) and big charges do not.
-     */
-    public static <T> T withBlastPower(boolean weapon, float amount, java.util.function.Supplier<T> hurt) {
-        return withBlastPower(weapon, false, amount, hurt);
-    }
-
-    /** the same; {@code rocketDirect}: a rocket's blast on the creature it struck */
-    public static <T> T withBlastPower(boolean weapon, boolean rocketDirect, float amount, java.util.function.Supplier<T> hurt) {
-        return withBlastPower(weapon, rocketDirect, false, amount, hurt);
-    }
-
     /** an NTM blast (ExplosionVNT's EntityProcessorCrossSmooth) being dealt now, of any damage class */
     static final ThreadLocal<Boolean> VNT_BLAST = ThreadLocal.withInitial(() -> false);
 
@@ -324,7 +307,7 @@ public final class BalanceArmor {
      * killed any set from full health with one click.
      */
     /**
-     * the shot whose pair's floor (balanceArmorFloor) a hit takes: the bullet itself, or for an explosive bullet's blast
+     * the shot whose pair's floor a hit takes: the bullet itself, or for an explosive bullet's blast
      * the bullet whose impact set it off (the blast's source has the shooter, not the bullet)
      */
     static net.minecraft.world.entity.Entity floorShot(DamageSource source, boolean blast) {
@@ -336,7 +319,12 @@ public final class BalanceArmor {
         return BULLET_BLAST.get();
     }
 
-    /** the same; {@code bullet}: the blast is an explosive bullet's (bound to a bullet, not a launcher's round) */
+    /**
+     * NTM's blast hurts {@code target} with {@code amount}: a weapon's (a round of a launcher, or a blast of no bullet
+     * of at most balanceExplRawLimit: hand grenades) takes the blast power; an explosive bullet's blast (its gun's
+     * table multiplier) and big charges do not. {@code rocketDirect}: a rocket's blast on the creature it struck;
+     * {@code bullet}: the blast is an explosive bullet's (bound to a bullet, not a launcher's round)
+     */
     public static <T> T withBlastPower(boolean weapon, boolean rocketDirect, boolean bullet, float amount, java.util.function.Supplier<T> hurt) {
         // not a weapon's: 1, also when it goes off inside a weapon's blast's hurt
         float power = !weapon || !on() || amount > explRawLimit() ? 1F : blastPower();
@@ -420,9 +408,9 @@ public final class BalanceArmor {
             boolean share = power > 1F && into > amount * pk;
             float fleshOf = share ? amount * pk : into;
             var pieceHit = fleshOf == amount * power ? hit : new BalanceArmorRule.Hit(fleshOf, neg, pen, squeeze);
-            // the gun table's floor of the shot's pair (balanceArmorFloor): its bullet's hit, an explosive bullet's blast
+            // the gun table's floor of the shot's pair: its bullet's hit, an explosive bullet's blast
             float floor = !expl || bulletBlastNow() ? BalanceGuns.floorOf(floorShot(source, expl), tier) : 1F;
-            // the pair's numbers below a tier (under=, balanceGunUnder): a bullet's or a beam's hit, not a blast
+            // the pair's numbers below a tier (under=): a bullet's or a beam's hit, not a blast
             float[] u = expl ? null : BalanceGuns.underOf(source.getDirectEntity(), tier);
             float top = amount, pieceInto = into;
             if (u != null) {

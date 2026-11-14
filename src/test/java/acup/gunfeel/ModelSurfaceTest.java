@@ -64,7 +64,7 @@ class ModelSurfaceTest {
         long[] model = shape(cutout());
         String packed = PassableClip.pack(model);
         assertArrayEquals(model, PassableClip.unpack(packed));
-        var sent = new ServerSettings.Snapshot("", java.util.Map.of(), java.util.Map.of("test:model", packed));
+        var sent = new ServerSettings.Snapshot("", java.util.Map.of(), java.util.Map.of("test:model", packed), "");
         var received = ServerSettings.decode(ServerSettings.encode(sent));
         assertArrayEquals(model, PassableClip.unpack(received.shapes().get("test:model")));
         long[] legacy = new long[65];

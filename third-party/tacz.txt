@@ -7,7 +7,8 @@ https://github.com/MCModderAnchor/TACZ
   потоки фильтра помечены daemon (иначе не дают игре закрыться), поля target,
   py, pyd — volatile;
 - GunTime.java — util/time/GunTime.java; часы (у TaCZ — из SimpleBedrockModel)
-  заменены своим классом Clock в конце файла;
+  заменены своим классом Clock в конце файла; неиспользуемые epoch(),
+  resetEpoch(), isWithin(), hasElapsed() и счётчик epoch не перенесены;
 - JumpingSway.java — поля и метод applyJumpingSway из
   client/event/FirstPersonRenderGunEvent.java; метод возвращает сдвиг, а не
   двигает кость модели TaCZ;

@@ -220,9 +220,4 @@ public final class BalanceBlastRule {
 
     /** the most a click may do, HP of 20 (the damage cap's click, 0.6) */
     static final double CLICK_MAX = 12;
-
-    /** hits of a share to kill (the stand's count) */
-    public static int hitsOf(double share) {
-        return share <= 0 ? Integer.MAX_VALUE : (int) Math.ceil(1 / share - 1e-9);
-    }
 }

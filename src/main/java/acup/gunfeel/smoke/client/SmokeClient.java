@@ -31,8 +31,8 @@ public final class SmokeClient {
     private static final int RING = 4;
     private static final Map<Integer, Track> TRACKS = new HashMap<>();
     private static ClientLevel level;
-    // counters for the stand: checks that matched, went apart, grids applied, mismatches left alone for an unloaded chunk
-    public static int matched, apart, grids, deferred;
+    // counters for the stand: checks that matched, went apart, grids applied
+    public static int matched, apart, grids;
 
     private static final class Track {
         final long[] hashes = new long[RING];
@@ -163,10 +163,7 @@ public final class SmokeClient {
         // cloud and its smoke went in, here that chunk is not loaded, so its cells are closed. A grid from the server
         // would not help (the next check differs again), so no grid is asked for until the chunk is here; then the
         // next check differs once more and asks.
-        if (touchesUnloaded(c)) {
-            deferred++;
-            return;
-        }
+        if (touchesUnloaded(c)) return;
         long now = level.getGameTime();
         if (now - t.lastAsk < 100 && now >= t.lastAsk) return;
         t.lastAsk = now;

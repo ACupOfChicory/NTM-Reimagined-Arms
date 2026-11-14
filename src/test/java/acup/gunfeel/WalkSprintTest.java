@@ -135,14 +135,14 @@ class WalkSprintTest {
 
     @Test
     void walkFromTheHipIsAsMeasured() {
-        matches("walk pistol", WALK_P, (u, k) -> signal(WalkSprint.walk(u, 0F, true), k));
-        matches("walk long", WALK_R, (u, k) -> signal(WalkSprint.walk(u, 0F, false), k));
+        matches("walk pistol", WALK_P, (u, k) -> signal(WalkSprint.walk(u, 0F, true, 1F), k));
+        matches("walk long", WALK_R, (u, k) -> signal(WalkSprint.walk(u, 0F, false, 1F), k));
     }
 
     @Test
     void sprintIsAsMeasured() {
-        matches("sprint pistol", SPRINT_P, (u, k) -> signal(WalkSprint.sprint(u, 0F, true), k));
-        matches("sprint long", SPRINT_R, (u, k) -> signal(WalkSprint.sprint(u, 0F, false), k));
+        matches("sprint pistol", SPRINT_P, (u, k) -> signal(WalkSprint.sprint(u, 0F, true, 1F), k));
+        matches("sprint long", SPRINT_R, (u, k) -> signal(WalkSprint.sprint(u, 0F, false, 1F), k));
     }
 
     // the run's big turns: the matrix of our three angles is the matrix of the measured rotation vector (at every
@@ -160,7 +160,7 @@ class WalkSprintTest {
                     for (float[] g : new float[][] {a, b})
                         r[k] += 0.5F * (g[0] + g[1] * (float) Math.cos(2 * Math.PI * (u - g[2])) + g[3] * (float) Math.cos(4 * Math.PI * (u - g[4])));
                 }
-                WalkSprint.Pose p = WalkSprint.sprint(u, 0F, pistol);
+                WalkSprint.Pose p = WalkSprint.sprint(u, 0F, pistol, 1F);
                 Matrix3f want = measured(r[0], r[1], r[2]), got = ours(p);
                 assertTrue(want.equals(got, 2e-3F), "pistol " + pistol + " u " + u + ": " + got + " != " + want);
             }
@@ -178,8 +178,8 @@ class WalkSprintTest {
         for (boolean pistol : new boolean[] {true, false}) {
             for (int k = 0; k < 6; k++) {
                 int kk = k;
-                double[] aimed = harmonics(u -> signal(WalkSprint.walk((float) u, 1F, pistol), kk));
-                double[] hip = harmonics(u -> signal(WalkSprint.walk((float) u, 0F, pistol), kk));
+                double[] aimed = harmonics(u -> signal(WalkSprint.walk((float) u, 1F, pistol, 1F), kk));
+                double[] hip = harmonics(u -> signal(WalkSprint.walk((float) u, 0F, pistol, 1F), kk));
                 double limit = k < 3 ? (k == 1 ? 0.15 : 0.1) : 0.003;
                 assertTrue(aimed[1] <= limit && aimed[3] <= limit, "pistol " + pistol + " " + kk + ": " + aimed[1] + ", " + aimed[3]);
                 assertTrue(Math.abs(aimed[0]) <= (k < 3 ? 0.1 : 0.008), "pistol " + pistol + " mean " + kk + ": " + aimed[0]);
@@ -191,7 +191,7 @@ class WalkSprintTest {
     // flying with the sprint held: the measured flying pose, without the swing
     @Test
     void flyingIsTheStillSprintPose() {
-        WalkSprint.Pose a = WalkSprint.sprint(0.1F, 1F, true), b = WalkSprint.sprint(0.6F, 1F, true);
+        WalkSprint.Pose a = WalkSprint.sprint(0.1F, 1F, true, 1F), b = WalkSprint.sprint(0.6F, 1F, true, 1F);
         assertEquals(a.pitch(), b.pitch(), 1e-3F);
         assertEquals(a.yaw(), b.yaw(), 1e-3F);
         assertEquals(a.roll(), b.roll(), 1e-3F);
@@ -282,11 +282,11 @@ class WalkSprintTest {
     @Test
     void sprintWeightScalesTheMeasuredVector() {
         for (boolean pistol : new boolean[] {true, false}) {
-            Vector3f full = vector(WalkSprint.sprint(0.3F, 0F, pistol));
+            Vector3f full = vector(WalkSprint.sprint(0.3F, 0F, pistol, 1F));
             for (float w : new float[] {0.1F, 0.5F, 0.9F}) {
                 Vector3f part = vector(WalkSprint.sprint(0.3F, 0F, pistol, w));
                 for (int k = 0; k < 3; k++) assertEquals(w * full.get(k), part.get(k), 0.02F, "pistol " + pistol + " w " + w + " " + k);
-                assertEquals(w * WalkSprint.sprint(0.3F, 0F, pistol).y(), WalkSprint.sprint(0.3F, 0F, pistol, w).y(), 1e-5F);
+                assertEquals(w * WalkSprint.sprint(0.3F, 0F, pistol, 1F).y(), WalkSprint.sprint(0.3F, 0F, pistol, w).y(), 1e-5F);
             }
         }
     }

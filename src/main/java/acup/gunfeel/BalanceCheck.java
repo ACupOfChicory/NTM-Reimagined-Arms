@@ -3272,7 +3272,7 @@ public final class BalanceCheck {
     private static final List<KitPair> KIT_PAIRS = List.of(
             new KitPair("dieselsuit", "henry · m44_express", ModItems.GUN_HENRY::get, () -> XFactory44.m44_express, 3, 6, 5),
             new KitPair("hev", "star_f · p22_jhp", ModItems.GUN_STAR_F::get, () -> XFactory22lr.p22_jhp, 14, 35, 33),
-            // the pair's floor 1.9 from tier 4 (balanceArmorFloor, the second review): 12 / 27 / 25 → 9 / 19 / 17 (stand 2026-11-11);
+            // the pair's floor 1.9 from tier 4 (the second review): 12 / 27 / 25 → 9 / 19 / 17 (stand 2026-11-11);
             // the third review's HEV (60 / 4): Star-F 10 / 23 / 21 → 14 / 35 / 33, Carbine DU → 12 / 29 / 27 (stand 2026-11-11)
             new KitPair("hev", "carbine · r762_du", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_du, 12, 29, 27),
             new KitPair("bj", "lasrifle · capacitor", ModItems.GUN_LASRIFLE::get, () -> XFactoryEnergy.energy_las, 6, 14, 12),
@@ -3538,7 +3538,7 @@ public final class BalanceCheck {
         for (String set : new String[] {"steel", "dieselsuit", "hev", "bj", "fau", "dns", "euphemium", "starmetal", "dnt"}) {
             float sum = 0F;
             for (int i = 0; i < 4; i++) sum += vanillaArmor(hbm(set + SUFFIX[i]), SLOTS[i]);
-            // starmetal is a combat set of the table since review 3 (balanceS.starmetal 0: the joke set again)
+            // starmetal is a combat set of the table since review 3
             boolean combat = BalanceArmor.rating(set) > 0F;
             check(on && combat ? sum == 0F : sum > 0F, "2: " + m + ": ваниль-броня и прочность набора " + set + ": " + f(sum)
                     + (on && combat ? " (ждали 0)" : " (NTM: своя)"));
@@ -3845,16 +3845,16 @@ public final class BalanceCheck {
             new Pair1b("steel", "henry · m44_express ×1,15", ModItems.GUN_HENRY::get, () -> XFactory44.m44_express, 10.873F, 2, 11.554F, 2, 17.25F, 15F, false, false),
             new Pair1b("dieselsuit", "greasegun · p9_sp ×2,65", ModItems.GUN_GREASEGUN::get, () -> XFactory9mm.p9_sp, 0.418F, 48, 2.173F, 10, 7.95F, 3F, false, false),
             new Pair1b("dieselsuit", "am180 · p22_sp ×2,8 (A2)", ModItems.GUN_AM180::get, () -> XFactory22lr.p22_sp, 0.266F, 76, 1.047F, 20, 5.6F, 2F, false, false),
-            // NTM's blast of 116 is over balanceExplRawLimit (60), but an explosive bullet's: squeezed and capped (balanceBulletBlastCap)
+            // NTM's blast of 116 is over balanceExplRawLimit (60), but an explosive bullet's: squeezed and capped
             new Pair1b("t51", "autoshotgun · g12_explosive ×0,175", ModItems.GUN_AUTOSHOTGUN::get, () -> XFactory12ga.g12_explosive, 12.244F, 3, 5.819F, 4, 0F, 0F, false, false),
             new Pair1b("hev", "carbine · r762_he ×0,596", ModItems.GUN_CARBINE::get, () -> XFactory762mm.r762_he, 2.451F, 9, 1.642F, 13, 0F, 0F, false, false),
-            // 1b with the pair's floor 1.3 (balanceArmorFloor, the second review): 0.868 → 1.05, as the stand took it 2026-11-11
+            // 1b with the pair's floor 1.3 (the second review): 0.868 → 1.05, as the stand took it 2026-11-11
             new Pair1b("hev", "autoshotgun_heretic · g10_du ×0,2 (H2)", ModItems.GUN_AUTOSHOTGUN_HERETIC::get, () -> XFactory10ga.g10_du, 4.388F, 2, 0.749F, 3, 5.0F, 25F, false, false),
             new Pair1b("security", "star_f · p22_jhp ×1,05", ModItems.GUN_STAR_F::get, () -> XFactory22lr.p22_jhp, 1.458F, 14, 1.499F, 14, 19.69F, 18.75F, false, false),
             new Pair1b("bj", "hangman · m44_express ×2 (пьед.)", ModItems.GUN_HANGMAN::get, () -> XFactory44.m44_express, 1.514F, 14, 3.941F, 6, 75F, 37.5F, false, false),
             new Pair1b("rpa", "g3_zebra · r556_inc_ap ×1,664", ModItems.GUN_G3_ZEBRA::get, () -> XFactory556mm.r556_inc_ap, 0.482F, 42, 0.678F, 30, 15.60F, 9.375F, false, false),
             new Pair1b("fau", "tau · tau_uranium ×2 +30", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0.561F, 36, 2.729F, 8, 50F, 25F, false, false),
-            // Tau below tier 8 (under=, balanceGunUnder; notes/balance/tau-nerf-2026-11-12.md): its shot leaves with x2, the
+            // Tau below tier 8 (under=; notes/balance/tau-nerf-2026-11-12.md): its shot leaves with x2, the
             // armour takes it as x1.15 on tier 6 and x1.15 +18 on tier 7 (X904: 5.54 and 3.26 a click, 5 and 7 clicks)
             new Pair1b("bj", "tau · tau_uranium ×1,15 (under=7)", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 1.18F, 17, 1.31F, 16, 50F, 25F, false, false),
             new Pair1b("cmb", "tau · tau_uranium ×1,15 +18 (under=8)", ModItems.GUN_TAU::get, () -> XFactoryAccelerator.tau_uranium, 0.78F, 26, 1.31F, 16, 50F, 25F, false, false),
@@ -4116,7 +4116,7 @@ public final class BalanceCheck {
                         && delay(ModItems.GUN_AMAT_PENANCE.get()) == 25 && delay(ModItems.GUN_AMAT_SUBTLETY.get()) == 25 && delay(ModItems.GUN_MAS36.get()) == 25
                         && gr.getBaseDamage(g) == 20F && mags(ModItems.GUN_ABERRATOR.get()).equals("5") && mags(ModItems.GUN_ABERRATOR_EOTT.get()).equals("5 5");
         check(want, mode + ", стволы " + (on ? "по таблице" : "как в NTM") + ": " + seen);
-        // balance.immune.reloadHold: a shot and the reload from empty, ticks, as the model has them (Henry and Lincoln
+        // the reload's hold: a shot and the reload from empty, ticks, as the model has them (Henry and Lincoln
         // past the hold's 200, the rest under it)
         int henry = EuphImmunity.reachOf(new ItemStack(ModItems.GUN_HENRY.get())), lincoln = EuphImmunity.reachOf(new ItemStack(ModItems.GUN_HENRY_LINCOLN.get())),
                 heavy = EuphImmunity.reachOf(new ItemStack(ModItems.GUN_HEAVY_REVOLVER.get())), light = EuphImmunity.reachOf(new ItemStack(ModItems.GUN_LIGHT_REVOLVER.get()));

@@ -169,7 +169,7 @@ class BalanceGunsRuleTest {
         // floor=0 is not read; other words in a pair's column 7 are left alone, as before floor=
         assertEquals(1, bad.size(), bad.toString());
         assertEquals(1F, t.pairs().get("m2").get("bmg50_he").floor());
-        assertTrue(!new BalanceGunsRule.Shot(1F, 0F, 0F, 2F, 4).none());
+        assertTrue(!new BalanceGunsRule.Shot(1F, 0F, 0F, 2F, 4, -1).none());
         // a gun's own line over its pairs keeps a pair's floor
         var r = BalanceGunsRule.resolve(t, "uzi", guns().get("uzi")).get("p9_ap").shot();
         assertEquals(1.2F, r.mult());

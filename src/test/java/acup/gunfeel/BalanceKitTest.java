@@ -78,29 +78,29 @@ class BalanceKitTest {
         State s = new State(P.size(), 0);
         assertEquals(Phase.POOL, EuphImmunity.phase(s, 0));
         // all but 1 taken (the pool 150): still invulnerable
-        assertTrue(EuphImmunity.hit(s, 10, P.size() - 1F, true, P));
+        assertTrue(EuphImmunity.hit(s, 10, P.size() - 1F, true, true, P, 0));
         assertEquals(1F, EuphImmunity.poolAt(s, 10, P), 1e-3F);
         // other damage takes nothing
-        assertTrue(EuphImmunity.hit(s, 11, 500F, false, P));
+        assertTrue(EuphImmunity.hit(s, 11, 500F, false, false, P, 0));
         assertEquals(1F, EuphImmunity.poolAt(s, 11, P), 1e-3F);
         // the last of it: this hit is still called off, the window from the next tick
-        assertTrue(EuphImmunity.hit(s, 12, 5F, true, P));
+        assertTrue(EuphImmunity.hit(s, 12, 5F, true, true, P, 0));
         // another pellet of the same click: called off as well
         assertEquals(Phase.POOL, EuphImmunity.phase(s, 12));
-        assertTrue(EuphImmunity.hit(s, 12, 5F, true, P));
+        assertTrue(EuphImmunity.hit(s, 12, 5F, true, true, P, 0));
         assertEquals(Phase.WINDOW, EuphImmunity.phase(s, 13));
-        assertFalse(EuphImmunity.hit(s, 13, 5F, true, P));
-        assertFalse(EuphImmunity.hit(s, 13, 5F, false, P));
+        assertFalse(EuphImmunity.hit(s, 13, 5F, true, true, P, 0));
+        assertFalse(EuphImmunity.hit(s, 13, 5F, false, false, P, 0));
         // 15 s of it
         assertEquals(Phase.WINDOW, EuphImmunity.phase(s, 12 + 300));
         assertEquals(Phase.RECOVER, EuphImmunity.phase(s, 13 + 300));
         // the recovery: invulnerable, nothing taken, the pool filling over 60 s
-        assertTrue(EuphImmunity.hit(s, 13 + 300 + 600, 5000F, true, P));
+        assertTrue(EuphImmunity.hit(s, 13 + 300 + 600, 5000F, true, true, P, 0));
         assertEquals(P.size() / 2F, EuphImmunity.poolAt(s, 13 + 300 + 600, P), 1F);
         assertEquals(Phase.POOL, EuphImmunity.phase(s, 13 + 300 + 1200));
         assertEquals(P.size(), EuphImmunity.poolAt(s, 13 + 300 + 1200, P), 1e-3F);
         // and again
-        assertTrue(EuphImmunity.hit(s, 13 + 300 + 1200, 100F, true, P));
+        assertTrue(EuphImmunity.hit(s, 13 + 300 + 1200, 100F, true, true, P, 0));
         assertEquals(P.size() - 100F, EuphImmunity.poolAt(s, 13 + 300 + 1200, P), 1e-3F);
     }
 
@@ -109,31 +109,31 @@ class BalanceKitTest {
         // balance.immune.hold 10 s: a weapon's hit in the window keeps it open 10 s after it, the recovery after that
         Pool p = new Pool(40F, 300, 1200, 200);
         State s = new State(p.size(), 0);
-        EuphImmunity.hit(s, 0, 40F, true, p);
+        EuphImmunity.hit(s, 0, 40F, true, true, p, 0);
         assertEquals(Phase.WINDOW, EuphImmunity.phase(s, 1));
-        assertFalse(EuphImmunity.hit(s, 290, 1F, true, p));
+        assertFalse(EuphImmunity.hit(s, 290, 1F, true, true, p, 0));
         assertEquals(Phase.WINDOW, EuphImmunity.phase(s, 400));
         assertEquals(Phase.RECOVER, EuphImmunity.phase(s, 490));
         // what is not a weapon's (fall, fire) does not keep it
-        assertFalse(EuphImmunity.hit(s, 480, 1F, false, p));
+        assertFalse(EuphImmunity.hit(s, 480, 1F, false, false, p, 0));
         assertEquals(Phase.RECOVER, EuphImmunity.phase(s, 490));
         assertEquals(Phase.POOL, EuphImmunity.phase(s, 490 + 1200));
         // euphemium: melee is a hit of its pool, but does not hold its window
         State m = new State(p.size(), 0);
-        EuphImmunity.hit(m, 0, 40F, true, p);
-        assertFalse(EuphImmunity.hit(m, 290, 1F, true, false, p));
+        EuphImmunity.hit(m, 0, 40F, true, true, p, 0);
+        assertFalse(EuphImmunity.hit(m, 290, 1F, true, false, p, 0));
         assertEquals(Phase.RECOVER, EuphImmunity.phase(m, 301));
         // 0: the window its own 15 s, as X873
         Pool off = new Pool(40F, 300, 1200, 0);
         State o = new State(off.size(), 0);
-        EuphImmunity.hit(o, 0, 40F, true, off);
-        EuphImmunity.hit(o, 290, 1F, true, off);
+        EuphImmunity.hit(o, 0, 40F, true, true, off, 0);
+        EuphImmunity.hit(o, 290, 1F, true, true, off, 0);
         assertEquals(Phase.RECOVER, EuphImmunity.phase(o, 301));
     }
 
     @Test
     void reloadHold() {
-        // balance.immune.reloadHold: a gun whose shot and reload from empty are longer than the hold (Henry: 210 ticks)
+        // the reload's hold: a gun whose shot and reload from empty are longer than the hold (Henry: 210 ticks)
         // holds the window for that and a second more; a shorter one (Heavy Revolver: 60) the hold's own 10 s
         Pool p = new Pool(40F, 300, 1200, 200);
         assertEquals(200, EuphImmunity.holdOf(p, 60));
@@ -168,7 +168,7 @@ class BalanceKitTest {
     void poolRefillsAfterAPause() {
         State s = new State(P.size(), 0);
         float half = P.size() / 2F;
-        EuphImmunity.hit(s, 0, half, true, P);
+        EuphImmunity.hit(s, 0, half, true, true, P, 0);
         // under fire nothing comes back
         assertEquals(half, EuphImmunity.poolAt(s, EuphImmunity.REFILL_PAUSE, P), 1e-3F);
         // after the pause: the whole pool over 60 s, half of it in 30 s
@@ -179,7 +179,7 @@ class BalanceKitTest {
     @Test
     void poolDrainOfADnsClassSet() {
         // AMAT SM (75, its ammo's neg and pen 0 here) on S 186, tier 7.5: what the pool loses of one hit
-        float d = BalanceArmorRule.full(new BalanceArmorRule.Hit(75F, 0F, 0F, true), EuphImmunity.POOL_S, EuphImmunity.POOL_TAU, BalanceArmorRule.Tune.DEFAULT);
+        float d = BalanceArmorRule.full(new BalanceArmorRule.Hit(75F, 0F, 0F, true), EuphImmunity.POOL_S, EuphImmunity.POOL_TAU, BalanceArmorRule.Tune.DEFAULT, 1.0);
         assertTrue(d > 1F && d < 14F, "AMAT on the pool: " + d);
     }
 
@@ -202,7 +202,7 @@ class BalanceKitTest {
         assertEquals("15", p.getProperty("balance.immune.window"));
         assertEquals("60", p.getProperty("balance.immune.recover"));
         assertEquals("10", p.getProperty("balance.immune.hold"));
-        // balance.immune.refillPause 5 s, as X875 (Henry and Lincoln: balance.immune.reloadHold)
+        // balance.immune.refillPause 5 s, as X875 (Henry and Lincoln: their reload's hold)
         assertEquals("5", p.getProperty("balance.immune.refillPause"));
         assertEquals(EuphImmunity.REFILL_PAUSE, EuphImmunity.refillPause());
         assertEquals(200, Pool.DEFAULT.hold());
@@ -226,7 +226,7 @@ class BalanceKitTest {
     void fauPoolOfItsOwnSet() {
         // FAU's pool takes what FAU (S 168) would let through: more than the DNS-class pool of euphemium takes
         var hit = new BalanceArmorRule.Hit(75F, 0F, 0F, true);
-        float fau = BalanceArmorRule.full(hit, 168F, 7F, BalanceArmorRule.Tune.DEFAULT), dns = BalanceArmorRule.full(hit, 186F, 7.5F, BalanceArmorRule.Tune.DEFAULT);
+        float fau = BalanceArmorRule.full(hit, 168F, 7F, BalanceArmorRule.Tune.DEFAULT, 1.0), dns = BalanceArmorRule.full(hit, 186F, 7.5F, BalanceArmorRule.Tune.DEFAULT, 1.0);
         assertTrue(fau > dns, "FAU " + fau + " DNS " + dns);
     }
 
@@ -262,11 +262,11 @@ class BalanceKitTest {
         // DNS (40) half drained, FAU (45) put on: half of 45; the window and the recovery as they were
         Pool dns = new Pool(40F, 300, 1200, 200), fau = new Pool(45F, 300, 1200, 200);
         State s = new State(40F, 0L);
-        EuphImmunity.hit(s, 10L, 20F, true, dns);
+        EuphImmunity.hit(s, 10L, 20F, true, true, dns, 0);
         State f = EuphImmunity.carry(s, dns, fau, 20L);
         assertEquals(22.5F, EuphImmunity.poolAt(f, 20L, fau), 1e-3F);
         // emptied: the window goes on in the other kit
-        EuphImmunity.hit(s, 30L, 25F, true, dns);
+        EuphImmunity.hit(s, 30L, 25F, true, true, dns, 0);
         assertEquals(Phase.WINDOW, EuphImmunity.phase(s, 31L));
         State w = EuphImmunity.carry(s, dns, fau, 40L);
         assertEquals(Phase.WINDOW, EuphImmunity.phase(w, 40L));

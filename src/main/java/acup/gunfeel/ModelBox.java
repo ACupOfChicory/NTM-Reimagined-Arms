@@ -56,10 +56,6 @@ public record ModelBox(String part, double x, double y, double z,
         var shape=ModelMesh.get(mesh);return shape!=null && shape.clip(p,p)>=0;
     }
 
-    double[] interiorSpan(net.minecraft.world.phys.Vec3 from,net.minecraft.world.phys.Vec3 to) {
-        return mesh==0?span(from,to,1e-6,1-1e-6):null;
-    }
-
     double[] carrierSpan(net.minecraft.world.phys.Vec3 from,net.minecraft.world.phys.Vec3 to) {
         return span(from,to,0,1);
     }

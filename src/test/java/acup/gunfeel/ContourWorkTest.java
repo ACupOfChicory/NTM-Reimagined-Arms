@@ -14,7 +14,7 @@ class ContourWorkTest {
         for(int i=0;i<64;i++) boxes.add(new ModelBox("part"+i,i*4,0,0,1,0,0,0,1,0,0,0,1));
         var surface=new ContourSurface(boxes);
         var lines=new ArrayList<Vec3>();
-        surface.append(lines,Vec3.ZERO,new Vec3(0,1,0),List.of(new double[]{0,1}));
+        surface.append(lines,Vec3.ZERO,new Vec3(0,1,0),List.of(new double[]{0,1}),null);
         assertEquals(2,lines.size()); assertEquals(1,lines.getFirst().distanceTo(lines.getLast()),1e-8);
         assertTrue(surface.triangleChecks()<64,"Посещены "+surface.triangleChecks()+" из 768 треугольников");
     }

@@ -57,7 +57,7 @@ class AiAimTest {
             aim.turn(t, skill, 0, EYE, 0, yaw, pitch, aim.spotX, aim.spotY, aim.spotZ, aim.moveX, aim.moveY, aim.moveZ, rng::nextGaussian);
             yaw = aim.yaw;
             pitch = aim.pitch;
-            if (t < next || !AiAim.onTarget(skill, 0, EYE, 0, yaw, pitch, aim.spotX, aim.spotY, aim.spotZ)) continue;
+            if (t < next || !AiAim.onTarget(skill, 0, EYE, 0, yaw, pitch, aim.spotX, aim.spotY, aim.spotZ, AiAim.HALF_HEIGHT)) continue;
             next = t + 3;
             shots++;
             // where the shot passes the target when the bullet gets there: off its middle across, and how high

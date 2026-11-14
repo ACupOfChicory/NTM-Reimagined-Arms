@@ -60,11 +60,4 @@ public final class FragPattern {
         out[1] = fy * along + e1y * c + e2y * s;
         out[2] = fz * along + e1z * c + e2z * s;
     }
-
-    // the angle between a ray and the flight in degrees (for tests and the stand)
-    public static double angle(double[] ray, double fx, double fy, double fz) {
-        double len = Math.sqrt(fx * fx + fy * fy + fz * fz);
-        double dot = (ray[0] * fx + ray[1] * fy + ray[2] * fz) / len;
-        return Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, dot))));
-    }
 }

@@ -23,8 +23,6 @@ import net.minecraft.world.phys.Vec3;
 public final class AiUnderFire {
     /** the server setting: AI mobs are suppressed by the players' scale; off: three shots close past pin one, as before */
     public static final String KEY = "aiSuppression";
-    /** off only for the stands' "before" */
-    static boolean on = true;
     /** the last blast counted: the same one told twice (vanilla's within NTM's) counts once */
     private static @Nullable Vec3 lastBlast;
     private static long lastBlastTick = Long.MIN_VALUE / 2;
@@ -34,7 +32,7 @@ public final class AiUnderFire {
     }
 
     public static boolean on() {
-        return on && ReaimTimes.flag(KEY, true);
+        return ReaimTimes.flag(KEY, true);
     }
 
     public static void init() {

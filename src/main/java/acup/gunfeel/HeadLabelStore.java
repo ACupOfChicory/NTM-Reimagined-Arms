@@ -24,7 +24,6 @@ final class HeadLabelStore {
     }
     Decision get(String id) { return entries.get(id); }
     boolean done(String id) { var d=get(id); return d!=null && Set.of("done","none").contains(d.status()); }
-    long completed() { return entries.keySet().stream().filter(this::done).count(); }
     com.google.gson.JsonObject model(String sample) throws IOException {
         return com.google.gson.JsonParser.parseString(Files.readString(root.resolve("samples").resolve(sample).resolve("model.json"))).getAsJsonObject();
     }

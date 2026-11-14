@@ -33,7 +33,4 @@ final class ArmContact {
         var shift=new Vector3f(target).sub(contact).mul(weight);
         pose.m30(pose.m30()+shift.x).m31(pose.m31()+shift.y).m32(pose.m32()+shift.z);
     }
-    static void corner(Matrix4f pose, Vector3f target, boolean right, boolean slim, float weight) {
-        attach(pose,target,right,slim,weight,offset(1));
-    }
 }

@@ -1,5 +1,28 @@
 # Changelog
 
+## X1066
+
+- Cleanup: commands and switches that nothing used any more are gone, with
+  the dead code behind them. Nothing in the game changes: the balance, the
+  AI soldiers and the picture are as they were.
+  - `/gl54mag <kinds>` (operators). A magazine is loaded in its own window
+    (right click) or taken as a ready layout from the ammo press; a loaded
+    one can still be given with the game's own
+    `/give @s ntmgunfeel:gl54_mag[ntmgunfeel:gl54_mag=["he","he","airburst"]]`.
+  - `/gunfeel grip show|reset|right|left|rightAt|leftAt`. The hands are set
+    in the arms editor (O); the `<gun>.right`, `.left`, `.rightAt` and
+    `.leftAt` keys in `ntm-gunfeel-guns.properties` are read as before.
+  - `/gunfeel sounddebug`, a debugging aid. `/gunfeel testlog` still writes
+    the shots' effects and ricochets.
+  - For developers: the JVM properties `ntmgunfeel.benchWarm` and
+    `ntmgunfeel.benchSeconds` and the Gradle switch `-PcheckGlyphidCreases`.
+  - The built-in gun settings no longer carry lines for ten gun names that
+    NTM has no items for (the names it shows for a G3, an AM180, an Uzi and
+    others with parts fitted); they never applied to anything.
+- ⚠ Breaks compatibility: `/gl54mag`, `/gunfeel grip` and
+  `/gunfeel sounddebug` are removed; a script, a command block or a datapack
+  function that calls one of them no longer works.
+
 ## X1064
 
 - AI soldiers take a changed land better. When blocks change on a soldier's

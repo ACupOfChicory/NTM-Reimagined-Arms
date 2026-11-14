@@ -1,12 +1,8 @@
 package acup.gunfeel.gl54;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
-
-import org.jspecify.annotations.Nullable;
 
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
@@ -178,20 +174,5 @@ public final class Gl54Grenade {
                 || state.is(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK,
                         net.minecraft.resources.Identifier.fromNamespaceAndPath("c", "glass_panes")))
                 || net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath().contains("glass");
-    }
-
-    // for tests: the blocks of a cube that a blast of this radius at `centre` can touch
-    static List<BlockPos> candidates(Vec3 centre) {
-        List<BlockPos> out = new ArrayList<>();
-        int r = (int) Math.ceil(RADIUS);
-        BlockPos middle = BlockPos.containing(centre);
-        for (BlockPos pos : BlockPos.betweenClosed(middle.offset(-r, -r, -r), middle.offset(r, r, r)))
-            if (distanceToBlock(centre, pos) < RADIUS) out.add(pos.immutable());
-        return out;
-    }
-
-    @Nullable
-    static Vec3 startOf(Entity e) {
-        return STARTS.get(e);
     }
 }

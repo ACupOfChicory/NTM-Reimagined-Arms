@@ -262,7 +262,7 @@ public final class WaterParticle extends SingleQuadParticle {
         if (vy < 0 && nearWater()) {
             WaterSurface.Info s = WaterSurface.at(level, x, y + 0.3, z, false);
             if (s != null && y <= s.y()) {
-                if (mode == 1 && random.nextFloat() < 0.25F) WaterRings.add(level, x, s.y(), z, 0, 0.9, 0.1, 0.5, 0.5F, !s.still(), false);
+                if (mode == 1 && random.nextFloat() < 0.25F) WaterRings.add(level, x, s.y(), z, 0, 0.9, 0.1, 0.5, 0.5F, !s.still());
                 remove();
             }
         }

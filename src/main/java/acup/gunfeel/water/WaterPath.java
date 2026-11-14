@@ -232,11 +232,6 @@ public final class WaterPath {
     // numbers per span in Result.spans
     private static final int N = 5;
 
-    public static Result trace(BlockGetter level, Vec3 from, Vec3 to, double f, WaterClass cls, int skips, long seed,
-            Settings s, @Nullable Entity bullet) {
-        return trace(of(level), from, to, f, cls, null, 0, skips, seed, s, bullet);
-    }
-
     public static Result trace(BlockGetter level, Vec3 from, Vec3 to, double f, WaterClass cls, WaterClass.@Nullable Expansion ex,
             double opened, int skips, long seed, Settings s, @Nullable Entity bullet) {
         return trace(of(level), from, to, f, cls, ex, opened, skips, seed, s, bullet);
@@ -415,19 +410,10 @@ public final class WaterPath {
         return c.falling() ? 0.15 : 1.0;
     }
 
-    // the stopping depth straight down from f = 1, blocks: L/rho · ln(1/stop)
-    public static double stopDepth(WaterClass cls, Settings s) {
-        return stopDepth(cls, null, s);
-    }
-
-    // the same for an expanding bullet
+    // the stopping depth straight down from f = 1, blocks: L/rho · ln(1/stop);
+    // ex = how the bullet expands (null: it does not)
     public static double stopDepth(WaterClass cls, WaterClass.@Nullable Expansion ex, Settings s) {
         return undrag(cls.length * s.rangeScale(), scaled(ex, s), Math.log(1 / s.stopFraction()));
-    }
-
-    // f² by energy: what is left of the damage and of the piercing at fraction f
-    public static double energy(double f) {
-        return f * f;
     }
 
     // the hole's size behind water: × (0.5 + 0.5·f)

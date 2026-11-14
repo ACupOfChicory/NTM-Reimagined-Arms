@@ -66,7 +66,7 @@ public final class BalanceGuns {
     /** where each ammo's numbers came from (the stand and the notes) */
     private static final Map<Item, Map<String, BalanceGunsRule.Resolved>> FROM = new IdentityHashMap<>();
 
-    /** the server's settings the table was last read from (null: this game's file or the jar) */
+    /** the server's settings the table was last read from (null: the jar's, or this game's file on the stands) */
     private static ServerSettings.Snapshot tableRemote;
 
     /** the table read again at the next look, whatever the clock (ReaimTimes.reloadNow) */
@@ -80,7 +80,7 @@ public final class BalanceGuns {
         if (remote != null) {
             if (remote != tableRemote) {
                 tableRemote = remote;
-                // an empty one: a server of before the gun table, it went by the jar's
+                // an empty one: the server had no table to send, the jar's counts
                 table = remote.guns().isBlank() ? read(null) : parse(remote.guns().lines().toList(), "the server's");
                 SHOTS.clear();
                 FROM.clear();
@@ -143,7 +143,7 @@ public final class BalanceGuns {
         return t;
     }
 
-    /** the table as this game's server has it (its file, else the jar's), for the players */
+    /** the table as this game's server has it (the jar's; its file on the stands), for the players */
     static String text() throws IOException {
         Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
         if (BalanceKeys.dev() && Files.exists(f)) return Files.readString(f, StandardCharsets.UTF_8);
@@ -254,13 +254,11 @@ public final class BalanceGuns {
         if (gun == null) return damage;
         // the scheme's pair (balance.final), whatever the table has for it
         BalanceFinal.fired(projectile, shooter, gun, ammo);
-        BalanceGuns.watchFinal(projectile);
         BalanceGunsRule.Shot s = safePair(gun, ammo);
         if (s.none()) return damage;
         if (s.neg() != 0F || s.pen() != 0F || s.floor() != 1F || s.tier() >= 0)
             EXTRA.put(projectile, new float[] {s.neg(), s.pen(), s.floor(), s.from(), s.tier()});
         if (!s.under().isEmpty()) UNDER.put(projectile, s);
-        if (watch != null) watch.accept(s);
         return damage * s.mult();
     }
 
@@ -278,17 +276,6 @@ public final class BalanceGuns {
         if (s == null) return null;
         return BalanceGunsRule.underShift(s, tier);
     }
-
-    /** the stand: every shot made (its projectile), the scheme's pair noted */
-    static volatile java.util.function.Consumer<Entity> watchFinal;
-
-    private static void watchFinal(Entity projectile) {
-        var w = watchFinal;
-        if (w != null) w.accept(projectile);
-    }
-
-    /** the stand: every shot that got the balance's numbers */
-    static volatile java.util.function.Consumer<BalanceGunsRule.Shot> watch;
 
     /**
      * a hit's additions to its threshold negation and piercing, its floor and the tier the floor counts from (the

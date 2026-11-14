@@ -62,9 +62,4 @@ public record Gl54Reflex(boolean present, double[][] corners, double[][] uv, dou
         for (int k = 0; k < 3; k++) out[k] = origin[k] + u * uAxis[k] * uLength + v * vAxis[k] * vLength;
         return out;
     }
-
-    // the pane's width in units (across, along u)
-    public double width() {
-        return uLength;
-    }
 }

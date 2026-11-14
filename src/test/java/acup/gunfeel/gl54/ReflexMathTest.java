@@ -3,6 +3,7 @@ package acup.gunfeel.gl54;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -19,33 +20,46 @@ class ReflexMathTest {
         return Math.abs(a) / 2;
     }
 
+    private static List<double[]> disk(double cx, double cy, double r, int n) {
+        List<double[]> out = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            double t = 2 * Math.PI * i / n;
+            out.add(new double[] {cx + r * Math.cos(t), cy + r * Math.sin(t)});
+        }
+        return out;
+    }
+
+    private static List<double[]> rect(double x0, double y0, double x1, double y1) {
+        return List.of(new double[] {x0, y0}, new double[] {x1, y0}, new double[] {x1, y1}, new double[] {x0, y1});
+    }
+
     @Test
     void aShapeInsideIsKept() {
-        assertEquals(1.0, area(ReflexMath.clip(ReflexMath.rect(0.5, 0.5, 1.5, 1.5), SQUARE)), 1e-12);
+        assertEquals(1.0, area(ReflexMath.clip(rect(0.5, 0.5, 1.5, 1.5), SQUARE)), 1e-12);
     }
 
     @Test
     void aShapeHalfOutIsCut() {
-        assertEquals(1.0, area(ReflexMath.clip(ReflexMath.rect(1.0, 0.5, 3.0, 1.5), SQUARE)), 1e-12);
+        assertEquals(1.0, area(ReflexMath.clip(rect(1.0, 0.5, 3.0, 1.5), SQUARE)), 1e-12);
     }
 
     @Test
     void aShapeOutsideIsGone() {
-        assertTrue(ReflexMath.clip(ReflexMath.rect(3, 3, 4, 4), SQUARE).isEmpty());
+        assertTrue(ReflexMath.clip(rect(3, 3, 4, 4), SQUARE).isEmpty());
     }
 
     @Test
     void eitherWindingOfTheWindowWorks() {
         double[][] backwards = {{0, 0}, {0, 2}, {2, 2}, {2, 0}};
-        assertEquals(1.0, area(ReflexMath.clip(ReflexMath.rect(1.0, 0.5, 3.0, 1.5), backwards)), 1e-12);
+        assertEquals(1.0, area(ReflexMath.clip(rect(1.0, 0.5, 3.0, 1.5), backwards)), 1e-12);
     }
 
     @Test
     void aCutCornerClipsTheDisk() {
         // a hexagon: the square with the top right corner cut off by the line x + y = 3
         double[][] hex = {{0, 0}, {2, 0}, {2, 1}, {1, 2}, {0, 2}};
-        double full = area(ReflexMath.disk(1.9, 1.9, 0.3, 24));
-        double cut = area(ReflexMath.clip(ReflexMath.disk(1.9, 1.9, 0.3, 24), hex));
+        double full = area(disk(1.9, 1.9, 0.3, 24));
+        double cut = area(ReflexMath.clip(disk(1.9, 1.9, 0.3, 24), hex));
         assertTrue(cut < full * 0.6, cut + " of " + full);
     }
 
@@ -77,11 +91,11 @@ class ReflexMathTest {
         double[][] window = new double[r.uv().length][];
         for (int i = 0; i < window.length; i++) window[i] = new double[] {r.uv()[i][0] * uL, r.uv()[i][1] * vL};
         double radius = ReflexDraw.DOT_PER_MILLE / 2000.0 * uL;
-        List<double[]> dot = ReflexMath.disk(ReflexDraw.DOT_U * uL, ReflexDraw.DOT_V * vL, radius, 20);
+        List<double[]> dot = disk(ReflexDraw.DOT_U * uL, ReflexDraw.DOT_V * vL, radius, 20);
         assertEquals(area(dot), area(ReflexMath.clip(dot, window)), 1e-12, "the dot is whole");
         // the lowest digit pixel nearest the pane's right edge (the screen's right seen from behind: small a)
         double px = ReflexDraw.DIGIT_PIXEL * uL;
-        List<double[]> pixel = ReflexMath.rect(ReflexDraw.MARGIN_A * uL, ReflexDraw.MARGIN_B * vL, ReflexDraw.MARGIN_A * uL + px, ReflexDraw.MARGIN_B * vL + px);
+        List<double[]> pixel = rect(ReflexDraw.MARGIN_A * uL, ReflexDraw.MARGIN_B * vL, ReflexDraw.MARGIN_A * uL + px, ReflexDraw.MARGIN_B * vL + px);
         assertEquals(area(pixel), area(ReflexMath.clip(pixel, window)), 1e-12, "the digits are whole");
     }
 

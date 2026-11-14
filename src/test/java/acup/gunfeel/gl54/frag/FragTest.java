@@ -18,6 +18,13 @@ class FragTest {
         return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     }
 
+    // the angle between a ray and the flight in degrees
+    private static double degreesFrom(double[] ray, double fx, double fy, double fz) {
+        double len = Math.sqrt(fx * fx + fy * fy + fz * fz);
+        double dot = (ray[0] * fx + ray[1] * fy + ray[2] * fz) / len;
+        return Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, dot))));
+    }
+
     @Test
     void conesFragmentsStayInsideTheConeAndRingOnesInsideTheBand() {
         for (FragSpec spec : new FragSpec[] {FragSpec.AIRBURST, FragSpec.AP, FragSpec.INCENDIARY})
@@ -27,7 +34,7 @@ class FragTest {
                     for (int i = 0; i < spec.rays(); i++) {
                         FragPattern.direction(spec, seed, i, f[0], f[1], f[2], out);
                         assertEquals(1.0, Math.sqrt(dot(out, out)), 1e-9);
-                        double angle = FragPattern.angle(out, f[0], f[1], f[2]);
+                        double angle = degreesFrom(out, f[0], f[1], f[2]);
                         if (i < spec.cone()) assertTrue(angle <= spec.coneDegrees() / 2 + 1e-6, spec.kind() + " cone ray at " + angle);
                         else assertTrue(Math.abs(angle - 90) <= FragSpec.RING_DEGREES + 1e-6, spec.kind() + " ring ray at " + angle);
                     }
@@ -182,7 +189,7 @@ class FragTest {
 
     @Test
     void groundFireRulesAreTheIncendiarysNumbers() {
-        assertEquals(2.5F, FragFireRules.radius());
+        assertEquals(5F, FragFireRules.WIDTH);
         assertEquals(100, FragFireRules.TICKS);
         assertEquals(2F, FragFireRules.HEIGHT);
         assertTrue(FragFireRules.ignites(true, 1));

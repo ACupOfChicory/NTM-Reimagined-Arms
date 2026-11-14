@@ -23,7 +23,7 @@ public final class AiPoseGeometry {
     /** HumanoidModel's feet are 1.501 blocks below the model's origin (LivingEntityRenderer) */
     static final double MODEL_FEET = 1.501;
     /** the legs' pivot, model pixels: standing, and in vanilla's crouch */
-    static final double HIP_PX = 12.0, CROUCH_HIP_PX = 12.0, CROUCH_HIP_BACK_PX = 4.0;
+    static final double HIP_PX = 12.0, CROUCH_HIP_PX = 12.0;
 
     /** blind fire's arms (BotPoser): both straight up over the head, each turned in toward the middle by this */
     public static final float BLIND_ARM_X = (float) (-Math.PI + 0.2), BLIND_ARM_Y = 0.1F;
@@ -74,17 +74,9 @@ public final class AiPoseGeometry {
     }
 
     /**
-     * Where a shot leaves: {@code muzzle} is the unleaned point (the mob's frame: right, up, forward, blocks from its
-     * feet — for NTM, the eye), moved with the lean.
-     */
-    public static Vec3 muzzleOffset(byte stance, float frac, float yBodyRot, Vec3 muzzle) {
-        return leanPoint(muzzle.x, muzzle.y, muzzle.z, stance, frac, yBodyRot);
-    }
-
-    /**
      * Where a mob firing blind over cover ({@link AiPose#BLIND}) has its gun, as the model draws it once the arms are
      * up: the hand holding it, high over its head (1.81 blocks crouching, against 1.27 for its eye), moved with the
-     * lean. An offset from the mob's position, as {@link #muzzleOffset}. Not the barrel's end: each gun's model is
+     * lean. An offset from the mob's position, as {@link #eyeOffset}. Not the barrel's end: each gun's model is
      * its own, the grip is where every gun is. The drawn hand also breathes (up to ~4 cm, standing still) and kicks
      * back with each shot (up to 0.14 blocks, for a moment): this is the pose they move around.
      *
@@ -120,12 +112,8 @@ public final class AiPoseGeometry {
         return (float) (-frac * LEAN_SHIFT * 16.0);
     }
 
-    /** The hips' pivot in model pixels (y down, z back), where the upper parts turn around. */
+    /** The hips' pivot in model pixels (y down), where the upper parts turn around. */
     public static float modelHipY(byte stance) {
         return (float) (stance == AiPose.CROUCH ? CROUCH_HIP_PX : HIP_PX);
-    }
-
-    public static float modelHipZ(byte stance) {
-        return (float) (stance == AiPose.CROUCH ? CROUCH_HIP_BACK_PX : 0.0);
     }
 }

@@ -226,10 +226,6 @@ final class ArmEditor {
         return String.format(Locale.ROOT, "%.2f", ms / 1000F).replace('.', ',') + " с";
     }
 
-    String handName() {
-        return hand == 0 ? "правая" : "левая";
-    }
-
     private ArmRig.Drive drive() {
         Config.select(gun);
         if (drives == null || version != Grips.version()) {
@@ -373,10 +369,6 @@ final class ArmEditor {
 
     int undoSize() {
         return undo.size();
-    }
-
-    int redoSize() {
-        return redo.size();
     }
 
     // ---------------------------------------------------------------- actions

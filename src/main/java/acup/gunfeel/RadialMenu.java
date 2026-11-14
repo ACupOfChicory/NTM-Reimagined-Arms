@@ -261,22 +261,22 @@ public final class RadialMenu {
 
     private static String count(Frame f, int i) {
         if (HudShots.skip == 3) return "";
-        if (f.items.get(i) instanceof acup.gunfeel.gl54.GrenadeType g) return glCount(f, g, i);
+        if (f.items.get(i) instanceof acup.gunfeel.gl54.GrenadeType g) return glCount(g);
         int c = AmmoLock.count(f.items.get(i), Minecraft.getInstance().player.getInventory());
         return c == AmmoLock.INFINITE ? "∞" : Integer.toString(c);
     }
 
     // icon above, count below; both grow with the hover
-    private static float[] entry(Frame f, int i, float r, float grow, int rgb, String prefix, float alpha) {
+    private static float[] entry(Frame f, int i, float r, float grow, int rgb, float alpha) {
         float a = f.ang(i), x = sx(r, a), y = sy(r, a);
         icon(f, i, x, y - 4 - 2 * h[i], 1 + grow * h[i]);
-        text(f, prefix + count(f, i), x, y + 6 + 3 * h[i], rgb, alpha * f.in[i], 1);
+        text(f, count(f, i), x, y + 6 + 3 * h[i], rgb, alpha * f.in[i], 1);
         glDots(f, i, x, y + 16 + 3 * h[i]);
         return new float[] {x, y};
     }
 
     // the GL-54's sector label: how many magazines of these contents there are, and under it a strip of dots of the grenades
-    private static String glCount(Frame f, acup.gunfeel.gl54.GrenadeType g, int i) {
+    private static String glCount(acup.gunfeel.gl54.GrenadeType g) {
         return "\u00D7" + g.magazines;
     }
 
@@ -313,10 +313,9 @@ public final class RadialMenu {
         stats(f, y + 24);
     }
 
-    // the GL-54's lines under the name: many sectors give the full count first; then the numbers (a dash where the kind has
-    // none yet), or for the mixed magazine its order
+    // the GL-54's lines under the name: the numbers (a dash where the kind has none yet), or for the mixed magazine its
+    // order
     private static void glStats(Frame f, acup.gunfeel.gl54.GrenadeType g, float y) {
-        float extra = 0;
         if (g.contents != null && acup.gunfeel.gl54.GrenadeKind.MIXED.equals(g.contentsKind())) {
             text(f, I18n.get("ntmgunfeel.gl54.order") + " ", 0, y + 24, LABEL, 1, 1);
             StringBuilder codes = new StringBuilder();
@@ -333,11 +332,11 @@ public final class RadialMenu {
         var now = kind != null && kind.hasNumbers() ? kind : null;
         var cur = f.cur >= 0 && f.cur != f.hover && f.items.get(f.cur) instanceof acup.gunfeel.gl54.GrenadeType cg ? cg.grenade() : null;
         float was = cur != null && cur.hasNumbers() && now != null ? cur.perShot : Float.NaN;
-        stat(f, "ntmgunfeel.ammo.damage", now != null ? now.damage : "\u2014", now != null ? now.perShot : Float.NaN, was, y + 24 + extra);
-        stat(f, "ntmgunfeel.ammo.head", "\u2014", Float.NaN, Float.NaN, y + 34 + extra);
+        stat(f, "ntmgunfeel.ammo.damage", now != null ? now.damage : "\u2014", now != null ? now.perShot : Float.NaN, was, y + 24);
+        stat(f, "ntmgunfeel.ammo.head", "\u2014", Float.NaN, Float.NaN, y + 34);
         float armored = acup.gunfeel.gl54.frag.FragSpec.armored(now), armoredWas = acup.gunfeel.gl54.frag.FragSpec.armored(cur);
         stat(f, "ntmgunfeel.ammo.armor", Float.isNaN(armored) ? "\u2014" : AmmoStats.fmt(armored), armored,
-                Float.isNaN(armored) ? Float.NaN : armoredWas, y + 44 + extra);
+                Float.isNaN(armored) ? Float.NaN : armoredWas, y + 44);
     }
 
 
@@ -398,7 +397,7 @@ public final class RadialMenu {
             return;
         }
         for (int i = 0; i < n; i++) {
-            float[] p = entry(f, i, 42 + 5 * h[i], .25F, i == f.cur ? f.acc : 0xEBEBEB, "", 1);
+            float[] p = entry(f, i, 42 + 5 * h[i], .25F, i == f.cur ? f.acc : 0xEBEBEB, 1);
             if (i == f.cur) { // the loaded type: four corners round its icon (entry: centre y - 4 - 2h, 16 px x 1 + .25h), upright
                 int col = c(f.acc, f.in[i], f);
                 float half = 8 * (1 + .25F * h[i]) * (.6F + .4F * f.in[i]) + 2.5F, cy = p[1] - 4 - 2 * h[i];
@@ -433,7 +432,7 @@ public final class RadialMenu {
         }
         for (int i = 0; i < n; i++) {
             float dim = 1 - .45F * f.any * (1 - h[i]);
-            entry(f, i, 40 + 6 * h[i], .5F, WHITE, "", dim);
+            entry(f, i, 40 + 6 * h[i], .5F, WHITE, dim);
             if (i == f.cur) {
                 float a = f.ang(i);
                 sh.disc(sx(R_IN + 5, a), sy(R_IN + 5, a), 1.6F, c(f.acc, f.in[i], f), c(f.acc, f.in[i], f));
@@ -497,7 +496,7 @@ public final class RadialMenu {
             }
             return;
         }
-        for (int i = 0; i < n; i++) entry(f, i, 41 + 6 * h[i], .25F, i == f.cur ? f.acc : 0xE8E6D6, "", 1);
+        for (int i = 0; i < n; i++) entry(f, i, 41 + 6 * h[i], .25F, i == f.cur ? f.acc : 0xE8E6D6, 1);
         caption(f, R_OUT + 12, 0xAAAAAA, GuiShapes.mix(WHITE, f.acc, .5F));
     }
 
@@ -524,7 +523,7 @@ public final class RadialMenu {
             return;
         }
         for (int i = 0; i < n; i++) {
-            entry(f, i, 42 + 6 * h[i], .25F, WHITE, "", 1);
+            entry(f, i, 42 + 6 * h[i], .25F, WHITE, 1);
             if (i == f.cur) { // a small triangle outside, pointing in
                 float a = f.ang(i), r = R_OUT + 6 + 6 * h[i];
                 int col = c(WHITE, f.in[i], f);
@@ -552,7 +551,7 @@ public final class RadialMenu {
         }
         for (int i = 0; i < n; i++) {
             float dim = 1 - .5F * f.any * (1 - h[i]);
-            entry(f, i, 44 + 5 * h[i], .6F, i == f.cur ? f.acc : WHITE, "", dim);
+            entry(f, i, 44 + 5 * h[i], .6F, i == f.cur ? f.acc : WHITE, dim);
         }
         if (f.hover >= 0) {
             text(f, count(f, f.hover), 0, -12, f.acc, 1, 2);

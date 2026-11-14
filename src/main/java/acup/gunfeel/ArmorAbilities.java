@@ -45,7 +45,6 @@ public final class ArmorAbilities {
 
     /** the settings, read at once */
     record Keys(boolean mobility, int strength, boolean bismuth) {
-        static final Keys NTM = new Keys(false, 0, false);
     }
 
     static Keys keys() {
