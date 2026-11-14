@@ -66,6 +66,8 @@ public final class AiMover {
     /** the map's count of changed blocks at the last check: a walked path is checked the tick a block changes */
     private long seenChanges;
     private PathSearch.Cost cost = PathSearch.Cost.NONE;
+    /** under fire: its paths begin no swim (AiWater.underFire) */
+    private boolean dry;
     // for the stands
     public int searches, failures, stuckJumps, kept;
     public long searchNanos;
@@ -127,6 +129,19 @@ public final class AiMover {
 
     public void costs(PathSearch.Cost cost) {
         this.cost = cost;
+    }
+
+    /**
+     * Under fire its paths begin no swim (one that is swimming swims out); the fire over, a goal it gave up on for
+     * want of a dry way is tried again.
+     */
+    void dry(boolean on) {
+        if (on == dry) return;
+        dry = on;
+        if (!on && (failed() || noWay)) {
+            tries = 0;
+            noWay = false;
+        }
     }
 
     public void stop() {
@@ -315,7 +330,8 @@ public final class AiMover {
         int asked = gen;
         // the cost as things are now (its own side's lines of fire move every tick), here on the server thread
         PathSearch.Cost c = cost.now();
-        AiThreads.submit(() -> answer = new Answer(asked, PathSearch.find(map, start, g, rad, MAX_NODES, c)));
+        boolean keepDry = dry;
+        AiThreads.submit(() -> answer = new Answer(asked, PathSearch.find(map, start, g, rad, MAX_NODES, c, keepDry)));
     }
 
     private void walk(PathSearch.Result r) {

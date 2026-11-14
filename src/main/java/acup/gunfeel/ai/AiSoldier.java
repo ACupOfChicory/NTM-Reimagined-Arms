@@ -503,6 +503,8 @@ public final class AiSoldier implements AiBrain {
         if (!AiGrenades.on || bot.grenades <= 0 || spot == null || tick < nextTry || tick - lastThrow < THROW_GAP) return false;
         if (mode != Mode.COVER && mode != Mode.PEEK && mode != Mode.HOLD || !bot.mover.arrived() || bot.prone.lying() || bot.gunner.reloading()) return false;
         Mob m = bot.mob;
+        // none thrown swimming
+        if (AiWater.swims(m)) return false;
         double d = m.position().distanceTo(at);
         if (d < AiGrenades.CLOSE || d > AiGrenades.FAR) return false;
         AiSquads.Squad s = AiSquads.of(bot);
@@ -757,8 +759,14 @@ public final class AiSoldier implements AiBrain {
         }
         if (spot == null) {
             // no cover to be had: fight where it stands (lying, far off or pinned down by shots flying past), a step
-            // aside when one of its own is in the line
+            // aside when one of its own is in the line. Swimming it can do neither: out of the water first
             mode(Mode.COVER, tick);
+            long dry = AiWater.swims(bot.mob) ? AiWater.ashore(map, bot.mob) : Long.MIN_VALUE;
+            if (dry != Long.MIN_VALUE) {
+                bot.mover.goTo(dry, 0.35, RUN);
+                why = Why.ASHORE;
+                return;
+            }
             if (dist >= PRONE_NEVER && (dist >= PRONE_FAR || bot.prone.pinned(tick) || longReload(g) && g.reloading())) bot.prone.want();
             why = dist < PRONE_NEVER ? Why.NO_COVER : dist >= PRONE_FAR ? Why.NO_COVER_FAR : bot.prone.pinned(tick) ? Why.NO_COVER_PINNED : Why.NO_COVER;
             burst(bot, tick, true);
@@ -1304,7 +1312,7 @@ public final class AiSoldier implements AiBrain {
      * it or its squad a while, the throw bursting within AiGrenades.LAND of the place. Whether it threw.
      */
     private boolean smoke(AiBot bot, ServerLevel level, Vec3 threat, long tick) {
-        if (!AiSmoke.on || bot.smokes <= 0) return noSmoke(0);
+        if (!AiSmoke.on || bot.smokes <= 0 || AiWater.swims(bot.mob)) return noSmoke(0);
         if (!AiSmoke.ready()) return noSmoke(1);
         if (!acup.gunfeel.smoke.SmokeClouds.enabled()) return noSmoke(2);
         double dx = threat.x - bot.mob.getX(), dz = threat.z - bot.mob.getZ(), d = Math.hypot(dx, dz);

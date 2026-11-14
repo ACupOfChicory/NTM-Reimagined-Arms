@@ -33,7 +33,7 @@ public final class CellBuilder {
         boolean solid = self != null && self.uniform() && !Voxel.open(self.at(0));
         short[] pos = new short[64];
         int[] cover = new int[64];
-        byte[] flags = new byte[64];
+        short[] flags = new short[64];
         short[] colStart = new short[257];
         int n = 0;
         for (int z = 0; z < 16; z++) {
@@ -52,8 +52,10 @@ public final class CellBuilder {
                     if (Voxel.shutDoor(under)) continue;
                     boolean doorway = Voxel.shutDoor(feet) || Voxel.shutDoor(head);
                     boolean water = (feet & Voxel.WATER) != 0;
-                    boolean stand = Voxel.floor(under) || (feet & Voxel.CLIMB) != 0
-                            || (water && (head & Voxel.WATER) == 0);
+                    // its head under water: no cell (a mob there floats up; no path runs along a bed under water)
+                    if (water && (head & Voxel.WATER) != 0) continue;
+                    // its head out of water: it stands on the bed (wades) or floats (swims)
+                    boolean stand = Voxel.floor(under) || (feet & Voxel.CLIMB) != 0 || water;
                     if (!stand) continue;
                     if (n == pos.length) {
                         pos = java.util.Arrays.copyOf(pos, n * 2);
@@ -63,7 +65,7 @@ public final class CellBuilder {
                     pos[n] = (short) (y << 8 | z << 4 | x);
                     // a shut door's cell is no place to stand behind anything
                     cover[n] = doorway ? 0 : b.cover(x, y, z);
-                    flags[n] = (byte) b.flags(x, y, z, feet);
+                    flags[n] = (short) b.flags(x, y, z, feet, under);
                     n++;
                 }
             }
@@ -108,9 +110,12 @@ public final class CellBuilder {
         return sightFeet | sightHead << 8 | hardFeet << 16 | hardHead << 24;
     }
 
-    private int flags(int x, int y, int z, int feet) {
+    private int flags(int x, int y, int z, int feet, int under) {
         int f = 0;
-        if ((feet & Voxel.WATER) != 0) f |= SectionCells.WATER;
+        if ((feet & Voxel.WATER) != 0) {
+            f |= SectionCells.WATER;
+            if (!Voxel.floor(under) && (feet & Voxel.CLIMB) == 0) f |= SectionCells.SWIM;
+        }
         if ((feet & Voxel.CLIMB) != 0) f |= SectionCells.CLIMB;
         if (Voxel.open(v(x, y + 2, z))) f |= SectionCells.HEAD3;
         for (int up = 2; up < 2 + ROOF_REACH; up++) {

@@ -55,6 +55,12 @@ final class AiMoveControl extends MoveControl<Mob> {
 
     @Override
     public void tick() {
+        boolean walks = operation == Operation.MOVE_TO, jumps = operation == Operation.JUMPING;
+        legs();
+        if (walks || jumps) inWater();
+    }
+
+    private void legs() {
         boolean turned = turned();
         boolean walks = operation == Operation.MOVE_TO, jumps = operation == Operation.JUMPING, keep = facing && !turned && (walks || jumps && steerJumps);
         double wx = wantedX, wz = wantedZ;
@@ -73,6 +79,21 @@ final class AiMoveControl extends MoveControl<Mob> {
         if (!keep) return;
         mob.setYRot(faceYaw);
         steer(wx, wz, faceYaw);
+    }
+
+    /**
+     * In water the game pushes a mob on by 0.02 of its input a tick, and a mob's input is its speed (0.3 or so), a
+     * player's a whole key: a mob walking into a river made a quarter of a block a second and stood in the ford for
+     * half a minute. In water its input is a player's, of the length of its pace (the speed modifier: a creep 0.7, a
+     * walk 1, a run no more); on land the game's own.
+     */
+    private void inWater() {
+        if (!mob.isInWater()) return;
+        double len = Math.sqrt(mob.xxa * mob.xxa + mob.zza * mob.zza);
+        if (len < 1e-4) return;
+        double k = Math.min(1.0, speedModifier) / len;
+        mob.setXxa((float) (mob.xxa * k));
+        mob.setZza((float) (mob.zza * k));
     }
 
     /** a jump started this tick: the third from about the same place, it is stuck */

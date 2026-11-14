@@ -10,7 +10,7 @@ import net.minecraft.resources.Identifier;
  * The server to a player watching /armsai debug: the tactical map's cells around them, as offsets from origin
  * (each within a byte), with their cover and flags. No cells: the view is off.
  */
-public record AiCellsPayload(BlockPos origin, byte[] offsets, int[] cover, byte[] flags) implements CustomPacketPayload {
+public record AiCellsPayload(BlockPos origin, byte[] offsets, int[] cover, short[] flags) implements CustomPacketPayload {
     public static final Type<AiCellsPayload> TYPE = new Type<>(Identifier.fromNamespaceAndPath("ntmgunfeel", "ai_cells"));
     public static final StreamCodec<RegistryFriendlyByteBuf, AiCellsPayload> CODEC = CustomPacketPayload.codec(AiCellsPayload::write,
             AiCellsPayload::read);
@@ -26,7 +26,7 @@ public record AiCellsPayload(BlockPos origin, byte[] offsets, int[] cover, byte[
         b.writeVarInt(cover.length);
         b.writeBytes(offsets, 0, cover.length * 3);
         for (int c : cover) b.writeInt(c);
-        b.writeBytes(flags, 0, cover.length);
+        for (int i = 0; i < cover.length; i++) b.writeShort(flags[i]);
     }
 
     private static AiCellsPayload read(RegistryFriendlyByteBuf b) {
@@ -37,8 +37,8 @@ public record AiCellsPayload(BlockPos origin, byte[] offsets, int[] cover, byte[
         b.readBytes(offsets);
         int[] cover = new int[n];
         for (int i = 0; i < n; i++) cover[i] = b.readInt();
-        byte[] flags = new byte[n];
-        b.readBytes(flags);
+        short[] flags = new short[n];
+        for (int i = 0; i < n; i++) flags[i] = b.readShort();
         return new AiCellsPayload(origin, offsets, cover, flags);
     }
 

@@ -283,6 +283,7 @@ public final class AiBots {
         if (bot.brain != null) bot.brain.tick(bot, tick);
         bot.prone.tick(level, bot.mover, tick, bot.brain != null && bot.stoop.down, bot.dash);
         bot.mover.hold(bot.gunner.steady());
+        bot.mover.dry(AiWater.underFire(bot, tick));
         bot.mover.tick(level, map, tick);
         AiDoors.ahead(level, bot.mob);
         int reserve = bot.gunner.ammo.reserve();

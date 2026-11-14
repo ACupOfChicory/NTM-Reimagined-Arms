@@ -161,6 +161,23 @@ class CellBuilderTest {
     }
 
     @Test
+    void wadedOnTheBedSwumOverDeepWaterAndNoCellWithTheHeadUnder() {
+        World w = new World();
+        // deep water, the surface at y = 1: (6, 1, 6) floats; (6, 0, 6) has its head under
+        for (int y = -1; y <= 1; y++) w.set(6, y, 6, WATER);
+        // a ford: one deep on the stone, (9, 0, 9) stands on the bed, its head out
+        w.set(9, 0, 9, WATER);
+        SectionCells c = w.build();
+        int swim = c.find(6, 1, 6), wade = c.find(9, 0, 9);
+        assertTrue(swim >= 0, "a mob floats at the surface");
+        assertEquals(SectionCells.WATER | SectionCells.SWIM, c.flags(swim) & (SectionCells.WATER | SectionCells.SWIM));
+        assertEquals(-1, c.find(6, 0, 6), "no cell with its head under water");
+        assertTrue(wade >= 0);
+        assertEquals(SectionCells.WATER, c.flags(wade) & (SectionCells.WATER | SectionCells.SWIM));
+        assertEquals(0, c.flags(c.find(3, 0, 3)) & (SectionCells.WATER | SectionCells.SWIM));
+    }
+
+    @Test
     void dropBesideIsAnEdgeAndFencesAndSlabsAreNoFloorToWalkIn() {
         World w = new World();
         // a pit two deep east of (3, 0, 3)

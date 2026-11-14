@@ -10,9 +10,12 @@ import net.minecraft.core.SectionPos;
  * A* over the cells of the tactical map, off the server thread. From a cell a mob walks to the cell beside it on the
  * same level, steps up one block (with room over its head to jump, or onto a slab), or drops up to three blocks
  * where the column it walks into is open; diagonally only on the level and with both blocks either side open (no
- * cutting corners). A step costs its length, more up, a little more down, double in water, plus what the caller's
- * {@link Cost} adds (exposure to a threat, say). Short of nodes it returns the path to the cell nearest the goal
- * (the mob walks it and asks again from there). Sections it met with no cells are listed, so the map can build them.
+ * cutting corners). A step costs its length, more up, a little more down, {@link #WADE} times that wading,
+ * {@link #SWIM} times swimming (a swim is taken where the way round is that much longer), plus what the caller's
+ * {@link Cost} adds (exposure to a threat, say), {@link #SWIM_SEEN} times that where it swims (slow, and it does not
+ * fire back). Kept dry (under fire), it begins no swim; one in water already swims out. Short of nodes it returns the
+ * path to the cell nearest the goal (the mob walks it and asks again from there). Sections it met with no cells are
+ * listed, so the map can build them.
  */
 public final class PathSearch {
     /** the most a mob drops in one step */
@@ -24,6 +27,8 @@ public final class PathSearch {
      */
     static final int NO_WAY_BACK = 2, BACK_NODES = 200, BACK_CHECKS = 3;
     static final float UP = 0.6F, DOWN = 0.3F, DIAGONAL = 1.4142135F;
+    /** a step wading, swimming costs this many times its length; what the caller adds counts this many times swimming */
+    public static final float WADE = 2F, SWIM = 8F, SWIM_SEEN = 3F;
     static final long NONE = Long.MIN_VALUE;
 
     private PathSearch() {
@@ -90,6 +95,8 @@ public final class PathSearch {
         /** exhausted: every section the search read and its build stamp then (the answer holds while they do); else empty */
         public final long[] readKeys;
         public final int[] readStamps;
+        /** kept dry, it would have begun a swim: a way across water may be there (not exhausted, whatever else) */
+        public boolean refusedSwim;
 
         Result(long[] cells, boolean reached, int expanded, float cost, long[] missing, long[] keys, int[] stamps, long nanos) {
             this(cells, reached, expanded, cost, missing, keys, stamps, nanos, false, new long[0], new int[0]);
@@ -125,7 +132,7 @@ public final class PathSearch {
         final CellSource src;
         final Long2ObjectOpenHashMap<SectionCells> sections = new Long2ObjectOpenHashMap<>();
         final LongOpenHashSet missing = new LongOpenHashSet();
-        private static final SectionCells ABSENT = new SectionCells(0, -1, new short[0], new int[0], new byte[0], new short[257], 0);
+        private static final SectionCells ABSENT = new SectionCells(0, -1, new short[0], new int[0], new short[0], new short[257], 0);
 
         Reader(CellSource src) {
             this.src = src;
@@ -197,16 +204,24 @@ public final class PathSearch {
      * maxNodes cells expanded.
      */
     public static Result find(CellSource src, long start, long goal, double goalRadius, int maxNodes, Cost cost) {
-        return find(new Reader(src), start, goal, goalRadius, maxNodes, cost, true);
+        return find(src, start, goal, goalRadius, maxNodes, cost, false);
     }
 
-    private static Result find(Reader r, long start, long goal, double goalRadius, int maxNodes, Cost cost, boolean wayBack) {
+    /** as above; dry: no swim is begun (one that starts in water swimming may swim on) */
+    public static Result find(CellSource src, long start, long goal, double goalRadius, int maxNodes, Cost cost, boolean dry) {
+        return find(new Reader(src), start, goal, goalRadius, maxNodes, cost, true, dry);
+    }
+
+    private static Result find(Reader r, long start, long goal, double goalRadius, int maxNodes, Cost cost, boolean wayBack, boolean dry) {
         long t0 = System.nanoTime();
         cost = cost.forSearch();
         int gx = BlockPos.getX(goal), gy = BlockPos.getY(goal), gz = BlockPos.getZ(goal);
         double r2 = goalRadius * goalRadius;
         int sx = BlockPos.getX(start), sy = BlockPos.getY(start), sz = BlockPos.getZ(start);
         if (!r.has(sx, sy, sz)) return Result.none(0, r.missing.toLongArray(), System.nanoTime() - t0);
+        // in water swimming already: it swims out
+        dry &= (r.flags(sx, sy, sz) & SectionCells.SWIM) == 0;
+        boolean refused = false;
 
         Nodes n = new Nodes(Math.min(maxNodes * 9 + 16, 1 << 20));
         int first = n.add(start, 0F, heuristic(sx, sz, gx, gz), -1);
@@ -232,22 +247,33 @@ public final class PathSearch {
                 nearestH = h;
                 nearest = cur;
             }
-            boolean water = (r.flags(x, y, z) & SectionCells.WATER) != 0;
+            int here = r.flags(x, y, z);
             for (int d = 0; d < 8; d++) {
                 long next = step(r, x, y, z, d);
                 if (next == NONE) continue;
                 int nx = BlockPos.getX(next), ny = BlockPos.getY(next), nz = BlockPos.getZ(next);
+                int there = r.flags(nx, ny, nz);
+                boolean swim = ((here | there) & SectionCells.SWIM) != 0;
+                if (dry && (there & SectionCells.SWIM) != 0) {
+                    refused = true;
+                    continue;
+                }
                 float c = (d & 1) == 1 ? DIAGONAL : 1F;
                 if (ny > y) c += UP;
                 else if (ny < y) c += DOWN * (y - ny);
-                if (water || (r.flags(nx, ny, nz) & SectionCells.WATER) != 0) c *= 2F;
-                c += cost.extra(nx, ny, nz);
+                if (swim) c *= SWIM;
+                else if (((here | there) & SectionCells.WATER) != 0) c *= WADE;
+                float extra = cost.extra(nx, ny, nz);
+                c += (there & SectionCells.SWIM) != 0 ? extra * SWIM_SEEN : extra;
                 n.relax(next, n.g[cur] + c, heuristic(nx, nz, gx, gz), cur);
             }
         }
         int end = reachedNode >= 0 ? reachedNode : nearest;
-        boolean exhausted = reachedNode < 0 && !cut && n.size() == 0 && n.count < n.limit && r.missing.isEmpty();
-        return path(r, n, end, reachedNode >= 0, expanded, exhausted, wayBack, t0);
+        // kept out of water it meant to cross: not a dead end, only one for now
+        boolean exhausted = reachedNode < 0 && !cut && n.size() == 0 && n.count < n.limit && r.missing.isEmpty() && !refused;
+        Result res = path(r, n, end, reachedNode >= 0, expanded, exhausted, wayBack, t0);
+        res.refusedSwim = refused;
+        return res;
     }
 
     /** octile distance across: no step costs less than its length */
@@ -292,7 +318,7 @@ public final class PathSearch {
             for (int i = 0, checks = 0; i + 1 < cells.length && checks < BACK_CHECKS; i++) {
                 if (BlockPos.getY(cells[i]) - BlockPos.getY(cells[i + 1]) < NO_WAY_BACK) continue;
                 checks++;
-                if (!find(r, cells[i + 1], cells[i], 0, BACK_NODES, Cost.NONE, false).reached) {
+                if (!find(r, cells[i + 1], cells[i], 0, BACK_NODES, Cost.NONE, false, false).reached) {
                     cells = java.util.Arrays.copyOf(cells, i + 1);
                     break;
                 }

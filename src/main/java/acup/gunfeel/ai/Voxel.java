@@ -15,7 +15,7 @@ public final class Voxel {
     public static final int OPEN = 0;
     /** a block to stand on that a mob cannot walk through (its collision tops out at 0.5..1) */
     public static final int SOLID = 1;
-    /** taller than a block (fences, walls) or not to be stood on (lava): a wall for movement */
+    /** taller than a block (fences, walls) or not to be stood in (lava, every liquid but water): a wall for movement */
     public static final int TALL = 2;
     /** a low block (a bottom slab): stood on, not walked through */
     public static final int LOW = 3;
