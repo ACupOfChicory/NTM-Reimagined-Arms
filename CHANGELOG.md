@@ -1,6 +1,6 @@
 # Changelog
 
-## X1066
+## Unreleased
 
 - The Mare's Leg kicks as it was tuned to: its recoil preset `levershot`
   (the shotgun's rise and roll, a longer and slower run back, a slow sway to
@@ -11,18 +11,8 @@
   balance's scheme already counted the guns against (`balance.final.pools`),
   so the sets now hold as long as the tables say. A server whose
   `ntm-gunfeel-server.properties` has its own values of these keys keeps them.
-- Cleanup: commands and switches that nothing used any more are gone, with
-  the dead code behind them. Nothing in the game changes: the balance, the
-  AI soldiers and the picture are as they were.
-  - `/gl54mag <kinds>` (operators). A magazine is loaded in its own window
-    (right click) or taken as a ready layout from the ammo press; a loaded
-    one can still be given with the game's own
-    `/give @s ntmgunfeel:gl54_mag[ntmgunfeel:gl54_mag=["he","he","airburst"]]`.
-  - `/gunfeel grip show|reset|right|left|rightAt|leftAt`. The hands are set
-    in the arms editor (O); the `<gun>.right`, `.left`, `.rightAt` and
-    `.leftAt` keys in `ntm-gunfeel-guns.properties` are read as before.
-  - `/gunfeel sounddebug`, a debugging aid. `/gunfeel testlog` still writes
-    the shots' effects and ricochets.
+- Cleanup, the second part: more commands and switches that nothing used are
+  gone, with the dead code behind them.
   - `/gunfeel get <key>`. `/gunfeel set <key>` with no value shows the same
     and more: the value, where it comes from and the defaults.
   - `/gunfeel meshdump`, a debugging aid that wrote the triangles read around
@@ -36,21 +26,38 @@
     arms are set in "Gun arms" (the arms editor, O): the part a hand holds,
     the point of the hand that touches, the adjustments and the moment the
     magazine is let go are all there. The keys it wrote are read as before.
-  - For developers: the Gradle switch `-ParmEditorSelfTest`.
-  - For developers: the JVM properties `ntmgunfeel.benchWarm`,
-    `ntmgunfeel.benchSeconds` and `ntmgunfeel.testLog`, the Gradle switches
-    `-PcheckGlyphidCreases` and `-PflywheelOff` (`-PmobCpuGeometry` turns the
-    same backend off), and the first, pixel-by-pixel drawing in the glass
-    stand's timing.
+  - For developers: the JVM property `ntmgunfeel.testLog`, the Gradle
+    switches `-ParmEditorSelfTest` and `-PflywheelOff` (`-PmobCpuGeometry`
+    turns the same backend off), and the first, pixel-by-pixel drawing in the
+    glass stand's timing.
+- ⚠ Breaks compatibility: `/gunfeel get` and `/gunfeel meshdump` are removed;
+  a script, a command block or a datapack function that calls one of them no
+  longer works. A server that listed guns in `balance.final.head.guns` loses
+  their kill with one click on the head: the line in
+  `config/ntm-gunfeel-server.properties` does nothing now.
+
+## X1066
+
+- Cleanup: commands and switches that nothing used any more are gone, with
+  the dead code behind them. Nothing in the game changes: the balance, the
+  AI soldiers and the picture are as they were.
+  - `/gl54mag <kinds>` (operators). A magazine is loaded in its own window
+    (right click) or taken as a ready layout from the ammo press; a loaded
+    one can still be given with the game's own
+    `/give @s ntmgunfeel:gl54_mag[ntmgunfeel:gl54_mag=["he","he","airburst"]]`.
+  - `/gunfeel grip show|reset|right|left|rightAt|leftAt`. The hands are set
+    in the arms editor (O); the `<gun>.right`, `.left`, `.rightAt` and
+    `.leftAt` keys in `ntm-gunfeel-guns.properties` are read as before.
+  - `/gunfeel sounddebug`, a debugging aid. `/gunfeel testlog` still writes
+    the shots' effects and ricochets.
+  - For developers: the JVM properties `ntmgunfeel.benchWarm` and
+    `ntmgunfeel.benchSeconds` and the Gradle switch `-PcheckGlyphidCreases`.
   - The built-in gun settings no longer carry lines for ten gun names that
     NTM has no items for (the names it shows for a G3, an AM180, an Uzi and
     others with parts fitted); they never applied to anything.
-- ⚠ Breaks compatibility: `/gl54mag`, `/gunfeel grip`, `/gunfeel get`,
-  `/gunfeel sounddebug` and `/gunfeel meshdump` are removed; a script, a
-  command block or a datapack function that calls one of them no longer
-  works. A server that listed guns in `balance.final.head.guns` loses their
-  kill with one click on the head: the line in
-  `config/ntm-gunfeel-server.properties` does nothing now.
+- ⚠ Breaks compatibility: `/gl54mag`, `/gunfeel grip` and
+  `/gunfeel sounddebug` are removed; a script, a command block or a datapack
+  function that calls one of them no longer works.
 
 ## X1064
 
