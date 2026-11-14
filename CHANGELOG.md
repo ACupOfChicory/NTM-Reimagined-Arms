@@ -1,5 +1,12 @@
 # Changelog
 
+## X1044
+
+- Fixed a server crash in X1038: an AI soldier that lost a target under a
+  roof with an open side one or two blocks wide (a shed, a porch, a tree's
+  crown) stopped the server with an ArrayIndexOutOfBoundsException in
+  AiEntry.
+
 ## X1042
 
 - AI soldiers walking back crouched step back. They face where they aim and
