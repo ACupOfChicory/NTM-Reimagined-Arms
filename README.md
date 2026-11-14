@@ -254,6 +254,11 @@ page. They are alphas: expect bugs and back up your world.
   has had no shot for five seconds. It never goes round the side, and leaves
   looking for you to its squad's riflemen while one of them knows where you
   are. `role marksman` makes one by word (server key `aiMarksman`).
+- A bot with a grenade launcher (40 mm) is its squad's grenadier: it lobs its
+  shells over your low cover and onto the place you just ducked out of sight
+  at, the barrel raised as far as the shell drops, never within 17 blocks of
+  itself or its own. `role grenadier` makes one by word (server key
+  `aiGrenadier`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim

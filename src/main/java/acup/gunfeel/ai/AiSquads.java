@@ -163,15 +163,15 @@ public final class AiSquads {
         s.based = rifles > 0 && rifles < s.bots.size();
         if (s.target < 0) return;
         for (AiBot b : s.bots)
-            if (flankers.contains(b.mob.getId()) && b.memory.contact(s.target) != null && !(s.based && AiRole.of(b) == AiRole.BASE) && !AiMarksman.is(b)) {
+            if (flankers.contains(b.mob.getId()) && b.memory.contact(s.target) != null && !(s.based && AiRole.of(b) == AiRole.BASE) && !AiMarksman.is(b) && !AiGrenadier.is(b)) {
                 s.flanker = b.mob.getId();
                 return;
             }
         double most = 2;
         for (AiBot b : s.bots) {
             Vec3 t = where(b, s.target);
-            // the base of fire and a marksman keep their places
-            if (t == null || b.prone.lying() || s.based && AiRole.of(b) == AiRole.BASE || AiMarksman.is(b)) continue;
+            // the base of fire, a marksman and a grenadier keep their places
+            if (t == null || b.prone.lying() || s.based && AiRole.of(b) == AiRole.BASE || AiMarksman.is(b) || AiGrenadier.is(b)) continue;
             double c = cos(b.mob.getX() - t.x, b.mob.getZ() - t.z, s.cx - t.x, s.cz - t.z);
             if (c < most) {
                 most = c;
@@ -233,7 +233,7 @@ public final class AiSquads {
     private static boolean riflemanKnows(AiBot bot, int target) {
         Squad s = of(bot);
         if (s == null) return false;
-        for (AiBot b : s.bots) if (b != bot && live(b) && AiRole.of(b) != AiRole.BASE && !AiMarksman.is(b) && b.memory.contact(target) != null) return true;
+        for (AiBot b : s.bots) if (b != bot && live(b) && AiRole.of(b) != AiRole.BASE && !AiMarksman.is(b) && !AiGrenadier.is(b) && b.memory.contact(target) != null) return true;
         return false;
     }
 
@@ -303,6 +303,8 @@ public final class AiSquads {
         if (!on || !(bot.mob.level() instanceof ServerLevel level)) return true;
         // its base of fire stays, while a rifleman of its squad knows of the target and may go
         if ((base(bot) || AiMarksman.is(bot)) && riflemanKnows(bot, target)) return false;
+        // a grenadier does not go after them: near them its shells cannot go (AiGrenadier.MIN)
+        if (AiGrenadier.is(bot)) return false;
         String team = team(bot);
         if (offTeams.contains(team)) return true;
         int n = 0;

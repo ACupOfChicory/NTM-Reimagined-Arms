@@ -121,11 +121,12 @@ public final class Arena {
     // across the cover rows. Endless rounds (a measurement must not end with empty guns) and no damage (TAG); every
     // AI mob thinks with no player near (AiBots.wakeAll)
     public void aiPairs(int n) {
-        aiPairs(n, 0);
+        aiPairs(n, 0, null, null);
     }
 
-    // the same, with every marksEvery-th pair (both sides alike) the squads' marksmen by word (AiMarksman)
-    public void aiPairs(int n, int marksEvery) {
+    // the same, with every every-th pair (both sides alike) given this role by word (AiRole), and this gun if not null
+    // (a grenadier needs its launcher)
+    public void aiPairs(int n, int every, @org.jspecify.annotations.Nullable String role, @org.jspecify.annotations.Nullable String gun) {
         acup.gunfeel.ai.AiBots.wakeAll(true);
         var board = level.getScoreboard();
         EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse("hbm:entity_fbi"));
@@ -148,7 +149,10 @@ public final class Arena {
             level.addFreshEntity(m);
             var bot = acup.gunfeel.ai.AiBots.get(m);
             if (bot == null) throw new IllegalStateException("an FBI tagged armsai is not an AI mob");
-            if (marksEvery > 0 && i / 2 % marksEvery == 0) acup.gunfeel.ai.AiRole.give(m, "marksman");
+            if (every > 0 && i / 2 % every == 0) {
+                if (gun != null) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.parse(gun))));
+                if (role != null) acup.gunfeel.ai.AiRole.give(m, role);
+            }
             bot.gunner.ammo.setInfinite();
             bot.gunner.loadFree();
             made.add(m);

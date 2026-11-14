@@ -461,7 +461,9 @@ public final class AiSoldier implements AiBrain {
         // (not into a room ahead of those that go in together: AiEntry)
         else if (c != null && c.state != TargetMemory.State.VISIBLE && !(AiEntry.on() && AiEntry.roomed(bot, level, c, tick)) && flank(bot, level, c, tick)) {
         }
-        // gone behind cover a moment ago: a grenade over it
+        // gone behind cover a moment ago: a grenadier's shell where they went (AiGrenadier), else a grenade over it
+        else if (c != null && c.state == TargetMemory.State.LOST && tick - c.lostTick >= LOST_FIRST && AiGrenadier.step(this, bot, level, c, tick))
+            why = Why.GRENADIER;
         else if (c != null && c.state == TargetMemory.State.LOST && tick - c.lostTick >= LOST_FIRST
                 && grenade(bot, level, new Vec3(c.lostX, c.lostY, c.lostZ), tick, true)) {
         }
@@ -727,6 +729,11 @@ public final class AiSoldier implements AiBrain {
         // a marksman with a target far off: from its perch (AiMarksman)
         if (AiMarksman.step(this, bot, level, c, tick)) {
             why = Why.MARKSMAN;
+            return;
+        }
+        // a grenadier: its shells lobbed at them (AiGrenadier)
+        if (AiGrenadier.step(this, bot, level, c, tick)) {
+            why = Why.GRENADIER;
             return;
         }
         // hit, or a shot close past it: often other cover

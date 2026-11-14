@@ -10,19 +10,22 @@ import acup.gunfeel.ReaimTimes;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * What an AI mob is to its squad, by the gun in its hands (the owner, 2026-11-11: no role of its own for suppression,
- * it is the machine gunner's work, as in the manuals: the base of fire keeps them down while the others go round).
- * {@link #BASE}: a gun that fires on while the trigger is held, fast (a shot every {@link #FAST} ticks at most), real
- * bullets (no beam, nothing slow: a flamer, a grenade), with a belt or a magazine of aiBaseMagazine rounds or more: a
- * machine gun, a minigun, an automatic with a big magazine. {@link #MARKSMAN}: any other gun with a scope (NTM's
- * scope texture). Anyone else is a {@link #RIFLE}. Worked out again when the gun in its hands is another.
+ * What an AI mob is to its squad, by the gun in its hands (the owner, 2026-11-11: no role of its own for
+ * suppression, it is the machine gunner's work, as in the manuals: the base of fire keeps them down while the others
+ * go round). {@link #BASE}: a gun that fires on while the trigger is held, fast (a shot every {@link #FAST} ticks at
+ * most), real bullets (no beam, nothing slow: a flamer, a grenade), with a belt or a magazine of aiBaseMagazine
+ * rounds or more: a machine gun, a minigun, an automatic with a big magazine. {@link #GRENADIER}: any other gun with
+ * 40 mm grenades in it (AiGrenadier.shell). {@link #MARKSMAN}: any other gun with a scope (NTM's scope texture).
+ * Anyone else is a {@link #RIFLE}. Worked out again when the gun in its hands is another.
  */
 public enum AiRole {
     RIFLE, BASE,
     /** hands out magazines and grenades to its squad (AiSupply); by word or by the spawn, never by the gun */
     SUPPLIER,
     /** fights from afar from perches (AiMarksman): a scoped gun that is no base of fire's, or by word */
-    MARKSMAN;
+    MARKSMAN,
+    /** lobs 40 mm grenades over cover (AiGrenadier): a gun that fires them, or by word */
+    GRENADIER;
 
     /** the server settings: roles by the gun; a base of fire's magazine from this many rounds */
     public static final String KEY = "aiRoles", MAG_KEY = "aiBaseMagazine";
@@ -116,7 +119,9 @@ public enum AiRole {
     static AiRole by(ItemStack stack) {
         if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return RIFLE;
         AiRole base = byFire(gun, stack);
-        return base == RIFLE && acup.gunfeel.PistolHold.scoped(stack) ? MARKSMAN : base;
+        if (base != RIFLE) return base;
+        if (AiGrenadier.shell(stack) != null) return GRENADIER;
+        return acup.gunfeel.PistolHold.scoped(stack) ? MARKSMAN : RIFLE;
     }
 
     @SuppressWarnings("rawtypes")

@@ -40,6 +40,8 @@ public final class AiBot {
     @Nullable AiBot supplyTo;
     /** a marksman's perch and shots (AiMarksman); null till it is one in a fight */
     AiMarksman.@Nullable State marksman;
+    /** a grenadier's lobs (AiGrenadier); null till it is one in a fight */
+    AiGrenadier.@Nullable State grenadier;
     /** the fallen supplier's stock it goes for (AiSupply) */
     AiSupply.@Nullable Left supplyFetch;
     long supplyAt, supplyNext = Long.MIN_VALUE;

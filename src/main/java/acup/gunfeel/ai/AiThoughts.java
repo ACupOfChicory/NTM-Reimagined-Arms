@@ -63,7 +63,8 @@ public final class AiThoughts {
         BLIND("pinned down behind low cover: fires blind over it"),
         THROW("throws a grenade where they went out of sight"),
         GRENADE("a grenade near: runs from where it bursts"),
-        MARKSMAN("marksman: to its perch, single shots from afar");
+        MARKSMAN("marksman: to its perch, single shots from afar"),
+        GRENADIER("grenadier: a 40 mm shell lobbed at them");
 
         final String label;
 

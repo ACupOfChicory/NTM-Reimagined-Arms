@@ -295,7 +295,7 @@ public final class AiMarksman {
         return false;
     }
 
-    static String info() {
+    public static String info() {
         return String.format(java.util.Locale.ROOT, "marksmen: steps %d, perches %d, none found %d (cells scored %d, rays %d, shut %d), shots %d, left when shot at %d;"
                 + " ticks on the way %d, at a perch %d (a friend in the line %d, lying %d)", steps, perches, none, scored, tried, shut, shots, shotAt, wayTicks, perchTicks, blockedTicks, lyingTicks);
     }

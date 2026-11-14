@@ -43,6 +43,8 @@ public final class AiGunner {
     /** for the stands: a perfect hand, at once exactly here, always on target */
     @Nullable
     Vec3 exact;
+    /** the exact turn (a grenadier's lob) is let go after this tick */
+    private long exactUntil = Long.MAX_VALUE;
     /** shots let go (trigger pulls), for the stands */
     public int pulls;
     /**
@@ -130,6 +132,15 @@ public final class AiGunner {
 
     public void fire(boolean on) {
         wantFire = on;
+    }
+
+    /**
+     * A lob (AiGrenadier): turned exactly along the barrel to this point, with no hand's error and no kick, till the
+     * tick until; null lets go of it.
+     */
+    void lob(@Nullable Vec3 along, long until) {
+        exact = along;
+        exactUntil = along == null ? Long.MAX_VALUE : until;
     }
 
     /** whether its mind wants the trigger down now (the debug view) */
@@ -297,6 +308,8 @@ public final class AiGunner {
         // swimming it holds fire: its hands are for the water (AiWater)
         boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !turned && !acup.gunfeel.ProneFire.blocks(mob, stack)
                 && !AiWater.swims(mob);
+        // a grenadier's shells go only as lobs worked out to burst clear of its own (AiGrenadier), never straight
+        if (shoot && exact == null && AiGrenadier.lobsOnly(mob, stack)) shoot = false;
         if (shoot && checkLine && AiBots.friendInLine(level, mob, AiLean.eye(mob), aim, CLEAR_CONE)) {
             // one of its own between it and the target: it holds fire
             shoot = false;
@@ -439,6 +452,7 @@ public final class AiGunner {
      * barrel now (the trigger may be down).
      */
     private boolean turn(long tick) {
+        if (exact != null && tick > exactUntil) lob(null, tick);
         if (aim == null) return false;
         Vec3 eye = AiLean.eye(mob);
         AiSkill skill = AiSkill.current();

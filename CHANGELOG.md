@@ -1,5 +1,22 @@
 # Changelog
 
+## X1086
+
+- AI grenadiers: a soldier whose gun fires 40 mm grenades (NTM's Congo Lake
+  and MK108; the GL-54 with a magazine of them in) is its squad's grenadier.
+  Before, it aimed its launcher as a rifle, straight at what it saw, and its
+  shells fell short. Now it lobs them: the barrel raised as far as the shell
+  drops on its way, worked out over the blocks, so a shell comes down on one
+  sitting behind low cover, on the place one went out of sight a moment ago
+  (two shells there at most) and on one in the open. Its own grenade's rule is
+  the hand grenades': no burst within 17 blocks of it or one of its own, and
+  its launcher never fires straight; nearer, and between lobs, it holds its
+  fire and fights on from cover as a rifleman would. Its hand misjudges the
+  place by about 4% of the distance; the gun's spread and damage are NTM's. It
+  goes neither round the side nor after a target (near it, its shells cannot
+  go). `/armsai spawn` and `/armsai kit` take `role grenadier`; new server
+  setting `aiGrenadier` (true by default).
+
 ## X1084
 
 - AI marksmen: a soldier with a scoped gun that is no machine gun is its
