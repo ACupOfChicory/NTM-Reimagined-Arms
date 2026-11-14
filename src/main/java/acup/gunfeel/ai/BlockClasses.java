@@ -56,7 +56,8 @@ public final class BlockClasses {
     static byte classify(BlockState state) {
         FluidState fluid = state.getFluidState();
         boolean water = !fluid.isEmpty() && fluid.is(FluidTags.WATER);
-        boolean lava = !fluid.isEmpty() && fluid.is(FluidTags.LAVA);
+        // lava and every other liquid (NTM's acids, mud, toxic and radioactive ones, corium): a wall, never walked into
+        boolean liquid = !fluid.isEmpty() && !water || finiteFluid(state.getBlock().getClass());
         boolean door = state.is(BlockTags.DOORS) || state.is(BlockTags.FENCE_GATES) || state.is(BlockTags.TRAPDOORS)
                 || state.getBlock().getClass().getSimpleName().contains("Door");
         boolean climb = state.is(BlockTags.CLIMBABLE);
@@ -69,7 +70,7 @@ public final class BlockClasses {
         }
         int move;
         double volume = 0, face = 0;
-        if (lava) move = Voxel.TALL;
+        if (liquid) move = Voxel.TALL;
         else if (shape.isEmpty()) move = Voxel.OPEN;
         else {
             double top = shape.max(Direction.Axis.Y);
@@ -99,7 +100,7 @@ public final class BlockClasses {
         boolean blocks = move == Voxel.SOLID || move == Voxel.TALL;
         int protect = 0;
         boolean glass = false;
-        if (blocks && !lava && !BulletRules.through(state)) {
+        if (blocks && !liquid && !BulletRules.through(state)) {
             var material = BulletRules.material(state).material();
             glass = material.glass();
             protect = switch (material) {
@@ -115,6 +116,16 @@ public final class BlockClasses {
         // machines: the game does not take their models as hiding); glass of any kind, bars, panes and fences do not
         boolean sight = blocks && face >= COVERS && (state.canOcclude() || state.is(BlockTags.LEAVES) || protect >= 1 && !glass);
         return Voxel.of(move, sight, protect, water, climb, AiDoors.byHand(state));
+    }
+
+    /**
+     * NTM's finite fluids (corium) are blocks with no fluid of the game's in them: known by the class they come of,
+     * by name (the mod's list of what it needs of NTM, NtmApiTest, stays as it is)
+     */
+    static boolean finiteFluid(Class<?> c) {
+        for (; c != null && c != Block.class; c = c.getSuperclass())
+            if (c.getSimpleName().equals("BlockFluidFiniteBase")) return true;
+        return false;
     }
 
     /** for the tests and /armsai: the name of a voxel byte */

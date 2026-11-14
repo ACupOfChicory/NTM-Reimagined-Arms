@@ -1,5 +1,17 @@
 # Changelog
 
+## X1082
+
+- AI soldiers cross water over a bridge or through a ford when there is one,
+  and swim only when the way round is about eight times longer; they no
+  longer walk along the bed with their heads under water. Under fire they do
+  not go into water too deep to stand in; swimming they neither fire nor
+  throw, take no cover there and make for the bank.
+- AI soldiers never walk into lava or NTM's acids, mud, toxic and
+  radioactive liquids or corium.
+- AI soldiers move through water at a walking pace instead of crawling
+  through a ford.
+
 ## X1078
 
 - AI suppliers: when one falls, its stock stays where it fell for two

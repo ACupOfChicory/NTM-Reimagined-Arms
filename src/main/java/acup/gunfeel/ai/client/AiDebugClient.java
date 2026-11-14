@@ -56,7 +56,8 @@ public final class AiDebugClient {
                 }
             }
             int fill = best == 2 ? (bestHard ? 0x6020C040 : 0x602060E0) : best == 1 ? 0x60E0C020 : 0x30808080;
-            if ((p.flags()[i] & SectionCells.WATER) != 0) fill = 0x6020C0C0;
+            // water: light blue where it is waded, deep blue where it is swum
+            if ((p.flags()[i] & SectionCells.WATER) != 0) fill = (p.flags()[i] & SectionCells.SWIM) != 0 ? 0x702040E0 : 0x6020C0C0;
             Gizmos.rect(new Vec3(x + 0.08, y + 0.02, z + 0.08), new Vec3(x + 0.92, y + 0.03, z + 0.92), Direction.UP,
                     GizmoStyle.fill(fill));
             for (int d = 0; d < 8; d++) {

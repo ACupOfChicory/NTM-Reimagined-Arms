@@ -297,7 +297,7 @@ public final class AiDebug {
 
     public static boolean toggle(ServerPlayer player, int radius) {
         if (WATCHERS.remove(player.getUUID()) != null) {
-            PacketDistributor.sendToPlayer(player, new AiCellsPayload(player.blockPosition(), new byte[0], new int[0], new byte[0]));
+            PacketDistributor.sendToPlayer(player, new AiCellsPayload(player.blockPosition(), new byte[0], new int[0], new short[0]));
             PacketDistributor.sendToPlayer(player, new AiBotsPayload(java.util.List.of()));
             return false;
         }
@@ -366,7 +366,7 @@ public final class AiDebug {
         int n = 0;
         byte[] offsets = new byte[3 * 1024];
         int[] cover = new int[1024];
-        byte[] flags = new byte[1024];
+        short[] flags = new short[1024];
         int x0 = at.getX() - radius, x1 = at.getX() + radius, z0 = at.getZ() - radius, z1 = at.getZ() + radius;
         int y0 = at.getY() - HEIGHT, y1 = at.getY() + HEIGHT;
         for (int sx = x0 >> 4; sx <= x1 >> 4; sx++)
@@ -387,7 +387,7 @@ public final class AiDebug {
                         offsets[3 * n + 1] = (byte) (y - at.getY());
                         offsets[3 * n + 2] = (byte) (z - at.getZ());
                         cover[n] = c.cover(i);
-                        flags[n] = (byte) c.flags(i);
+                        flags[n] = (short) c.flags(i);
                         n++;
                     }
                 }

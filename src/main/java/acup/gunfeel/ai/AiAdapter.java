@@ -36,6 +36,17 @@ public final class AiAdapter {
         boolean has = false;
         for (WrappedGoal w : goals.getAvailableGoals()) has |= w.getGoal() instanceof AiGoal a && a.bot == bot;
         if (!has) goals.addGoal(1, new AiGoal(bot));
+        // one that cannot swim (NTM's test dummy has no goals of its own) learns to: else it sinks and drowns in water
+        // over its head (AiWater); swimming takes the jump, the AI's goal the legs and the look
+        boolean floats = false;
+        for (WrappedGoal w : goals.getAvailableGoals()) floats |= w.getGoal() instanceof FloatGoal;
+        if (!floats) {
+            try {
+                goals.addGoal(0, new FloatGoal(mob));
+            } catch (IllegalArgumentException e) {
+                // a navigation that does not float (a flyer's, a swimmer's): it moves as it does
+            }
+        }
         ((AiNavigation) mob.getNavigation()).gunfeel$setAiOwned(true);
         if (!(mob.getMoveControl() instanceof AiMoveControl)) ((MobGoalsAccess) mob).gunfeel$setMoveControl(new AiMoveControl(mob));
         mob.setTarget(null);

@@ -326,4 +326,73 @@ class PathSearchTest {
         h.build();
         assertFalse(PathSearch.holds(h, r.cells, 0));
     }
+
+    // ---- water (T2)
+
+    /** a river along x right across, z 12..19, three deep (its surface at y = -1); a ford one deep at x 22..23 if asked */
+    static Grid river(boolean ford) {
+        Grid g = new Grid(2);
+        for (int x = 0; x < 32; x++)
+            for (int z = 12; z <= 19; z++)
+                for (int y = -3; y <= -1; y++) {
+                    boolean bed = ford && (x == 22 || x == 23) && y < -1;
+                    g.set(x, y, z, bed ? STONE : CellBuilderTest.WATER);
+                }
+        return g.build();
+    }
+
+    static int flagged(Grid g, PathSearch.Result r, int flag) {
+        int n = 0;
+        for (long c : r.cells) {
+            SectionCells s = g.cells(SectionPos.asLong(BlockPos.getX(c) >> 4, BlockPos.getY(c) >> 4, BlockPos.getZ(c) >> 4));
+            int i = s.find(BlockPos.getX(c) & 15, BlockPos.getY(c) & 15, BlockPos.getZ(c) & 15);
+            if ((s.flags(i) & flag) != 0) n++;
+        }
+        return n;
+    }
+
+    @Test
+    void withNoOtherWayTheRiverIsSwumAtTheSurface() {
+        Grid g = river(false);
+        PathSearch.Result r = PathSearch.find(g, at(16, 0, 8), at(16, 0, 23), 0, 4000, PathSearch.Cost.NONE);
+        assertTrue(r.reached);
+        stepsAreNeighbours(r);
+        assertEquals(8, flagged(g, r, SectionCells.SWIM), "straight across, eight swum");
+        for (long c : r.cells) assertTrue(BlockPos.getY(c) >= -1, "at the surface, not on the bed: " + BlockPos.of(c));
+    }
+
+    @Test
+    void aFordEightTimesNearerThanTheSwimIsWaded() {
+        Grid g = river(true);
+        PathSearch.Result r = PathSearch.find(g, at(16, 0, 8), at(16, 0, 23), 0, 4000, PathSearch.Cost.NONE);
+        assertTrue(r.reached);
+        stepsAreNeighbours(r);
+        assertEquals(0, flagged(g, r, SectionCells.SWIM), "none swum");
+        assertTrue(flagged(g, r, SectionCells.WATER) >= 8, "the river waded");
+        for (long c : r.cells)
+            if (BlockPos.getZ(c) >= 12 && BlockPos.getZ(c) <= 19) assertTrue(BlockPos.getX(c) == 22 || BlockPos.getX(c) == 23, "over the ford");
+    }
+
+    @Test
+    void keptDryItBeginsNoSwimAndKnowsTheWayMayBeThere() {
+        Grid g = river(false);
+        PathSearch.Result r = PathSearch.find(g, at(16, 0, 8), at(16, 0, 23), 0, 4000, PathSearch.Cost.NONE, true);
+        assertFalse(r.reached);
+        assertEquals(0, flagged(g, r, SectionCells.SWIM));
+        assertTrue(r.refusedSwim);
+        assertFalse(r.exhausted, "not a dead end: only kept dry for now");
+        // one in the water already swims out, dry or not
+        PathSearch.Result out = PathSearch.find(g, at(16, -1, 15), at(16, 0, 23), 0, 4000, PathSearch.Cost.NONE, true);
+        assertTrue(out.reached);
+    }
+
+    @Test
+    void whatTheCallerAddsCountsThriceSwimming() {
+        Grid g = river(false);
+        PathSearch.Result plain = PathSearch.find(g, at(16, 0, 8), at(16, 0, 23), 0, 4000, PathSearch.Cost.NONE);
+        PathSearch.Result seen = PathSearch.find(g, at(16, 0, 8), at(16, 0, 23), 0, 4000, (x, y, z) -> 1F);
+        assertTrue(plain.reached && seen.reached);
+        int swum = flagged(g, seen, SectionCells.SWIM), steps = seen.cells.length - 1;
+        assertEquals(plain.cost + (steps - swum) + swum * PathSearch.SWIM_SEEN, seen.cost, 1e-3);
+    }
 }

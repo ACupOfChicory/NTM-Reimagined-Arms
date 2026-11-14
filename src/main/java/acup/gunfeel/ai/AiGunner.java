@@ -294,7 +294,9 @@ public final class AiGunner {
         // stopped (its legs keep still meanwhile, steady)
         // stuck at a step, turned to its path a moment (AiMoveControl): its body does not face the aim, no shot
         boolean turned = mob.getMoveControl() instanceof AiMoveControl legs && legs.turned();
-        boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !turned && !acup.gunfeel.ProneFire.blocks(mob, stack);
+        // swimming it holds fire: its hands are for the water (AiWater)
+        boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !turned && !acup.gunfeel.ProneFire.blocks(mob, stack)
+                && !AiWater.swims(mob);
         if (shoot && checkLine && AiBots.friendInLine(level, mob, AiLean.eye(mob), aim, CLEAR_CONE)) {
             // one of its own between it and the target: it holds fire
             shoot = false;

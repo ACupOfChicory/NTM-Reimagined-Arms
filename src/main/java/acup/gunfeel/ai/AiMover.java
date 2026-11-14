@@ -66,6 +66,8 @@ public final class AiMover {
     /** the map's count of changed blocks at the last check: a walked path is checked the tick a block changes */
     private long seenChanges;
     private PathSearch.Cost cost = PathSearch.Cost.NONE;
+    /** under fire: its paths begin no swim (AiWater.underFire); the last search kept out of water it meant to cross */
+    private boolean dry, refused;
     // for the stands
     public int searches, failures, stuckJumps, kept;
     public long searchNanos;
@@ -127,6 +129,20 @@ public final class AiMover {
 
     public void costs(PathSearch.Cost cost) {
         this.cost = cost;
+    }
+
+    /**
+     * Under fire its paths begin no swim (one that is swimming swims out); the fire over, a goal it gave up on for
+     * want of a dry way is tried again.
+     */
+    void dry(boolean on) {
+        if (on == dry) return;
+        dry = on;
+        if (!on && refused && (failed() || noWay)) {
+            refused = false;
+            tries = 0;
+            noWay = false;
+        }
     }
 
     public void stop() {
@@ -258,6 +274,7 @@ public final class AiMover {
             searches++;
             searchNanos += r.nanos;
             noWay = r.exhausted && !r.reached && sure(map, r);
+            refused = r.refusedSwim;
             noWayAt = map.changes;
             wantMissing(map, r);
             if (r.found() && r.cells.length > 1) walk(r);
@@ -302,9 +319,10 @@ public final class AiMover {
     private void search(TacticalMap map, long tick) {
         long start = PathSearch.snap(map, mob.getX(), mob.getY(), mob.getZ());
         if (start == Long.MIN_VALUE) {
-            // standing where the map has no cell yet: have the map build it, try again later
+            // standing where the map has no cell yet: have the map build it, try again later. Under water (its head
+            // under: no cell there) it floats up to one: no try spent
             map.want(mob.getBlockX(), mob.getBlockY(), mob.getBlockZ(), 8, 4);
-            tries++;
+            if (!mob.isInWater()) tries++;
             return;
         }
         walking = null;
@@ -315,7 +333,8 @@ public final class AiMover {
         int asked = gen;
         // the cost as things are now (its own side's lines of fire move every tick), here on the server thread
         PathSearch.Cost c = cost.now();
-        AiThreads.submit(() -> answer = new Answer(asked, PathSearch.find(map, start, g, rad, MAX_NODES, c)));
+        boolean keepDry = dry;
+        AiThreads.submit(() -> answer = new Answer(asked, PathSearch.find(map, start, g, rad, MAX_NODES, c, keepDry)));
     }
 
     private void walk(PathSearch.Result r) {

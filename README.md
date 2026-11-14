@@ -249,6 +249,11 @@ page. They are alphas: expect bugs and back up your world.
   `aiSupplySmokes`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
+- They cross water over a bridge or through a ford when there is one, and swim
+  only when the way round is about eight times longer. Under fire they do not
+  go into water too deep to stand in; swimming they neither fire nor throw,
+  take no cover there and make for the bank. Lava and NTM's acids, mud and
+  other liquids they never walk into.
 - They go into a room together: beside the doorway first, out of the line
   through it, then in at once, each to its own side (server key `aiEntry`).
   One of them steps out before the doorway first and throws a grenade in,

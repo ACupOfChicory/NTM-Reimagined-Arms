@@ -10,20 +10,21 @@ package acup.gunfeel.ai;
  * covered by its own block or by both blocks either side of it.
  */
 public final class SectionCells {
-    // cell flags
-    public static final int WATER = 1, CLIMB = 2, ROOF = 4, HEAD3 = 8, UNKNOWN = 16, DOOR_NEAR = 32, EDGE = 64, NARROW = 128;
+    // cell flags. WATER: its feet in water, its head out (on the bed: wading); SWIM: and nothing under it to stand on
+    // (afloat). No cell has its head under water: a mob there swims up, it walks no bed (CellBuilder)
+    public static final int WATER = 1, CLIMB = 2, ROOF = 4, HEAD3 = 8, UNKNOWN = 16, DOOR_NEAR = 32, EDGE = 64, NARROW = 128, SWIM = 256;
 
     public final long key;
     /** the map's build count of the section this was built for (see {@link TacticalMap}) */
     public final int stamp;
     final short[] pos;
     final int[] cover;
-    final byte[] flags;
+    final short[] flags;
     final short[] colStart;
     /** the time the build took, for /armsai info */
     public final long buildNanos;
 
-    SectionCells(long key, int stamp, short[] pos, int[] cover, byte[] flags, short[] colStart, long buildNanos) {
+    SectionCells(long key, int stamp, short[] pos, int[] cover, short[] flags, short[] colStart, long buildNanos) {
         this.key = key;
         this.stamp = stamp;
         this.pos = pos;
@@ -61,7 +62,7 @@ public final class SectionCells {
     }
 
     public int flags(int i) {
-        return flags[i] & 0xFF;
+        return flags[i] & 0xFFFF;
     }
 
     // ---- reading the cover int
