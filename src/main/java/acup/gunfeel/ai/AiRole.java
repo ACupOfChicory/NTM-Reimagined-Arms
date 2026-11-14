@@ -70,24 +70,22 @@ public enum AiRole {
         bot.assigned = bot.mob.getPersistentData().getString(ROLE_KEY).map(AiRole::named).orElse(null);
     }
 
-    /** a squad's size (AiSquads.MAX) has one supplier; fewer than this many spawned at once have none */
-    static final int DEAL_FROM = 4;
+    /** roles are dealt among mobs spawned by number from this many up (one alone is what its gun makes it) */
+    static final int DEAL_FROM = 2;
 
     /**
-     * The roles dealt among mobs spawned by number with no role named (the owner, 2026-11-14): one supplier to each
-     * squad's worth of them (AiSquads.MAX), picked at random, from DEAL_FROM of them up; the rest go by their guns.
-     * How many were made suppliers.
+     * The roles dealt among mobs spawned by number with no role named (the owner, 2026-11-14): each is a supplier
+     * with the share aiSupplyShare, by chance, each on its own; no most to a squad, there may be none or several. The
+     * rest go by their guns. How many were made suppliers.
      */
     static int deal(java.util.List<? extends net.minecraft.world.entity.Mob> mobs, net.minecraft.util.RandomSource rng) {
         if (!on() || !AiSupply.on() || mobs.size() < DEAL_FROM) return 0;
-        java.util.List<AiBot> bots = new java.util.ArrayList<>();
+        float share = AiSupply.share();
+        int dealt = 0;
         for (net.minecraft.world.entity.Mob m : mobs) {
             AiBot b = AiBots.get(m);
-            if (b != null && b.assigned == null) bots.add(b);
-        }
-        int want = (mobs.size() + AiSquads.MAX - 1) / AiSquads.MAX, dealt = 0;
-        while (dealt < want && !bots.isEmpty()) {
-            assign(bots.remove(rng.nextInt(bots.size())), SUPPLIER);
+            if (b == null || b.assigned != null || rng.nextFloat() >= share) continue;
+            assign(b, SUPPLIER);
             dealt++;
         }
         return dealt;

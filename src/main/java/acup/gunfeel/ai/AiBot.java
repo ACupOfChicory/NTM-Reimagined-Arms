@@ -38,6 +38,8 @@ public final class AiBot {
     int @Nullable [] supply;
     /** a supplier: the one it runs to with supplies, since when; no look for one in need before this tick */
     @Nullable AiBot supplyTo;
+    /** the fallen supplier's stock it goes for (AiSupply) */
+    AiSupply.@Nullable Left supplyFetch;
     long supplyAt, supplyNext = Long.MIN_VALUE;
     /** when it was last handed supplies */
     long suppliedAt = Long.MIN_VALUE / 2;

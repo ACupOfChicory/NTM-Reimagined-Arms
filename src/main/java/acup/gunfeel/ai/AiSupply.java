@@ -14,13 +14,58 @@ import net.minecraft.core.BlockPos;
  * the gun's, or no grenade, or no smoke grenade. It goes to the one most in need within REACH, while it is not pinned
  * down itself, no one it sees is near, and the other is not out in sight of one: runs up, hands a portion over, and
  * is a rifleman again. One it has given to is not given to again for AGAIN ticks; a run takes RUN_MAX ticks at most.
- * It fills its own pouches from the stock too. The stock is not endless and is kept on the mob.
+ * It fills its own pouches from the stock too. The stock is not endless and is kept on the mob. A supplier down, its
+ * stock lies where it fell for LEFT_KEEP ticks: one of its side within REACH goes for it and is the supplier from then.
  * No word goes between them: the supplier looks at what the others have, as one of a squad sees who is out.
  */
 public final class AiSupply {
     /** the server settings: suppliers hand out; what one carries to hand out */
     public static final String KEY = "aiSupply", MAGS_KEY = "aiSupplyMagazines", GRENADES_KEY = "aiSupplyGrenades", SMOKES_KEY = "aiSupplySmokes";
     static final int MAGS = 12, GRENADES = 6, SMOKES = 3;
+    /** the server setting: the share of the mobs spawned by number with no role named that are suppliers */
+    public static final String SHARE_KEY = "aiSupplyShare";
+    static final float SHARE = 0.17F;
+    /** the server setting: a squad with no round left besides what is in its guns, and no supplier with any, falls back */
+    public static final String OUT_KEY = "aiSupplyOut";
+    /** a squad out of rounds: the confidence of each of it falls by this each time squads are made (AiSquads.EVERY) till it falls back */
+    static final float OUT = 0.1F;
+    /** a squad out of rounds loses heart no lower than this (back to LOW soon once supplied) */
+    static final float OUT_FLOOR = 0.1F;
+    /** the stands: times a squad was found out of rounds, by team; off only for the stands' "before" */
+    public static final java.util.Map<String, Integer> outs = new java.util.HashMap<>();
+    static boolean outOn = true;
+
+    static float share() {
+        return Math.max(0F, Math.min(1F, ReaimTimes.number(SHARE_KEY, SHARE)));
+    }
+
+    /**
+     * A squad as squads are made (AiSquads): out of rounds when, in a fight (one of it knows of a foe), none of it alive
+     * has a round besides what is in its gun and none of its suppliers has a magazine to hand out. Then each of it loses
+     * heart (AiConfidence), down to OUT_FLOOR, and, kept so, holds back and falls back; a supplier that comes, or a
+     * stock taken up, and they take heart again. A squad at rest with empty pouches is left as it is.
+     */
+    static void squad(java.util.List<AiBot> bots, long tick) {
+        if (!on() || !outOn || !ReaimTimes.flag(OUT_KEY, true)) return;
+        int alive = 0;
+        boolean fight = false;
+        for (AiBot b : bots) {
+            if (!AiSquads.live(b)) continue;
+            alive++;
+            AiAmmo ammo = b.gunner.ammo;
+            if (ammo.infinite() || ammo.reserve() > 0 || b.gunner.capacity() <= 0) return;
+            if (AiRole.of(b) == AiRole.SUPPLIER && stock(b)[0] > 0) return;
+            fight |= b.memory.focus(b.mob.getX(), b.mob.getZ()) != null;
+        }
+        if (alive == 0 || !fight) return;
+        outs.merge(AiSquads.team(bots.get(0)), 1, Integer::sum);
+        for (AiBot b : bots) {
+            if (!AiSquads.live(b)) continue;
+            float v = b.confidence.value(tick);
+            if (v > OUT_FLOOR) b.confidence.add(-Math.min(OUT, v - OUT_FLOOR), tick);
+        }
+    }
+
     /** where the stock is kept on the mob */
     static final String STOCK_KEY = "armsaiSupply";
     /** off only for the stands' "before" */
@@ -36,7 +81,151 @@ public final class AiSupply {
     /** the stands: a supplier's looks that found no one to go to, by why: it is not free itself, it has no squad, none is short, one short is out in sight of them, too far, given to lately */
     public static final int[] idle = new int[6];
 
+    /** a fallen supplier's stock lies where it fell this long; who may take it is looked for this often; ticks */
+    static final int LEFT_KEEP = 2400, HEIR_EVERY = 40;
+    /** the stands: stocks left by fallen suppliers, stocks taken up */
+    public static int left, taken;
+
+    /** a stock is let lie for good after this many have given a run for it up */
+    static final int GIVE_UPS = 3;
+
+    /**
+     * A fallen supplier's stock where it fell: of which side, since when; the ids of its squad then (they go for it
+     * first); who goes for it (an id: no mob is held), since when; who gave a run for it up.
+     */
+    static final class Left {
+        final double x, y, z;
+        final int[] stock;
+        final String team;
+        final long tick;
+        final int[] squad;
+        int heir = -1;
+        long heirAt;
+        final it.unimi.dsi.fastutil.ints.IntArrayList failed = new it.unimi.dsi.fastutil.ints.IntArrayList();
+
+        Left(double x, double y, double z, int[] stock, String team, long tick, int[] squad) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.stock = stock;
+            this.team = team;
+            this.tick = tick;
+            this.squad = squad;
+        }
+
+        boolean ofSquad(int id) {
+            for (int i : squad) if (i == id) return true;
+            return false;
+        }
+
+        long cell() {
+            return BlockPos.asLong(Mth.floor(x), Mth.floor(y + 0.2), Mth.floor(z));
+        }
+    }
+
+    private static final java.util.Map<ServerLevel, java.util.List<Left>> LEFT = new java.util.WeakHashMap<>();
+
     private AiSupply() {
+    }
+
+    public static void forget(ServerLevel level) {
+        LEFT.remove(level);
+    }
+
+    /** an AI mob is down: a supplier's stock stays where it fell, for one of its side to take up */
+    static void fell(ServerLevel level, AiBot bot, long tick) {
+        if (!on() || AiRole.of(bot) != AiRole.SUPPLIER) return;
+        int[] stock = stock(bot);
+        if (stock[0] + stock[1] + stock[2] <= 0) return;
+        java.util.List<Left> all = LEFT.computeIfAbsent(level, l -> new java.util.ArrayList<>());
+        all.removeIf(l -> tick - l.tick > LEFT_KEEP);
+        if (all.size() >= 32) all.remove(0);
+        AiSquads.Squad sq = AiSquads.of(bot);
+        int[] squad = sq == null ? new int[0] : sq.bots.stream().filter(b -> b != bot).mapToInt(b -> b.mob.getId()).toArray();
+        all.add(new Left(bot.mob.getX(), bot.mob.getY(), bot.mob.getZ(), stock.clone(), AiSquads.team(bot), tick, squad));
+        left++;
+    }
+
+    /**
+     * A fallen supplier's stock within reach: one of its side goes for it and is the supplier from then on (one that
+     * is a supplier already adds it to its own). One goes for a stock at a time; one of the fallen one's squad first,
+     * while any of it lives; none goes with a foe in sight (the stock lies where they shot it), nor one that gave a run
+     * for it up. True while it is on its way.
+     */
+    private static boolean fetch(AiSoldier s, AiBot bot, ServerLevel level, long tick) {
+        Left mine = bot.supplyFetch;
+        // the base of fire keeps its place: it does not go for one
+        if (mine == null && ((tick + bot.mob.getId()) % HEIR_EVERY != 0 || tick < bot.supplyNext || AiRole.of(bot) == AiRole.BASE)) return false;
+        java.util.List<Left> all = LEFT.get(level);
+        if (mine == null) {
+            if (all == null || all.isEmpty() || !free(bot, tick) || seesFoe(bot)) return false;
+            String team = AiSquads.team(bot);
+            int id = bot.mob.getId();
+            for (java.util.Iterator<Left> it = all.iterator(); it.hasNext();) {
+                Left l = it.next();
+                if (tick - l.tick > LEFT_KEEP || l.failed.size() >= GIVE_UPS) {
+                    it.remove();
+                    continue;
+                }
+                AiBot heir = l.heir < 0 ? null : bot(level, l.heir);
+                boolean gone = heir == null || !AiSquads.live(heir) || heir.supplyFetch != l || tick - l.heirAt > RUN_MAX;
+                if (!gone || !l.team.equals(team) || l.failed.contains(id) || bot.mob.distanceToSqr(l.x, l.y, l.z) > REACH * REACH) continue;
+                // its squad first: another goes only when none of it is left
+                if (!l.ofSquad(id) && squadLives(level, l)) continue;
+                l.heir = id;
+                l.heirAt = tick;
+                bot.supplyFetch = mine = l;
+                s.note(bot, tick, "supplies: goes for a fallen supplier's stock");
+                break;
+            }
+            if (mine == null) return false;
+        }
+        if (all == null || !all.contains(mine) || tick - mine.heirAt > RUN_MAX || !free(bot, tick) || bot.mover.failed() && bot.mover.goalIs(mine.cell())) {
+            bot.supplyFetch = null;
+            bot.supplyNext = tick + GIVEN_UP;
+            mine.failed.add(bot.mob.getId());
+            mine.heir = -1;
+            return false;
+        }
+        double dx = mine.x - bot.mob.getX(), dz = mine.z - bot.mob.getZ();
+        if (dx * dx + dz * dz <= HAND * HAND && Math.abs(mine.y - bot.mob.getY()) < 2) {
+            all.remove(mine);
+            bot.supplyFetch = null;
+            int[] stock = AiRole.of(bot) == AiRole.SUPPLIER ? stock(bot) : new int[3];
+            for (int i = 0; i < 3; i++) stock[i] = Math.min(64, stock[i] + mine.stock[i]);
+            bot.supply = stock;
+            if (AiRole.of(bot) != AiRole.SUPPLIER) AiRole.assign(bot, AiRole.SUPPLIER);
+            keep(bot);
+            taken++;
+            s.note(bot, tick, "supplies: takes up a fallen supplier's stock, has " + stock[0] + "/" + stock[1] + "/" + stock[2]);
+            return false;
+        }
+        bot.gunner.fire(false);
+        if (!bot.mover.goalIs(mine.cell())) {
+            bot.mover.costs(FireLines.of(level, bot.mob));
+            bot.mover.goTo(mine.cell(), 1.5, AiSoldier.RUN);
+        }
+        return true;
+    }
+
+    private static @Nullable AiBot bot(ServerLevel level, int id) {
+        net.minecraft.world.entity.Entity e = level.getEntity(id);
+        return e == null ? null : AiBots.get(e);
+    }
+
+    /** one of the fallen one's squad is alive still */
+    private static boolean squadLives(ServerLevel level, Left l) {
+        for (int i : l.squad) {
+            AiBot b = bot(level, i);
+            if (b != null && AiSquads.live(b)) return true;
+        }
+        return false;
+    }
+
+    /** it sees one of them now, at any distance */
+    private static boolean seesFoe(AiBot bot) {
+        TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
+        return c != null && c.state == TargetMemory.State.VISIBLE;
     }
 
     public static boolean on() {
@@ -76,7 +265,10 @@ public final class AiSupply {
      * it fights as a rifleman. Called by its brain after what keeps it alive (a grenade to run from, its own throw).
      */
     static boolean step(AiSoldier s, AiBot bot, ServerLevel level, long tick) {
-        if (!on() || AiRole.of(bot) != AiRole.SUPPLIER) return false;
+        if (!on()) return false;
+        // a fallen supplier's stock first: anyone of its side, a supplier on no run
+        if ((AiRole.of(bot) != AiRole.SUPPLIER || bot.supplyTo == null) && fetch(s, bot, level, tick)) return true;
+        if (AiRole.of(bot) != AiRole.SUPPLIER) return false;
         int[] stock = stock(bot);
         AiBot to = bot.supplyTo;
         if (to == null) {
@@ -142,6 +334,10 @@ public final class AiSupply {
             if (b == bot || !AiSquads.live(b)) continue;
             double need = need(b, stock);
             if (need <= 0) continue;
+            // another supplier of the squad is on its way to that one already
+            boolean served = false;
+            for (AiBot o : squad.bots) served |= o != bot && o.supplyTo == b && AiSquads.live(o);
+            if (served) continue;
             double d = b.mob.distanceToSqr(bot.mob);
             if (tick - b.suppliedAt < AGAIN) {
                 why = Math.max(why, 5);
