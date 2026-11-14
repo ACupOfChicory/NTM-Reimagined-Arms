@@ -91,6 +91,7 @@ public final class GunFeelMod {
                     if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
                         acup.gunfeel.smoke.SmokeClouds.serverTick(level);
                         acup.gunfeel.ai.TacticalMap.tickLevel(level);
+                        acup.gunfeel.ai.AiTerrain.tickLevel(level);
                         acup.gunfeel.ai.AiBots.tick(level);
                         acup.gunfeel.ai.AiDebug.tick(level);
                         acup.gunfeel.ai.imitation.FightRecorder.tick(level);
@@ -112,7 +113,10 @@ public final class GunFeelMod {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkEvent.Unload.class,
                 e -> acup.gunfeel.ai.AiEvents.chunk(e.getLevel(), e.getChunk(), false));
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppedEvent.class,
-                e -> acup.gunfeel.ai.TacticalMap.forgetAll());
+                e -> {
+                    acup.gunfeel.ai.TacticalMap.forgetAll();
+                    acup.gunfeel.ai.AiTerrain.forgetAll();
+                });
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkWatchEvent.Sent.class,
                 acup.gunfeel.smoke.SmokeNet::watched);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ChunkWatchEvent.UnWatch.class,
@@ -122,6 +126,7 @@ public final class GunFeelMod {
                     if (e.getLevel() instanceof net.minecraft.world.level.Level level) acup.gunfeel.smoke.SmokeClouds.forget(level);
                     if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
                         acup.gunfeel.ai.TacticalMap.forget(level);
+                        acup.gunfeel.ai.AiTerrain.forget(level);
                         acup.gunfeel.ai.AiBots.forget(level);
                         acup.gunfeel.ai.AiSquads.forget(level);
                         acup.gunfeel.ai.AiGrenades.forget(level);
