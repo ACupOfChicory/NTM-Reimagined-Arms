@@ -143,6 +143,11 @@ public final class AiGrenades {
      * lying behind a block's wall 2 blocks from the burst, 0).
      */
     static boolean shielded(VoxelRay.Source src, double x, double y, double z, double height, Vec3 burst) {
+        return shielded(src, x, y, z, height, burst, true);
+    }
+
+    /** the same; not lying: its box alone, no body drawn longer than it (one standing behind a wall: AiEntry) */
+    static boolean shielded(VoxelRay.Source src, double x, double y, double z, double height, Vec3 burst, boolean lying) {
         double hx = burst.x - x, hz = burst.z - z, h = Math.sqrt(hx * hx + hz * hz);
         if (h < 1e-6) return false;
         double ux = hx / h, uz = hz / h, half = 0.3, low = y + 0.05, top = y + height - 0.05;
@@ -150,6 +155,7 @@ public final class AiGrenades {
                 { x - half, top, z - half }, { x + half, top, z - half }, { x - half, top, z + half }, { x + half, top, z + half },
                 { x, top, z }, { x + ux * 0.9, y + 0.35, z + uz * 0.9 }, { x - ux * 0.9, y + 0.35, z - uz * 0.9 },
                 { x - uz * 0.9, y + 0.35, z + ux * 0.9 }, { x + uz * 0.9, y + 0.35, z - ux * 0.9 } };
+        if (!lying) to = java.util.Arrays.copyOf(to, 9);
         double r = NODE + SHIELD_MORE;
         double[][] from = { { 0, 0.3, 0 }, { r, 0.3, 0 }, { -r, 0.3, 0 }, { 0, 0.3, r }, { 0, 0.3, -r }, { 0, 0.3 + r, 0 } };
         for (double[] f : from)
@@ -300,11 +306,60 @@ public final class AiGrenades {
 
     private static @Nullable Vec3 from(VoxelRay.Source src, Mob m, float yaw, float pitch, double force, double bounce, int minY, double ox, double oy,
             double oz, @Nullable List<double[]> path, double @Nullable [] land, int armed) {
+        return fromAt(src, m.getX(), m.getY() + m.getEyeHeight(), m.getZ(), yaw, pitch, force, bounce, minY, ox, oy, oz, path, land, armed);
+    }
+
+    /** the same thrown by one standing with its feet's middle and its eye at this place */
+    private static @Nullable Vec3 fromAt(VoxelRay.Source src, double mx, double eye, double mz, float yaw, float pitch, double force, double bounce, int minY,
+            double ox, double oy, double oz, @Nullable List<double[]> path, double @Nullable [] land, int armed) {
         double r = Math.toRadians(180F - yaw);
-        double x = m.getX() + 0.25 * Math.cos(r) + ox, y = m.getY() + m.getEyeHeight() - 0.25 + oy, z = m.getZ() - 0.25 * Math.sin(r) + oz;
+        double x = mx + 0.25 * Math.cos(r) + ox, y = eye - 0.25 + oy, z = mz - 0.25 * Math.sin(r) + oz;
         double f = Math.toRadians(pitch), g = Math.toRadians(-yaw);
         return burst(src, x, y, z, Math.sin(g) * Math.cos(f) * force, -Math.sin(f) * force, Math.cos(g) * Math.cos(f) * force, armed >= 0 ? IMPACT_TICKS : FUSE, armed, bounce, minY,
                 GRAVITY, DRAG, path, land);
+    }
+
+    /**
+     * A throw of a grenade that sticks where it first hits (NTM's glue) into a room before an entry (AiEntry), by one
+     * standing at x, z with its eye at eye (where the mob is, or where it is about to step out to), turned to the
+     * place: softer, as a near throw; the pitch whose first hit is nearest the place of those the caller says are
+     * safe to burst at, started from each of the grenade's box's corners as well. No bounce and no roll to work out:
+     * it bursts where it hits.
+     */
+    static @Nullable Throw planStick(ServerLevel level, double x, double eye, double z, Vec3 at, java.util.function.Predicate<Vec3> safe) {
+        long t0 = System.nanoTime();
+        try {
+            double dx = at.x - x, dz = at.z - z;
+            float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90F;
+            double share = share(Math.hypot(dx, dz)), force = EnumGrenadeShell.FRAG.getYeetForce() * share, bounce = EnumGrenadeShell.FRAG.getBounce();
+            VoxelRay.Source src = AiBots.voxels(level);
+            int minY = level.getMinY();
+            double[] land = new double[3];
+            List<Throw> all = new ArrayList<>();
+            for (float p = PITCH_UP; p <= PITCH_DOWN; p += PITCH_STEP) {
+                fromAt(src, x, eye, z, yaw, p, force, bounce, minY, 0, 0, 0, null, land, -1);
+                if (Double.isNaN(land[0])) continue;
+                Vec3 b = new Vec3(land[0], land[1], land[2]);
+                if (safe.test(b)) all.add(new Throw(yaw, p, b, share));
+            }
+            all.sort(java.util.Comparator.comparingDouble(t -> t.burst().distanceToSqr(at)));
+            next:
+            for (Throw t : all) {
+                for (double[] o : CORNERS) {
+                    fromAt(src, x, eye, z, yaw, t.pitch(), force, bounce, minY, o[0], o[1], o[2], null, land, -1);
+                    if (Double.isNaN(land[0]) || !safe.test(new Vec3(land[0], land[1], land[2]))) continue next;
+                }
+                return t;
+            }
+            return null;
+        } finally {
+            planNanos += System.nanoTime() - t0;
+        }
+    }
+
+    /** NTM's frag with glue and a three seconds' fuze, of this filling, thrown by the mob with this turn */
+    static EntityGrenadeUniversal tossStick(ServerLevel level, Mob m, Throw t, EnumGrenadeFilling filling) {
+        return launch(level, m, t, ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, filling, EnumGrenadeFuze.S3, com.hbm.items.weapon.grenade.ItemGrenadeExtra.EnumGrenadeExtra.GLUE), t.share());
     }
 
     /**
@@ -638,6 +693,12 @@ public final class AiGrenades {
         if (left < 0) return null;
         if (f != EnumGrenadeFuze.IMPACT) left -= e.getTimer();
         if (left <= 0) return e.position();
+        if (e.getExtra() == com.hbm.items.weapon.grenade.ItemGrenadeExtra.EnumGrenadeExtra.GLUE) {
+            // glue: it sticks where it first hits, and bursts there
+            double[] land = new double[3];
+            Vec3 b = burst(AiBots.voxels(level), e.getX(), e.getY(), e.getZ(), v.x, v.y, v.z, left, -1, e.getShell().getBounce(), level.getMinY(), GRAVITY, DRAG, null, land);
+            return Double.isNaN(land[0]) ? b : new Vec3(land[0], land[1], land[2]);
+        }
         return burst(AiBots.voxels(level), e.getX(), e.getY(), e.getZ(), v.x, v.y, v.z, left,
                 f == EnumGrenadeFuze.IMPACT ? Math.max(0, IMPACT_ARMED - e.getTimer()) : -1, e.getShell().getBounce(), level.getMinY());
     }
@@ -672,6 +733,8 @@ public final class AiGrenades {
         for (Live g : l) {
             if (g.burst == null || g.e.isRemoved()) continue;
             boolean own = ownSide(m, g);
+            // the grenade thrown into a room before an entry, it behind the wall beside the way in (or out of its reach): it stays
+            if (own && AiEntry.keeps(level, bot, g.e.getId(), g.burst, src)) continue;
             // its own near throw, it down behind its cover till the burst: it stays down while blocks keep all of it
             // off the burst (worked out again as the grenade flies); else it runs as from any of its own side's
             if (own && g.e.getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(g.e) && s.downShield(bot, level.getGameTime()) > 0

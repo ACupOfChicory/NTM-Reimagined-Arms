@@ -49,6 +49,10 @@ public final class AiRooms {
         public final boolean door;
         /** the cells beside the opening at each end with the wall between them and the other end: out of the line through it */
         public final long[] besideA, besideB;
+        /** for each of those, the cell one further from the opening along the wall, behind it as well; the same cell where there is none */
+        public long[] farA = {}, farB = {};
+        /** and one further again than those, the same way */
+        public long[] far2A = {}, far2B = {};
         /** it goes over a sill: its cells stand a step higher than the cell before it at an end (a window climbed through) */
         public boolean sill;
 
@@ -71,6 +75,33 @@ public final class AiRooms {
         /** the cells beside the opening at room r's end */
         public long[] beside(int r) {
             return r == a ? besideA : besideB;
+        }
+
+        /** the cells one further from the opening than those beside it at room r's end, one for each of them */
+        public long[] far(int r) {
+            return r == a ? farA : farB;
+        }
+
+        /** two further from the opening than those beside it at room r's end, one for each of them */
+        public long[] far2(int r) {
+            return r == a ? far2A : far2B;
+        }
+
+        private Way far(PathSearch.Reader r, long[] rowA, long[] rowB) {
+            farA = further(r, rowA, besideA, dir);
+            farB = further(r, rowB, besideB, Dirs.opposite(dir));
+            far2A = further(r, besideA, farA, dir);
+            far2B = further(r, besideB, farB, Dirs.opposite(dir));
+            return this;
+        }
+
+        private Way flipped() {
+            Way w = new Way(reverse(cells), Dirs.opposite(dir), b, a, width, door, besideB, besideA);
+            w.farA = farB;
+            w.farB = farA;
+            w.far2A = far2B;
+            w.far2B = far2A;
+            return w;
         }
     }
 
@@ -396,9 +427,9 @@ public final class AiRooms {
             }
             int dir = CARDINAL[on];
             long[] row = {cells.getLong(endA)}, rowB = {cells.getLong(endB)};
-            Way w = new Way(at, dir, a, b, 1, hasDoor, beside(r, row, dir), beside(r, rowB, Dirs.opposite(dir)));
+            Way w = new Way(at, dir, a, b, 1, hasDoor, beside(r, row, dir), beside(r, rowB, Dirs.opposite(dir))).far(r, row, rowB);
             // room a is never OUTSIDE
-            Way made = a != OUTSIDE ? w : new Way(reverse(at), Dirs.opposite(dir), b, a, 1, hasDoor, w.besideB, w.besideA);
+            Way made = a != OUTSIDE ? w : w.flipped();
             made.sill = BlockPos.getY(at[0]) > BlockPos.getY(cells.getLong(endA)) || BlockPos.getY(at[at.length - 1]) > BlockPos.getY(cells.getLong(endB));
             ways.add(made);
         }
@@ -424,8 +455,8 @@ public final class AiRooms {
                     hasDoor |= door[c];
                 }
             int dir = CARDINAL[on];
-            Way wy = new Way(at.toLongArray(), dir, a, b, w, hasDoor, beside(r, rowA, dir), beside(r, rowB, Dirs.opposite(dir)));
-            Way made = a != OUTSIDE ? wy : new Way(reverse(at.toLongArray()), Dirs.opposite(dir), b, a, w, hasDoor, wy.besideB, wy.besideA);
+            Way wy = new Way(at.toLongArray(), dir, a, b, w, hasDoor, beside(r, rowA, dir), beside(r, rowB, Dirs.opposite(dir))).far(r, rowA, rowB);
+            Way made = a != OUTSIDE ? wy : wy.flipped();
             made.sill = BlockPos.getY(cells.getLong(firstRow[0])) > BlockPos.getY(rowA[0]) || BlockPos.getY(cells.getLong(lastRow[0])) > BlockPos.getY(rowB[0]);
             ways.add(made);
         }
@@ -651,6 +682,31 @@ public final class AiRooms {
             side(r, row[row.length - 1], left, through, out);
         }
         return out.toLongArray();
+    }
+
+    /** for each cell beside an opening, the next one the same way from the row before it (behind the wall too), or itself */
+    private static long[] further(PathSearch.Reader r, long[] row, long[] beside, int through) {
+        long[] out = beside.clone();
+        for (int i = 0; i < out.length; i++) {
+            long c = out[i];
+            int best = Integer.MAX_VALUE;
+            long from = row[0];
+            for (long q : row) {
+                int d = Math.abs(BlockPos.getX(q) - BlockPos.getX(c)) + Math.abs(BlockPos.getZ(q) - BlockPos.getZ(c));
+                if (d < best) {
+                    best = d;
+                    from = q;
+                }
+            }
+            int dx = Integer.signum(BlockPos.getX(c) - BlockPos.getX(from)), dz = Integer.signum(BlockPos.getZ(c) - BlockPos.getZ(from));
+            for (int d = 0; d < 8; d += 2) {
+                if (Dirs.DX[d] != dx || Dirs.DZ[d] != dz) continue;
+                LongArrayList one = new LongArrayList(1);
+                side(r, c, d, through, one);
+                if (!one.isEmpty()) out[i] = one.getLong(0);
+            }
+        }
+        return out;
     }
 
     private static void side(PathSearch.Reader r, long from, int d, int through, LongArrayList out) {

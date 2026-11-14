@@ -143,7 +143,7 @@ public final class AiCheck {
                     if (at[0] < stages.size() && grenadesFor[0] != at[0]) {
                         grenadesFor[0] = at[0];
                         AiGrenades.trace = true;
-                        AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel").contains(names.get(at[0]));
+                        AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel", "entry").contains(names.get(at[0]));
                         AiVoice.reset();
                         AiVoice.counting = true;
                     }
