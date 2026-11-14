@@ -328,6 +328,11 @@ public final class AiSoldier implements AiBrain {
 
     /** this tick it keeps low behind low cover (the decision sets it; standing unless it does) */
     private boolean crouch;
+
+    /** down on its knees this tick (AiMarksman between its shots) */
+    void crouch(boolean on) {
+        crouch = on;
+    }
     /** reloading the last tick (a reload begun calls out) */
     private boolean wasReloading;
     /** ticks it rises before a burst over low cover */
@@ -719,6 +724,11 @@ public final class AiSoldier implements AiBrain {
         TacticalMap map = TacticalMap.of(level);
         // shaken: back to cover farther off, one wave of its squad at a time
         if (fallBack(bot, level, map, c, eye, tick)) return;
+        // a marksman with a target far off: from its perch (AiMarksman)
+        if (AiMarksman.step(this, bot, level, c, tick)) {
+            why = Why.MARKSMAN;
+            return;
+        }
         // hit, or a shot close past it: often other cover
         TargetMemory.Noise hurt = bot.memory.noise();
         if (hurt != null && hurt.hurt && hurt.tick != hitSeen) {

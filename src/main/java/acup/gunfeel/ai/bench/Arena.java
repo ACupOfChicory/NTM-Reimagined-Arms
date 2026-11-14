@@ -121,6 +121,11 @@ public final class Arena {
     // across the cover rows. Endless rounds (a measurement must not end with empty guns) and no damage (TAG); every
     // AI mob thinks with no player near (AiBots.wakeAll)
     public void aiPairs(int n) {
+        aiPairs(n, 0);
+    }
+
+    // the same, with every marksEvery-th pair (both sides alike) the squads' marksmen by word (AiMarksman)
+    public void aiPairs(int n, int marksEvery) {
         acup.gunfeel.ai.AiBots.wakeAll(true);
         var board = level.getScoreboard();
         EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse("hbm:entity_fbi"));
@@ -143,6 +148,7 @@ public final class Arena {
             level.addFreshEntity(m);
             var bot = acup.gunfeel.ai.AiBots.get(m);
             if (bot == null) throw new IllegalStateException("an FBI tagged armsai is not an AI mob");
+            if (marksEvery > 0 && i / 2 % marksEvery == 0) acup.gunfeel.ai.AiRole.give(m, "marksman");
             bot.gunner.ammo.setInfinite();
             bot.gunner.loadFree();
             made.add(m);

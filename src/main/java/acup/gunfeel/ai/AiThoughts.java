@@ -62,7 +62,8 @@ public final class AiThoughts {
         SUPPRESS("one of its squad on the move: keeps where they went under fire"),
         BLIND("pinned down behind low cover: fires blind over it"),
         THROW("throws a grenade where they went out of sight"),
-        GRENADE("a grenade near: runs from where it bursts");
+        GRENADE("a grenade near: runs from where it bursts"),
+        MARKSMAN("marksman: to its perch, single shots from afar");
 
         final String label;
 

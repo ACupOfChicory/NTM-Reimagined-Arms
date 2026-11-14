@@ -14,13 +14,15 @@ import net.minecraft.world.item.ItemStack;
  * it is the machine gunner's work, as in the manuals: the base of fire keeps them down while the others go round).
  * {@link #BASE}: a gun that fires on while the trigger is held, fast (a shot every {@link #FAST} ticks at most), real
  * bullets (no beam, nothing slow: a flamer, a grenade), with a belt or a magazine of aiBaseMagazine rounds or more: a
- * machine gun, a minigun, an automatic with a big magazine. Anyone else is a {@link #RIFLE}. Worked out again when
- * the gun in its hands is another.
+ * machine gun, a minigun, an automatic with a big magazine. {@link #MARKSMAN}: any other gun with a scope (NTM's
+ * scope texture). Anyone else is a {@link #RIFLE}. Worked out again when the gun in its hands is another.
  */
 public enum AiRole {
     RIFLE, BASE,
     /** hands out magazines and grenades to its squad (AiSupply); by word or by the spawn, never by the gun */
-    SUPPLIER;
+    SUPPLIER,
+    /** fights from afar from perches (AiMarksman): a scoped gun that is no base of fire's, or by word */
+    MARKSMAN;
 
     /** the server settings: roles by the gun; a base of fire's magazine from this many rounds */
     public static final String KEY = "aiRoles", MAG_KEY = "aiBaseMagazine";
@@ -65,6 +67,13 @@ public enum AiRole {
         else bot.mob.getPersistentData().putString(ROLE_KEY, role.word());
     }
 
+    /** a role by word for this AI mob, from outside the package (the bench); nothing for a mob that is none or a word that is no role */
+    public static void give(net.minecraft.world.entity.Mob mob, String word) {
+        AiBot b = AiBots.get(mob);
+        AiRole r = named(word);
+        if (b != null && r != null) assign(b, r);
+    }
+
     /** the role kept on the mob, when it comes back into the world */
     static void restore(AiBot bot) {
         bot.assigned = bot.mob.getPersistentData().getString(ROLE_KEY).map(AiRole::named).orElse(null);
@@ -106,6 +115,12 @@ public enum AiRole {
     @SuppressWarnings("rawtypes")
     static AiRole by(ItemStack stack) {
         if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return RIFLE;
+        AiRole base = byFire(gun, stack);
+        return base == RIFLE && acup.gunfeel.PistolHold.scoped(stack) ? MARKSMAN : base;
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static AiRole byFire(ItemGunBaseNT gun, ItemStack stack) {
         try {
             Receiver rec = gun.getConfig(stack, 0).getReceivers(stack)[0];
             IMagazine mag = rec.getMagazine(stack);

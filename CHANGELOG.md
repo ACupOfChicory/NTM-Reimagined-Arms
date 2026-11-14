@@ -1,5 +1,19 @@
 # Changelog
 
+## X1084
+
+- AI marksmen: a soldier with a scoped gun that is no machine gun is its
+  squad's marksman. With its target 24 blocks off or farther it takes a perch
+  behind its squad (15 to 40 blocks, mostly), 40 to 90 off the target, high
+  over it and with the target in sight, fires single shots a second apart, and
+  after two or three, as soon as it is shot at, or after five seconds with no
+  shot, moves to another. On its perch it covers the squad as a machine gunner
+  does. It never goes round the side, and leaves looking for a lost target to
+  its squad's riflemen while one of them knows of it; nearer, out of rounds,
+  or with no perch to be had, it fights as a rifleman. Its gun, aim and damage
+  are as anyone's. `/armsai spawn` and `/armsai kit` take `role marksman`; new
+  server setting `aiMarksman` (true by default).
+
 ## X1082
 
 - AI soldiers cross water over a bridge or through a ford when there is one,

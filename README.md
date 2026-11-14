@@ -247,6 +247,13 @@ page. They are alphas: expect bugs and back up your world.
   `role supplier` makes one by word (server keys `aiSupply`,
   `aiSupplyShare`, `aiSupplyOut`, `aiSupplyMagazines`, `aiSupplyGrenades`,
   `aiSupplySmokes`).
+- A bot with a scoped gun is its squad's marksman: with you 24 blocks off or
+  farther it climbs to a perch behind its squad, high and with a long view of
+  you, mostly 40 to 90 blocks off, fires single shots from there a second
+  apart and moves on after two or three, as soon as it is shot at, or when it
+  has had no shot for five seconds. It never goes round the side, and leaves
+  looking for you to its squad's riflemen while one of them knows where you
+  are. `role marksman` makes one by word (server key `aiMarksman`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
