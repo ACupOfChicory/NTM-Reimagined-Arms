@@ -50,32 +50,24 @@ from the rest pose, without the clip's twist of a thigh about its own length, wh
 The mod's two: `crouch_walk` (KayKit `Crouching`, its feet moved 0.4 px at most) and `kneel` (down on the right knee
 as UAL `Fixing_Kneeling` kneels, the trunk upright for the gun).
 
-## The picker page (six parts)
+## The owner's choices (`--choices`)
 
-Kept from the model of six parts and no longer developed: there a Minecraft arm or leg was one box where the clip has
-two bones. `retarget.MODES` are the ways to put it: along the
-whole limb (`end`: shoulder to wrist, hip to ankle — the default), the upper bone (`upper`), the lower one (`lower`)
-or halfway between the upper bone and the whole limb (`mix`). A picker page shows every clip of `SELECTED` in each
-mode beside the rig's own skeleton:
-
-```
-python3 -I tools/quaternius/anim_picker.py <page dir> UAL1=<UAL1_Standard.glb> ...   # the same TAG=file pairs
-```
-
-It writes `<page dir>/index.html` and `<page dir>/data/*.js`; the page opens from disk with no server and no network
-(plain WebGL, no libraries). Its choice, per clip the arms' mode, the legs' mode and whether to take the clip, is
-saved as `anim-choices.json`:
+Which clips are taken, and a correction of a clip, are written by hand in `anim-choices.json`:
 
 ```json
-{"version": 1, "clips": {"UAL1/Idle_Loop": {"arms": "end", "legs": "upper", "take": true,
+{"version": 1, "clips": {"UAL1/Idle_Loop": {"arms": "end", "legs": "end", "take": true,
   "adjust": {"right_arm": {"rot": [-20, 0, 5], "pos": [0, 1, 0]}}}}}
 ```
 
-`adjust` is the owner's correction where no mode looks right: one for the whole clip, on top of the modes. A part
+`arms` and `legs` are one of `retarget.MODES` (`upper`, `lower`, `end`, `mix`): how the one box of an arm or a leg
+followed the clip's two bones in the model of six parts. The file must still give them, but they are not used (each
+bone has its part now).
+
+`adjust` is the owner's correction of a clip: one for the whole clip. A part
 named is turned by `rot` (degrees, Rz · Ry · Rx as ModelPart's xRot, yRot, zRot) around the model's axes at its pivot,
 after its pose, and its pivot moved by `pos` (pixels, as Bedrock's position: X the model's left, Y up, Z back). On a
 part in its default pose that is just adding to its angles. It comes after the clip is put on the ground, so a
-leg moved down goes into the ground. Limits: ±180° and ±12 px. The page shows it in its "chosen" window as it is set.
+leg moved down goes into the ground. Limits: ±180° and ±12 px.
 `check.json`'s grades of a corrected clip measure it with the correction against the rig, as they would any other
 difference.
 

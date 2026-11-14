@@ -1,9 +1,9 @@
 """Retarget free humanoid clips (Quaternius UAL and SWAT, KayKit) onto the ten parts of the AI mobs' model
-(convert10, below; the six parts of a plain HumanoidModel, described here, are kept for the picker page).
+(convert10, below; the six parts of a plain HumanoidModel, described here, are the model it grew from).
 
 Run:  python3 -I tools/quaternius/retarget.py [--choices anim-choices.json] <animations dir> <check.json> TAG=<file.glb> ...
-      (TAG: a key of PACKS — UAL1, UAL2, KK_RANGED, ..., SWAT; --choices: the owner's pick per clip from the
-      picker page, anim_picker.py: how each clip's arms and legs are carried over, or that it is left out)
+      (TAG: a key of PACKS — UAL1, UAL2, KK_RANGED, ..., SWAT; --choices: the owner's pick per clip,
+      anim-choices.json: whether the clip is taken and its correction, see read_choices)
 
 Model space of a Minecraft ModelPart: X = the model's left, Y = down, Z = back
 (forward is -Z), pixels. A part's rotation is Rz(zRot) * Ry(yRot) * Rx(xRot)
@@ -75,7 +75,7 @@ LIMB = {  # part: (root joint, middle joint, end joint)
 # How a limb's one MC part follows its two bones: along the whole limb (joint to end: shoulder to wrist, hip to
 # ankle), the upper bone, the lower one, or halfway between the upper bone and the whole limb.
 MODES = ("upper", "lower", "end", "mix")
-# the leg modes' old names (pick_legs, check.json)
+# the leg modes' old names (check.json)
 LEG_ALIAS = {"ankle": "end", "thigh": "upper"}
 # Where the wrist and the ankle sit along an MC arm/leg, pixels from the pivot.
 LIMB_END_PX = {"right_arm": 10.0, "left_arm": 10.0, "right_leg": 12.0, "left_leg": 12.0}
@@ -401,21 +401,6 @@ def leg_errors(sk, p, out):
     return abs(hip_err), foot
 
 
-def pick_legs(sk, clip):
-    """The leg mode with the smaller p95 of max(hip error, ankle error)."""
-    best = None
-    for mode in ("ankle", "thigh"):
-        errs = []
-        for t in clip.times:
-            p = sk.pose(clip.world(t))
-            out, _ = sk.solve(p, mode)
-            errs.append(max(leg_errors(sk, p, out)))
-        score = float(np.percentile(errs, 95))
-        if best is None or score < best[0] - 0.25:  # ankle unless thigh is clearly better
-            best = (score, mode)
-    return best[1]
-
-
 def mat_angle(a, b):
     """Angle of the rotation taking a onto b, degrees."""
     c = (np.trace(a.T @ b) - 1.0) / 2.0
@@ -429,8 +414,7 @@ ADJUST_LIMIT = {"rot": 180, "pos": 12}
 def adjusted(out, adjust):
     """The owner's correction of a clip (anim-choices.json `adjust`), the same in every frame: each part named is
     turned by Rz Ry Rx of `rot` (degrees, as ModelPart's xRot, yRot, zRot) around the model's axes at its pivot, after
-    the pose, and its pivot moved by `pos` (pixels, as Bedrock's position: X the model's left, Y up, Z back). The
-    picker page does the same to its "chosen" window."""
+    the pose, and its pivot moved by `pos` (pixels, as Bedrock's position: X the model's left, Y up, Z back)."""
     if not adjust:
         return out
     out = dict(out)
@@ -789,7 +773,7 @@ def grades(st):
 
 
 def read_choices(path):
-    """anim-choices.json (the picker page): {"clips": {"PACK/clip": {"arms": mode, "legs": mode, "take": bool,
+    """anim-choices.json: {"clips": {"PACK/clip": {"arms": mode, "legs": mode, "take": bool,
     "adjust": {part: {"rot": [x, y, z] degrees, "pos": [x, y, z] px}}}}} (adjust: see `adjusted`)"""
     with open(path) as f:
         doc = json.load(f)
