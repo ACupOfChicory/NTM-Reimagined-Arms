@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- An AI soldier's role can be given by word. `role base` or `role rifle`
+  after the gun in `/armsai spawn` and in `/armsai kit` makes it its squad's
+  base of fire or a rifleman whatever gun it holds; `role auto` goes by the
+  gun again. The role stays with the mob over a reload of the world.
+  `/armsai info` counts the AI mobs by role, and `/armsai debug` shows a
+  mob's role over it. This is the ground for the roles to come (a supplier,
+  a marksman, a grenadier, a medic).
+
 ## X1050
 
 - A fault in the AI's reading of a building no longer stops the server. If
