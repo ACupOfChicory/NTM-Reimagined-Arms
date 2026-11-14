@@ -18,6 +18,7 @@ import acup.gunfeel.ai.AiPoseGeometry;
 import acup.gunfeel.ai.client.BotAnimation;
 import acup.gunfeel.ai.client.BotClips;
 import acup.gunfeel.ai.client.BotPoser;
+import acup.gunfeel.ai.client.LayerSeams;
 import acup.gunfeel.ai.client.SuitBend;
 import net.minecraft.client.InactivityFpsLimit;
 import net.minecraft.client.Minecraft;
@@ -514,9 +515,83 @@ final class BotStand {
 
     // ---------------------------------------------------------------- the armour in every pose
 
-    /** the sets worn through every pose: steel (a layer, vanilla's model cut as the body) and HEV (a suit's own model) */
-    private static final BotStandHits.Loadout[] POSED = { BotStandHits.STEEL, BotStandHits.LOADOUTS[4] };
+    /**
+     * The sets worn through every pose: layers (vanilla's model cut as the body: NTM's steel, titanium and CMB, vanilla's
+     * iron and diamond) and HEV (a suit's own model)
+     */
+    private static final BotStandHits.Loadout[] POSED = { BotStandHits.STEEL, BotStandHits.TITANIUM, BotStandHits.CMB_LAYER,
+            BotStandHits.IRON, BotStandHits.DIAMOND, BotStandHits.LOADOUTS[4] };
+    /** the poses worn through: the hitbox stand's, and a reload and a throw (their clips, measured on every frame) */
+    private static final Case[] POSED_CASES = posedCases();
     private static int posedSet, posedCase;
+    /** the case's layer measure: the most loose and corner texels on a frame (LayerSeams) */
+    private static int posedLoose, posedCorner;
+    /** the set's most corner texels over its poses: none at all, the measure saw no bent layer */
+    private static int setCorner;
+
+    private static Case[] posedCases() {
+        Case[] out = Arrays.copyOf(CASES, CASES.length + 2);
+        out[CASES.length] = new Case("reload", AiPose.STAND, 0, AiPose.HOLD, false);
+        out[CASES.length + 1] = new Case("throw", AiPose.STAND, 0, AiPose.HOLD, false);
+        return out;
+    }
+
+    /** the case's action and how long it plays, ticks: a reload's and a throw's clips over the case's wait */
+    private static byte posedAction(Case c) {
+        return c.name().equals("reload") ? AiPose.RELOAD : c.name().equals("throw") ? AiPose.THROW : AiPose.NONE;
+    }
+
+    // ---------------------------------------------------------------- a layer on the bent limbs
+
+    /** the bots' armour models (the FBI agent's renderer's layer), as last posed */
+    private static net.minecraft.client.renderer.entity.ArmorModelSet<?> botArmour;
+    private static final Map<Identifier, LayerSeams.Alpha> ALPHAS = new HashMap<>();
+
+    private static net.minecraft.client.renderer.entity.ArmorModelSet<?> botArmour(net.minecraft.world.entity.Entity agent) throws ReflectiveOperationException {
+        if (botArmour != null) return botArmour;
+        var renderer = mc().getEntityRenderDispatcher().getRenderer(agent);
+        for (var layer : ((acup.gunfeel.mixin.mc.LivingEntityRendererAccess) renderer).gunfeel$layers())
+            if (layer instanceof net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer<?, ?, ?> armour) {
+                var f = net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer.class.getDeclaredField("modelSet");
+                f.setAccessible(true);
+                return botArmour = (net.minecraft.client.renderer.entity.ArmorModelSet<?>) f.get(armour);
+            }
+        throw new IllegalStateException("у агента нет слоя брони");
+    }
+
+    /** a layer texture's opacity, read once */
+    private static LayerSeams.Alpha alpha(Identifier texture) {
+        return ALPHAS.computeIfAbsent(texture, t -> {
+            try (var in = mc().getResourceManager().open(t); var image = com.mojang.blaze3d.platform.NativeImage.read(in)) {
+                int w = image.getWidth(), h = image.getHeight();
+                boolean[] opaque = new boolean[w * h];
+                for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) opaque[y * w + x] = image.getPixel(x, y) >>> 24 != 0;
+                return (x, y) -> x >= 0 && y >= 0 && x < w && y < h && opaque[y * w + x];
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException("нет текстуры " + t, e);
+            }
+        });
+    }
+
+    /**
+     * The layer's loose and corner texels on the agent's bent limbs as its armour models are posed now (LayerSeams):
+     * the chest piece and the boots with the set's outer texture, the leggings with its inner one
+     */
+    private static LayerSeams.Count layerSeams(net.minecraft.world.entity.Entity agent, Identifier asset) throws ReflectiveOperationException {
+        var set = botArmour(agent);
+        String ns = asset.getNamespace(), path = asset.getPath();
+        var outer = alpha(Identifier.fromNamespaceAndPath(ns, "textures/entity/equipment/humanoid/" + path + ".png"));
+        var inner = alpha(Identifier.fromNamespaceAndPath(ns, "textures/entity/equipment/humanoid_leggings/" + path + ".png"));
+        int loose = 0, corner = 0;
+        for (var slot : new net.minecraft.world.entity.EquipmentSlot[] { net.minecraft.world.entity.EquipmentSlot.CHEST,
+                net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.LEGS }) {
+            var model = (net.minecraft.client.model.Model<?>) set.get(slot);
+            var c = LayerSeams.measure(model.root(), ModelPoseCapture.ACCESS, slot == net.minecraft.world.entity.EquipmentSlot.LEGS ? inner : outer);
+            loose += c.loose();
+            corner += c.corner();
+        }
+        return new LayerSeams.Count(loose, corner);
+    }
 
     private static void startArmourPoses() {
         step = 5;
@@ -527,7 +602,9 @@ final class BotStand {
     /** the agent in the set and the case's pose, turned 180 */
     private static void setArmourPose() {
         var l = POSED[posedSet];
-        Case cc = CASES[posedCase];
+        Case cc = POSED_CASES[posedCase];
+        byte action = posedAction(cc);
+        posedLoose = posedCorner = 0;
         var server = mc().getSingleplayerServer();
         server.submit(() -> {
             Mob m = (Mob) server.overworld().getEntity(one.getId());
@@ -536,7 +613,8 @@ final class BotStand {
             m.setYBodyRot(180F);
             m.setYHeadRot(180F);
             int at = (int) server.overworld().getGameTime();
-            m.setData(AiPose.Sync.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0, AiPose.FIGHT));
+            m.setData(AiPose.Sync.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), action, action == AiPose.NONE ? 0 : at + 2,
+                    (short) (action == AiPose.NONE ? 0 : 26), AiPose.FIGHT));
             m.setPose(cc.lying() ? Pose.SWIMMING : cc.stance() == AiPose.CROUCH ? Pose.CROUCHING : Pose.STANDING);
         }).join();
         until = now() + 30;
@@ -547,17 +625,34 @@ final class BotStand {
      * part (posed as it, its centre within a pixel), none drawn over no part; a suit's boots on the feet.
      */
     private static void armourPoses() {
-        if (now() < until) return;
         var l = POSED[posedSet];
-        Case c = CASES[posedCase];
+        Case c = POSED_CASES[posedCase];
         var seenBy = mc().level.getEntity(one.getId());
+        Identifier asset = BotStandHits.layerAsset(l);
+        // a layer on the bent limbs, on every frame once the pose has come (an action's clip plays over the wait)
+        if (asset != null && seenBy != null && now() >= until - 25) {
+            try {
+                var seams = layerSeams(seenBy, asset);
+                posedLoose = Math.max(posedLoose, seams.loose());
+                posedCorner = Math.max(posedCorner, seams.corner());
+            } catch (ReflectiveOperationException e) {
+                ClientSmoke.check(false, "слой брони в позе: " + e);
+            }
+        }
+        if (now() < until) return;
         if (seenBy == null) ClientSmoke.check(false, "броня в позе " + l.name() + " " + c.name() + ": клиент не видит агента");
         else {
+            if (asset != null) {
+                ROWS.add(String.format(Locale.ROOT, "слой на сгибе\t%s\t%s\tоторванных %d\tв углу %d", l.name(), c.name(), posedLoose, posedCorner));
+                ClientSmoke.check(posedLoose == 0, String.format(Locale.ROOT,
+                        "слой %s в позе %s: оторванных кусков верха на предплечье и голени %d текселей (в углу сгиба %d)", l.name(), c.name(),
+                        posedLoose, posedCorner));
+            }
             var boxes = ModelHits.worldBoxes(seenBy);
             var fit = BotStandHits.layerFit(boxes);
             ROWS.add(String.format(Locale.ROOT, "броня в позе\t%s\t%s\tкусков %d\tбез части %d\tцентр %.2f px\tугол %.2f°\t%s", l.name(), c.name(),
                     fit.pieces(), fit.orphans().size(), fit.worstPx(), fit.worstDeg(), fit.worst()));
-            if (l == BotStandHits.STEEL) {
+            if (asset != null) {
                 ClientSmoke.check(fit.pieces() > 0 && fit.orphans().isEmpty() && fit.worstPx() <= 1.0 && fit.worstDeg() <= 1.0,
                         String.format(Locale.ROOT, "броня %s в позе %s: кусков слоя %d, без части под ним %s, дальше всех %.2f px, %.2f° (%s)",
                                 l.name(), c.name(), fit.pieces(), fit.orphans(), fit.worstPx(), fit.worstDeg(), fit.worst()));
@@ -570,7 +665,11 @@ final class BotStand {
                         "броня %s в позе %s: ботинки ниже голени на %.2f px", l.name(), c.name(), -lift));
             }
         }
-        if (++posedCase == CASES.length) {
+        if (asset != null) setCorner = Math.max(setCorner, posedCorner);
+        if (++posedCase == POSED_CASES.length) {
+            if (asset != null) ClientSmoke.check(setCorner > 0, "слой " + l.name() + ": мера видит согнутый слой (угол сгиба закрыт штаниной в какой-то позе: "
+                    + setCorner + " текселей)");
+            setCorner = 0;
             posedCase = 0;
             if (++posedSet == POSED.length) {
                 var server = mc().getSingleplayerServer();
@@ -821,6 +920,8 @@ final class BotStand {
             m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(1000);
             m.setHealth(1000);
             m.setInvulnerable(false);
+            // in steel: the layer on the bent limbs at a walk, a run, crawling, sliding, rolling and reloading
+            BotStandHits.wear(m, BotStandHits.STEEL);
             // an agent with its own legs: the game moves it at the speed the mob AI asks for
             var created = BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND);
             if (!(created instanceof Mob c)) throw new IllegalStateException("no FBI agent");
@@ -913,11 +1014,31 @@ final class BotStand {
         measuring = 0;
     }
 
+    /** the steel layer on the bent limbs by the clips' stretch: the most loose and corner texels on a tick */
+    private static final Map<String, int[]> CLIP_SEAMS = new java.util.LinkedHashMap<>();
+
+    private static void clipSeams(long t) {
+        var agent = mc().level.getEntity(one.getId());
+        if (agent == null) return;
+        int leg = LEGS.length - 1;
+        while (leg > 0 && t < LEGS[leg].from) leg--;
+        String stretch = t >= CLIPS_RELOAD ? "перезарядка" : LEGS[leg].name;
+        try {
+            var c = layerSeams(agent, BotStandHits.layerAsset(BotStandHits.STEEL));
+            int[] most = CLIP_SEAMS.computeIfAbsent(stretch, k -> new int[2]);
+            most[0] = Math.max(most[0], c.loose());
+            most[1] = Math.max(most[1], c.corner());
+        } catch (ReflectiveOperationException e) {
+            ClientSmoke.check(false, "слой брони в клипах: " + e);
+        }
+    }
+
     private static void clips() {
         long t = now() - clipsT0;
         if (t < 0 || now() == lastServerTick) return;
         lastServerTick = now();
         if (measuring == 0) measuring = System.nanoTime();
+        if (t < CLIPS_HIT) clipSeams(t);
         var server = mc().getSingleplayerServer();
         posed = t >= CLIPS_RELOAD && t < CLIPS_HIT ? new AiPose(AiPose.STAND, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.RELOAD,
                 (int) (clipsT0 + CLIPS_RELOAD), (short) 30, AiPose.FIGHT)
@@ -982,6 +1103,15 @@ final class BotStand {
             ClientSmoke.check(CAL_SUMS[i][0] > 0 && right, String.format(Locale.ROOT, "клипы: агент на скорости ИИ ×%.1f идёт %.3f бл/тик: шаг %.2f, трусца %.2f, бег %.2f",
                     CAL[i], v, ws[0], ws[1], ws[2]));
         }
+        for (var e : CLIP_SEAMS.entrySet()) {
+            int[] c = e.getValue();
+            ROWS.add(String.format(Locale.ROOT, "слой на сгибе\tSTEEL\tклипы: %s\tоторванных %d\tв углу %d", e.getKey(), c[0], c[1]));
+        }
+        int clipLoose = CLIP_SEAMS.values().stream().mapToInt(c -> c[0]).max().orElse(-1);
+        int clipCorner = CLIP_SEAMS.values().stream().mapToInt(c -> c[1]).max().orElse(0);
+        ClientSmoke.check(clipCorner > 0, "слой STEEL в клипах: мера видит согнутый слой (угол сгиба у штанины " + clipCorner + " текселей)");
+        ClientSmoke.check(clipLoose == 0, "слой STEEL в клипах: оторванных кусков верха на предплечье и голени " + clipLoose
+                + " текселей (по участкам: " + CLIP_SEAMS.entrySet().stream().map(e -> e.getKey() + " " + e.getValue()[0] + "/" + e.getValue()[1]).toList() + ")");
         ClientSmoke.check(reloadSeen && BotClips.get(BotClips.RELOAD) != null, "клипы: перезарядка идёт клипом");
         ClientSmoke.check(hitSeen && !knockWrong, "клипы: попадание на месте — вздрагивание (" + hitClip + "), не отброс");
         ClientSmoke.check(knockSeen, String.format(Locale.ROOT, "клипы: попадание с отбросом — клип отброса (в первые 5 тиков: скорость в пакете до %.3f,"

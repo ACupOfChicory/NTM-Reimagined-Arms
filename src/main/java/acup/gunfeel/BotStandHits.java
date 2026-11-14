@@ -348,6 +348,20 @@ final class BotStandHits {
 
     /** NTM's steel: a layer, vanilla's armour model */
     static final Loadout STEEL = suit("STEEL", "steel");
+    /** more layers: NTM's titanium and CMB, vanilla's iron and diamond */
+    static final Loadout TITANIUM = suit("TITANIUM", "titanium"), CMB_LAYER = suit("CMB-слой", "cmb"), IRON = vanilla("IRON", "iron"),
+            DIAMOND = vanilla("DIAMOND", "diamond");
+
+    private static Loadout vanilla(String name, String set) {
+        return new Loadout(name, Identifier.withDefaultNamespace(set + "_helmet"), Identifier.withDefaultNamespace(set + "_chestplate"),
+                Identifier.withDefaultNamespace(set + "_leggings"), Identifier.withDefaultNamespace(set + "_boots"));
+    }
+
+    /** a layer set's equipment asset (its textures' name), null for a suit of its own model */
+    static Identifier layerAsset(Loadout l) {
+        return l == STEEL ? hbm("steel") : l == TITANIUM ? hbm("titanium") : l == CMB_LAYER ? hbm("cmb")
+                : l == IRON ? Identifier.withDefaultNamespace("iron") : l == DIAMOND ? Identifier.withDefaultNamespace("diamond") : null;
+    }
 
     /** a full NTM set by its items' name */
     private static Loadout suit(String name, String set) {

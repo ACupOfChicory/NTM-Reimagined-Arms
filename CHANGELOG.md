@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Layer armour (NTM's steel, titanium, CMB and the rest, vanilla's iron and
+  diamond) on the FBI agent and the test dummy no longer shows bits of a
+  sleeve hanging off the forearm when the elbow bends. The sleeve ends above
+  the elbow, but a strip of it went on bending with the forearm; most of the
+  time the bots hold their guns with their elbows bent, so the strip was
+  nearly always there. A legging that goes on over the knee still closes the
+  bend.
+
 ## X1038
 
 - AI soldiers throw a grenade into a room before they go in. Stacked up
