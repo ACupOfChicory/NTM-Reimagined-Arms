@@ -442,6 +442,11 @@ public final class AiSoldier implements AiBrain {
         }
         // its squad's supplier on a run to one that is short (AiSupply): nothing else till it has handed over
         if (AiSupply.step(this, bot, level, tick)) return;
+        // its squad's medic on its way to one hurt, or treating them (AiMedic)
+        if (AiMedic.step(this, bot, level, tick)) {
+            why = Why.MEDIC;
+            return;
+        }
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again

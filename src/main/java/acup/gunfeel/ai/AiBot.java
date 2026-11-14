@@ -42,6 +42,8 @@ public final class AiBot {
     AiMarksman.@Nullable State marksman;
     /** a grenadier's lobs (AiGrenadier); null till it is one in a fight */
     AiGrenadier.@Nullable State grenadier;
+    /** a medic's kits and run (AiMedic); null till it is one */
+    AiMedic.@Nullable State medic;
     /** the fallen supplier's stock it goes for (AiSupply) */
     AiSupply.@Nullable Left supplyFetch;
     long supplyAt, supplyNext = Long.MIN_VALUE;

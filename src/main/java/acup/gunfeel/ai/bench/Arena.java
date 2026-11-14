@@ -124,7 +124,13 @@ public final class Arena {
         aiPairs(n, 0, null, null);
     }
 
-    // the same, with every every-th pair (both sides alike) given this role by word (AiRole), and this gun if not null
+    // every mob of the stand down to this share of its health (the medics' phase: no one is hurt on the arena else)
+    public void hurtAll(float share) {
+        for (net.minecraft.world.entity.Entity e : level.getAllEntities())
+            if (e instanceof Mob m && m.entityTags().contains(TAG)) m.setHealth(share * m.getMaxHealth());
+    }
+
+    // aiPairs, with every every-th pair (both sides alike) given this role by word (AiRole), and this gun if not null
     // (a grenadier needs its launcher)
     public void aiPairs(int n, int every, @org.jspecify.annotations.Nullable String role, @org.jspecify.annotations.Nullable String gun) {
         acup.gunfeel.ai.AiBots.wakeAll(true);

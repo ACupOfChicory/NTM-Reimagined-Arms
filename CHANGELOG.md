@@ -1,5 +1,19 @@
 # Changelog
 
+## X1088
+
+- AI medics: a soldier with the new role medic carries six kits. When one of
+  its squad, or a player of its team, falls under 60% of their health, it runs
+  to them, while it is not pinned down, no enemy is within 12 blocks of it and
+  the hurt soldier is not out in an enemy's sight, kneels by them three
+  seconds and a kit gives half their health back; it does not fire meanwhile.
+  A player hit by a mob in the last five seconds it leaves be. One medic to
+  one hurt; hurt itself, it treats itself; after a fight it goes round the
+  hurt. No one else heals. `/armsai spawn` with a number and no role makes
+  each mob, by chance, a supplier (aiSupplyShare) or else a medic (new setting
+  `aiMedicShare`, 0.12; both shares of all spawned); `role medic` makes one by
+  word. New server settings `aiMedic` (true) and `aiMedicKits` (6).
+
 ## X1086
 
 - AI grenadiers: a soldier whose gun fires 40 mm grenades (NTM's Congo Lake

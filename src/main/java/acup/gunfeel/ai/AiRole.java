@@ -25,7 +25,9 @@ public enum AiRole {
     /** fights from afar from perches (AiMarksman): a scoped gun that is no base of fire's, or by word */
     MARKSMAN,
     /** lobs 40 mm grenades over cover (AiGrenadier): a gun that fires them, or by word */
-    GRENADIER;
+    GRENADIER,
+    /** treats the hurt of its squad and its side's players (AiMedic); by word or by the spawn, never by the gun */
+    MEDIC;
 
     /** the server settings: roles by the gun; a base of fire's magazine from this many rounds */
     public static final String KEY = "aiRoles", MAG_KEY = "aiBaseMagazine";
@@ -87,18 +89,24 @@ public enum AiRole {
 
     /**
      * The roles dealt among mobs spawned by number with no role named (the owner, 2026-11-14): each is a supplier
-     * with the share aiSupplyShare, by chance, each on its own; no most to a squad, there may be none or several. The
-     * rest go by their guns. How many were made suppliers.
+     * with the share aiSupplyShare, else a medic with the share aiMedicShare, by chance, each on its own; no most to a
+     * squad, there may be none or several. The rest go by their guns. How many were made {suppliers, medics}.
      */
-    static int deal(java.util.List<? extends net.minecraft.world.entity.Mob> mobs, net.minecraft.util.RandomSource rng) {
-        if (!on() || !AiSupply.on() || mobs.size() < DEAL_FROM) return 0;
-        float share = AiSupply.share();
-        int dealt = 0;
+    static int[] deal(java.util.List<? extends net.minecraft.world.entity.Mob> mobs, net.minecraft.util.RandomSource rng) {
+        int[] dealt = new int[2];
+        if (!on() || mobs.size() < DEAL_FROM) return dealt;
+        float supply = AiSupply.on() ? AiSupply.share() : 0F, medic = AiMedic.on() ? AiMedic.share() : 0F;
         for (net.minecraft.world.entity.Mob m : mobs) {
             AiBot b = AiBots.get(m);
-            if (b == null || b.assigned != null || rng.nextFloat() >= share) continue;
-            assign(b, SUPPLIER);
-            dealt++;
+            if (b == null || b.assigned != null) continue;
+            float r = rng.nextFloat();
+            if (r < supply) {
+                assign(b, SUPPLIER);
+                dealt[0]++;
+            } else if (r < supply + medic) {
+                assign(b, MEDIC);
+                dealt[1]++;
+            }
         }
         return dealt;
     }

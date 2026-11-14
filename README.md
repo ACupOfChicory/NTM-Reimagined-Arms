@@ -259,6 +259,12 @@ page. They are alphas: expect bugs and back up your world.
   at, the barrel raised as far as the shell drops, never within 17 blocks of
   itself or its own. `role grenadier` makes one by word (server key
   `aiGrenadier`).
+- A squad may have a medic: it runs to one of its own (or to you, if you are
+  on its team) who has lost more than 40% of their health, when the way is out
+  of the enemy's sight, kneels by them three seconds, not firing, and gives
+  half their health back; it treats itself too. `/armsai spawn` with a number
+  makes medics by chance; `role medic` makes one by word (server keys
+  `aiMedic`, `aiMedicKits`, `aiMedicShare`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim

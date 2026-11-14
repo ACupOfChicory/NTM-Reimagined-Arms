@@ -64,7 +64,8 @@ public final class AiThoughts {
         THROW("throws a grenade where they went out of sight"),
         GRENADE("a grenade near: runs from where it bursts"),
         MARKSMAN("marksman: to its perch, single shots from afar"),
-        GRENADIER("grenadier: a 40 mm shell lobbed at them");
+        GRENADIER("grenadier: a 40 mm shell lobbed at them"),
+        MEDIC("medic: to one hurt, or treating them");
 
         final String label;
 
@@ -141,6 +142,7 @@ public final class AiThoughts {
         AiRole role = AiRole.of(bot);
         if (role != AiRole.RIFLE || bot.assigned != null) b.append("  ").append(role.word());
         if (role == AiRole.SUPPLIER) b.append(' ').append(AiSupply.shown(bot));
+        if (role == AiRole.MEDIC) b.append(' ').append(AiMedic.shown(bot));
         if (!(bot.mob.level() instanceof ServerLevel level)) return b.toString();
         b.append('\n').append(target(bot, level, level.getGameTime()));
         b.append('\n').append(g.blockedTicks > 0 ? "holds fire: friend in the line" : s.why.label);
