@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers take a changed land better. When blocks change on a soldier's
+  way (an explosion, digging, building), it no longer looks for a whole new
+  way each time: it waits the tick or two the AI's map needs, checks that the
+  way it walks is still there and walks on, and looks for another only when it
+  is not. It finds this out the tick the blocks change, not up to half a
+  second later. A soldier in a hole with no way out (the ragged bottom of a
+  crater) gives a place it cannot get to up at once, and one cut off from its
+  goal no longer jumps down into a trench or a pit it could not climb out of
+  just to be nearer.
+
 ## X1052
 
 - Groundwork for AI soldiers on different terrain; how they fight is not

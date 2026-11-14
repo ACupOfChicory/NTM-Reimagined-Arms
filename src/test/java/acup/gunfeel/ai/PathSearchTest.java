@@ -246,4 +246,84 @@ class PathSearchTest {
         assertTrue(r.reached);
         stepsAreNeighbours(r);
     }
+
+    @Test
+    void withNoWayToTheGoalItDoesNotDropIntoATrenchWithNoWayBack() {
+        Grid g = new Grid(2);
+        // a yard walled in, x 2..20 by z 2..10, and a trench two deep, a block wide, right across it at x 10
+        for (int x = 2; x <= 20; x++)
+            for (int z = 2; z <= 10; z++) {
+                if (x > 2 && x < 20 && z > 2 && z < 10) continue;
+                g.set(x, 0, z, STONE);
+                g.set(x, 1, z, STONE);
+            }
+        for (int z = 3; z <= 9; z++) {
+            g.set(10, -1, z, Voxel.AIR);
+            g.set(10, -2, z, Voxel.AIR);
+        }
+        g.build();
+        PathSearch.Result r = PathSearch.find(g, at(5, 0, 5), at(15, 0, 5), 0, 4000, PathSearch.Cost.NONE);
+        assertFalse(r.reached);
+        assertTrue(r.exhausted, "every cell this side and the trench's was looked at");
+        assertTrue(r.readKeys.length > 0 && r.readKeys.length == r.readStamps.length);
+        for (long c : r.cells) assertEquals(0, BlockPos.getY(c), "stays up: " + BlockPos.of(c));
+        assertEquals(9, BlockPos.getX(r.cells[r.cells.length - 1]), "to the trench's edge");
+        // out of nodes the way may go on down there: the drop is taken
+        r = PathSearch.find(g, at(5, 0, 5), at(15, 0, 5), 0, 12, PathSearch.Cost.NONE);
+        assertFalse(r.reached);
+        assertFalse(r.exhausted);
+        // a step in the trench at z 8: a way back up, so the trench is a way across
+        g.set(10, -2, 8, STONE);
+        g.build();
+        r = PathSearch.find(g, at(5, 0, 5), at(15, 0, 5), 0, 4000, PathSearch.Cost.NONE);
+        assertTrue(r.reached);
+        assertTrue(passes(r, 10, -1, 8), "over the step");
+        stepsAreNeighbours(r);
+    }
+
+    @Test
+    void aHoleWithNoWayOutIsKnownAtOnce() {
+        Grid g = new Grid(2);
+        g.set(5, -1, 5, Voxel.AIR);
+        g.set(5, -2, 5, Voxel.AIR);
+        g.build();
+        PathSearch.Result r = PathSearch.find(g, at(5, -2, 5), at(20, 0, 5), 0, 4000, PathSearch.Cost.NONE);
+        assertFalse(r.reached);
+        assertTrue(r.exhausted);
+        assertEquals(1, r.cells.length);
+        assertEquals(1, r.expanded);
+        // out of nodes is not out of cells
+        r = PathSearch.find(g, at(2, 0, 2), at(40, 0, 2), 0, 50, PathSearch.Cost.NONE);
+        assertFalse(r.reached);
+        assertFalse(r.exhausted);
+        // nor is a section with no cells yet on the way
+        g.hidden.add(SectionPos.asLong(1, 0, 0));
+        r = PathSearch.find(g, at(2, 0, 2), at(40, 0, 2), 0, 4000, PathSearch.Cost.NONE);
+        assertFalse(r.reached);
+        assertFalse(r.exhausted);
+    }
+
+    @Test
+    void anOldPathHoldsUnlessTheChangeIsOnIt() {
+        Grid g = new Grid(2).build();
+        PathSearch.Result r = PathSearch.find(g, at(2, 0, 5), at(28, 0, 5), 0, 2000, PathSearch.Cost.NONE);
+        assertTrue(r.reached);
+        assertTrue(PathSearch.holds(g, r.cells, 0));
+        // a pillar beside the way: the same sections changed, the path did not
+        g.set(15, 0, 9, STONE);
+        g.set(15, 1, 9, STONE);
+        g.build();
+        assertTrue(PathSearch.holds(g, r.cells, 0));
+        // a pillar on it
+        g.set(15, 0, 5, STONE);
+        g.set(15, 1, 5, STONE);
+        g.build();
+        assertFalse(PathSearch.holds(g, r.cells, 0));
+        assertTrue(PathSearch.holds(g, r.cells, 16), "past the pillar already");
+        // the floor gone under it
+        Grid h = new Grid(2).build();
+        h.set(20, -1, 5, Voxel.AIR);
+        h.build();
+        assertFalse(PathSearch.holds(h, r.cells, 0));
+    }
 }

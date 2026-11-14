@@ -53,7 +53,8 @@ public final class AiBench {
     // changed: research §1.6); boomidle: the same by fbi100idle's wanderers (Lithium asks only mobs with a path);
     // boom0: the same explosions on the empty arena, the explosion's own cost; ai100: the mod's AI mobs, two teams of
     // 50 FBI going at each other as fbi100's (Arena.aiPairs); aiboom: the same with fbi100's explosions; aiwood: ai100
-    // on the arena as land with mounds, a pond and trees all over it (Arena.wood)
+    // on the arena as land with mounds, a pond and trees all over it (Arena.wood); aicrater: ai100 with two of NTM's
+    // bombs and a trench dug across a side's way (CraterWatch, its rows in <name>-crater.tsv)
     static final List<Phase> PHASES = List.of(
             new Phase("empty", 0, a -> {
             }),
@@ -70,7 +71,9 @@ public final class AiBench {
             new Phase("aiwood", 100, a -> {
                 a.wood();
                 a.aiPairs(100);
-            }));
+            }),
+            new Phase("aicrater", 100, a -> a.aiPairs(100)));
+    static final String CRATER = "aicrater";
 
     static final int WARM_TICKS = 200, MEASURE_TICKS = 600, LOOK_EVERY = 20, AFTER = 20;
     static final long WARM_NANOS = 10_000_000_000L, MEASURE_NANOS = 30_000_000_000L, STALL_NANOS = 180_000_000_000L;
@@ -78,7 +81,8 @@ public final class AiBench {
 
     private enum Step { CHUNKS, PROBE, PREP, WARM, MEASURE }
 
-    private static Path file, boomFile;
+    private static Path file, boomFile, craterFile;
+    private static CraterWatch crater;
     private static MinecraftServer server;
     private static ServerLevel level;
     private static Arena arena;
@@ -139,6 +143,7 @@ public final class AiBench {
         level = s.overworld();
         file = f.toAbsolutePath();
         boomFile = file.resolveSibling(file.getFileName().toString().replaceFirst("\\.tsv$", "") + "-boom.tsv");
+        craterFile = file.resolveSibling(file.getFileName().toString().replaceFirst("\\.tsv$", "") + "-crater.tsv");
         String only = System.getProperty("ntmgunfeel.benchAiPhases", "");
         Set<String> names = Arrays.stream(only.split(",")).map(String::trim).filter(x -> !x.isEmpty()).collect(Collectors.toSet());
         phases = PHASES.stream().filter(p -> names.isEmpty() || names.contains(p.name())).toList();
@@ -160,6 +165,7 @@ public final class AiBench {
                     "мобов_с_путём", "блоков_до", "блоков_после", "разрушено", "мс_взрыва", "мс_+1", "мс_+2", "мс_+3", "мс_+4",
                     "мс_+5", "max_+1..+20_мс", "среднее_20_до_мс", "спрошено", "пересчётов", "поисков_пути",
                     "спрошено_+1..+20", "поисков_пути_+1..+20") + "\n");
+            Files.writeString(craterFile, CraterWatch.HEADER + "\n");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -208,6 +214,7 @@ public final class AiBench {
         PathCount.asked = PathCount.recomputed = PathCount.searches = 0;
         int j = boomAt(n);
         if (j >= 0) arena.boom(j); // in the tick, so its time is the tick's
+        if (crater != null) crater.pre(n);
     }
 
     private static void post() {
@@ -288,6 +295,7 @@ public final class AiBench {
         boomAfter = new int[b];
         boomPaths = new int[b];
         n = 0;
+        crater = phases.get(phase).name().equals(CRATER) ? new CraterWatch(arena, mobs, CAP) : null;
         aiNanos = acup.gunfeel.ai.AiBots.tickNanos;
         planAt = acup.gunfeel.ai.AiGrenades.planNanos;
         liveAt = acup.gunfeel.ai.AiGrenades.liveNanos;
@@ -321,6 +329,7 @@ public final class AiBench {
             boomBefore[j] = arena.blocksAround(j);
             for (Mob m : mobs) if (m.getNavigation().isInProgress()) boomPaths[j]++;
         }
+        if (crater != null) crater.record(n);
         n++;
     }
 
@@ -358,6 +367,12 @@ public final class AiBench {
                 (acup.gunfeel.ai.AiBots.bystanderNanos - byAt) / 1e6 / n));
         var terrain = acup.gunfeel.ai.AiTerrain.peek(level);
         if (terrain != null) notes.add(terrain.info());
+        if (crater != null) {
+            notes.add(crater.note(n));
+            for (String h : crater.holed()) System.out.println("[AiBench] # в яме: " + h);
+            append(craterFile, crater.rows(p.name(), round, nanos, n));
+            crater = null;
+        }
         if (mobs.size() != p.mobs()) notes.add("WARN мобов " + mobs.size() + " из " + p.mobs());
         if (alive != mobs.size()) notes.add("WARN к концу осталось " + alive);
         double mobRatio = alive == 0 ? Double.NaN : (double) mobTicked / alive / n;

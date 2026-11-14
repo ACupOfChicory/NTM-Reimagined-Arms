@@ -23,7 +23,12 @@ public abstract class MixinAiBlockChange {
     @Inject(method = "setBlockState(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Lnet/minecraft/world/level/block/state/BlockState;",
             at = @At("HEAD"))
     private void gunfeel$aiBlockChange(BlockPos pos, BlockState state, int flags, CallbackInfoReturnable<BlockState> ci) {
+        long t0 = TacticalMap.costOn ? System.nanoTime() : 0L;
         if (TacticalMap.active && level instanceof ServerLevel server) TacticalMap.blockChanging(server, pos, state);
         if (acup.gunfeel.ai.AiTerrain.active && level instanceof ServerLevel server) acup.gunfeel.ai.AiTerrain.blockChanging(server, pos);
+        if (TacticalMap.costOn) {
+            TacticalMap.hookNanos += System.nanoTime() - t0;
+            TacticalMap.hookCalls++;
+        }
     }
 }

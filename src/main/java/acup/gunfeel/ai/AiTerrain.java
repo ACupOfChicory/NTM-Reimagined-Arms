@@ -193,6 +193,11 @@ public final class AiTerrain {
         return d == null ? NONE : d.far(x, z);
     }
 
+    /** nothing changed is waiting to be copied or worked out */
+    public boolean settled() {
+        return offThread.isEmpty() && core.settled();
+    }
+
     TerrainCore core() {
         return core;
     }
