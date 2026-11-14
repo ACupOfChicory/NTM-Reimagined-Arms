@@ -37,6 +37,12 @@ public final class Arena {
     static final int[][] BOOMS = {{64, 18}, {64, 64}, {64, 110}};
     static final float BOOM_POWER = 16F;
     static final int BOOM_REACH = 20; // the cube the blocks are counted in, around a spot
+    // the crater phase: NTM's bombs (ExplosionVNT of this size with NTM's standard block breaking), the first where
+    // the west side comes in, the second between the sides; and a trench dug across the west side's way, two deep,
+    // a block wide, a column a tick from TRENCH_Z on, TRENCH_LENGTH columns
+    static final int[][] CRATERS = {{36, 40}, {64, 64}};
+    static final float CRATER_SIZE = 12F;
+    static final int TRENCH_X = 47, TRENCH_Z = 34, TRENCH_LENGTH = 60, TRENCH_DEPTH = 2;
     // the stand's mobs: AiBench cancels every damage to them
     public static final String TAG = "ntmgunfeel_ai_bench";
 
@@ -318,9 +324,31 @@ public final class Arena {
         level.explode(null, s[0] + .5, ground + .5, s[1] + .5, BOOM_POWER, Level.ExplosionInteraction.TNT);
     }
 
+    // the crater phase: NTM bomb j goes off on the ground
+    void crater(int j) {
+        int[] s = CRATERS[j];
+        var bomb = new com.hbm.explosion.vanillant.ExplosionVNT(level, s[0] + .5, ground + .5, s[1] + .5, CRATER_SIZE);
+        try {
+            // by name: the stand alone uses it, and the mod's list of what it needs of NTM (NtmApiTest) stays as it is
+            bomb.getClass().getMethod("makeStandard").invoke(bomb);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("NTM's ExplosionVNT has no makeStandard", e);
+        }
+        bomb.explode();
+    }
+
+    // the crater phase: column i of the trench is dug out, as a player's spade would
+    void dig(int i) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        for (int d = 1; d <= TRENCH_DEPTH; d++) level.setBlock(p.set(TRENCH_X, ground - d, TRENCH_Z + i), AIR, Block.UPDATE_ALL);
+    }
+
     // the blocks that are not air in the cube around explosion j's spot, down to the bottom
     int blocksAround(int j) {
-        int[] s = BOOMS[j % BOOMS.length];
+        return blocksAround(BOOMS[j % BOOMS.length]);
+    }
+
+    int blocksAround(int[] s) {
         int n = 0;
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         for (int x = s[0] - BOOM_REACH; x <= s[0] + BOOM_REACH; x++)

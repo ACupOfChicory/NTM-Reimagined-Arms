@@ -39,6 +39,9 @@ public final class TacticalMap implements CellSource {
     private static final Map<ServerLevel, TacticalMap> MAPS = new WeakHashMap<>();
     /** any map at all: the block hook leaves at once without one */
     public static volatile boolean active;
+    /** the stands' count of what the block hook costs (MixinAiBlockChange): the map's part and the terrain layers' */
+    public static boolean costOn;
+    public static long hookNanos, hookCalls;
 
     final ServerLevel level;
     private final int minSection, maxSection;
@@ -176,6 +179,18 @@ public final class TacticalMap implements CellSource {
 
     public int inFlight() {
         return inFlight;
+    }
+
+    /** wanted sections whose published cells were built on blocks as they no longer are: for the stands (server thread) */
+    public int staleCount() {
+        int n = 0;
+        for (var e : sections.long2ObjectEntrySet()) {
+            Section s = e.getValue();
+            if (s.wantedUntil < tick) continue;
+            SectionCells c = cells.get(e.getLongKey());
+            if (c != null && c.stamp != s.stamp) n++;
+        }
+        return n;
     }
 
     // ------------------------------------------------------------------ block changes

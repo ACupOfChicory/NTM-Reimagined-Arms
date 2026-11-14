@@ -17,6 +17,12 @@ import net.minecraft.core.SectionPos;
 public final class PathSearch {
     /** the most a mob drops in one step */
     static final int MAX_DROP = 3;
+    /**
+     * A drop this deep is not climbed back where it was made: a path to the cell nearest a goal there is no way to
+     * stops before one unless there is a way back up round about, within {@link #BACK_NODES} cells (the first
+     * {@link #BACK_CHECKS} such drops are looked at)
+     */
+    static final int NO_WAY_BACK = 2, BACK_NODES = 200, BACK_CHECKS = 3;
     static final float UP = 0.6F, DOWN = 0.3F, DIAGONAL = 1.4142135F;
     static final long NONE = Long.MIN_VALUE;
 
@@ -76,8 +82,24 @@ public final class PathSearch {
         public final long[] keys;
         public final int[] stamps;
         public final long nanos;
+        /**
+         * Every cell that can be walked to from the start was looked at and none is at the goal: no way there on this
+         * map, however long the search (not so where it met sections without cells, or ran out of nodes).
+         */
+        public final boolean exhausted;
+        /** exhausted: every section the search read and its build stamp then (the answer holds while they do); else empty */
+        public final long[] readKeys;
+        public final int[] readStamps;
 
         Result(long[] cells, boolean reached, int expanded, float cost, long[] missing, long[] keys, int[] stamps, long nanos) {
+            this(cells, reached, expanded, cost, missing, keys, stamps, nanos, false, new long[0], new int[0]);
+        }
+
+        Result(long[] cells, boolean reached, int expanded, float cost, long[] missing, long[] keys, int[] stamps, long nanos,
+                boolean exhausted, long[] readKeys, int[] readStamps) {
+            this.exhausted = exhausted;
+            this.readKeys = readKeys;
+            this.readStamps = readStamps;
             this.cells = cells;
             this.reached = reached;
             this.expanded = expanded;
@@ -175,9 +197,12 @@ public final class PathSearch {
      * maxNodes cells expanded.
      */
     public static Result find(CellSource src, long start, long goal, double goalRadius, int maxNodes, Cost cost) {
+        return find(new Reader(src), start, goal, goalRadius, maxNodes, cost, true);
+    }
+
+    private static Result find(Reader r, long start, long goal, double goalRadius, int maxNodes, Cost cost, boolean wayBack) {
         long t0 = System.nanoTime();
         cost = cost.forSearch();
-        Reader r = new Reader(src);
         int gx = BlockPos.getX(goal), gy = BlockPos.getY(goal), gz = BlockPos.getZ(goal);
         double r2 = goalRadius * goalRadius;
         int sx = BlockPos.getX(start), sy = BlockPos.getY(start), sz = BlockPos.getZ(start);
@@ -188,6 +213,7 @@ public final class PathSearch {
         int nearest = first;
         float nearestH = n.f[first];
         int expanded = 0, reachedNode = -1;
+        boolean cut = false;
         while (n.size() > 0) {
             int cur = n.pop();
             long p = n.pos[cur];
@@ -197,7 +223,10 @@ public final class PathSearch {
                 reachedNode = cur;
                 break;
             }
-            if (expanded++ >= maxNodes) break;
+            if (expanded++ >= maxNodes) {
+                cut = true;
+                break;
+            }
             float h = n.f[cur] - n.g[cur];
             if (h < nearestH) {
                 nearestH = h;
@@ -217,7 +246,8 @@ public final class PathSearch {
             }
         }
         int end = reachedNode >= 0 ? reachedNode : nearest;
-        return path(r, n, end, reachedNode >= 0, expanded, System.nanoTime() - t0);
+        boolean exhausted = reachedNode < 0 && !cut && n.size() == 0 && n.count < n.limit && r.missing.isEmpty();
+        return path(r, n, end, reachedNode >= 0, expanded, exhausted, wayBack, t0);
     }
 
     /** octile distance across: no step costs less than its length */
@@ -249,12 +279,24 @@ public final class PathSearch {
         return NONE;
     }
 
-    private static Result path(Reader r, Nodes n, int end, boolean reached, int expanded, long nanos) {
+    private static Result path(Reader r, Nodes n, int end, boolean reached, int expanded, boolean exhausted, boolean wayBack, long t0) {
         int len = 0;
         for (int i = end; i >= 0; i = n.parent[i]) len++;
         long[] cells = new long[len];
         int k = len;
         for (int i = end; i >= 0; i = n.parent[i]) cells[--k] = n.pos[i];
+        // no way to the goal, the end is only the cell nearest it across: not worth a drop there is no climbing back
+        // from (the bottom of a trench dug across the way is nearer than its edge). Out of nodes it is another matter:
+        // the way may well go on down there
+        if (exhausted && wayBack)
+            for (int i = 0, checks = 0; i + 1 < cells.length && checks < BACK_CHECKS; i++) {
+                if (BlockPos.getY(cells[i]) - BlockPos.getY(cells[i + 1]) < NO_WAY_BACK) continue;
+                checks++;
+                if (!find(r, cells[i + 1], cells[i], 0, BACK_NODES, Cost.NONE, false).reached) {
+                    cells = java.util.Arrays.copyOf(cells, i + 1);
+                    break;
+                }
+            }
         Long2IntOpenHashMap stamps = new Long2IntOpenHashMap();
         for (long c : cells) {
             long key = SectionPos.asLong(BlockPos.getX(c) >> 4, BlockPos.getY(c) >> 4, BlockPos.getZ(c) >> 4);
@@ -265,7 +307,34 @@ public final class PathSearch {
         long[] keys = stamps.keySet().toLongArray();
         int[] st = new int[keys.length];
         for (int i = 0; i < keys.length; i++) st[i] = stamps.get(keys[i]);
-        return new Result(cells, reached, expanded, n.g[end], r.missing.toLongArray(), keys, st, nanos);
+        long[] readKeys = new long[0];
+        int[] readStamps = new int[0];
+        if (exhausted) {
+            readKeys = r.sections.keySet().toLongArray();
+            readStamps = new int[readKeys.length];
+            for (int i = 0; i < readKeys.length; i++) readStamps[i] = r.sections.get(readKeys[i]).stamp;
+        }
+        return new Result(cells, reached, expanded, n.g[end], r.missing.toLongArray(), keys, st, System.nanoTime() - t0, exhausted,
+                readKeys, readStamps);
+    }
+
+    /**
+     * Whether a path found on an older map is still one on this map from its cell `from` on: each cell there, and each
+     * step to the next one still a step ({@link #step}). A block changed in a section the path crosses seldom changes
+     * the path.
+     */
+    public static boolean holds(CellSource src, long[] cells, int from) {
+        Reader r = new Reader(src);
+        for (int i = Math.max(0, from); i + 1 < cells.length; i++) {
+            long a = cells[i], b = cells[i + 1];
+            int x = BlockPos.getX(a), y = BlockPos.getY(a), z = BlockPos.getZ(a);
+            int dx = BlockPos.getX(b) - x, dz = BlockPos.getZ(b) - z;
+            int d = -1;
+            for (int k = 0; k < 8; k++) if (Dirs.DX[k] == dx && Dirs.DZ[k] == dz) d = k;
+            if (d < 0 || !r.has(x, y, z) || step(r, x, y, z, d) != b) return false;
+        }
+        return cells.length == 0 || r.has(BlockPos.getX(cells[cells.length - 1]), BlockPos.getY(cells[cells.length - 1]),
+                BlockPos.getZ(cells[cells.length - 1]));
     }
 
     // ------------------------------------------------------------------ nodes and the open heap

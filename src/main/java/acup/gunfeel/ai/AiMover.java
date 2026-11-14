@@ -50,12 +50,24 @@ public final class AiMover {
     private volatile @Nullable Answer answer;
     private int gen;
     private boolean searching;
+    /** the last search for this goal looked at every cell in reach, on the map as it is, and none was at the goal */
+    private boolean noWay;
+    /** the map's count of changed blocks when it was so */
+    private long noWayAt;
     private long searchStarted;
     private PathSearch.@Nullable Result walking;
+    /** the stamps of the walked path's sections ({@link PathSearch.Result#keys}) it was last found good at */
+    private int[] walkStamps = new int[0];
+    /** the path crosses sections changed since and not built again yet: since this tick, or Long.MIN_VALUE */
+    private long waitingSince = Long.MIN_VALUE;
+    /** how long a walked path waits for its changed sections to be built again before another is searched, ticks */
+    static final int REBUILD_WAIT = 20;
     private long lastCheck;
+    /** the map's count of changed blocks at the last check: a walked path is checked the tick a block changes */
+    private long seenChanges;
     private PathSearch.Cost cost = PathSearch.Cost.NONE;
     // for /armsai info and the stands
-    public int searches, failures, stuckJumps;
+    public int searches, failures, stuckJumps, kept;
     public long searchNanos;
 
     AiMover(Mob mob) {
@@ -81,6 +93,7 @@ public final class AiMover {
         offX = ox;
         offZ = oz;
         tries = 0;
+        noWay = false;
         inCellSince = Long.MIN_VALUE;
         settled = false;
         walking = null;
@@ -190,6 +203,22 @@ public final class AiMover {
                 + " s" + searches;
     }
 
+    /** it has somewhere to go and may go now: not there, not given up on it, not kept still */
+    public boolean wants() {
+        return goal != Long.MIN_VALUE && !hold && !arrived() && !failed();
+    }
+
+    /** it is not at its goal and no search will take it there: every cell it can walk to was looked at */
+    public boolean noWay() {
+        return goal != Long.MIN_VALUE && noWay && !arrived();
+    }
+
+    /** the path it walks was searched on an older map than the one kept now (found out within {@link #CHECK_EVERY} ticks) */
+    public boolean stale(TacticalMap map) {
+        PathSearch.Result w = walking;
+        return w != null && !fresh(map, w, walkStamps);
+    }
+
     public long[] path() {
         PathSearch.Result w = walking;
         return w == null ? new long[0] : w.cells;
@@ -228,10 +257,13 @@ public final class AiMover {
             searching = false;
             searches++;
             searchNanos += r.nanos;
+            noWay = r.exhausted && !r.reached && sure(map, r);
+            noWayAt = map.changes;
             wantMissing(map, r);
             if (r.found() && r.cells.length > 1) walk(r);
             else {
-                tries++;
+                // nowhere to go from here, and every cell in reach was looked at: no other search will find a way
+                tries = noWay ? TRIES : tries + 1;
                 failures++;
             }
         }
@@ -245,14 +277,24 @@ public final class AiMover {
             walking = null;
         }
         if (searching || failed()) return;
-        boolean done = mob.getNavigation().isDone();
-        if (walking != null && !done && tick - lastCheck >= CHECK_EVERY) {
+        boolean done = mob.getNavigation().isDone(), walked = done;
+        if (walking != null && !done && (waitingSince != Long.MIN_VALUE || map.changes != seenChanges || tick - lastCheck >= CHECK_EVERY)) {
             lastCheck = tick;
-            if (!fresh(map, walking)) done = true;
+            seenChanges = map.changes;
+            if (!fresh(map, walking, walkStamps) && !keep(map, walking, tick)) done = true;
         }
         if (walking == null || done) {
             // a whole path walked to its end short of the goal: stuck or pushed off; a part of one: the next part
-            if (walking != null && walking.reached && done) tries++;
+            // (and the part that was all there is: as near as it gets, no other search will do better)
+            // (a path dropped for the blocks changed on it is neither: the map is another now)
+            if (walking != null && walked) {
+                if (walking.reached) tries++;
+                else if (noWay && map.changes == noWayAt && atEnd(walking)) tries = TRIES;
+            }
+            if (failed()) {
+                walking = null;
+                return;
+            }
             search(map, tick);
         }
     }
@@ -285,12 +327,53 @@ public final class AiMover {
         }
         long end = r.cells[r.cells.length - 1];
         Path p = new Path(nodes, BlockPos.of(end), r.reached);
-        if (mob.getNavigation().moveTo(p, modifier())) walking = r;
-        else tries++;
+        if (mob.getNavigation().moveTo(p, modifier())) {
+            walking = r;
+            walkStamps = r.stamps.clone();
+            waitingSince = Long.MIN_VALUE;
+        } else tries++;
     }
 
-    private static boolean fresh(TacticalMap map, PathSearch.Result r) {
-        for (int i = 0; i < r.keys.length; i++) if (map.stamp(r.keys[i]) != r.stamps[i]) return false;
+    /** an exhausted search's answer is the map's as it is now: none of the sections it read has changed since */
+    private static boolean sure(TacticalMap map, PathSearch.Result r) {
+        for (int i = 0; i < r.readKeys.length; i++) if (map.stamp(r.readKeys[i]) != r.readStamps[i]) return false;
+        return true;
+    }
+
+    /** at the last cell of a path, not stopped somewhere along it (the game stops a walk that makes no way) */
+    private boolean atEnd(PathSearch.Result r) {
+        long end = r.cells[r.cells.length - 1];
+        double dx = mob.getX() - (BlockPos.getX(end) + 0.5), dz = mob.getZ() - (BlockPos.getZ(end) + 0.5);
+        return dx * dx + dz * dz <= 1.5 * 1.5 && Math.abs(mob.getY() - BlockPos.getY(end)) <= 1.2;
+    }
+
+    private static boolean fresh(TacticalMap map, PathSearch.Result r, int[] stamps) {
+        for (int i = 0; i < r.keys.length; i++) if (map.stamp(r.keys[i]) != stamps[i]) return false;
+        return true;
+    }
+
+    /**
+     * Blocks changed in sections the walked path crosses: whether it walks on. While those sections are not built
+     * again it does, for {@link #REBUILD_WAIT} ticks at most (a search now would run on the same old cells and be
+     * stale at once); built again, it does if what is left of the path is still a path on the new cells, and the
+     * path is good as of now. Else another is searched.
+     */
+    private boolean keep(TacticalMap map, PathSearch.Result r, long tick) {
+        for (int i = 0; i < r.keys.length; i++) {
+            if (map.stamp(r.keys[i]) == walkStamps[i]) continue;
+            SectionCells c = map.cells(r.keys[i]);
+            if (c != null && map.fresh(c)) continue;
+            if (waitingSince == Long.MIN_VALUE) waitingSince = tick;
+            if (tick - waitingSince < REBUILD_WAIT) return true;
+            waitingSince = Long.MIN_VALUE;
+            return false;
+        }
+        waitingSince = Long.MIN_VALUE;
+        Path p = mob.getNavigation().getPath();
+        int next = p == null ? 0 : p.getNextNodeIndex();
+        if (!PathSearch.holds(map, r.cells, next - 1)) return false;
+        for (int i = 0; i < r.keys.length; i++) walkStamps[i] = map.stamp(r.keys[i]);
+        kept++;
         return true;
     }
 
