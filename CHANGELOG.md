@@ -1,6 +1,6 @@
 # Changelog
 
-## X1103
+## X1106
 
 - AI side commanders keep a picture of the fight: every five seconds each
   side gets word of the players and enemy AI soldiers within 256 blocks of any
@@ -10,6 +10,11 @@
   they are: it moves half the way there at each report, so a group on the move
   is known a little behind. Orders go by this picture; the soldiers themselves
   still know only what they see and hear.
+
+## X1104
+
+- The jar's `META-INF/licenses/` names HBM's Nuclear Tech Mod (LGPL-3.0) as
+  the source of the files made from it, with the LGPL's text.
 
 ## X1102
 
