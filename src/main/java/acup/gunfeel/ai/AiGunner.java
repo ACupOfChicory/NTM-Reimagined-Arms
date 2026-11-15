@@ -280,11 +280,12 @@ public final class AiGunner {
     }
 
     /**
-     * A count of ticks it held fire for one reason, after this tick: one more while it holds; none once it shot, or the
-     * holds are over (no target, no fire wanted for HOLD_PAUSE); else as it was (a pause of its burst keeps it).
+     * A count of ticks it held fire for one reason, after this tick: one more while it holds (the first, the holds
+     * over before); none once it shot, or the holds are over (its aim taken away, no fire wanted for HOLD_PAUSE); else
+     * as it was (a pause of its burst keeps it).
      */
     static int held(int count, boolean holds, boolean shot, boolean over) {
-        return holds ? count + 1 : shot || over ? 0 : count;
+        return holds ? (over ? 1 : count + 1) : shot || over ? 0 : count;
     }
 
     /** let go of every key: the mob stops shooting at once */
@@ -316,9 +317,10 @@ public final class AiGunner {
         }
         if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
         long time = level.getGameTime();
-        if (wantFire) wantedAt = time;
-        // the holds counted on through the pauses of its bursts: a shot, no target or no fire wanted a while ends them
+        // the holds counted on through the pauses of its bursts: a shot, its aim taken away (idle, ordered) or no fire
+        // wanted a while ends them (read before this tick's want: a count from before a sleep starts over)
         boolean holdsOver = aim == null || time - wantedAt > HOLD_PAUSE;
+        if (wantFire) wantedAt = time;
         if (state == ItemGunBaseNT.GunState.RELOADING && reloadFrom < 0) reloadFrom = time;
         else if (reloadFrom >= 0 && state == ItemGunBaseNT.GunState.IDLE) {
             // ready again (NTM's reload ends in DRAWING, its end animation); not one it was not ticked through

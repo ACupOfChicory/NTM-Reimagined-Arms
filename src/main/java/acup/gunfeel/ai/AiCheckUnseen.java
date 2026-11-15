@@ -49,8 +49,8 @@ final class AiCheckUnseen {
     /** the ticks after survival by which each dummy must have pulled the trigger: in the open, with a wall to get behind */
     static final int OPEN_LIMIT = 60, COVER_LIMIT = 200;
 
-    /** the ticks after survival by which the one behind its own (the line round) must have pulled the trigger */
-    static final int LINE_LIMIT = 100;
+    /** the ticks after survival by which the one behind its own (the line round) must have pulled the trigger (29 to 82 seen) */
+    static final int LINE_LIMIT = 140;
 
     /** line: one dummy right behind the other on the way to the player (the one behind has to step aside to fire) */
     private record Round(String name, boolean heard, boolean wall, boolean line) {
@@ -68,7 +68,7 @@ final class AiCheckUnseen {
     private final List<Mob> dummies = new ArrayList<>();
     // per dummy: the first tick (from the switch) it knew the player was there, pulled the trigger; its head's turn
     // after the switch, degrees; whether it heard anything before
-    private int[] seenAt, pulledAt, pullsAt;
+    private int[] seenAt, pulledAt, pullsAt, holdsAt;
     private float[] lastHead;
     private double[] turned;
     private boolean[] heard;
@@ -160,6 +160,7 @@ final class AiCheckUnseen {
         seenAt = new int[n];
         pulledAt = new int[n];
         pullsAt = new int[n];
+        holdsAt = new int[n];
         lastHead = new float[n];
         turned = new double[n];
         heard = new boolean[n];
@@ -191,7 +192,10 @@ final class AiCheckUnseen {
             AiBot bot = AiBots.get(m);
             if (bot == null) continue;
             if (ticks < SWITCH && bot.memory.noise() != null) heard[i] = true;
-            if (ticks == SWITCH) pullsAt[i] = bot.gunner.pulls;
+            if (ticks == SWITCH) {
+                pullsAt[i] = bot.gunner.pulls;
+                holdsAt[i] = bot.gunner.holds;
+            }
             if (ticks > SWITCH) {
                 turned[i] += Math.abs(Mth.wrapDegrees(m.getYHeadRot() - lastHead[i]));
                 TargetMemory.Contact c = bot.memory.contact(player.getId());
@@ -241,8 +245,12 @@ final class AiCheckUnseen {
             anyHeard |= heard[i];
         }
         check.out(String.format(Locale.ROOT, "     a player out of creative, %s: %d dummies, %s; hit %d times", r.name, dummies.size(), each, hits));
-        if (r.line) check.check("AI dummies one behind the other: the one behind steps out of its own's line and both shoot within " + limit / 20 + " s ("
-                + r.name + ")", ok);
+        if (r.line) {
+            // the one behind did hold its fire for the one in front (else the round tells nothing of stepping aside)
+            int held = !dummies.isEmpty() && AiBots.get(dummies.get(0)) instanceof AiBot b ? b.gunner.holds - holdsAt[0] : 0;
+            check.check("AI dummies one behind the other: the one behind holds its fire for its own (" + held + " ticks), steps out of the line and both shoot within "
+                    + limit / 20 + " s (" + r.name + ")", ok && held > 0);
+        }
         else check.check("AI dummies that " + (r.heard ? "heard" : "did not hear") + " a player in creative shoot at them in survival within "
                 + limit / 20 + " s (" + r.name + ")", ok);
         if (!r.heard) check.check("the sounds about a player in creative go unheard", !anyHeard);

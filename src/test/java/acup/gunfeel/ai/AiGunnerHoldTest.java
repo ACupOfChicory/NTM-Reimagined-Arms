@@ -33,7 +33,8 @@ class AiGunnerHoldTest {
     @Test
     void noTargetOrALongPauseEndsTheCount() {
         assertEquals(0, AiGunner.held(15, false, false, true));
-        assertEquals(16, AiGunner.held(15, true, false, true));
+        // held again after the holds were over (a sleep, a long pause): the count starts over
+        assertEquals(1, AiGunner.held(15, true, false, true));
     }
 
     /** the pause between bursts is shorter than HOLD_PAUSE: it keeps the count */
