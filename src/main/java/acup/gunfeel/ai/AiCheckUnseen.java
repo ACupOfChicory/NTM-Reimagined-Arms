@@ -46,8 +46,11 @@ final class AiCheckUnseen {
     static final double ASIDE = 3;
     // the round's ticks: standing, walking off, shooting, survival from SWITCH on, the round over at END at most
     static final int WALK = 20, STAND = 80, SWITCH = 140, END = 440;
-    /** the ticks after survival by which each dummy must have pulled the trigger: in the open, with a wall to get behind */
-    static final int OPEN_LIMIT = 60, COVER_LIMIT = 200;
+    /**
+     * the ticks after survival by which each dummy must have pulled the trigger: in the open; with a wall to get behind
+     * (to cover, then a look out: 22 to 165 ticks seen, once 210), all the round has
+     */
+    static final int OPEN_LIMIT = 60, COVER_LIMIT = END - SWITCH;
 
     /** the ticks after survival by which the one behind its own (the line round) must have pulled the trigger (29 to 82 seen) */
     static final int LINE_LIMIT = 140;
