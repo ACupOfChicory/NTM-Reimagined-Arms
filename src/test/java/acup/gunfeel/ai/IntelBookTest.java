@@ -104,7 +104,7 @@ class IntelBookTest {
         Path dir = Path.of("src/main/java/acup/gunfeel/ai");
         if (!Files.isDirectory(dir)) dir = Path.of("../../src/main/java/acup/gunfeel/ai");
         assertTrue(Files.isDirectory(dir), "sources at " + dir.toAbsolutePath());
-        List<String> may = List.of("AiCommander.java", "AiIntel.java", "IntelBook.java", "AiHqMap.java", "HqGrid.java");
+        List<String> may = List.of("AiCommander.java", "AiIntel.java", "IntelBook.java", "AiHqMap.java", "HqGrid.java", "StaffPlan.java");
         int read = 0;
         try (var files = Files.list(dir)) {
             for (Path p : files.toList()) {

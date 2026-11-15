@@ -27,8 +27,8 @@ import net.neoforged.neoforge.common.util.FakePlayer;
  * one ford, and open ground. Side A, two squads of three (both sent: two to a group at most), at one edge, one by the hill, one by the wood; at the other, across the river, a player (a
  * fake one, in survival, kept whole) walking to and fro, for a while hidden in a stone box farther off. The hill's
  * crest and the wood lie well within the player's sight (128 blocks; A sees 96), the camp just out of it: whether the
- * side comes on behind them tells in how near it gets before the player first sees one of it. ROUNDS rounds of RUN ticks (-PaiCheckWarRounds, 2 by default: the full
- * check's short war), A's staff (aiCommanderStaff) off and on by turns. Counted, at each of side A's reports
+ * side comes on behind them tells in how near it gets before the player first sees one of it. ROUNDS rounds of RUN ticks (-PaiCheckWarRounds, 3 by default: the full
+ * check's short war), by turns with no staff (R5), with its map and ways (C1), with its tasks too (C2). Counted, at each of side A's reports
  * (AiIntel): how far its picture's middle is from the player by how long ago one of the side saw it, whether the
  * player was within the circle; the tick one of A first saw it; till then, how often each of A stood where the
  * player's eyes reached it (a look from its eyes to A's head or chest, blocks and leaves in the way), how far each
@@ -76,6 +76,14 @@ final class AiCheckWar {
      * (HqGrid.RANGE), those in its sight; blocks walked; how far from the player the first of A it saw was (-1: none)
      */
     private long looks, inReach, inSight;
+    /** per round, all of it: A's ticks counted (every LOOK) alive, those with no foe known and no order (C2: a task) */
+    private long alive, idle;
+    /** the tasks given (AiCommander.given) at the round's start */
+    private int[] given0 = new int[StaffPlan.Kind.values().length];
+    private int strays0;
+    /** per round: {alive, idle} and the tasks given in it */
+    private final List<long[]> idles = new ArrayList<>();
+    private final List<int[]> tasksOf = new ArrayList<>();
     private double firstSeenFrom;
     /** the staff's ways made before the player was first seen this round */
     private int madeBefore;
@@ -96,7 +104,7 @@ final class AiCheckWar {
         this.check = check;
         this.level = level;
         this.y = y;
-        this.rounds = Math.max(1, Integer.getInteger("ntmgunfeel.checkAiWarRounds", 2));
+        this.rounds = Math.max(1, Integer.getInteger("ntmgunfeel.checkAiWarRounds", MODES));
     }
 
     boolean tick() {
@@ -123,6 +131,7 @@ final class AiCheckWar {
         ticks++;
         AiCommander.on = true;
         AiCommander.staff = staff();
+        AiCommander.tasks = mode() == TASKS;
         long now = level.getGameTime();
         // the picture as of this tick's report, against where the player was when it was made (before it moves on)
         long sideReports = AiIntel.reports(level, A);
@@ -151,6 +160,13 @@ final class AiCheckWar {
             if (c != null && c.state == TargetMemory.State.VISIBLE) seenAt = ticks;
         }
         if (seenAt < 0) madeBefore = AiCommander.made.size();
+        // all the round: alive, knowing of no foe and with no order
+        if (ticks % LOOK == 0) for (Mob m : ours) {
+            AiBot b = AiBots.get(m);
+            if (b == null || !m.isAlive()) continue;
+            alive++;
+            if (b.memory.focus(m.getX(), m.getZ()) == null && !AiCommander.has(b, now)) idle++;
+        }
         // till the first contact: in the player's sight, and the way walked
         if (seenAt < 0 && ticks % LOOK == 0) for (int i = 0; i < ours.size(); i++) {
             Mob m = ours.get(i);
@@ -169,8 +185,14 @@ final class AiCheckWar {
         if (ticks < RUN) return false;
         madeSeen = 0;
         results.add(new int[] {seenAt, down()});
-        approach.add(new double[] {staff() ? 1 : 0, looks, inReach, inSight, walked / Math.max(1, ours.size()), firstSeenFrom});
-        if (staff()) {
+        idles.add(new long[] {alive, idle});
+        // the tasks given, then the stragglers sent after a squad
+        int[] t = new int[given0.length + 1];
+        for (int k = 0; k < given0.length; k++) t[k] = AiCommander.given[k] - given0[k];
+        t[given0.length] = AiCommander.strays - strays0;
+        tasksOf.add(t);
+        approach.add(new double[] {mode(), looks, inReach, inSight, walked / Math.max(1, ours.size()), firstSeenFrom});
+        if (mode() == STAFF) {
             // a copy first: a way may still come in off the server thread
             List<HqGrid.Route> made = new ArrayList<>(AiCommander.made);
             ways.addAll(made.subList(0, Math.min(madeBefore, made.size())));
@@ -209,7 +231,14 @@ final class AiCheckWar {
             dump.printf(Locale.ROOT, "E %d %d %d %.1f %.1f %d%n", round, ticks, staff() ? 1 : 0, player.getX(), player.getZ(), seenAt);
             for (int i = 0; i < ours.size(); i++) {
                 Mob m = ours.get(i);
-                if (m.isAlive()) dump.printf(Locale.ROOT, "P %d %d %d %.1f %.1f %d%n", round, ticks, i, m.getX(), m.getZ(), inSight(m) ? 1 : 0);
+                if (!m.isAlive()) continue;
+                // its order: the task's kind (-1 R5's area, -2 none), where to, until when; a foe known (1) or not
+                AiBot b = AiBots.get(m);
+                AiCommander.Order o = b == null ? null : b.order;
+                int kind = o == null ? -2 : o.job == null ? -1 : o.job.kind.ordinal();
+                dump.printf(Locale.ROOT, "P %d %d %d %.1f %.1f %d %d %.1f %.1f %d %d %d%n", round, ticks, i, m.getX(), m.getZ(), inSight(m) ? 1 : 0, kind,
+                        o == null ? 0 : o.x, o == null ? 0 : o.z, o == null ? 0 : o.until - now, b != null && b.memory.focus(m.getX(), m.getZ()) != null ? 1 : 0,
+                        AiCommander.gaveUp);
             }
         }
         if (ticks >= RUN) dump.flush();
@@ -235,9 +264,16 @@ final class AiCheckWar {
         errMost[k] = Math.max(errMost[k], err);
     }
 
-    /** the staff on in every other round, the first off (before) */
+    /** the rounds by turns: no staff (before, R5), the staff's map and ways (C1), its tasks too (C2) */
+    static final int OFF = 0, STAFF = 1, TASKS = 2, MODES = 3;
+    static final String[] MODE_NAMES = {"no staff (before)", "the staff's ways (C1)", "the staff's ways and tasks (C2)"};
+
+    private int mode() {
+        return round % MODES;
+    }
+
     private boolean staff() {
-        return round % 2 == 1;
+        return mode() != OFF;
     }
 
     /** within the player's sight: a look from its eyes reaches the mob's head or chest past blocks and leaves */
@@ -265,11 +301,15 @@ final class AiCheckWar {
         seenAt = -1;
         reportsSeen = 0;
         looks = inReach = inSight = 0;
+        alive = idle = 0;
+        given0 = AiCommander.given.clone();
+        strays0 = AiCommander.strays;
         firstSeenFrom = -1;
         madeBefore = 0;
         walked = 0;
         AiCommander.made.clear();
         AiCommander.staff = staff();
+        AiCommander.tasks = mode() == TASKS;
         AiCommander.on = true;
         AiCommander.forget(level);
         AiSquads.on = true;
@@ -314,19 +354,21 @@ final class AiCheckWar {
         if (dump != null) dump.close();
         AiCommander.on = true;
         AiCommander.staff = true;
+        AiCommander.tasks = true;
         long reportsAll = AiIntel.reports - reports0;
         double usReport = reportsAll == 0 ? 0 : (AiIntel.nanos - nanos0) / 1000.0 / reportsAll;
         // one side reports every REPORT ticks: its cost a tick
         double usTick = usReport / AiIntel.REPORT;
-        double[] sightOf = new double[2], walkOf = new double[2], firstOf = new double[2], fromOf = new double[2];
-        int[] fromN = new int[2];
+        double[] sightOf = new double[MODES], walkOf = new double[MODES], firstOf = new double[MODES], fromOf = new double[MODES];
+        int[] fromN = new int[MODES];
         // rounds of each, and of them those in which one of the side came within the player's reach
-        int[] roundsOf = new int[2], reachedOf = new int[2];
+        int[] roundsOf = new int[MODES], reachedOf = new int[MODES];
+        long[] aliveOf = new long[MODES], idleOf = new long[MODES];
         for (int i = 0; i < results.size(); i++) {
             double[] a = approach.get(i);
             int on = (int) a[0];
-            check.out(String.format(Locale.ROOT, "     war, round %d, aiCommanderStaff %s: the player first seen at tick %d, ours down %d; till then in its sight %.1f%% of the time"
-                    + " within its reach (%.0f%% of the time within it), first in its sight %.0f blocks off, %.0f blocks walked each", i + 1, on == 1 ? "on" : "off (before)",
+            check.out(String.format(Locale.ROOT, "     war, round %d, %s: the player first seen at tick %d, ours down %d; till then in its sight %.1f%% of the time"
+                    + " within its reach (%.0f%% of the time within it), first in its sight %.0f blocks off, %.0f blocks walked each", i + 1, MODE_NAMES[on],
                     results.get(i)[0], results.get(i)[1], a[2] == 0 ? 0 : 100 * a[3] / a[2], a[1] == 0 ? 0 : 100 * a[2] / a[1], a[5], a[4]));
             roundsOf[on]++;
             if (a[2] > 0) {
@@ -339,10 +381,20 @@ final class AiCheckWar {
                 fromN[on]++;
             }
             firstOf[on] += results.get(i)[0] < 0 ? RUN : results.get(i)[0];
+            long[] id = idles.get(i);
+            aliveOf[on] += id[0];
+            idleOf[on] += id[1];
+            StringBuilder kinds = new StringBuilder();
+            for (StaffPlan.Kind k : StaffPlan.Kind.values())
+                if (tasksOf.get(i)[k.ordinal()] > 0) kinds.append(kinds.length() == 0 ? "" : ", ").append(k.name().toLowerCase(Locale.ROOT)).append(' ').append(tasksOf.get(i)[k.ordinal()]);
+            int strays = tasksOf.get(i)[StaffPlan.Kind.values().length];
+            check.out(String.format(Locale.ROOT, "     war, round %d: standing with no foe known and no order %.1f%% of the soldiers' time; tasks given: %s%s", i + 1,
+                    id[0] == 0 ? 0 : 100.0 * id[1] / id[0], kinds.length() == 0 ? "none" : kinds, strays > 0 ? "; " + strays + " sent after their squad" : ""));
         }
-        for (int on = 0; on < 2; on++)
-            if (roundsOf[on] > 0) check.out(String.format(Locale.ROOT, "     war, aiCommanderStaff %s, %d rounds: in the player's sight till first seen %.1f%% of the time within its reach,"
-                    + " first in its sight %.0f blocks off, first seen at tick %.0f, %.0f blocks walked each", on == 1 ? "on" : "off (before)", roundsOf[on],
+        for (int on = 0; on < MODES; on++)
+            if (roundsOf[on] > 0) check.out(String.format(Locale.ROOT, "     war, %s, %d rounds: standing with no foe known and no order %.1f%% of the soldiers' time; in the player's sight till first seen"
+                    + " %.1f%% of the time within its reach, first in its sight %.0f blocks off, first seen at tick %.0f, %.0f blocks walked each", MODE_NAMES[on], roundsOf[on],
+                    aliveOf[on] == 0 ? 0 : 100.0 * idleOf[on] / aliveOf[on],
                     reachedOf[on] == 0 ? 0 : 100 * sightOf[on] / reachedOf[on], fromN[on] == 0 ? -1 : fromOf[on] / fromN[on], firstOf[on] / roundsOf[on], walkOf[on] / roundsOf[on]));
         double waySeen = 0, straightSeen = 0, longer = 0;
         for (HqGrid.Route r : ways) {
@@ -352,7 +404,7 @@ final class AiCheckWar {
         }
         long routesAll = AiCommander.routes.get() - routes0;
         double msRoute = routesAll == 0 ? 0 : (AiCommander.routeNanos.get() - routeNanos0) / 1e6 / routesAll;
-        check.out(String.format(Locale.ROOT, "     war, the staff's ways before the player was seen: %d, in the enemy's sight (as the staff thinks, short of the last %.0f blocks) %.1f%% against %.1f%% straight, %.2f times as long;"
+        check.out(String.format(Locale.ROOT, "     war, the staff's ways (C1 rounds) before the player was seen: %d, in the enemy's sight (as the staff thinks, short of the last %.0f blocks) %.1f%% against %.1f%% straight, %.2f times as long;"
                 + " %.2f ms a way (off the server thread); %s", ways.size(), HqGrid.END, 100 * waySeen, 100 * straightSeen, longer, msRoute, AiHqMap.info()));
         StringBuilder t = new StringBuilder("     war, the picture's error by how long the player was unseen:");
         for (int k = 0; k < AGE_NAMES.length; k++)
@@ -367,18 +419,26 @@ final class AiCheckWar {
         check.check(String.format(Locale.ROOT, "war: seen lately (0-5 s), the picture is off by %.1f on average (at most the circle's least radius, %.0f)",
                 errN[0] == 0 ? -1 : errSum[0] / errN[0], IntelBook.R_MIN), errN[0] > 0 && errSum[0] / errN[0] <= IntelBook.R_MIN);
         check.check(String.format(Locale.ROOT, "war: the picture costs %.2f us a tick a side (at most 20)", usTick), usTick <= 20);
-        boolean staffRan = roundsOf[1] > 0;
+        boolean staffRan = roundsOf[STAFF] > 0, tasksRan = roundsOf[TASKS] > 0;
         check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight: %.1f%% of them in it against %.1f%% straight (40%% less at least), %.2f times as long (1.5 at most)",
                 100 * waySeen, 100 * straightSeen, longer), !staffRan || !ways.isEmpty() && waySeen <= straightSeen * 0.6 && longer <= 1.5);
         check.check(String.format(Locale.ROOT, "war: a way takes %.2f ms off the server thread (5 at most)", msRoute), msRoute <= 5);
+        // C2: with the staff's tasks no squad stands about with nothing to do, and the squads were sent at the player
+        // (a reserve or a hold is an order too: not all of them)
+        int sentAt = 0;
+        for (int i = 0; i < tasksOf.size(); i++)
+            if (i % MODES == TASKS) for (StaffPlan.Kind k : new StaffPlan.Kind[] {StaffPlan.Kind.ADVANCE, StaffPlan.Kind.PIN, StaffPlan.Kind.FLANK}) sentAt += tasksOf.get(i)[k.ordinal()];
+        check.check(String.format(Locale.ROOT, "war: with the staff's tasks, the soldiers stand with no foe known and no order %.1f%% of their time (2%% at most); %d tasks to advance, pin or go round",
+                aliveOf[TASKS] == 0 ? 0 : 100.0 * idleOf[TASKS] / aliveOf[TASKS], sentAt), !tasksRan || aliveOf[TASKS] > 0 && idleOf[TASKS] * 50 <= aliveOf[TASKS] && sentAt > 0);
         // with two rounds or more each way (the full war, -PaiCheckWarRounds): within the player's reach, before they
         // see it, less of the side in its sight with the staff than without; a round in which none of the side came
         // within its reach counts for neither (the side may have stood: that is no hiding), and most rounds must
-        if (roundsOf[0] >= 2 && roundsOf[1] >= 2)
-            check.check(String.format(Locale.ROOT, "war: with the staff, less of the side in the player's sight within its reach before it is seen: %.1f%% against %.1f%%"
-                    + " (rounds within its reach %d of %d, %d of %d)", reachedOf[1] == 0 ? 0 : 100 * sightOf[1] / reachedOf[1], reachedOf[0] == 0 ? 0 : 100 * sightOf[0] / reachedOf[0],
-                    reachedOf[1], roundsOf[1], reachedOf[0], roundsOf[0]),
-                    reachedOf[1] * 2 > roundsOf[1] && reachedOf[0] * 2 > roundsOf[0] && sightOf[1] / reachedOf[1] < sightOf[0] / reachedOf[0]);
+        for (int on = STAFF; on <= TASKS; on++)
+            if (roundsOf[OFF] >= 2 && roundsOf[on] >= 2)
+                check.check(String.format(Locale.ROOT, "war: with %s, less of the side in the player's sight within its reach before it is seen: %.1f%% against %.1f%%"
+                        + " (rounds within its reach %d of %d, %d of %d)", MODE_NAMES[on], reachedOf[on] == 0 ? 0 : 100 * sightOf[on] / reachedOf[on],
+                        reachedOf[OFF] == 0 ? 0 : 100 * sightOf[OFF] / reachedOf[OFF], reachedOf[on], roundsOf[on], reachedOf[OFF], roundsOf[OFF]),
+                        reachedOf[on] * 2 > roundsOf[on] && reachedOf[OFF] * 2 > roundsOf[OFF] && sightOf[on] / reachedOf[on] < sightOf[OFF] / reachedOf[OFF]);
         return true;
     }
 
