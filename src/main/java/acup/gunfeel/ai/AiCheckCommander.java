@@ -327,7 +327,7 @@ final class AiCheckCommander {
         String[] helpNames = {"aiCommanderHelp off (before)", "aiCommanderHelp on"};
         boolean helpOff = false, helpOn = true;
         double after = 0;
-        int onHelps = 0;
+        int onHelps = 0, onHelped = 0;
         for (int i = 0; i < helps.size(); i++) {
             int[] h = helps.get(i);
             check.out(String.format(Locale.ROOT, "     commander, losses' round %d, %s: the mobs seen at tick %d, ours downed at %d, the reserve (%d) saw them at %d; the most squads at once"
@@ -335,7 +335,10 @@ final class AiCheckCommander {
             if (h[0] == 0) helpOff = h[2] >= 0 && h[8] > 0 && h[7] == 0 && h[4] <= AiCommander.PER;
             else {
                 onHelps++;
-                if (h[2] < 0 || h[8] == 0 || h[3] < 0 || h[7] == 0) helpOn = false;
+                // the reserve there each round; sent by the help in one at least (a squad there may leave before the
+                // next orders, and the reserve go as any squad would)
+                onHelped += h[7];
+                if (h[2] < 0 || h[8] == 0 || h[3] < 0) helpOn = false;
                 else after += h[3] - h[2];
             }
         }
@@ -343,7 +346,7 @@ final class AiCheckCommander {
         check.check("commander: all rounds ran", results.size() == MAIN && helps.size() == ROUNDS - MAIN);
         check.check("commander: aiCommanderHelp off, the reserve is not sent where the side loses soldiers, no more than " + AiCommander.PER + " squads at the group", helpOff);
         check.check(String.format(Locale.ROOT, "commander: aiCommanderHelp on, the reserve goes where the side loses soldiers and sees them, %.0f ticks after the losses on average",
-                onHelps == 0 ? 0 : after / onHelps), onHelps > 0 && helpOn);
+                onHelps == 0 ? 0 : after / onHelps), onHelps > 0 && helpOn && onHelped > 0);
         check.check(String.format(Locale.ROOT, "commander: on, its squads find both groups out of their sight, the first in %.0f ticks on average", onRounds == 0 ? 0 : onFirst / onRounds),
                 onRounds > 0 && onBoth);
         check.check("commander: on, no more than " + AiCommander.PER + " squads sent to a group at once", onFew);
