@@ -269,8 +269,9 @@ page. They are alphas: expect bugs and back up your world.
   of its squads, two at most to one group, to roughly where you, or another
   team it fights, are (an area of radius 16 to 32 blocks, wider the longer
   none of them has seen you), and the squad looks through it with its own
-  eyes. A minute there with no one found, and the squad goes for another group
-  (server key `aiCommander`).
+  eyes. A minute there with no one found, and the squad goes for another
+  group. Where the team loses soldiers, one squad more may go: the reserve
+  comes up (server keys `aiCommander`, `aiCommanderHelp`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
