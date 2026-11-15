@@ -530,6 +530,13 @@ the GNU General Public License as published by the Free Software Foundation,
 either version 3 of the License, or (at your option) any later version
 (GPL-3.0-or-later). See [LICENSE](LICENSE).
 
+Original textures and other assets made for this project by ACupOfChicory are
+licensed under GPL-3.0-or-later as well.
+
+Every file is by ACupOfChicory under GPL-3.0-or-later except those named in
+[REUSE.toml](REUSE.toml) ([REUSE](https://reuse.software/) 3.x), which gives each
+one's author and license; the license texts are in [LICENSES/](LICENSES).
+
 Model hitbox code derives in part from Countered's Accurate Hitboxes (MIT). The
 author, source link and license are in
 [third-party/accurate-hitboxes.txt](third-party/accurate-hitboxes.txt), also
@@ -573,7 +580,10 @@ The 1.7.10 port also bundles stub classes from JvmDowngrader
 (LGPL-2.1-or-later) and a shaded copy of JOML (MIT). Their notices are in
 `port/1.7.10/third-party/` on that branch and packaged in its jar.
 
-Sounds under `src/main/resources/assets/ntmgunfeel/sounds/` come from
-freesound.org and keep their own licenses (CC0 1.0 or CC BY 3.0/4.0); authors
-and links are in
+Bullet sounds under `src/main/resources/assets/ntmgunfeel/sounds/bullet/` come
+from freesound.org and keep their own licenses (CC0 1.0 or CC BY 3.0/4.0);
+authors and links are in
 [CREDITS.txt](src/main/resources/assets/ntmgunfeel/sounds/bullet/CREDITS.txt).
+AI mobs' call-outs under `sounds/ai/voice/` were spoken by the Kokoro-82M
+text-to-speech model (Apache-2.0); see
+[third-party/ai-voices.txt](third-party/ai-voices.txt).
