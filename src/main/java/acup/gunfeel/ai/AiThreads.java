@@ -20,6 +20,8 @@ public final class AiThreads {
     private static ThreadPoolExecutor pool;
     private static int size;
     private static boolean failed;
+    /** jobs handed over and not yet done, those on their way from the queue to a thread included */
+    private static final AtomicInteger PENDING = new AtomicInteger();
 
     private AiThreads() {
     }
@@ -45,16 +47,29 @@ public final class AiThreads {
     }
 
     public static void submit(Runnable job) {
-        pool().execute(() -> {
-            try {
-                job.run();
-            } catch (RuntimeException | Error e) {
-                synchronized (AiThreads.class) {
-                    if (!failed) DebugLog.LOGGER.error("AI background job failed (logged once)", e);
-                    failed = true;
+        PENDING.incrementAndGet();
+        try {
+            pool().execute(() -> {
+                try {
+                    job.run();
+                } catch (RuntimeException | Error e) {
+                    synchronized (AiThreads.class) {
+                        if (!failed) DebugLog.LOGGER.error("AI background job failed (logged once)", e);
+                        failed = true;
+                    }
+                } finally {
+                    PENDING.decrementAndGet();
                 }
-            }
-        });
+            });
+        } catch (RuntimeException | Error e) {
+            PENDING.decrementAndGet();
+            throw e;
+        }
+    }
+
+    /** whether a job handed over is not done yet (StandSprint waits on it) */
+    public static boolean busy() {
+        return PENDING.get() > 0;
     }
 
     public static synchronized int waiting() {
@@ -62,7 +77,8 @@ public final class AiThreads {
     }
 
     public static synchronized void stop() {
-        if (pool != null) pool.shutdownNow();
+        // the jobs still queued are dropped, never run: no longer pending
+        if (pool != null) PENDING.addAndGet(-pool.shutdownNow().size());
         pool = null;
     }
 }

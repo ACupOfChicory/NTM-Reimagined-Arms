@@ -28,6 +28,8 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 public final class AiCheck {
     public static final String PROPERTY = "ntmgunfeel.checkAi";
     static final String STAGE_PROPERTY = "ntmgunfeel.checkAiStage";
+    /** -Dntmgunfeel.checkAiRealtime=true (./gradlew runCheckAi -PaiRealtime): the stages at 20 ticks a second, not sped up (StandSprint) */
+    static final String REALTIME_PROPERTY = "ntmgunfeel.checkAiRealtime";
 
     /**
      * Takes every shot still in the level away between stages: a bullet that flew past a stage's field stops in chunks
@@ -148,6 +150,8 @@ public final class AiCheck {
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, joined -> {
                 if (joined.loadedFromDisk() && joined.getEntity() instanceof net.minecraft.world.entity.projectile.Projectile shot && shot.getOwner() == null) joined.setCanceled(true);
             });
+            // the stages count ticks, not seconds: the server runs them as fast as it can unless asked for real time
+            StandSprint.start(e.getServer(), !Boolean.getBoolean(REALTIME_PROPERTY));
             NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Post.class, t -> {
                 boolean done;
                 try {
@@ -189,6 +193,7 @@ public final class AiCheck {
                 AiVoice.counting = false;
                 out.add("     " + check.map.info());
                 out.add("     senses: " + Senses.info());
+                out.add("     " + StandSprint.info());
                 out.add(check.ok ? "ALL OK" : "FAILED");
                 finish(file, out, check.ok ? 0 : 1);
             });
