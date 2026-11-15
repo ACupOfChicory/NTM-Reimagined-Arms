@@ -3,11 +3,11 @@
 ## X1120
 
 - AI soldiers use their hands: one points at a target as it calls it out,
-  waves its own on as it moves, goes round or falls back, raises a hand
-  when one of its own is down; it puts a hand to a door it opens; waiting
-  beside a doorway to go in, it holds its gun up close. Shown only while its
-  hands do nothing else (not firing, reloading or throwing). New server
-  setting `aiGestures` (true by default).
+  waves its own on as it moves, goes round or falls back, raises a hand when
+  one of its own is down; it puts a hand to a door it opens; waiting beside a
+  doorway to go in, it holds its gun up close. Shown only while its hands do
+  nothing else (not aiming, firing, reloading or throwing). New server setting
+  `aiGestures` (true by default).
 
 ## X1119
 
