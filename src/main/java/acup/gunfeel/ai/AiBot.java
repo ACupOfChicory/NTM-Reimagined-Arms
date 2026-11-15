@@ -63,6 +63,27 @@ public final class AiBot {
     public int smokes;
     /** when it last called out (AiVoice) */
     public long saidAt = Long.MIN_VALUE / 2;
+    /** a sign with its free hand or a hand to a door (AiPose's action), since when and how long; shown while it does nothing else with its hands */
+    public byte gesture;
+    public long gestureAt = Long.MIN_VALUE / 2;
+    public short gestureTicks;
+    /** waiting beside a way in (AiEntry) till this tick: its gun held up close (AiPose.STACK) */
+    public long stackUntil = Long.MIN_VALUE;
+
+    /** the server setting: AI soldiers point, wave on and halt with a hand as they call out, put a hand to a door, hold the gun close beside a doorway */
+    public static final String GESTURES_KEY = "aiGestures";
+
+    static boolean gestures() {
+        return acup.gunfeel.ReaimTimes.flag(GESTURES_KEY, true);
+    }
+
+    void gesture(byte kind, int ticks, long tick) {
+        if (!gestures()) return;
+        gesture = kind;
+        gestureAt = tick;
+        gestureTicks = (short) ticks;
+    }
+
     /** a player within aiRadius: it thinks; else it stands still */
     boolean active = true;
 

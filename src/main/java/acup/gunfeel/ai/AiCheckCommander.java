@@ -106,6 +106,7 @@ final class AiCheckCommander {
         ticks++;
         AiCommander.on = on();
         AiCommander.help = help();
+        AiCommander.tasks = false;
         long now = level.getGameTime();
         if (losses()) return lossesTick(now);
         for (int g = 0; g < 2; g++) {
@@ -275,6 +276,8 @@ final class AiCheckCommander {
         reserveMobs.clear();
         AiCommander.on = on();
         AiCommander.help = help();
+        // R5's orders, as with aiCommanderTasks off (the staff's tasks: the war's stand)
+        AiCommander.tasks = false;
         AiCommander.forget(level);
         AiSquads.on = true;
         AiSquads.offTeams.clear();
@@ -303,6 +306,7 @@ final class AiCheckCommander {
     private boolean finish() {
         AiCommander.on = true;
         AiCommander.help = true;
+        AiCommander.tasks = true;
         AiSquads.offTeams.clear();
         String[] names = {"aiCommander off (before)", "aiCommander on"};
         boolean onBoth = true, onFew = true, offNone = true;

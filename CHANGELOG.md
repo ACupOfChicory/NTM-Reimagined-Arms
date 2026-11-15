@@ -1,6 +1,6 @@
 # Changelog
 
-## X1124
+## X1130
 
 - AI soldiers with one of their own in the line of fire step aside sooner:
   the ticks they hold fire for a friend (or for their own cover in front of
@@ -11,6 +11,32 @@
   The unseen check sets its two dummies side by side across the player's way
   (spawned by chance one stood in the other's line now and then), and has a
   round of its own with one right behind the other.
+
+## X1129
+
+- AI side commanders give each squad a task. A squad at least half as strong
+  again as an enemy group advances on it; two squads about as strong as it
+  work together: one pins it from a lookout about 60 blocks off, higher and in
+  sight of it, while the other goes round to its side, the one that would be
+  less in the enemy's sight on its way pinning; a squad too weak for it holds
+  a higher place nearby that sees it; a group none of the side has seen for a
+  minute is scouted. A squad that lost more than half its soldiers, or most of
+  whose soldiers ran out of rounds, falls back on the nearest squad of its
+  side. With no enemy known, the squads scout round their side in turn. A
+  soldier that fell behind its squad is sent after it; a squad is not sent
+  again to a group it could not reach. A task is kept 20 seconds at least, its
+  place while the group stays about where it was. New server setting
+  `aiCommanderTasks` (true); false: each squad goes for the nearest group, as
+  before.
+
+## X1123
+
+- AI soldiers use their hands: one points at a target as it calls it out,
+  waves its own on as it moves, goes round or falls back, raises a hand when
+  one of its own is down; it puts a hand to a door it opens; waiting beside a
+  doorway to go in, it holds its gun up close. Shown only while its hands do
+  nothing else (not aiming, firing, reloading or throwing). New server setting
+  `aiGestures` (true by default).
 
 ## X1119
 

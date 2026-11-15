@@ -200,7 +200,12 @@ public final class AiEntry {
             go(bot, to, 0.5);
             if (bot.mover.arrived() || bot.mover.failed()) op.done.add(bot);
         } else if (op.phase == FRAG && bot == op.thrower) frag(op, s, bot, level, tick);
-        else go(bot, place(op, i), 0.35);
+        else {
+            long at = place(op, i);
+            go(bot, at, 0.35);
+            // at its place beside the way in: the gun held up close till they go (AiPose.STACK)
+            if (bot.mover.goalIs(at) && bot.mover.arrived()) bot.stackUntil = tick + 5;
+        }
         return op.door;
     }
 

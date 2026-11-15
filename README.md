@@ -275,8 +275,13 @@ page. They are alphas: expect bugs and back up your world.
   group. Where the team loses soldiers, one squad more may go: the reserve
   comes up. The squads go there by the commander's own map of the land:
   behind hills and through woods where the enemy would see them in the open,
-  round deep water and cliffs (server keys `aiCommander`, `aiCommanderHelp`,
-  `aiCommanderStaff`).
+  round deep water and cliffs. Each squad has a task: one strong enough
+  advances; two about as strong as the enemy, one pins it from a lookout
+  while the other goes round its side; one too weak holds a higher place
+  that sees it; an area not seen lately is scouted; a squad that lost more
+  than half its men or ran out of rounds falls back on its own; with no enemy
+  known they scout round their side (server keys `aiCommander`,
+  `aiCommanderHelp`, `aiCommanderStaff`, `aiCommanderTasks`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
@@ -295,6 +300,9 @@ page. They are alphas: expect bugs and back up your world.
   then steps back behind the wall; they go in after it bursts. It is thrown
   only where the burst reaches none of their own (server keys
   `aiEntryGrenade`, `aiEntryGrenadeFilling`).
+- They point at a target they call out, wave their own on, put a hand to a
+  door they open and hold the gun close beside a doorway (server key
+  `aiGestures`).
 - They search a building room after room, two to a room, and do not go back
   into a room already checked (server key `aiClearing`). Into the next room
   inside they go as into the first: from beside the doorway, together (with
