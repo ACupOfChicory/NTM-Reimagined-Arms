@@ -1,6 +1,6 @@
 # Changelog
 
-## X1105
+## X1108
 
 - AI medic, care under fire: while one of its squad sees the enemy, a medic
   fights as a rifleman and treats no one, itself neither; it treats the hurt
@@ -13,6 +13,17 @@
   as with no medic. The medic check's fights are longer (all with three times
   their health, both sides behind low walls, four against five) and split
   three ways: no medic, a medic without this, a medic with it.
+
+## X1107
+
+- AI side commanders keep a picture of the fight: every five seconds each
+  side gets word of the players and enemy AI soldiers within 256 blocks of any
+  of its soldiers, in groups, each known only roughly (a circle of 16 blocks
+  when one of the side saw them in the last five seconds, a block wider every
+  two seconds unseen, up to 32). The circle's middle no longer jumps to where
+  they are: it moves half the way there at each report, so a group on the move
+  is known a little behind. Orders go by this picture; the soldiers themselves
+  still know only what they see and hear.
 
 ## X1104
 
