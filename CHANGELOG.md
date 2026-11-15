@@ -1,6 +1,6 @@
 # Changelog
 
-## X1128
+## X1129
 
 - AI side commanders give each squad a task. A squad at least half as strong
   again as an enemy group advances on it; two squads about as strong as it
