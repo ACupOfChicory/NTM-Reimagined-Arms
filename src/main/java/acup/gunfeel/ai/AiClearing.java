@@ -255,7 +255,7 @@ public final class AiClearing {
         } else if (e.phase == GO && (bot.mover.arrived() || bot.mover.failed())) {
             e.done.add(bot);
             return NONE;
-        }
+        } else if (e.phase == STACK && bot.mover.arrived()) bot.stackUntil = tick + 5; // at its place: the gun held up close (AiPose.STACK)
         return to;
     }
 

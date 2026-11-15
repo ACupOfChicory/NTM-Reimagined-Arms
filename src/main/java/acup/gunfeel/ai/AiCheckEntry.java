@@ -46,6 +46,7 @@ final class AiCheckEntry {
     static final int SHED_X0 = 863, SHED_X1 = 864, SHED_Z0 = 13, SHED_Z1 = 15, SHED_RUN = 500;
     private boolean shed;
     private int faultsBefore, shedEntries, shedFaults, shedSearch, shedUnder;
+    private int stackSeen, doorSeen, signSeen;
     private final List<Mob> squad = new ArrayList<>(), inside = new ArrayList<>();
     private final boolean[] gotIn = new boolean[SQUAD], atDoor = new boolean[SQUAD], fellAtDoor = new boolean[SQUAD];
     private final int[] threw = new int[SQUAD];
@@ -91,6 +92,10 @@ final class AiCheckEntry {
                 continue;
             }
             left++;
+            AiPose pose = AiPose.of(m);
+            if (pose.arms() == AiPose.STACK) stackSeen++;
+            if (pose.action() == AiPose.DOOR) doorSeen++;
+            if (pose.action() == AiPose.SIGNAL_POINT || pose.action() == AiPose.SIGNAL_COME || pose.action() == AiPose.SIGNAL_HALT) signSeen++;
             atDoor[i] = door;
             if (AiBots.get(m) instanceof AiBot b && b.brain instanceof AiSoldier so) threw[i] = so.thrown;
             if (!gotIn[i] && m.getX() > WX0 + 1 && m.getX() < WX1 && m.getZ() > WZ0 + 1 && m.getZ() < WZ1) {
@@ -291,6 +296,10 @@ final class AiCheckEntry {
         check.out(String.format(Locale.ROOT, "     entry, a roof with an open side two wide, a target lost under it, %d ticks: entries begun %d, mob ticks searching %d, under the roof %d, faults caught %d",
                 SHED_RUN, shedEntries, shedSearch, shedUnder, shedFaults));
         check.check("entry: a target lost under a roof with an open side two wide is gone after, and nothing in the reading of it fails", shed && shedSearch > 0 && shedFaults == 0);
+        check.out(String.format(Locale.ROOT, "     entry, poses of the squad, mob ticks: gun held close beside the way in %d, a hand to a door %d, a sign with a hand %d", stackSeen, doorSeen, signSeen));
+        check.check("entry: those waiting beside the way in hold their guns close (AiPose.STACK)", stackSeen > 0);
+        check.check("entry: a hand goes to the door it opens (AiPose.DOOR)", doorSeen > 0);
+        check.check("entry: a sign with a hand goes with a call-out", signSeen > 0);
         check.out(String.format(Locale.ROOT, "     entry, throws not found: none lands in the room %d, one of the entry not behind the wall %d, another of its side in reach %d, a player %d",
                 AiEntry.why[0], AiEntry.why[1], AiEntry.why[2], AiEntry.why[3]));
         check.check("entry: a grenade thrown in before an entry hurts none of the squad", sum[2][12] == 0);
