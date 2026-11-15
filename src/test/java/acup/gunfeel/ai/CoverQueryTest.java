@@ -191,4 +191,49 @@ class CoverQueryTest {
         List<CoverQuery.Spot> hide = CoverQuery.find(g, rays(g), self, List.of(north), calm, k -> false, CoverQuery.POOL);
         assertTrue(BlockPos.getZ(hide.get(0).cell()) > 22, "a step behind the crest: " + BlockPos.of(hide.get(0).cell()));
     }
+
+    static int hillHeight(int z) {
+        return Math.max(0, 10 - Math.abs(z - 30) / 2);
+    }
+
+    @Test
+    void onASlopeCoverIsLookedForFartherDownTheSlopeNotOntoThePlain() {
+        // a hill ten high at z = 30; a low wall on its north slope at z = 18 (cover at z = 19, 5 under the crest) and
+        // one on the plain north of it at z = 8 (cover 10 under it, on the threat's level)
+        PathSearchTest.Grid g = new PathSearchTest.Grid(3);
+        for (int x = 0; x < 48; x++)
+            for (int z = 0; z < 48; z++)
+                for (int y = 0; y < hillHeight(z); y++) g.set(x, y, z, CellBuilderTest.STONE);
+        for (int x = 22; x <= 24; x++) {
+            g.set(x, hillHeight(18), 18, CellBuilderTest.STONE);
+            g.set(x, hillHeight(18) + 1, 18, CellBuilderTest.STONE);
+            g.set(x, 0, 8, CellBuilderTest.STONE);
+        }
+        g.build();
+        Vec3 north = new Vec3(23.5, 1.6, 2.5), crest = new Vec3(23.5, hillHeight(30), 30.5);
+        CoverQuery.Params p = new CoverQuery.Params();
+        p.fight = true;
+        p.peekBonus = CoverQuery.PEEK_FIGHT;
+        p.othersSoft = true;
+        p.rayBudget = 48;
+        p.reach = AiSoldier.SLOPE_REACH;
+        // from the plain by it: the wall there is cover
+        p.fightAt = 8;
+        List<CoverQuery.Spot> near = CoverQuery.find(g, rays(g), new Vec3(23.5, 0, 12.5), List.of(north), p, k -> false, 64);
+        assertTrue(near.stream().anyMatch(s -> BlockPos.getZ(s.cell()) == 9 && BlockPos.getY(s.cell()) == 0), "behind the wall: " + near);
+        // from up the slope (7 over the plain), the range it fights at there none the less: not out on the plain in front
+        // of its squad
+        Vec3 up = new Vec3(23.5, hillHeight(24), 24.5);
+        assertTrue(hillHeight(24) > CoverQuery.DOWN);
+        List<CoverQuery.Spot> spots = CoverQuery.find(g, rays(g), up, List.of(north), p, k -> false, 64);
+        assertFalse(spots.isEmpty());
+        for (CoverQuery.Spot s : spots)
+            assertTrue(BlockPos.getY(s.cell()) >= CoverQuery.OVER, "on the threat's level: " + BlockPos.of(s.cell()));
+        // down the slope farther than DOWN, over the threat: the wall on the slope, to fire over it
+        p.fightAt = 17;
+        spots = CoverQuery.find(g, rays(g), crest, List.of(north), p, k -> false, 64);
+        long slope = BlockPos.asLong(23, hillHeight(19), 19);
+        assertTrue(hillHeight(30) - hillHeight(19) > CoverQuery.DOWN);
+        assertTrue(spots.stream().anyMatch(s -> s.cell() == slope && s.hasPeek()), "the wall on the slope: " + spots.stream().map(s -> BlockPos.of(s.cell()).toShortString()).toList());
+    }
 }

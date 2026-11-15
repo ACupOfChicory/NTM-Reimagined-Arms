@@ -1,5 +1,13 @@
 # Changelog
 
+## X1109
+
+- AI soldiers in a fight now weigh height when picking cover: a spot above
+  the enemy counts for more (twice for a squad's base of fire), a spot where
+  their head shows against the sky costs. On a slope they look for cover
+  farther up and down the side facing the enemy, but never down onto the
+  enemy's level, in front of their own squad's fire.
+
 ## X1107
 
 - AI side commanders keep a picture of the fight: every five seconds each

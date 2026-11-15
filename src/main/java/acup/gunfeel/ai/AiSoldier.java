@@ -1314,6 +1314,7 @@ public final class AiSoldier implements AiBrain {
         }
         // as far from the threat as its gun is best at: nearer pressing on, farther holding back (AiConfidence)
         p.fightAt = bot.gunner.fightAt() * bot.confidence.range(level.getGameTime());
+        if (fight && heights && !threats.isEmpty()) heights(bot, level, threats.get(0), p);
         if (back > 0) {
             p.minFromThreat = back;
             p.fightAt = Math.max(p.fightAt, back + BACK_STEP);
@@ -1323,6 +1324,31 @@ public final class AiSoldier implements AiBrain {
                 k -> held.test(k) || unreachable.contains(k), CoverQuery.POOL);
         // the pool is found whatever is asked for; which of it: the formula's best, or the imitation's pick (AiChoice)
         return found.isEmpty() ? null : found.get(AiChoice.rank(bot, found, level.getGameTime()));
+    }
+
+    /** off only for the stands' "before": cover weighed with no thought of height or the skyline */
+    static boolean heights = true;
+    /** the threat this much over or under it, or its ground a slope: cover looked for this far up and down (CoverQuery.OVER) */
+    static final double SLOPE = 3;
+    static final int SLOPE_REACH = 8;
+
+    /**
+     * Height in the choice of cover: higher over the threat counts for more (twice for its squad's base of fire), a head
+     * against the sky to it costs (Skyline); on a slope, or with the threat well over or under it, cover is looked for
+     * twice as far up and down (down not onto the threat's level: CoverQuery.OVER).
+     */
+    private static void heights(AiBot bot, ServerLevel level, Vec3 threat, CoverQuery.Params p) {
+        p.up = CoverQuery.UP * (AiSquads.base(bot) ? 2 : 1);
+        boolean slope = Math.abs(threat.y - CoverQuery.EYE - bot.mob.getY()) >= SLOPE;
+        AiTerrain t = AiTerrain.ON ? AiTerrain.peek(level) : null;
+        if (t != null) {
+            p.land = Skyline.of(t);
+            int x = bot.mob.getBlockX(), z = bot.mob.getBlockZ();
+            TerrainTile tile = t.tile(x, z);
+            // on the land's top (not under a roof or in a cave, which the layers do not see), its coarse cell a slope
+            slope |= tile != null && Math.abs(tile.ground(x, z) - bot.mob.getBlockY()) <= 1 && tile.hi(x, z) - tile.lo(x, z) >= 2;
+        }
+        if (slope) p.reach = SLOPE_REACH;
     }
 
     /**

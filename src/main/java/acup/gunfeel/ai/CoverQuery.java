@@ -52,6 +52,12 @@ public final class CoverQuery {
          * first: one ahead only when there is none.
          */
         public boolean fight;
+        /** cells this many blocks over and under its feet are looked at (more on a slope; under DOWN only over the threat) */
+        public int reach = 4;
+        /** what each block of height over the threat adds, up to UP_MOST blocks (twice for a base of fire); 0: none */
+        public double up;
+        /** the land behind, for a head against the sky from the threat (Skyline; costs SKYLINE); null: not asked */
+        public Skyline.@org.jspecify.annotations.Nullable Land land;
     }
 
     /** peek: the best place beside it to shoot from (the cell itself over low cover); peeks: every such place, up to MAX_PEEKS */
@@ -76,6 +82,17 @@ public final class CoverQuery {
     static final double APART = 3;
     /** a threat besides the one it fights that sees its head there (othersSoft) */
     static final double SEEN_BY = 2.5;
+    /** a block over the threat adds this, UP_MOST blocks at most (Params.up); its head against the sky from the threat costs SKYLINE */
+    static final double UP = 0.3, SKYLINE = 3;
+    static final int UP_MOST = 8;
+    /**
+     * cells farther down than DOWN under its feet (a slope's reach) only OVER blocks over the threat's feet at least: down
+     * the slope facing it, not out on its plain in front of its squad firing from the crest (hillheights: 17 hits on the
+     * squad in 2 rounds of 8 with the reach down to the plain)
+     */
+    static final int DOWN = 4, OVER = 2;
+    /** the threat's eye over its feet (the threats are eyes) */
+    static final double EYE = 1.6;
     /** a place to shoot from: the target seen from it and no bullet-stopping block between (glass that stops nothing aside) */
     static final int SHOOT_MASK = Voxel.SIGHT | Voxel.PROTECT_MASK;
     /** the most kept to be tried with rays */
@@ -110,7 +127,8 @@ public final class CoverQuery {
         double r2 = p.radius * p.radius;
         int x0 = (int) Math.floor(self.x - p.radius), x1 = (int) Math.floor(self.x + p.radius);
         int z0 = (int) Math.floor(self.z - p.radius), z1 = (int) Math.floor(self.z + p.radius);
-        int y0 = (int) Math.floor(self.y) - 4, y1 = (int) Math.floor(self.y) + 4;
+        int y0 = (int) Math.floor(self.y) - p.reach, y1 = (int) Math.floor(self.y) + p.reach, low = (int) Math.floor(self.y) - DOWN;
+        double threatFeet = main.y - EYE;
         for (int sx = x0 >> 4; sx <= x1 >> 4; sx++)
             for (int sz = z0 >> 4; sz <= z1 >> 4; sz++)
                 for (int sy = y0 >> 4; sy <= y1 >> 4; sy++) {
@@ -118,7 +136,7 @@ public final class CoverQuery {
                     if (c == null) continue;
                     for (int i = 0; i < c.count(); i++) {
                         int x = (sx << 4) + c.x(i), y = (sy << 4) + c.y(i), z = (sz << 4) + c.z(i);
-                        if (y < y0 || y > y1) continue;
+                        if (y < y0 || y > y1 || y < low && y < threatFeet + OVER) continue;
                         // no cover is taken swimming
                         if ((c.flags(i) & SectionCells.SWIM) != 0) continue;
                         double cx = x + 0.5, cz = z + 0.5;
@@ -140,7 +158,8 @@ public final class CoverQuery {
                         if (held.test(key) && key != p.current) continue;
                         if (key != p.current && nearAny(p.friendCovers, x, z, APART)) continue;
                         double s = (height == 2 ? HIGH : LOW) + (hard ? HARD : 0) - Math.sqrt(d2) * PER_BLOCK
-                                - Math.abs(td - p.fightAt) * OFF_RANGE + (key == p.current ? CURRENT : 0);
+                                - Math.abs(td - p.fightAt) * OFF_RANGE + (key == p.current ? CURRENT : 0)
+                                + Math.min(UP_MOST, Math.max(0, y - threatFeet)) * p.up;
                         int inf = height | (hard ? 4 : 0) | dir << 3;
                         keep(cand, score, info, counts, 0, 0, general, key, s, inf);
                         if (fight && td <= selfTd - AHEAD_BY) keep(cand, score, info, counts, 1, general, all, key, s, inf);
@@ -226,6 +245,11 @@ public final class CoverQuery {
             }
             if (p.needPeek && peek == Long.MIN_VALUE) continue;
             if (peek != Long.MIN_VALUE) firing++;
+            // where it fires from its head against the sky to the threat: a mark seen from afar (with no place to fire from
+            // the threat sees nothing of it)
+            if (p.land != null && peek != Long.MIN_VALUE
+                    && Skyline.against(p.land, main.x, main.y, main.z, BlockPos.getX(peek) + 0.5, BlockPos.getY(peek) + EYE, BlockPos.getZ(peek) + 0.5))
+                seenBy += SKYLINE;
             out.add(new Spot(key, score[i] + (peek != Long.MIN_VALUE ? p.peekBonus : 0) - seenBy, height, hard, peek, java.util.Arrays.copyOf(peeks, np)));
         }
         out.sort((a, b) -> Double.compare(b.score(), a.score()));
