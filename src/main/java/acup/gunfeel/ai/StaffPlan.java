@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
  * other squad left is the reserve and stays where it is. A squad keeps its task KEEP ticks at least while its group is
  * still there (falling back aside); one that went round and got there advances next. A squad is not sent to a group it
  * gave up lately (R5: none of it could get there). A squad asleep (no player near, C2b) is sent as far as the staff
- * knows, FAR, not reach.
+ * knows, FAR, not reach; with no group known it waits (no scouting).
  */
 final class StaffPlan {
     enum Kind {
@@ -187,7 +187,8 @@ final class StaffPlan {
         for (int i = 0; i < squads.size(); i++) {
             if (out[i] != null) continue;
             Squad s = squads.get(i);
-            if (groups.isEmpty()) {
+            // a squad asleep is not sent scouting (the staff moves those asleep to a fight only, C2b)
+            if (groups.isEmpty() && !s.far) {
                 // one scouting a sector already keeps it (AiCommander): the next sectors to the new ones
                 boolean keeps = s.kind == Kind.SCOUT && s.group < 0;
                 double a = 2 * Math.PI * Math.floorMod(sector + (keeps ? 0 : turn++), SECTORS) / SECTORS;
