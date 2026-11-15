@@ -161,6 +161,9 @@ final class AiCheckTerrain {
         check.check("terrain: the grove's crowns reach 5 over the ground, all of it under them", terrain.canopy(GROVE_X0 + 3, GROVE_Z0 + 3) == 5
                 && terrain.crowned(GROVE_X0 + 5, GROVE_Z0 + 5) == 1F && terrain.ground(GROVE_X0 + 3, GROVE_Z0 + 3) == y);
         check.check("terrain: a trunk is ground, not crown", terrain.ground(GROVE_X0 + 2, GROVE_Z0 + 2) == y + 3);
+        // its leaves from 3 over the ground up: looked under standing, not in the way
+        check.check("terrain: the grove's leaves are 3 over the ground, looked under", terrain.under(GROVE_X0 + 3, GROVE_Z0 + 3) == 3
+                && terrain.brushed(GROVE_X0 + 5, GROVE_Z0 + 5) == 0F);
         int towards = terrain.openTowards(AT_X, AT_Z, AT_X + 50, AT_Z), away = terrain.openTowards(AT_X, AT_Z, AT_X - 50, AT_Z);
         int height = terrain.height(AT_X, AT_Z), ridge = terrain.height(RIDGE_X0 + 1, AT_Z);
         check.out(String.format(Locale.ROOT, "     terrain: from the plain one sees %d blocks towards the ridge, %d away from it, %d all round; the plain stands %+d over the land, the ridge %+d; in the grove one sees %d",
