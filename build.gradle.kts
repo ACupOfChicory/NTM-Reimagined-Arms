@@ -491,6 +491,8 @@ neoForge {
             providers.gradleProperty("aiStage").orNull?.let { systemProperty("ntmgunfeel.checkAiStage", it) }
             // -PaiCheckWarRounds=<n>: the war's rounds (AiCheckWar; 2 by default, the full check's short war)
             providers.gradleProperty("aiCheckWarRounds").orNull?.let { systemProperty("ntmgunfeel.checkAiWarRounds", it) }
+            // -PaiCheckWarDump=<file>: the war's staff maps, ways and soldiers' places, for a look at them off the stand
+            providers.gradleProperty("aiCheckWarDump").orNull?.let { systemProperty("ntmgunfeel.checkAiWarDump", it) }
             // -PaiWorld=<a world's folder> -PaiWorldAt=x,y,z,radius[,up]: that world (a copy) read as the AI reads it (AiCheckWorld)
             providers.gradleProperty("aiWorldAt").orNull?.let { systemProperty("ntmgunfeel.checkAiWorld", it) }
             // -PaiLegs=<file>: the fighters' moves, tick by tick, for the legs' replay (AiLegsLog, BotLegsReplayTest)

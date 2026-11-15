@@ -1,6 +1,6 @@
 # Changelog
 
-## X1109
+## X1120
 
 - AI soldiers use their hands: one points at a target as it calls it out,
   waves its own on as it moves, goes round or falls back, raises a hand
@@ -8,6 +8,40 @@
   beside a doorway to go in, it holds its gun up close. Shown only while its
   hands do nothing else (not firing, reloading or throwing). New server
   setting `aiGestures` (true by default).
+
+## X1119
+
+- AI side commanders keep their own map of the land round the side
+  (heights, woods, water) and of what their enemies can see from anywhere
+  about where they are thought to be, made again every five seconds. Squads
+  sent to an area go by the commander's way rather than straight: behind
+  hills and through woods where the open would put them in the enemy's
+  sight, round deep water to a ford and round cliffs, at most 1.6 times the
+  straight way. The map and the ways are worked out off the server thread.
+  New server setting `aiCommanderStaff` (true); false: they walk there
+  straight, as before.
+
+## X1115
+
+- AI medic, care under fire: while one of its squad sees the enemy, a medic
+  fights as a rifleman and treats no one, itself neither; it treats the hurt
+  once none of its squad sees the enemy. A soldier hurt below 60% of its
+  health, with a medic of its squad with kits left, goes to cover it can fight
+  from as soon as it sees the enemy and does not move on to better cover or
+  shift when shot at. Server key aiMedicCover (on). On a 30-fight test run a
+  medic running in the fight cost its side more than its kits gave back, with
+  smoke thrown for the run or not; with this rule its side lived about as well
+  as with no medic. The medic check's fights are longer (all with three times
+  their health, both sides behind low walls, four against five) and split
+  three ways: no medic, a medic without this, a medic with it.
+
+## X1109
+
+- AI soldiers in a fight now weigh height when picking cover: a spot above
+  the enemy counts for more (twice for a squad's base of fire), a spot where
+  their head shows against the sky costs. On a slope they look for cover
+  farther up and down the side facing the enemy, but never down onto the
+  enemy's level, in front of their own squad's fire.
 
 ## X1107
 

@@ -66,6 +66,7 @@ public final class AiThoughts {
         MARKSMAN("marksman: to its perch, single shots from afar"),
         GRENADIER("grenadier: a 40 mm shell lobbed at them"),
         MEDIC("medic: to one hurt, or treating them"),
+        WOUNDED("hurt: to cover, a medic to come"),
         ORDER("its side's order: to an area where they are, looks through it");
 
         final String label;

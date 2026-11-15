@@ -56,6 +56,38 @@ public final class AiCommander {
     /** an order lasts this long unless given again, ticks */
     static final int LASTS = 400;
 
+    /**
+     * the server setting: the side's staff (stage 7): its map of the land and its ways (C1); off: as R5b, straight
+     * legs; off only for the stands' "before"
+     */
+    public static final String STAFF_KEY = "aiCommanderStaff";
+    static boolean staff = true;
+    /** a squad's way is made again when its area moved this far from where the way ends, blocks; a way's point is reached this near */
+    static final double REROUTE = 24, REACHED = 6;
+    /** new ways a side asks for at most each time it gives its orders (the rest keep theirs or go straight till the next) */
+    static final int WAYS = 3;
+    static final int ROUTE_FAILS = 3;
+    /** new ways the side giving its orders now may still make */
+    private static int waysLeft;
+    /** the stands: ways made, their time off the server thread (ns); the last ways, for the stands to count (cleared by them) */
+    public static final java.util.concurrent.atomic.AtomicLong routes = new java.util.concurrent.atomic.AtomicLong(), routeNanos = new java.util.concurrent.atomic.AtomicLong();
+    static final List<HqGrid.Route> made = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * A squad's way as asked for (C1): looked for off the server thread over the staff's map; each of the squad takes
+     * it up once it is there. Its route null when done: no way, straight legs.
+     */
+    static final class Way {
+        final double toX, toZ;
+        volatile HqGrid.@Nullable Route route;
+        volatile boolean done;
+
+        Way(double toX, double toZ) {
+            this.toX = toX;
+            this.toZ = toZ;
+        }
+    }
+
     /** the server setting: the reserve goes where its side loses soldiers (R5b); off only for the stands' "before" */
     public static final String HELP_KEY = "aiCommanderHelp";
     static boolean help = true;
@@ -79,11 +111,23 @@ public final class AiCommander {
         int inside, fails;
         /** its place in the squad, for a spread of the legs' ends */
         int slot, of;
+        /** the staff's way there as asked for (stage 7 C1, the squad's one); null: straight, as R5 */
+        @Nullable Way way;
+        /** a way walked to its end: not taken up again (on from there in straight legs) */
+        @Nullable Way walked;
+        /** the way once taken up, the point of it it goes to next; null: straight (none yet, or none) */
+        HqGrid.@Nullable Route route;
+        int at;
+        /** legs of the way that could not be walked, one after another; at ROUTE_FAILS it walks straight (as R5) for the rest of the order */
+        int routeFails;
+        boolean noRoute;
     }
 
     /** a side's own: its next orders */
     private static final class Side {
         long next = Long.MIN_VALUE;
+        /** the side's reports seen (a new one: its map made again) */
+        long reports;
     }
 
     private static final Map<ServerLevel, Map<String, Side>> LEVELS = new WeakHashMap<>();
@@ -100,6 +144,11 @@ public final class AiCommander {
     public static void forget(ServerLevel level) {
         LEVELS.remove(level);
         AiIntel.forget(level);
+        AiHqMap.forget(level);
+    }
+
+    static boolean staff() {
+        return staff && ReaimTimes.flag(STAFF_KEY, true);
     }
 
     static boolean help() {
@@ -161,6 +210,17 @@ public final class AiCommander {
         reportDue.put(level, AiIntel.tick(level, own, now));
         for (var e : byTeam.entrySet()) {
             Side side = sides.computeIfAbsent(e.getKey(), t -> new Side());
+            // a new report: the staff's map made again (off the server thread)
+            long reports = AiIntel.reports(level, e.getKey());
+            if (reports != side.reports) {
+                side.reports = reports;
+                if (staff()) {
+                    // the map round its squads (those it gives orders to), not its loners or sleepers far off
+                    List<AiBot> inSquads = new ArrayList<>();
+                    for (AiSquads.Squad s : e.getValue()) inSquads.addAll(s.bots);
+                    AiHqMap.report(level, e.getKey(), inSquads, AiIntel.groups(level, e.getKey()));
+                }
+            }
             if (now < side.next) continue;
             side.next = now + EVERY_MIN + level.getRandom().nextInt(EVERY_MAX - EVERY_MIN + 1);
             command(level, e.getKey(), side, e.getValue(), now);
@@ -170,6 +230,7 @@ public final class AiCommander {
 
     private static void command(ServerLevel level, String team, Side side, List<AiSquads.Squad> squads, long now) {
         List<Group> groups = groups(level, team);
+        waysLeft = WAYS;
         commandedAt.put(team, now);
         Map<Group, Integer> sent = new java.util.IdentityHashMap<>();
         List<AiSquads.Squad> going = new ArrayList<>(), idle = new ArrayList<>();
@@ -189,7 +250,7 @@ public final class AiCommander {
             Group g = going(s, groups, now);
             if (g != null && !failed(s, g, now) && sent.getOrDefault(g, 0) < room(g, now)) {
                 sent.merge(g, 1, Integer::sum);
-                give(s, g, now, false);
+                give(level, team, s, g, now, false);
             } else idle.add(s);
         }
         // the rest: each the nearest group with room, not one it gave up lately; none: the reserve
@@ -228,7 +289,7 @@ public final class AiCommander {
             }
             if (helping) helped++;
             sent.merge(best, 1, Integer::sum);
-            give(s, best, now, true);
+            give(level, team, s, best, now, true);
         }
     }
 
@@ -271,10 +332,11 @@ public final class AiCommander {
     }
 
     /** the area for the group: its circle, as the side's picture has it now (AiIntel) */
-    private static void give(AiSquads.Squad s, Group g, long now, boolean fresh) {
+    private static void give(ServerLevel level, String team, AiSquads.Squad s, Group g, long now, boolean fresh) {
         double x = g.x(), z = g.z(), r = g.r();
         if (fresh) orders++;
         int[] ids = g.ids();
+        Way way = way(level, team, s, g, x, z);
         int i = 0;
         for (AiBot b : s.bots) {
             // the same group (one of its members still in it): the same order, its time in the area kept
@@ -287,8 +349,96 @@ public final class AiCommander {
             o.until = now + LASTS;
             o.slot = i++;
             o.of = s.bots.size();
+            // a new way (none, or the area moved on): taken up afresh, straight legs given up on the last one left
+            if (o.way != way && (way == null || o.walked != way)) {
+                o.way = way;
+                o.route = null;
+                o.noRoute = false;
+                o.routeFails = 0;
+                takeUp(o, b);
+            } else if (o.noRoute) o.route = null;
+            else if (o.route != null && far(o.route, o.at, b)) o.at = ahead(o.route, b.mob.getX(), b.mob.getZ());
             b.order = o;
         }
+    }
+
+    /**
+     * The squad's way to the area (stage 7 C1): the one it has (or waits for) while the area is about where it was
+     * asked to go, else a new one looked for off the server thread over the staff's map (null: no staff, no map yet,
+     * none left to ask for this time: straight legs as R5)
+     */
+    private static @Nullable Way way(ServerLevel level, String team, AiSquads.Squad s, Group g, double x, double z) {
+        if (!staff()) return null;
+        for (AiBot b : s.bots) {
+            if (b.order == null || !g.any(b.order.ids)) continue;
+            // the one it goes by or waits for; or one walked to its end (not one that ended short, at the map's edge:
+            // the map has moved on with the squad since)
+            Way w = b.order.way != null ? b.order.way : b.order.walked;
+            if (w == null || w == b.order.walked && w.route != null && w.route.partial()) continue;
+            if (Math.hypot(w.toX - x, w.toZ - z) <= REROUTE) return w;
+        }
+        HqGrid grid = AiHqMap.of(level, team);
+        if (grid == null || waysLeft <= 0) return null;
+        waysLeft--;
+        double sx = 0, sz = 0;
+        for (AiBot b : s.bots) {
+            sx += b.mob.getX() / s.bots.size();
+            sz += b.mob.getZ() / s.bots.size();
+        }
+        Way w = new Way(x, z);
+        double fx = sx, fz = sz;
+        try {
+            AiThreads.submit(() -> {
+                try {
+                    long t0 = System.nanoTime();
+                    HqGrid.Route r = grid.route(fx, fz, x, z);
+                    routeNanos.addAndGet(System.nanoTime() - t0);
+                    if (r != null) {
+                        routes.incrementAndGet();
+                        if (made.size() < 1000) made.add(r);
+                    }
+                    w.route = r;
+                } finally {
+                    w.done = true;
+                }
+            });
+        } catch (RuntimeException x2) {
+            return null;
+        }
+        return w;
+    }
+
+    /** the squad's way, once looked for: taken up from the point of it ahead of the soldier */
+    private static void takeUp(Order o, AiBot b) {
+        Way w = o.way;
+        if (o.route != null || w == null || !w.done) return;
+        o.route = w.route;
+        o.at = o.route == null ? 0 : ahead(o.route, b.mob.getX(), b.mob.getZ());
+        // its first leg at once, not when the straight one walked meanwhile is due again
+        if (o.route != null) o.nextLeg = Long.MIN_VALUE;
+    }
+
+    /** the point of a way a soldier here goes to next: the end of the stretch of the way nearest it */
+    static int ahead(HqGrid.Route r, double x, double z) {
+        int best = 0;
+        double bestD = Double.MAX_VALUE, px = r.fromX(), pz = r.fromZ();
+        for (int j = 0; j < r.size(); j++) {
+            double qx = r.x(j), qz = r.z(j), lx = qx - px, lz = qz - pz, l2 = lx * lx + lz * lz;
+            double t = l2 == 0 ? 1 : Mth.clamp(((x - px) * lx + (z - pz) * lz) / l2, 0, 1);
+            double d = Math.hypot(px + lx * t - x, pz + lz * t - z);
+            if (d < bestD) {
+                bestD = d;
+                best = j;
+            }
+            px = qx;
+            pz = qz;
+        }
+        return best;
+    }
+
+    /** a soldier farther than a leg from the point of the way it is going to (left it in a fight, or a new squad's) */
+    private static boolean far(HqGrid.Route r, int at, AiBot b) {
+        return Math.hypot(r.x(at) - b.mob.getX(), r.z(at) - b.mob.getZ()) > HqGrid.LEG;
     }
 
     /**
@@ -326,6 +476,40 @@ public final class AiCommander {
                 if (o.failedAt - d >= PROGRESS) o.fails = 0;
                 o.failedAt = d;
                 if (++o.fails >= FAILS) return giveUp(bot, o, tick);
+            }
+            // the staff's way: to its points one after another, each a short walk (C1); a leg that fails is walked
+            // round as R5's are, and the way taken up again from where it is then
+            if (o.route == null && !o.noRoute) takeUp(o, bot);
+            HqGrid.Route way = o.route;
+            if (way != null && staff()) {
+                int was = o.at;
+                while (o.at < way.size() - 1 && Math.hypot(way.x(o.at) - bot.mob.getX(), way.z(o.at) - bot.mob.getZ()) <= REACHED) o.at++;
+                // a point that could not be walked to: the next one; again and again, the way is left for straight legs
+                if (stuck && ++o.routeFails >= ROUTE_FAILS) {
+                    o.route = null;
+                    o.noRoute = true;
+                    // the straight legs counted from here
+                    o.fails = 0;
+                    o.failedAt = Double.MAX_VALUE;
+                } else {
+                    if (stuck) o.at = Math.min(o.at + 1, way.size() - 1);
+                    if (bot.mover.arrived()) o.routeFails = 0;
+                    // the end of the way (short of the area when that was off the staff's map, or the area moved on
+                    // less than REROUTE): on from there in straight legs
+                    if (o.at == way.size() - 1 && Math.hypot(way.x(o.at) - bot.mob.getX(), way.z(o.at) - bot.mob.getZ()) <= REACHED) {
+                        o.route = null;
+                        o.walked = o.way;
+                        o.way = null;
+                    } else {
+                        if (tick >= o.nextLeg || bot.mover.arrived() || stuck || o.at != was) {
+                            if (bot.mover.arrived()) o.fails = 0;
+                            o.nextLeg = tick + LEG_AGAIN;
+                            double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of > 1 ? 3 : 0;
+                            go(bot, level, way.x(o.at) + Math.cos(a) * spread, way.z(o.at) + Math.sin(a) * spread);
+                        }
+                        return true;
+                    }
+                }
             }
             if (tick >= o.nextLeg || bot.mover.arrived() || stuck) {
                 if (bot.mover.arrived()) o.fails = 0;
@@ -371,7 +555,7 @@ public final class AiCommander {
 
     /** /armsai info */
     public static String info() {
-        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d sent where the side loses soldiers, %d groups given up; %s", orders,
-                reserve, helped, gaveUp, AiIntel.info());
+        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d sent where the side loses soldiers, %d groups given up, %d ways (%.2f ms each, off the server thread); %s; %s", orders,
+                reserve, helped, gaveUp, routes.get(), routes.get() == 0 ? 0 : routeNanos.get() / 1e6 / routes.get(), AiIntel.info(), AiHqMap.info());
     }
 }

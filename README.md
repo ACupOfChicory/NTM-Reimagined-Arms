@@ -262,16 +262,21 @@ page. They are alphas: expect bugs and back up your world.
 - A squad may have a medic: it runs to one of its own (or to you, if you are
   on its team) who has lost more than 40% of their health, when the way is out
   of the enemy's sight, kneels by them three seconds, not firing, and gives
-  half their health back; it treats itself too. `/armsai spawn` with a number
-  makes medics by chance; `role medic` makes one by word (server keys
-  `aiMedic`, `aiMedicKits`, `aiMedicShare`).
+  half their health back; it treats itself too. While its squad sees the enemy
+  it only fights and treats no one; the hurt take cover as they fight and stay
+  in it. `/armsai spawn` with a number makes medics by chance; `role medic`
+  makes one by word (server keys `aiMedic`, `aiMedicKits`, `aiMedicShare`,
+  `aiMedicCover`).
 - A team of bots that knows of no one comes for you: its commander sends each
   of its squads, two at most to one group, to roughly where you, or another
   team it fights, are (an area of radius 16 to 32 blocks, wider the longer
   none of them has seen you), and the squad looks through it with its own
   eyes. A minute there with no one found, and the squad goes for another
   group. Where the team loses soldiers, one squad more may go: the reserve
-  comes up (server keys `aiCommander`, `aiCommanderHelp`).
+  comes up. The squads go there by the commander's own map of the land:
+  behind hills and through woods where the enemy would see them in the open,
+  round deep water and cliffs (server keys `aiCommander`, `aiCommanderHelp`,
+  `aiCommanderStaff`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
