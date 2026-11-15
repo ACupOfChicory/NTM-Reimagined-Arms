@@ -1,0 +1,417 @@
+# Who made each file and under which license (REUSE 3.x, https://reuse.software/spec/).
+# Everything is ACupOfChicory's under GPL-3.0-or-later unless a later table names it: new files need no entry.
+# When several tables match a file, the last one wins. License texts are in LICENSES/.
+version = 1
+
+[[annotations]]
+path = "**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 ACupOfChicory"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Notices about other people's work: our text, whatever license the text quotes.
+[[annotations]]
+path = "third-party/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 ACupOfChicory"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Copies of the GPL itself.
+[[annotations]]
+path = [
+    "third-party/superb-warfare-GPL-3.0.txt",
+    "third-party/tacz-GPL-3.0.txt",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Free Software Foundation, Inc. <https://fsf.org/>"
+SPDX-License-Identifier = "LicenseRef-FSF-verbatim"
+
+# Gradle's wrapper.
+[[annotations]]
+path = [
+    "gradle/wrapper/gradle-wrapper.jar",
+    "gradle/wrapper/gradle-wrapper.properties",
+    "gradlew",
+    "gradlew.bat",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2015 the original authors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Code adapted from Superb Warfare (third-party/superb-warfare.txt).
+[[annotations]]
+path = "src/main/java/acup/gunfeel/WeaponSway.java"
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "Mercurows and contributors to Superb Warfare",
+    "2026 ACupOfChicory",
+]
+SPDX-License-Identifier = "GPL-3.0-only"
+
+# Code copied from TaCZ (third-party/tacz.txt).
+[[annotations]]
+path = "src/main/java/acup/gunfeel/tacz/**"
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "MCModderAnchor and contributors to TaCZ",
+    "2026 ACupOfChicory",
+]
+SPDX-License-Identifier = "GPL-3.0-only"
+
+# Code adapted in part from Countered's Accurate Hitboxes (third-party/accurate-hitboxes.txt).
+[[annotations]]
+path = [
+    "src/main/java/acup/gunfeel/ModelBox.java",
+    "src/main/java/acup/gunfeel/ModelPoseCapture.java",
+    "src/main/java/acup/gunfeel/ModelHitClient.java",
+    "src/main/java/acup/gunfeel/mixin/mc/ModelPartAccess.java",
+    "src/main/java/acup/gunfeel/mixin/mc/MixinLivingModelHits.java",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "Countered",
+    "2026 ACupOfChicory",
+]
+SPDX-License-Identifier = "MIT AND GPL-3.0-or-later"
+
+# GL-54 model: a modified derivative of "Low-Poly XM-29 OICW" by TastyTony (third-party/gl54-model.txt).
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/models/weapons/gl54.obj",
+    "src/main/resources/assets/ntmgunfeel/models/weapons/gl54.hbm_mesh",
+    "src/main/resources/assets/ntmgunfeel/models/weapons/gl54_casing.json",
+    "src/main/resources/assets/ntmgunfeel/models/weapons/gl54_reflex.json",
+    "src/main/resources/assets/ntmgunfeel/models/weapons/animations/gl54.json",
+    "src/main/resources/assets/ntmgunfeel/textures/models/weapons/gl54.png",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "TastyTony <https://sketchfab.com/TastyTony>",
+    "2026 ACupOfChicory",
+]
+SPDX-License-Identifier = "CC-BY-4.0"
+
+# GL-54 grenade and magazine textures (third-party/gl54-textures.txt).
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_grenade_base.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_grenade_mask.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag_empty.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag_mask_0.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag_mask_1.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag_mask_2.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag_mask_3.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag_mask_4.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag_mask_5.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag_mask_6.png",
+    "src/main/resources/assets/ntmgunfeel/textures/item/gl54_mag_mask_7.png",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Nuclear GrandFather"
+SPDX-License-Identifier = "LicenseRef-NuclearGrandFather-permission"
+
+# AI mob clips from Quaternius' and Kay Lousberg's packs (third-party/bot-animations.txt).
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/animations/bot.animation.json",
+    "tools/quaternius/animations/*.animation.json",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "Quaternius",
+    "Kay Lousberg <https://www.kaylousberg.com>",
+    "2026 ACupOfChicory",
+]
+SPDX-License-Identifier = "CC0-1.0"
+
+# AI mob call-outs, spoken by Kokoro-82M (third-party/ai-voices.txt).
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/ai/voice/v*/*.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "hexgrad (Kokoro-82M)",
+    "2026 ACupOfChicory",
+]
+SPDX-License-Identifier = "Apache-2.0"
+
+# Bullet sounds from freesound.org (sounds/bullet/CREDITS.txt).
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/whizz1.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "Daleonfire"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/people/Daleonfire/sounds/505238/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/whizz2.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "modusmogulus"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/people/modusmogulus/sounds/789222/"
+
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/whizz3.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/whizz4.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/whizz5.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/whizz6.ogg",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "GO_s0unds123"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/people/GO_s0unds123/sounds/730351/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/whizz7.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "TheLittleCrow"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/people/TheLittleCrow/sounds/496509/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/crack1.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "morganpurkis"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/people/morganpurkis/sounds/386854/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/crack2.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "qubodup"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/people/qubodup/sounds/855248/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/wood1.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "NoiseCollector"
+SPDX-License-Identifier = "CC-BY-3.0"
+SPDX-FileComment = "https://freesound.org/s/237448/"
+
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/wood2.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/wood3.ogg",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "CGEffex"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/96636/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/wood4.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "110110010"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/66396/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/wood5.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "jackyyang09"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/506718/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/wood6.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "jorickhoofd"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/178744/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/wood7.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "VitaWrap"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/345679/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/dirt1.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "worthahep88"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/319222/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/dirt2.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "worthahep88"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/319229/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/dirt3.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "modusmogulus"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/789388/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/gravel1.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "jorickhoofd"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/169557/"
+
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/gravel2.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/gravel3.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/gravel4.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/gravel5.ogg",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "lolamadeus"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/179341/"
+
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/gravel6.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/gravel7.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/gravel8.ogg",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "Julien Nicolas"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/133783/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/gravel9.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "toxicwafflezz"
+SPDX-License-Identifier = "CC-BY-3.0"
+SPDX-FileComment = "https://freesound.org/s/150839/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/stone1.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "kevinklang"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/843547/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/stone2.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "toxicwafflezz"
+SPDX-License-Identifier = "CC-BY-3.0"
+SPDX-FileComment = "https://freesound.org/s/150837/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/stone3.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "OGsoundFX"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/423107/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/stone4.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "OGsoundFX"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/423106/"
+
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/concrete1.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/concrete2.ogg",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "dslrguide"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/321478/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/concrete3.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "dslrguide"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/321477/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/concrete4.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "InMotionAudio"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/702860/"
+
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/metal1.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/metal2.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/metal3.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/metal4.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/metal5.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/metal6.ogg",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "martian"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/182263/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/metal7.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "BBoz87"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/671098/"
+
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel1.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel2.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel3.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel4.ogg",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "craigsmith"
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileComment = "https://freesound.org/s/675951/"
+
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel5.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel6.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel7.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel8.ogg",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "gezortenplotz"
+SPDX-License-Identifier = "CC-BY-3.0"
+SPDX-FileComment = "https://freesound.org/s/43403/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel9.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "tomlyne"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/833262/"
+
+[[annotations]]
+path = [
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel10.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel11.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel12.ogg",
+    "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel13.ogg",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "mikiko850"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/854335/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel14.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "NoiseCollector"
+SPDX-License-Identifier = "CC-BY-3.0"
+SPDX-FileComment = "https://freesound.org/s/237444/"
+
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/sounds/bullet/hit/steel15.ogg"
+precedence = "override"
+SPDX-FileCopyrightText = "jorickhoofd"
+SPDX-License-Identifier = "CC-BY-4.0"
+SPDX-FileComment = "https://freesound.org/s/176669/"

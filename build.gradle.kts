@@ -552,6 +552,9 @@ val slowTest = tasks.register<Test>("slowTest") {
 }
 tasks.test {
     useJUnitPlatform { excludeTags("slow") }
+    // ReuseTomlTest reads who made each file from the repository root
+    inputs.file(root.resolve("REUSE.toml")).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(root.resolve("LICENSES")).withPathSensitivity(PathSensitivity.RELATIVE)
     // test JVMs side by side, each some 400 MB (up to 512 MB of heap): three while the machine keeps 5 GB free after them,
     // fewer when it would not (one without /proc/meminfo); -PtestForks=<n> sets it
     maxParallelForks = providers.gradleProperty("testForks").orNull?.toInt() ?: run {
