@@ -476,6 +476,7 @@ public final class AiBots {
         // a supplier down: its stock stays where it fell (AiSupply)
         AiBot fallen = get(victim);
         if (fallen != null) AiSupply.fell(level, fallen, tick);
+        if (fallen != null) AiMedic.fell(fallen);
         double r2 = AiConfidence.NEAR * AiConfidence.NEAR;
         AiBot nearest = null;
         double best = Double.MAX_VALUE;

@@ -262,9 +262,11 @@ page. They are alphas: expect bugs and back up your world.
 - A squad may have a medic: it runs to one of its own (or to you, if you are
   on its team) who has lost more than 40% of their health, when the way is out
   of the enemy's sight, kneels by them three seconds, not firing, and gives
-  half their health back; it treats itself too. `/armsai spawn` with a number
-  makes medics by chance; `role medic` makes one by word (server keys
-  `aiMedic`, `aiMedicKits`, `aiMedicShare`).
+  half their health back; it treats itself too. One of its own hurt out in the
+  open, it first throws smoke between them and the enemy, if it can throw that
+  far; the hurt themselves go to cover and wait for it. `/armsai spawn` with a
+  number makes medics by chance; `role medic` makes one by word (server keys
+  `aiMedic`, `aiMedicKits`, `aiMedicShare`, `aiMedicCover`).
 - A team of bots that knows of no one comes for you: its commander sends each
   of its squads, two at most to one group, to roughly where you, or another
   team it fights, are (an area of radius 16 to 32 blocks, wider the longer

@@ -198,6 +198,9 @@ public final class AiSoldier implements AiBrain {
     public int fallBacks;
     /** its last smoke grenade (AiSmoke), the tick */
     private long lastSmoke = Long.MIN_VALUE / 2;
+    /** hurt, a medic to come: its next look for cover (AiMedic.waits) */
+    private long nextWounded;
+    static final int WOUNDED_GAP = 40;
     private long peekThere;
     /** heard only, in cover: when it looks out again */
     private long lookAgain;
@@ -751,6 +754,8 @@ public final class AiSoldier implements AiBrain {
         TacticalMap map = TacticalMap.of(level);
         // shaken: back to cover farther off, one wave of its squad at a time
         if (fallBack(bot, level, map, c, eye, tick)) return;
+        // hurt, a medic of its squad to treat it: to cover where the medic can come, and it waits there (AiMedic)
+        if (wounded(bot, level, map, c, eye, tick)) return;
         // a marksman with a target far off: from its perch (AiMarksman)
         if (AiMarksman.step(this, bot, level, c, tick)) {
             why = Why.MARKSMAN;
@@ -766,11 +771,11 @@ public final class AiSoldier implements AiBrain {
         if (hurt != null && hurt.hurt && hurt.tick != hitSeen) {
             hitSeen = hurt.tick;
             if (spot != null && (mode == Mode.COVER || mode == Mode.PEEK) && tick - lastShift > SHIFT_GAP && !bot.prone.fresh(tick)
-                    && !bot.confidence.fallsBack(tick) && AiChoice.ask(bot, Ask.SHIFT_ON_HIT, bot.mob.getRandom().nextFloat() < SHIFT_HIT, tick)) shift(bot, tick, "shot at in cover: other cover");
+                    && !bot.confidence.fallsBack(tick) && !AiMedic.waits(bot) && AiChoice.ask(bot, Ask.SHIFT_ON_HIT, bot.mob.getRandom().nextFloat() < SHIFT_HIT, tick)) shift(bot, tick, "shot at in cover: other cover");
         }
         // in cover a while: a better place, if there is one now
         if (spot != null && mode == Mode.COVER && bot.mover.arrived() && !bot.prone.fresh(tick) && AiSquads.mayMove(bot) && !bot.confidence.fallsBack(tick)
-                && AiChoice.ask(bot, Ask.BETTER_COVER, tick >= nextBetter, tick)) {
+                && (tick < nextBetter || !AiMedic.waits(bot)) && AiChoice.ask(bot, Ask.BETTER_COVER, tick >= nextBetter, tick)) {
             nextBetter = tick + BETTER_MIN + bot.mob.getRandom().nextInt(BETTER_MAX - BETTER_MIN);
             List<Vec3> all = threats(bot, c, eye);
             CoverQuery.Spot better = query(bot, level, map, all, false, true);
@@ -1355,21 +1360,63 @@ public final class AiSoldier implements AiBrain {
     }
 
     /**
+     * Hurt with a medic of its squad to come (AiMedic.waits) and out of cover, nor on its way to one: to cover now,
+     * whoever else of its squad moves (no waves), a look again WOUNDED_GAP later. Whether it went.
+     */
+    private boolean wounded(AiBot bot, ServerLevel level, TacticalMap map, TargetMemory.Contact c, Vec3 eye, long tick) {
+        if (tick < nextWounded || bot.prone.lying() || spot != null && (bot.mover.arrived() || mode == Mode.TO_COVER) || !AiMedic.waits(bot)) return false;
+        nextWounded = tick + WOUNDED_GAP;
+        List<Vec3> all = threats(bot, c, eye);
+        // cover it fights from as any other (out of their sight there, a peek to fire): hurt, not out of the fight
+        CoverQuery.Spot to = query(bot, level, map, all, false, true);
+        if (to == null || spot != null && to.cell() == spot.cell()) return false;
+        go(bot, level, to, all);
+        AiMedic.toCover++;
+        event(bot, tick, "hurt: to cover for the medic");
+        why = Why.WOUNDED;
+        return true;
+    }
+
+    /**
      * A smoke grenade half the way to the threat (AiSmoke), as it falls back: one left, the threat not too near, none by
      * it or its squad a while, the throw bursting within AiGrenades.LAND of the place. Whether it threw.
      */
     private boolean smoke(AiBot bot, ServerLevel level, Vec3 threat, long tick) {
+        return smoke(bot, level, bot.mob.position(), threat, true, tick);
+    }
+
+    /**
+     * A smoke grenade from it to between {@code from} and the threat: AiSmoke.aim of the way from itself; from one of its
+     * squad a medic goes to (AiMedic; {@code squad} false), for each of AiSmoke.MEDIC_FORCES the place on that line,
+     * MIN to MAX blocks off them, nearest where that throw lands, the first that a throw gets to. The squad's last cloud
+     * a while ago too, if {@code squad}.
+     */
+    boolean smoke(AiBot bot, ServerLevel level, Vec3 from, Vec3 threat, boolean squad, long tick) {
         if (!AiSmoke.on || bot.smokes <= 0 || AiWater.swims(bot.mob)) return noSmoke(0);
         if (!AiSmoke.ready()) return noSmoke(1);
         if (!acup.gunfeel.smoke.SmokeClouds.enabled()) return noSmoke(2);
-        double dx = threat.x - bot.mob.getX(), dz = threat.z - bot.mob.getZ(), d = Math.hypot(dx, dz);
+        double dx = threat.x - from.x, dz = threat.z - from.z, d = Math.hypot(dx, dz);
         if (d < AiSmoke.NEAR || tick - lastSmoke < AiSmoke.GAP) return noSmoke(3);
-        AiSquads.Squad s = AiSquads.of(bot);
+        AiSquads.Squad s = squad ? AiSquads.of(bot) : null;
         if (s != null) for (AiBot o : s.bots)
             if (o != bot && o.brain instanceof AiSoldier os && tick - os.lastSmoke < AiSmoke.GAP) return noSmoke(3);
         if (!AiGrenades.mayPlan(level, tick)) return noSmoke(4);
-        double r = AiSmoke.aim(d);
-        AiGrenades.Throw th = AiGrenades.plan(level, bot.mob, new Vec3(bot.mob.getX() + dx / d * r, bot.mob.getY(), bot.mob.getZ() + dz / d * r), true, 0);
+        AiGrenades.Throw th = null;
+        if (squad) {
+            double r = AiSmoke.aim(d);
+            th = AiGrenades.plan(level, bot.mob, new Vec3(from.x + dx / d * r, from.y, from.z + dz / d * r), true, 0);
+        } else for (double force : AiSmoke.MEDIC_FORCES) {
+            double land = AiSmoke.THROW_AT * (force / AiSmoke.FORCE) * (force / AiSmoke.FORCE), r = AiSmoke.MIN, best = Double.MAX_VALUE;
+            for (double k = AiSmoke.MIN; k <= Math.min(AiSmoke.MAX, d - 2); k += 0.5) {
+                double off = Math.abs(Math.hypot(from.x + dx / d * k - bot.mob.getX(), from.z + dz / d * k - bot.mob.getZ()) - land);
+                if (off < best) {
+                    best = off;
+                    r = k;
+                }
+            }
+            th = AiGrenades.plan(level, bot.mob, new Vec3(from.x + dx / d * r, from.y, from.z + dz / d * r), true, 0, force);
+            if (th != null) break;
+        }
         if (th == null) return noSmoke(5);
         AiSmoke.toss(level, bot.mob, th);
         bot.smokes--;
