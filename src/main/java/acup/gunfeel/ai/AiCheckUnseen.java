@@ -28,27 +28,36 @@ import net.neoforged.neoforge.common.util.FakePlayer;
 /**
  * The AI check's player who was in creative: a fake player in the level (as a real one is, in its list of players),
  * in creative, spawns two AI dummies by them (as /armsai spawn does), walks twelve blocks off and shoots, then goes
- * to survival and stands in the open in front of them. Each dummy must pull the trigger soon after. Three rounds on
- * a field of its own east of the crowd's: the open field with the player's sounds heard (as before creative players
- * were unheard: the sounds a little aside of them), the open field with them unheard (the dummies facing the player),
- * and the field with a wall to hide behind (the dummy runs to it with its back to the player, then fights from it). A trace of every dummy (its mode, what it knows of the player, where it looks) goes next to the
- * result file.
+ * to survival and stands in the open in front of them. Each dummy must pull the trigger soon after. The dummies are
+ * set side by side, ASIDE blocks either side of the player's way. Four rounds on a field of its own east of the
+ * crowd's: the open field with the player's sounds heard (as before creative players were unheard: the sounds a
+ * little aside of them), the open field with them unheard (the dummies facing the player), the field with a wall to
+ * hide behind (the dummy runs to it with its back to the player, then fights from it), and the open field with one
+ * dummy right behind the other on the player's way (it holds its fire for its own in the line, AiGunner, and steps
+ * aside, AiSoldier.sidestep). A trace of every dummy (its mode, what it knows of the player, where it looks) goes
+ * next to the result file.
  */
 final class AiCheckUnseen {
     static final int X0 = 140, Z0 = 4, SIZE = 40;
     /** where the player spawns the dummies and where they walk to */
     static final double PX = 160.5, PZ0 = 30.5, PZ1 = 18.5;
     static final int DUMMIES = 2;
+    /** the dummies stand this far either side of the player's way, blocks */
+    static final double ASIDE = 3;
     // the round's ticks: standing, walking off, shooting, survival from SWITCH on, the round over at END at most
     static final int WALK = 20, STAND = 80, SWITCH = 140, END = 440;
     /** the ticks after survival by which each dummy must have pulled the trigger: in the open, with a wall to get behind */
     static final int OPEN_LIMIT = 60, COVER_LIMIT = 200;
 
-    private record Round(String name, boolean heard, boolean wall) {
+    /** the ticks after survival by which the one behind its own (the line round) must have pulled the trigger */
+    static final int LINE_LIMIT = 100;
+
+    /** line: one dummy right behind the other on the way to the player (the one behind has to step aside to fire) */
+    private record Round(String name, boolean heard, boolean wall, boolean line) {
     }
 
-    private static final List<Round> ROUNDS = List.of(new Round("open field, heard", true, false), new Round("open field, unheard", false, false),
-            new Round("a wall to hide behind, heard", true, true));
+    private static final List<Round> ROUNDS = List.of(new Round("open field, heard", true, false, false), new Round("open field, unheard", false, false, false),
+            new Round("a wall to hide behind, heard", true, true, false), new Round("open field, one behind the other, heard", true, false, true));
 
     private final AiCheck check;
     private final ServerLevel level;
@@ -132,6 +141,14 @@ final class AiCheckUnseen {
         AiCheckReact.hittable(player);
         dummies.clear();
         dummies.addAll(AiSpawn.spawn(level, new Vec3(PX, y, PZ0), AiSpawn.Kind.DUMMY, DUMMIES, null));
+        // side by side across the player's way, ASIDE blocks either side of it: spawned by chance, one stood in the
+        // other's line to the player now and then, and the stand measured that, not hearing. That case has a round of
+        // its own: one right behind the other on the player's way (it must step aside, AiSoldier.sidestep)
+        for (int i = 0; i < dummies.size(); i++) {
+            Mob m = dummies.get(i);
+            if (r.line) m.snapTo(PX, m.getY(), i == 0 ? PZ0 + 3 : PZ0 - 2, m.getYRot(), m.getXRot());
+            else m.snapTo(PX + (i % 2 == 0 ? -ASIDE : ASIDE) * (1 + i / 2), m.getY(), PZ0 + 1, m.getYRot(), m.getXRot());
+        }
         // unheard, they turn nowhere: facing where the player will stand (north), as the player who stood in front
         // of them; one facing away from a player it never heard need not see them
         if (!r.heard) for (Mob m : dummies) {
@@ -213,7 +230,7 @@ final class AiCheckUnseen {
 
     private void finish() {
         Round r = ROUNDS.get(round);
-        int limit = r.wall ? COVER_LIMIT : OPEN_LIMIT;
+        int limit = r.line ? LINE_LIMIT : r.wall ? COVER_LIMIT : OPEN_LIMIT;
         StringBuilder each = new StringBuilder();
         boolean ok = !dummies.isEmpty(), anyHeard = false;
         double after = Math.max(1, ticks - SWITCH) / 20.0;
@@ -224,7 +241,9 @@ final class AiCheckUnseen {
             anyHeard |= heard[i];
         }
         check.out(String.format(Locale.ROOT, "     a player out of creative, %s: %d dummies, %s; hit %d times", r.name, dummies.size(), each, hits));
-        check.check("AI dummies that " + (r.heard ? "heard" : "did not hear") + " a player in creative shoot at them in survival within "
+        if (r.line) check.check("AI dummies one behind the other: the one behind steps out of its own's line and both shoot within " + limit / 20 + " s ("
+                + r.name + ")", ok);
+        else check.check("AI dummies that " + (r.heard ? "heard" : "did not hear") + " a player in creative shoot at them in survival within "
                 + limit / 20 + " s (" + r.name + ")", ok);
         if (!r.heard) check.check("the sounds about a player in creative go unheard", !anyHeard);
         for (Mob m : dummies) m.discard();
