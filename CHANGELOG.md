@@ -1,5 +1,12 @@
 # Changelog
 
+## X1102
+
+- AI soldiers in a fight look for cover they can shoot from: cover that only
+  hides them no longer crowds it out, and when nothing near lets them fire
+  they look ahead toward the enemy (a hillside in steps used to keep them
+  behind the crest).
+
 ## X1100
 
 - AI side commanders send the reserve where the side loses soldiers: for a

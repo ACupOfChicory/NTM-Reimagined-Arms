@@ -132,4 +132,63 @@ class CoverQueryTest {
         assertEquals(1, s.height());
         assertEquals(s.cell(), s.peek(), "shoots over it from where it stands");
     }
+
+    /**
+     * A ridge across x, six high at z = 22, a block lower every two either way; on its north side a low wall at z = 15,
+     * x 22..24, a block over the ground there. Every step on the south side is low cover from the north, none to shoot
+     * from (the crest is in the way); behind the wall one can shoot over it.
+     */
+    static PathSearchTest.Grid ridge() {
+        PathSearchTest.Grid g = new PathSearchTest.Grid(3);
+        for (int x = 0; x < 48; x++)
+            for (int z = 0; z < 48; z++)
+                for (int y = 0; y < ridgeHeight(z); y++) g.set(x, y, z, CellBuilderTest.STONE);
+        for (int x = 22; x <= 24; x++) g.set(x, ridgeHeight(15), 15, CellBuilderTest.STONE);
+        return g.build();
+    }
+
+    static int ridgeHeight(int z) {
+        return Math.max(0, 6 - Math.abs(z - 22) / 2);
+    }
+
+    @Test
+    void inAFightCoverToShootFromAheadIsTriedNotOnlyTheStepsNear() {
+        PathSearchTest.Grid g = ridge();
+        Vec3 north = new Vec3(23.5, 1.6, 2.5), self = new Vec3(23.5, ridgeHeight(26), 26.5);
+        CoverQuery.Params p = new CoverQuery.Params();
+        p.fight = true;
+        p.peekBonus = CoverQuery.PEEK_FIGHT;
+        p.othersSoft = true;
+        p.rayBudget = 48;
+        List<CoverQuery.Spot> spots = CoverQuery.find(g, rays(g), self, List.of(north), p, k -> false, CoverQuery.POOL);
+        assertFalse(spots.isEmpty());
+        CoverQuery.Spot best = spots.get(0);
+        assertEquals(16, BlockPos.getZ(best.cell()), "behind the wall over the crest: " + BlockPos.of(best.cell()));
+        assertTrue(best.hasPeek(), "shoots over it");
+        // going to a step far aside already: tried first, it is among what is found (as before the steps near took
+        // the rays, and it was not)
+        long far = BlockPos.asLong(37, ridgeHeight(26), 26);
+        p.current = far;
+        assertTrue(CoverQuery.find(g, rays(g), self, List.of(north), p, k -> false, 64).stream().anyMatch(s -> s.cell() == far));
+        CoverQuery.pick = false;
+        try {
+            assertTrue(CoverQuery.find(g, rays(g), self, List.of(north), p, k -> false, 64).stream().noneMatch(s -> s.cell() == far));
+        } finally {
+            CoverQuery.pick = true;
+        }
+        p.current = Long.MIN_VALUE;
+        // as before: the steps near fill the pool, none to shoot from, and the wall is never tried
+        CoverQuery.pick = false;
+        try {
+            List<CoverQuery.Spot> before = CoverQuery.find(g, rays(g), self, List.of(north), p, k -> false, CoverQuery.POOL);
+            assertFalse(before.isEmpty());
+            assertTrue(before.stream().noneMatch(CoverQuery.Spot::hasPeek), "the defect this is for: " + before);
+        } finally {
+            CoverQuery.pick = true;
+        }
+        // out of a fight it is as ever: the steps near hide it, that is all it asks
+        CoverQuery.Params calm = new CoverQuery.Params();
+        List<CoverQuery.Spot> hide = CoverQuery.find(g, rays(g), self, List.of(north), calm, k -> false, CoverQuery.POOL);
+        assertTrue(BlockPos.getZ(hide.get(0).cell()) > 22, "a step behind the crest: " + BlockPos.of(hide.get(0).cell()));
+    }
 }
