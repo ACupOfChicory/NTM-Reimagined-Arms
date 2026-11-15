@@ -1,5 +1,13 @@
 # Changelog
 
+## X1094
+
+- AI side commanders send the reserve where the side loses soldiers: for a
+  minute after an enemy downs one of the team (the one that downed it; else
+  whom its squad fought; else the group it was sent to), three squads may go
+  to that group instead of two, and a squad that would stay where it is goes
+  there. New server setting `aiCommanderHelp` (true).
+
 ## X1093
 
 - AI side commanders: every five to seven seconds, for each team of AI
