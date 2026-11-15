@@ -35,18 +35,11 @@ public final class AiSmoke {
     static boolean on = true;
     /** the burst this share of the way to the threat, from MIN to MAX blocks off */
     static final double SHARE = 0.5, MIN = 5, MAX = 10;
-    /** the throw it is best at, blocks (the middle of where a lob lands, FORCE) */
-    static final double THROW_AT = 7.5;
     /**
      * thrown this hard, blocks a tick (a frag's 1: its nearest burst, a lob, some 16 blocks off), with NTM's impact fuze
      * (it goes off where it first hits a block from half a second on): a lob lands 5 to 10 blocks off and stays there
      */
     static final double FORCE = 0.55;
-    /**
-     * a medic's smoke for one hurt farther off (AiMedic): FORCE, then harder; each lands about THROW_AT times the square
-     * of its share of FORCE off (a lob's way grows as the square of its speed)
-     */
-    static final double[] MEDIC_FORCES = {FORCE, 0.8, 1.0};
     /** none with the threat nearer than this, blocks (no time for the cloud) */
     static final double NEAR = 8;
     /** none again by it or its squad for this many ticks (35 seconds: a cloud now and then, the frags the more) */
@@ -112,9 +105,9 @@ public final class AiSmoke {
         return e instanceof EntityGrenadeUniversal g && g.getGrenadeItem().getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).contains(MARK);
     }
 
-    /** thrown by the mob with this turn, as hard as planned (FORCE, or a medic's harder throw: MEDIC_FORCES) */
+    /** thrown by the mob with this turn, FORCE hard */
     static void toss(ServerLevel level, Mob m, AiGrenades.Throw t) {
-        AiGrenades.launch(level, m, t, item(t.yaw()), t.share());
+        AiGrenades.launch(level, m, t, item(t.yaw()), FORCE / EnumGrenadeShell.FRAG.getYeetForce());
         thrown++;
     }
 

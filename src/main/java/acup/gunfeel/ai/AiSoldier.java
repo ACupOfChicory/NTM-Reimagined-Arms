@@ -1382,41 +1382,17 @@ public final class AiSoldier implements AiBrain {
      * it or its squad a while, the throw bursting within AiGrenades.LAND of the place. Whether it threw.
      */
     private boolean smoke(AiBot bot, ServerLevel level, Vec3 threat, long tick) {
-        return smoke(bot, level, bot.mob.position(), threat, true, tick);
-    }
-
-    /**
-     * A smoke grenade from it to between {@code from} and the threat: AiSmoke.aim of the way from itself; from one of its
-     * squad a medic goes to (AiMedic; {@code squad} false), for each of AiSmoke.MEDIC_FORCES the place on that line,
-     * MIN to MAX blocks off them, nearest where that throw lands, the first that a throw gets to. The squad's last cloud
-     * a while ago too, if {@code squad}.
-     */
-    boolean smoke(AiBot bot, ServerLevel level, Vec3 from, Vec3 threat, boolean squad, long tick) {
         if (!AiSmoke.on || bot.smokes <= 0 || AiWater.swims(bot.mob)) return noSmoke(0);
         if (!AiSmoke.ready()) return noSmoke(1);
         if (!acup.gunfeel.smoke.SmokeClouds.enabled()) return noSmoke(2);
-        double dx = threat.x - from.x, dz = threat.z - from.z, d = Math.hypot(dx, dz);
+        double dx = threat.x - bot.mob.getX(), dz = threat.z - bot.mob.getZ(), d = Math.hypot(dx, dz);
         if (d < AiSmoke.NEAR || tick - lastSmoke < AiSmoke.GAP) return noSmoke(3);
-        AiSquads.Squad s = squad ? AiSquads.of(bot) : null;
+        AiSquads.Squad s = AiSquads.of(bot);
         if (s != null) for (AiBot o : s.bots)
             if (o != bot && o.brain instanceof AiSoldier os && tick - os.lastSmoke < AiSmoke.GAP) return noSmoke(3);
         if (!AiGrenades.mayPlan(level, tick)) return noSmoke(4);
-        AiGrenades.Throw th = null;
-        if (squad) {
-            double r = AiSmoke.aim(d);
-            th = AiGrenades.plan(level, bot.mob, new Vec3(from.x + dx / d * r, from.y, from.z + dz / d * r), true, 0);
-        } else for (double force : AiSmoke.MEDIC_FORCES) {
-            double land = AiSmoke.THROW_AT * (force / AiSmoke.FORCE) * (force / AiSmoke.FORCE), r = AiSmoke.MIN, best = Double.MAX_VALUE;
-            for (double k = AiSmoke.MIN; k <= Math.min(AiSmoke.MAX, d - 2); k += 0.5) {
-                double off = Math.abs(Math.hypot(from.x + dx / d * k - bot.mob.getX(), from.z + dz / d * k - bot.mob.getZ()) - land);
-                if (off < best) {
-                    best = off;
-                    r = k;
-                }
-            }
-            th = AiGrenades.plan(level, bot.mob, new Vec3(from.x + dx / d * r, from.y, from.z + dz / d * r), true, 0, force);
-            if (th != null) break;
-        }
+        double r = AiSmoke.aim(d);
+        AiGrenades.Throw th = AiGrenades.plan(level, bot.mob, new Vec3(bot.mob.getX() + dx / d * r, bot.mob.getY(), bot.mob.getZ() + dz / d * r), true, 0);
         if (th == null) return noSmoke(5);
         AiSmoke.toss(level, bot.mob, th);
         bot.smokes--;
