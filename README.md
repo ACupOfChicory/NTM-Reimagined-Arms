@@ -290,6 +290,9 @@ page. They are alphas: expect bugs and back up your world.
   then steps back behind the wall; they go in after it bursts. It is thrown
   only where the burst reaches none of their own (server keys
   `aiEntryGrenade`, `aiEntryGrenadeFilling`).
+- They point at a target they call out, wave their own on, put a hand to a
+  door they open and hold the gun close beside a doorway (server key
+  `aiGestures`).
 - They search a building room after room, two to a room, and do not go back
   into a room already checked (server key `aiClearing`). Into the next room
   inside they go as into the first: from beside the doorway, together (with

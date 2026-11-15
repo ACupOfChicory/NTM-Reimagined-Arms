@@ -31,6 +31,8 @@ public final class AiVoice {
     public static final float VOLUME = 1F, RANGE = 32F;
     /** ticks: a mob says nothing again so soon; no one says a thing within CHATTER_NEAR of one who just did */
     static final int BOT_GAP = 80, CHATTER = 30;
+    /** the sign with a hand that goes with a line lasts this long, ticks */
+    static final int SIGN_TICKS = 20;
     /** blocks: near enough to talk over one another */
     static final double CHATTER_NEAR = 8;
     /** ticks and blocks: the same line not again within these of where it was said (an urgent one sooner) */
@@ -101,6 +103,14 @@ public final class AiVoice {
         recent.addLast(new Said(m.getX(), m.getZ(), line, tick, by));
         bot.saidAt = tick;
         said[line.ordinal()]++;
+        // the sign that goes with the line: a hand at them, a wave on, a hand up
+        byte sign = switch (line) {
+            case CONTACT -> AiPose.SIGNAL_POINT;
+            case MOVING, FLANKING, FALLING_BACK -> AiPose.SIGNAL_COME;
+            case MAN_DOWN -> AiPose.SIGNAL_HALT;
+            default -> AiPose.NONE;
+        };
+        if (sign != AiPose.NONE) bot.gesture(sign, SIGN_TICKS, tick);
         if (counting) heard.add(new Heard(tick, by));
         int own = m.getUUID().hashCode();
         Holder<SoundEvent> s = Holder.direct(SoundEvent.createFixedRangeEvent(sound(voice(own), line), RANGE));

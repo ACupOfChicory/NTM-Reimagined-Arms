@@ -25,6 +25,8 @@ public final class AiDoors {
     static volatile boolean pass = true;
     /** within this of a shut door on its path, blocks, it opens it */
     static final double REACH = 2.0;
+    /** its hand goes to the door and back in this many ticks (AiPose.DOOR) */
+    static final int HAND_TICKS = 10;
     /** the stands: doors and gates opened */
     public static int opened;
 
@@ -69,6 +71,8 @@ public final class AiDoors {
             level.gameEvent(mob, GameEvent.BLOCK_OPEN, at);
         }
         opened++;
+        AiBot bot = AiBots.get(mob);
+        if (bot != null) bot.gesture(AiPose.DOOR, HAND_TICKS, level.getGameTime());
         return true;
     }
 }

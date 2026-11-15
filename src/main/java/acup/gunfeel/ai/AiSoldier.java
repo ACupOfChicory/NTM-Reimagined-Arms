@@ -380,13 +380,16 @@ public final class AiSoldier implements AiBrain {
         boolean blind = g.blind && low;
         // a slide or a roll is the action while it lasts, over all else (pose-contract §4)
         byte dash = bot.dash.kind(tick);
+        // a sign with the free hand, a hand to a door: only with nothing else for its hands to do (not aiming, a peek
+        // too, nor firing blind)
+        boolean sign = tick < bot.gestureAt + bot.gestureTicks && !aiming && !blind && !lying;
         AiPose.set(m, AiPose.of(m).withStance(lying ? AiPose.PRONE : low ? AiPose.CROUCH : AiPose.STAND)
                 .withLean((byte) (lying || low || mode != Mode.PEEK ? 0 : leanSide), tick)
-                .withArms(blind ? AiPose.BLIND : aiming ? AiPose.AIM : AiPose.HOLD)
+                .withArms(blind ? AiPose.BLIND : aiming ? AiPose.AIM : tick <= bot.stackUntil && AiBot.gestures() ? AiPose.STACK : AiPose.HOLD)
                 .withAlert(mode == Mode.IDLE ? AiPose.CALM : AiPose.FIGHT)
-                .withAction(dash != AiPose.NONE ? dash : tick < throwUntil ? AiPose.THROW : reloading ? AiPose.RELOAD : AiPose.NONE,
-                        (int) (dash != AiPose.NONE ? bot.dash.since() : tick),
-                        (short) (dash != AiPose.NONE ? AiDash.TICKS : tick < throwUntil ? THROW_TICKS : reloading ? g.reloadTicks() : 0)));
+                .withAction(dash != AiPose.NONE ? dash : tick < throwUntil ? AiPose.THROW : reloading ? AiPose.RELOAD : sign ? bot.gesture : AiPose.NONE,
+                        (int) (dash != AiPose.NONE ? bot.dash.since() : sign && tick >= throwUntil && !reloading ? bot.gestureAt : tick),
+                        (short) (dash != AiPose.NONE ? AiDash.TICKS : tick < throwUntil ? THROW_TICKS : reloading ? g.reloadTicks() : sign ? bot.gestureTicks : 0)));
         if (!lying) {
             Pose want = low ? Pose.CROUCHING : Pose.STANDING;
             if (m.getPose() != want) m.setPose(want);
