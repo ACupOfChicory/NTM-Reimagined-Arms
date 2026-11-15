@@ -529,6 +529,9 @@ the GNU General Public License as published by the Free Software Foundation,
 either version 3 of the License, or (at your option) any later version
 (GPL-3.0-or-later). See [LICENSE](LICENSE).
 
+Original textures and other assets made for this project by ACupOfChicory are
+licensed under GPL-3.0-or-later as well.
+
 Model hitbox code derives in part from Countered's Accurate Hitboxes (MIT). The
 author, source link and license are in
 [third-party/accurate-hitboxes.txt](third-party/accurate-hitboxes.txt), also
