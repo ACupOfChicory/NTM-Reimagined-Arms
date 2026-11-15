@@ -6,13 +6,13 @@
   fights as a rifleman and treats no one, itself neither; it treats the hurt
   once none of its squad sees the enemy. A soldier hurt below 60% of its
   health, with a medic of its squad with kits left, goes to cover it can fight
-  from at once and waits there, not moving on to better cover. Server key
-  aiMedicCover (on). In 30 fights a mode a medic running in the fight cost
-  its side more than its kits gave back, with smoke thrown for the run or
-  not; with this rule its side lives as well as with no medic. The medic
-  check's fights are longer (all with three times their health, both sides
-  behind low walls, four against five) and split three ways: no medic, a
-  medic without this, a medic with it.
+  from as soon as it sees the enemy and does not move on to better cover or
+  shift when shot at. Server key aiMedicCover (on). On a 30-fight test run a
+  medic running in the fight cost its side more than its kits gave back, with
+  smoke thrown for the run or not; with this rule its side lived about as well
+  as with no medic. The medic check's fights are longer (all with three times
+  their health, both sides behind low walls, four against five) and split
+  three ways: no medic, a medic without this, a medic with it.
 
 ## X1104
 

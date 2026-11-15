@@ -263,8 +263,8 @@ page. They are alphas: expect bugs and back up your world.
   on its team) who has lost more than 40% of their health, when the way is out
   of the enemy's sight, kneels by them three seconds, not firing, and gives
   half their health back; it treats itself too. While its squad sees the enemy
-  it only fights and treats no one; the hurt go to cover and wait for it
-  there. `/armsai spawn` with a number makes medics by chance; `role medic`
+  it only fights and treats no one; the hurt take cover as they fight and stay
+  in it. `/armsai spawn` with a number makes medics by chance; `role medic`
   makes one by word (server keys `aiMedic`, `aiMedicKits`, `aiMedicShare`,
   `aiMedicCover`).
 - A team of bots that knows of no one comes for you: its commander sends each

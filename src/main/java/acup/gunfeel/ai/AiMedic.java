@@ -142,6 +142,8 @@ public final class AiMedic {
         // care under fire: one of its squad sees one of them, it fights; the run or the kit begun is left
         if (cover() && fight(bot) != null) {
             if (m.to >= 0 && m.to != bot.mob.getId() && m.treating == Long.MIN_VALUE) gaveUp++;
+            // off its way to them (the soldier's own moves stop it only out of IDLE)
+            if (m.to >= 0 && bot.mover.goal() != Long.MIN_VALUE) bot.mover.stop();
             if ((tick + bot.mob.getId()) % EVERY == 0) underFire++;
             m.to = -1;
             m.treating = Long.MIN_VALUE;

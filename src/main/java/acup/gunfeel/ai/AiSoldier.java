@@ -1361,10 +1361,13 @@ public final class AiSoldier implements AiBrain {
     }
 
     /**
-     * Hurt with a medic of its squad to come (AiMedic.waits) and out of cover, nor on its way to one: to cover now,
+     * Hurt with a medic of its squad to come (AiMedic.waits), fighting (it sees them), and out of cover, nor on its way
+     * to one: to cover now,
      * whoever else of its squad moves (no waves), a look again WOUNDED_GAP later. Whether it went.
      */
     private boolean wounded(AiBot bot, ServerLevel level, TacticalMap map, TargetMemory.Contact c, Vec3 eye, long tick) {
+        // a look again when it is not where its cover is (a peek's step out too): other cover, if the query finds one
+        // (it shifts no other way while it waits; on the stand that was the better of the two)
         if (tick < nextWounded || bot.prone.lying() || spot != null && (bot.mover.arrived() || mode == Mode.TO_COVER) || !AiMedic.waits(bot)) return false;
         nextWounded = tick + WOUNDED_GAP;
         List<Vec3> all = threats(bot, c, eye);
