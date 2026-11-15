@@ -1,6 +1,6 @@
 # Changelog
 
-## X1108
+## X1109
 
 - AI side commanders keep their own map of the land round the side
   (heights, woods, water) and of what their enemies can see from anywhere
@@ -12,7 +12,7 @@
   New server setting `aiCommanderStaff` (true); false: they walk there
   straight, as before.
 
-## X1106
+## X1107
 
 - AI side commanders keep a picture of the fight: every five seconds each
   side gets word of the players and enemy AI soldiers within 256 blocks of any
