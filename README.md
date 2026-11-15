@@ -273,7 +273,10 @@ page. They are alphas: expect bugs and back up your world.
   none of them has seen you), and the squad looks through it with its own
   eyes. A minute there with no one found, and the squad goes for another
   group. Where the team loses soldiers, one squad more may go: the reserve
-  comes up (server keys `aiCommander`, `aiCommanderHelp`).
+  comes up. The squads go there by the commander's own map of the land:
+  behind hills and through woods where the enemy would see them in the open,
+  round deep water and cliffs (server keys `aiCommander`, `aiCommanderHelp`,
+  `aiCommanderStaff`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim

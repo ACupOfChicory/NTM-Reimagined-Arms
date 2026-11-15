@@ -1,5 +1,17 @@
 # Changelog
 
+## X1119
+
+- AI side commanders keep their own map of the land round the side
+  (heights, woods, water) and of what their enemies can see from anywhere
+  about where they are thought to be, made again every five seconds. Squads
+  sent to an area go by the commander's way rather than straight: behind
+  hills and through woods where the open would put them in the enemy's
+  sight, round deep water to a ford and round cliffs, at most 1.6 times the
+  straight way. The map and the ways are worked out off the server thread.
+  New server setting `aiCommanderStaff` (true); false: they walk there
+  straight, as before.
+
 ## X1115
 
 - AI medic, care under fire: while one of its squad sees the enemy, a medic
