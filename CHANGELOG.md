@@ -1,5 +1,16 @@
 # Changelog
 
+## X1132
+
+- AI side commanders move their soldiers far from any player too. Soldiers
+  asleep (no player within `aiRadius`) are put in squads of the commander's
+  own and given tasks as the others, as far off as the commander knows of its
+  enemies (256 blocks) rather than 160; the commander walks them along its
+  ways at a walk's pace, on the ground, round deep water and steep steps, in
+  loaded chunks only, no nearer an enemy group than 48 blocks, till a player
+  comes near and wakes them, and they go on from there. Only with
+  `aiCommanderTasks` on.
+
 ## X1129
 
 - AI side commanders give each squad a task. A squad at least half as strong
