@@ -58,6 +58,8 @@ public final class AiCommander {
 
     /** the stands: orders given (squads sent), times a squad was held in reserve, areas given up */
     public static int orders, reserve, gaveUp;
+    /** the stands: the game tick each side (by its team) was last given its orders */
+    static final Map<String, Long> commandedAt = new HashMap<>();
 
     /** a squad's order, a copy to each of it: the area, the group (its members' ids, its lead's), till when */
     static final class Order {
@@ -130,12 +132,12 @@ public final class AiCommander {
             Side side = sides.computeIfAbsent(e.getKey(), t -> new Side());
             if (now < side.next) continue;
             side.next = now + EVERY_MIN + level.getRandom().nextInt(EVERY_MAX - EVERY_MIN + 1);
-            command(level, side, e.getValue(), now);
+            command(level, e.getKey(), side, e.getValue(), now);
         }
         sides.keySet().retainAll(byTeam.keySet());
     }
 
-    private static void command(ServerLevel level, Side side, List<AiSquads.Squad> squads, long now) {
+    private static void command(ServerLevel level, String team, Side side, List<AiSquads.Squad> squads, long now) {
         LivingEntity rep = squads.get(0).bots.get(0).mob;
         List<Group> groups = groups(level, rep);
         // what the side has seen of them: by any of its own
@@ -147,21 +149,24 @@ public final class AiCommander {
                         if (c != null && c.state == TargetMemory.State.VISIBLE) side.seen.put(m.getId(), now);
                     }
         side.seen.values().removeIf(t -> now - t > RADIUS_MAX * WIDEN * 4);
+        commandedAt.put(team, now);
         Map<Group, Integer> sent = new java.util.IdentityHashMap<>();
-        List<AiSquads.Squad> idle = new ArrayList<>();
-        // squads at a fight (counted to the group of their target), or on their way to a group still there (known by
-        // any of its members): as they are
+        List<AiSquads.Squad> going = new ArrayList<>(), idle = new ArrayList<>();
+        // squads at a fight first: counted to the group of their target
         for (AiSquads.Squad s : squads) {
-            Order o = order(s, now);
-            Group g = o == null ? null : match(o.ids, groups);
-            if (s.target >= 0) {
-                Group t = null;
-                for (Group x : groups) if (x.has(s.target)) t = x;
-                if (t == null) t = g;
-                if (t != null) sent.merge(t, 1, Integer::sum);
+            if (s.target < 0) {
+                going.add(s);
                 continue;
             }
-            if (g != null && !failed(s, g, now)) {
+            Group t = counted(s, groups, now);
+            if (t != null) sent.merge(t, 1, Integer::sum);
+        }
+        // then those on their way to a group still there (known by any of its members), as they are while there is
+        // room: by the order most of the squad carries (squads are made again as they move: a few with an order in a
+        // squad of others is not a squad sent)
+        for (AiSquads.Squad s : going) {
+            Group g = going(s, groups, now);
+            if (g != null && !failed(s, g, now) && sent.getOrDefault(g, 0) < PER) {
                 sent.merge(g, 1, Integer::sum);
                 give(s, g, side, now, false);
             } else idle.add(s);
@@ -200,10 +205,26 @@ public final class AiCommander {
         return null;
     }
 
-    /** the order of the first of the squad that has one in time, null if none has */
-    private static @Nullable Order order(AiSquads.Squad s, long now) {
-        for (AiBot b : s.bots) if (b.order != null && now <= b.order.until) return b.order;
-        return null;
+    /** the group half of the squad or more has an order for now, null if none (the stands count squads sent by it) */
+    static @Nullable Group going(AiSquads.Squad s, List<Group> groups, long now) {
+        // the groups in their order: of two alike, the first (the commander and the stands pick the same)
+        Group best = null;
+        int most = 0;
+        for (Group g : groups) {
+            int n = 0;
+            for (AiBot b : s.bots) if (b.order != null && now <= b.order.until && match(b.order.ids, groups) == g) n++;
+            if (n > most) {
+                most = n;
+                best = g;
+            }
+        }
+        return most * 2 >= s.bots.size() ? best : null;
+    }
+
+    /** the group a squad is counted to: of its target while it fights one, else the one it goes to */
+    static @Nullable Group counted(AiSquads.Squad s, List<Group> groups, long now) {
+        if (s.target >= 0) for (Group x : groups) if (x.has(s.target)) return x;
+        return going(s, groups, now);
     }
 
     /**

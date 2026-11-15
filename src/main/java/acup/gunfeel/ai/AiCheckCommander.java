@@ -1,10 +1,8 @@
 package acup.gunfeel.ai;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 
 import com.mojang.authlib.GameProfile;
@@ -31,7 +29,8 @@ import net.neoforged.neoforge.common.util.FakePlayer;
  * squads of three of a side in a row, SQUAD_GAP apart; out of their sight (farther than the soldier's eyes reach),
  * two groups of their enemies: three mobs of another team with no guns (they neither fight nor are made squads) and
  * a player (a fake one, in survival, hard to kill). RUN ticks. Counted: whether each group was seen by one of the
- * side, the tick it first was, the most squads sent to one group at once, the side's losses. A last round, on: the
+ * side, the tick it first was, the most squads sent to one group at once (as the commander gives its orders), the
+ * side's losses. A last round, on: the
  * player alone, shut in a stone box (no one sees it): two squads are sent, the third is held in reserve; the two look
  * through the area, find no one and give the player up (HIDDEN ticks).
  */
@@ -100,21 +99,26 @@ final class AiCheckCommander {
                 }
             }
         }
-        // squads sent to each group now: by the order most of each squad carries
-        int[] sent = new int[2];
-        for (AiSquads.Squad s : AiSquads.squads(level)) {
-            Map<Integer, Integer> leads = new HashMap<>();
-            for (AiBot b : s.bots) if (b.order != null && now <= b.order.until) leads.merge(b.order.lead, 1, Integer::sum);
-            int lead = -1, n = 0;
-            for (var e : leads.entrySet()) if (e.getValue() > n) {
-                n = e.getValue();
-                lead = e.getKey();
+        // squads sent to each group, as the commander had it when it gave its orders this tick: by the order half of
+        // each squad or more carries (between its orders squads are made again as they move, a few with an order and
+        // others in one, till it looks again)
+        Mob rep = null;
+        for (Mob m : ours) if (m.isAlive()) rep = m;
+        if (AiCommander.commandedAt.getOrDefault(OURS, Long.MIN_VALUE) == now && rep != null) {
+            List<AiCommander.Group> groups = AiCommander.groups(level, rep);
+            int[] sent = new int[2];
+            for (AiSquads.Squad s : AiSquads.squads(level)) {
+                if (!ours.contains(s.bots.get(0).mob)) continue;
+                AiCommander.Group g = AiCommander.counted(s, groups, now);
+                if (g == null) continue;
+                if (g.has(player.getId())) sent[1]++;
+                else for (Mob m : theirs) if (g.has(m.getId())) {
+                    sent[0]++;
+                    break;
+                }
             }
-            if (lead < 0) continue;
-            if (lead == player.getId()) sent[1]++;
-            else for (Mob m : theirs) if (m.getId() == lead) sent[0]++;
+            for (int g = 0; g < 2; g++) most[g] = Math.max(most[g], sent[g]);
         }
-        for (int g = 0; g < 2; g++) most[g] = Math.max(most[g], sent[g]);
         if (hidden() ? ticks < HIDDEN : ticks < RUN && !(seenAt[0] >= 0 && seenAt[1] >= 0 && ticks > Math.max(seenAt[0], seenAt[1]) + 100)) return false;
         int down = 0;
         for (Mob m : ours) if (!m.isAlive()) down++;
