@@ -64,6 +64,13 @@ public final class AiCommander {
     static boolean staff = true;
     /** a squad's way is made again when its area moved this far from where the way ends, blocks; a way's point is reached this near */
     static final double REROUTE = 24, REACHED = 6;
+    /**
+     * soldiers asleep (no player within aiRadius) with a task (C2b): moved by the staff itself every DRIFT ticks
+     * DRIFT_STEP blocks along their way (a walk's pace), DRIFT_CLIMB blocks up or down a step at most; no nearer a
+     * group of the enemy than DRIFT_STOP blocks (asleep they cannot fight)
+     */
+    static final int DRIFT = 20;
+    static final double DRIFT_STEP = 4, DRIFT_CLIMB = 3, DRIFT_STOP = 48;
     /** new ways a side asks for at most each time it gives its orders (the rest keep theirs or go straight till the next) */
     static final int WAYS = 3;
     static final int ROUTE_FAILS = 3;
@@ -105,6 +112,8 @@ public final class AiCommander {
 
     /** the stands: orders given (squads sent), times a squad was held in reserve, areas given up, reserves sent where the side loses soldiers */
     public static int orders, reserve, gaveUp, helped, strays;
+    /** the stands: steps the staff moved soldiers asleep, and those it could not (the ground, water, not loaded) */
+    public static long drifted, driftBlocked;
     /** the stands: the game tick each side (by its team) was last given its orders */
     static final Map<String, Long> commandedAt = new HashMap<>();
 
@@ -236,6 +245,7 @@ public final class AiCommander {
     static void tick(ServerLevel level) {
         if (!on()) return;
         long now = level.getGameTime();
+        if (tasks() && now % DRIFT == 0) drift(level, now);
         Map<String, Side> sides = LEVELS.computeIfAbsent(level, k -> new HashMap<>());
         boolean due = sides.isEmpty() || now >= reportDue.getOrDefault(level, Long.MIN_VALUE);
         for (Side side : sides.values()) due |= now >= side.next;
@@ -247,6 +257,8 @@ public final class AiCommander {
             String team = AiSquads.team(s.bots.get(0));
             if (!team.isEmpty()) byTeam.computeIfAbsent(team, t -> new ArrayList<>()).add(s);
         }
+        // with the staff's tasks, its soldiers asleep too, in squads of its own (C2b): a side all asleep is a side
+        if (tasks()) for (AiSquads.Squad s : far(level)) byTeam.computeIfAbsent(AiSquads.team(s.bots.get(0)), t -> new ArrayList<>()).add(s);
         // no side with squads (AI mobs of no team, or alone): looked at again with the squads made again
         if (byTeam.isEmpty()) {
             sides.clear();
@@ -394,7 +406,7 @@ public final class AiCommander {
             int avoid = -1;
             for (int k = 0; k < groups.size() && avoid < 0; k++) if (failed(s, groups.get(k), now)) avoid = k;
             own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), out * 2 > alive, job == null ? null : job.kind,
-                    job == null ? 0 : job.since, group, job != null && job.there, avoid));
+                    job == null ? 0 : job.since, group, job != null && job.there, avoid, !s.bots.get(0).active));
         }
         if (all == 0) return;
         sideX /= all;
@@ -402,6 +414,106 @@ public final class AiCommander {
         StaffPlan.Task[] plan = StaffPlan.plan(own, foes, AiHqMap.of(level, team), sideX, sideZ, Math.min(REACH, AiBots.radius() * 2), PER, now, side.sector);
         for (int i = 0; i < squads.size(); i++) task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
         strays(level, team, squads, now);
+    }
+
+    /**
+     * The side's soldiers asleep in squads of the staff's own (C2b), as AiSquads makes them of those awake: each grown
+     * from one, the nearest of its side within AiSquads.NEAR of any in it, AiSquads.MAX at most; one alone is one too.
+     */
+    static List<AiSquads.Squad> far(ServerLevel level) {
+        List<AiSquads.Squad> out = new ArrayList<>();
+        if (!AiSquads.on) return out;
+        List<AiBot> free = new ArrayList<>();
+        for (AiBot b : AiBots.bots(level)) {
+            if (b.active || !(b.brain instanceof AiSoldier) || !b.mob.isAlive() || b.mob.isRemoved()) continue;
+            String team = AiSquads.team(b);
+            if (!team.isEmpty() && !AiSquads.offTeams.contains(team)) free.add(b);
+        }
+        boolean[] taken = new boolean[free.size()];
+        double near2 = AiSquads.NEAR * AiSquads.NEAR;
+        for (int i = 0; i < free.size(); i++) {
+            if (taken[i]) continue;
+            AiSquads.Squad s = new AiSquads.Squad();
+            taken[i] = true;
+            s.bots.add(free.get(i));
+            String team = AiSquads.team(free.get(i));
+            while (s.bots.size() < AiSquads.MAX) {
+                int best = -1;
+                double bestD = near2;
+                for (int j = 0; j < free.size(); j++) {
+                    if (taken[j] || !team.equals(AiSquads.team(free.get(j)))) continue;
+                    for (AiBot in : s.bots) {
+                        double d = in.mob.distanceToSqr(free.get(j).mob);
+                        if (d <= bestD) {
+                            bestD = d;
+                            best = j;
+                        }
+                    }
+                }
+                if (best < 0) break;
+                taken[best] = true;
+                s.bots.add(free.get(best));
+            }
+            for (AiBot b : s.bots) {
+                s.cx += b.mob.getX() / s.bots.size();
+                s.cz += b.mob.getZ() / s.bots.size();
+            }
+            out.add(s);
+        }
+        return out;
+    }
+
+    /**
+     * The soldiers asleep with a task, moved by the staff (C2b): a step along the way (straight where there is none),
+     * on the ground as the heightmap has it, in loaded chunks only, not into deep water on the staff's map nor up or
+     * down more than DRIFT_CLIMB; none once at the task's place, nor within DRIFT_STOP of a group of the enemy. Woken
+     * (a player near), it goes on from where it is by its order as any other (step).
+     */
+    private static void drift(ServerLevel level, long now) {
+        Map<String, List<Group>> groupsOf = new HashMap<>();
+        for (AiBot b : AiBots.bots(level)) {
+            if (b.active || !(b.brain instanceof AiSoldier) || !b.mob.isAlive() || b.mob.isRemoved() || !has(b, now)) continue;
+            Order o = b.order;
+            if (o.job == null) continue;
+            double x = b.mob.getX(), z = b.mob.getZ(), d = Math.hypot(o.x - x, o.z - z);
+            if (o.job.place() ? d <= o.r : d <= o.r * 0.5) continue;
+            String team = AiSquads.team(b);
+            boolean close = false;
+            for (Group g : groupsOf.computeIfAbsent(team, t -> groups(level, t))) if (Math.hypot(g.x() - x, g.z() - z) <= DRIFT_STOP) close = true;
+            if (close) continue;
+            // toward the next point of its way, else straight to the place
+            if (o.route == null && !o.noRoute) takeUp(o, b);
+            double tx = o.x, tz = o.z;
+            HqGrid.Route way = o.route;
+            if (way != null) {
+                while (o.at < way.size() - 1 && Math.hypot(way.x(o.at) - x, way.z(o.at) - z) <= REACHED) o.at++;
+                if (o.at < way.size() - 1 || Math.hypot(way.x(o.at) - x, way.z(o.at) - z) > REACHED) {
+                    tx = way.x(o.at);
+                    tz = way.z(o.at);
+                }
+            }
+            double dx = tx - x, dz = tz - z, l = Math.hypot(dx, dz);
+            if (l < 1e-3) continue;
+            double step = Math.min(DRIFT_STEP, l), nx = x + dx / l * step, nz = z + dz / l * step;
+            int bx = Mth.floor(nx), bz = Mth.floor(nz);
+            if (!level.hasChunk(bx >> 4, bz >> 4)) {
+                driftBlocked++;
+                continue;
+            }
+            int ny = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+            HqGrid grid = AiHqMap.of(level, team);
+            int ci = grid == null ? -1 : grid.cellX(nx), ck = grid == null ? -1 : grid.cellZ(nz);
+            boolean deep = ci >= 0 && ck >= 0 && grid.known[HqGrid.index(ci, ck)] && grid.deep[HqGrid.index(ci, ck)] >= 0.5;
+            if (deep || Math.abs(ny - b.mob.getY()) > DRIFT_CLIMB) {
+                // the way's point not to be got to so: the next one
+                if (way != null && o.at < way.size() - 1) o.at++;
+                driftBlocked++;
+                continue;
+            }
+            b.mob.snapTo(nx, ny, nz, (float) Math.toDegrees(Math.atan2(-dx, dz)), 0F);
+            b.mob.setYHeadRot(b.mob.getYRot());
+            drifted++;
+        }
     }
 
     /**
@@ -413,7 +525,7 @@ public final class AiCommander {
         double reach = Math.min(REACH, AiBots.radius() * 2);
         for (AiBot b : AiBots.bots(level)) {
             Order mine = b.order;
-            if (mine == null || mine.job == null || now > mine.until || !(b.brain instanceof AiSoldier) || !b.mob.isAlive()) continue;
+            if (mine == null || mine.job == null || now > mine.until || !(b.brain instanceof AiSoldier) || !b.mob.isAlive() || !b.active) continue;
             if (AiSquads.of(b) != null || !team.equals(AiSquads.team(b))) continue;
             Order best = null;
             double bestD = reach * reach;
@@ -809,7 +921,7 @@ public final class AiCommander {
     public static String info() {
         StringBuilder t = new StringBuilder();
         for (StaffPlan.Kind k : StaffPlan.Kind.values()) t.append(t.length() == 0 ? "" : ", ").append(k.name().toLowerCase(java.util.Locale.ROOT)).append(' ').append(given[k.ordinal()]);
-        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d sent where the side loses soldiers, %d groups given up, %d ways (%.2f ms each, off the server thread); tasks given: %s, %d to catch up with a squad; %s; %s", orders,
-                reserve, helped, gaveUp, routes.get(), routes.get() == 0 ? 0 : routeNanos.get() / 1e6 / routes.get(), t, strays, AiIntel.info(), AiHqMap.info());
+        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d sent where the side loses soldiers, %d groups given up, %d ways (%.2f ms each, off the server thread); tasks given: %s, %d to catch up with a squad, %d steps moved asleep; %s; %s", orders,
+                reserve, helped, gaveUp, routes.get(), routes.get() == 0 ? 0 : routeNanos.get() / 1e6 / routes.get(), t, strays, drifted, AiIntel.info(), AiHqMap.info());
     }
 }

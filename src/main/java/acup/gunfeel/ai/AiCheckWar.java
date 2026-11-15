@@ -49,6 +49,12 @@ final class AiCheckWar {
     /** the player hides in a stone box (its middle) from this tick of a round to this */
     static final int HIDE_FROM = 900, HIDE_TO = RUN, BOX_X = 140, BOX_Z = 200;
     static final double[] SQUAD_X = {100.5, 156.5};
+    /**
+     * the last round, "far" (C2b): the side asleep (no stand's wake), the player standing here, farther from its camp
+     * than aiRadius but within what the staff knows; the staff is to move its squads till they wake, within FAR_RUN
+     */
+    static final double FAR_X = 128.5, FAR_Z = 240.5;
+    static final int FAR_RUN = 2400;
     static final String A = "war_a";
     /** the reports' ages: up to each, ticks (the last: never seen) */
     static final long[] AGES = {100, 400, 1200, Long.MAX_VALUE};
@@ -97,6 +103,11 @@ final class AiCheckWar {
     static final int LOOK = 10;
     /** -PaiCheckWarDump: the staff's maps as each way was made, the ways, the soldiers' and the player's places */
     private java.io.PrintWriter dump;
+    /** the far round: on; the tick the first of the side woke (-1: none), the most awake at once, the nearest any came */
+    private boolean far;
+    private int farWoke = -1, farMost;
+    private double farNearest = Double.MAX_VALUE;
+    private long drifted0, driftBlocked0;
     private HqGrid dumped;
     private int madeSeen, grids;
 
@@ -128,6 +139,7 @@ final class AiCheckWar {
             start(0);
             return false;
         }
+        if (far) return farTick();
         ticks++;
         AiCommander.on = true;
         AiCommander.staff = staff();
@@ -199,9 +211,58 @@ final class AiCheckWar {
         }
         AiCommander.made.clear();
         clear();
-        if (round + 1 >= rounds) return finish();
+        if (round + 1 >= rounds) {
+            startFar();
+            return false;
+        }
         start(round + 1);
         return false;
+    }
+
+    /** the far round (C2b): the side asleep in its camp, the player beyond aiRadius standing still */
+    private void startFar() {
+        far = true;
+        ticks = 0;
+        AiCommander.on = AiCommander.staff = AiCommander.tasks = true;
+        AiCommander.forget(level);
+        AiSquads.on = true;
+        AiSquads.offTeams.clear();
+        AiSquads.forget(level);
+        AiBots.awake = false;
+        drifted0 = AiCommander.drifted;
+        driftBlocked0 = AiCommander.driftBlocked;
+        for (int s = 0; s < SQUADS; s++)
+            for (int i = 0; i < EACH; i++) ours.add(spawn(X0 + SQUAD_X[s] + (i - 1) * 2, Z0 + CAMP_Z, A, 0F));
+        player = new FakePlayer(level, new GameProfile(UUID.fromString("6a1b2c3d-0000-4000-8000-c7c7c7c7e0ff"), "armsai_warfar"));
+        player.setGameMode(GameType.SURVIVAL);
+        player.snapTo(X0 + FAR_X, y, Z0 + FAR_Z, 180F, 0F);
+        level.addNewPlayer(player);
+        AiCheckReact.hittable(player);
+        AiBots.refreshTargets(level);
+    }
+
+    private boolean farTick() {
+        ticks++;
+        AiCommander.on = AiCommander.staff = AiCommander.tasks = true;
+        AiBots.awake = false;
+        player.snapTo(X0 + FAR_X, y, Z0 + FAR_Z, 180F, 0F);
+        player.setHealth(player.getMaxHealth());
+        if (ticks % 20 == 0) {
+            int awake = 0;
+            for (Mob m : ours) {
+                AiBot b = AiBots.get(m);
+                if (b == null || !m.isAlive()) continue;
+                if (b.active) awake++;
+                farNearest = Math.min(farNearest, Math.hypot(m.getX() - player.getX(), m.getZ() - player.getZ()));
+            }
+            if (awake > 0 && farWoke < 0) farWoke = ticks;
+            farMost = Math.max(farMost, awake);
+        }
+        if (ticks < FAR_RUN) return false;
+        clear();
+        AiBots.awake = true;
+        far = false;
+        return finish();
     }
 
     private void dump(long now) {
@@ -352,6 +413,12 @@ final class AiCheckWar {
 
     private boolean finish() {
         if (dump != null) dump.close();
+        long drifted = AiCommander.drifted - drifted0, blocked = AiCommander.driftBlocked - driftBlocked0;
+        check.out(String.format(Locale.ROOT, "     war, far (C2b): the side asleep %.0f blocks off the player; the first woke at tick %d, %d of %d awake at most, the nearest %.0f"
+                + " blocks off; %d steps the staff moved them asleep, %d it could not", Math.hypot(FAR_X - SQUAD_X[0], FAR_Z - CAMP_Z), farWoke, farMost,
+                SQUADS * EACH, farNearest, drifted, blocked));
+        check.check(String.format(Locale.ROOT, "war: far (C2b), the staff moves its squads asleep till they wake near the player: %d of %d woke (half at least), the first at tick %d"
+                + " (%d at most)", farMost, SQUADS * EACH, farWoke, FAR_RUN), drifted > 0 && farMost * 2 >= SQUADS * EACH);
         AiCommander.on = true;
         AiCommander.staff = true;
         AiCommander.tasks = true;
