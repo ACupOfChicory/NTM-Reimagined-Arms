@@ -349,14 +349,15 @@ public final class AiCommander {
             o.until = now + LASTS;
             o.slot = i++;
             o.of = s.bots.size();
-            if (o.noRoute) {
-                o.way = null;
-                o.route = null;
-            } else if (o.way != way && (way == null || o.walked != way)) {
+            // a new way (none, or the area moved on): taken up afresh, straight legs given up on the last one left
+            if (o.way != way && (way == null || o.walked != way)) {
                 o.way = way;
                 o.route = null;
+                o.noRoute = false;
+                o.routeFails = 0;
                 takeUp(o, b);
-            } else if (o.route != null && far(o.route, o.at, b)) o.at = ahead(o.route, b.mob.getX(), b.mob.getZ());
+            } else if (o.noRoute) o.route = null;
+            else if (o.route != null && far(o.route, o.at, b)) o.at = ahead(o.route, b.mob.getX(), b.mob.getZ());
             b.order = o;
         }
     }
@@ -369,8 +370,11 @@ public final class AiCommander {
     private static @Nullable Way way(ServerLevel level, String team, AiSquads.Squad s, Group g, double x, double z) {
         if (!staff()) return null;
         for (AiBot b : s.bots) {
-            if (b.order == null || b.order.way == null || !g.any(b.order.ids)) continue;
-            Way w = b.order.way;
+            if (b.order == null || !g.any(b.order.ids)) continue;
+            // the one it goes by or waits for; or one walked to its end (not one that ended short, at the map's edge:
+            // the map has moved on with the squad since)
+            Way w = b.order.way != null ? b.order.way : b.order.walked;
+            if (w == null || w == b.order.walked && w.route != null && w.route.partial()) continue;
             if (Math.hypot(w.toX - x, w.toZ - z) <= REROUTE) return w;
         }
         HqGrid grid = AiHqMap.of(level, team);
@@ -410,6 +414,8 @@ public final class AiCommander {
         if (o.route != null || w == null || !w.done) return;
         o.route = w.route;
         o.at = o.route == null ? 0 : ahead(o.route, b.mob.getX(), b.mob.getZ());
+        // its first leg at once, not when the straight one walked meanwhile is due again
+        if (o.route != null) o.nextLeg = Long.MIN_VALUE;
     }
 
     /** the point of a way a soldier here goes to next: the end of the stretch of the way nearest it */
@@ -482,6 +488,9 @@ public final class AiCommander {
                 if (stuck && ++o.routeFails >= ROUTE_FAILS) {
                     o.route = null;
                     o.noRoute = true;
+                    // the straight legs counted from here
+                    o.fails = 0;
+                    o.failedAt = Double.MAX_VALUE;
                 } else {
                     if (stuck) o.at = Math.min(o.at + 1, way.size() - 1);
                     if (bot.mover.arrived()) o.routeFails = 0;

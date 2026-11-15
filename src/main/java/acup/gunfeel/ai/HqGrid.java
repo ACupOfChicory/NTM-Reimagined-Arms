@@ -109,18 +109,21 @@ public final class HqGrid {
 
     /**
      * What an enemy somewhere in a circle sees, added to the map's (the most of any one's): of each cell, the part of
-     * the places it may stand that see it (its middle and AROUND round its edge, each alike).
+     * the places it may stand that see it (its middle and AROUND round its edge, each alike; of those on the map and
+     * known).
      */
     public void sight(double x, double z, double r) {
         float[] part = new float[N * N], one = new float[N * N];
-        int places = r <= 0 ? 1 : AROUND + 1;
+        int places = r <= 0 ? 1 : AROUND + 1, looked = 0;
         for (int p = 0; p < places; p++) {
             double a = 2 * Math.PI * p / AROUND;
             java.util.Arrays.fill(one, 0);
             if (!from(p == 0 ? x : x + r * Math.cos(a), p == 0 ? z : z + r * Math.sin(a), one)) continue;
-            for (int c = 0; c < N * N; c++) part[c] += one[c] / places;
+            looked++;
+            for (int c = 0; c < N * N; c++) part[c] += one[c];
         }
-        for (int c = 0; c < N * N; c++) if (part[c] > seen[c]) seen[c] = part[c];
+        // of the places on the map and known (one off it is left out, not taken for one that sees nothing)
+        if (looked > 0) for (int c = 0; c < N * N; c++) if (part[c] / looked > seen[c]) seen[c] = part[c] / looked;
     }
 
     /** what one standing here sees, into to (false: off the map or on a cell not known, nothing seen) */

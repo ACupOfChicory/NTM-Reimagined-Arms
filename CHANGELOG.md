@@ -1,6 +1,6 @@
 # Changelog
 
-## X1109
+## X1110
 
 - AI side commanders keep their own map of the land round the side
   (heights, woods, water) and of what their enemies can see from anywhere

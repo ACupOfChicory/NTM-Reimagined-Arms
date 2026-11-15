@@ -170,7 +170,11 @@ final class AiCheckWar {
         madeSeen = 0;
         results.add(new int[] {seenAt, down()});
         approach.add(new double[] {staff() ? 1 : 0, looks, inReach, inSight, walked / Math.max(1, ours.size()), firstSeenFrom});
-        if (staff()) ways.addAll(AiCommander.made.subList(0, Math.min(madeBefore, AiCommander.made.size())));
+        if (staff()) {
+            // a copy first: a way may still come in off the server thread
+            List<HqGrid.Route> made = new ArrayList<>(AiCommander.made);
+            ways.addAll(made.subList(0, Math.min(madeBefore, made.size())));
+        }
         AiCommander.made.clear();
         clear();
         if (round + 1 >= rounds) return finish();
@@ -316,7 +320,8 @@ final class AiCheckWar {
         double usTick = usReport / AiIntel.REPORT;
         double[] sightOf = new double[2], walkOf = new double[2], firstOf = new double[2], fromOf = new double[2];
         int[] fromN = new int[2];
-        int[] roundsOf = new int[2];
+        // rounds of each, and of them those in which one of the side came within the player's reach
+        int[] roundsOf = new int[2], reachedOf = new int[2];
         for (int i = 0; i < results.size(); i++) {
             double[] a = approach.get(i);
             int on = (int) a[0];
@@ -324,7 +329,10 @@ final class AiCheckWar {
                     + " within its reach (%.0f%% of the time within it), first in its sight %.0f blocks off, %.0f blocks walked each", i + 1, on == 1 ? "on" : "off (before)",
                     results.get(i)[0], results.get(i)[1], a[2] == 0 ? 0 : 100 * a[3] / a[2], a[1] == 0 ? 0 : 100 * a[2] / a[1], a[5], a[4]));
             roundsOf[on]++;
-            sightOf[on] += a[2] == 0 ? 0 : a[3] / a[2];
+            if (a[2] > 0) {
+                sightOf[on] += a[3] / a[2];
+                reachedOf[on]++;
+            }
             walkOf[on] += a[4];
             if (a[5] >= 0) {
                 fromOf[on] += a[5];
@@ -335,7 +343,7 @@ final class AiCheckWar {
         for (int on = 0; on < 2; on++)
             if (roundsOf[on] > 0) check.out(String.format(Locale.ROOT, "     war, aiCommanderStaff %s, %d rounds: in the player's sight till first seen %.1f%% of the time within its reach,"
                     + " first in its sight %.0f blocks off, first seen at tick %.0f, %.0f blocks walked each", on == 1 ? "on" : "off (before)", roundsOf[on],
-                    100 * sightOf[on] / roundsOf[on], fromN[on] == 0 ? -1 : fromOf[on] / fromN[on], firstOf[on] / roundsOf[on], walkOf[on] / roundsOf[on]));
+                    reachedOf[on] == 0 ? 0 : 100 * sightOf[on] / reachedOf[on], fromN[on] == 0 ? -1 : fromOf[on] / fromN[on], firstOf[on] / roundsOf[on], walkOf[on] / roundsOf[on]));
         double waySeen = 0, straightSeen = 0, longer = 0;
         for (HqGrid.Route r : ways) {
             waySeen += r.seenPart() / ways.size();
@@ -364,10 +372,13 @@ final class AiCheckWar {
                 100 * waySeen, 100 * straightSeen, longer), !staffRan || !ways.isEmpty() && waySeen <= straightSeen * 0.6 && longer <= 1.5);
         check.check(String.format(Locale.ROOT, "war: a way takes %.2f ms off the server thread (5 at most)", msRoute), msRoute <= 5);
         // with two rounds or more each way (the full war, -PaiCheckWarRounds): within the player's reach, before they
-        // see it, less of the side in its sight with the staff than without
+        // see it, less of the side in its sight with the staff than without; a round in which none of the side came
+        // within its reach counts for neither (the side may have stood: that is no hiding), and most rounds must
         if (roundsOf[0] >= 2 && roundsOf[1] >= 2)
-            check.check(String.format(Locale.ROOT, "war: with the staff, less of the side in the player's sight within its reach before it is seen: %.1f%% against %.1f%%",
-                    100 * sightOf[1] / roundsOf[1], 100 * sightOf[0] / roundsOf[0]), sightOf[1] / roundsOf[1] < sightOf[0] / roundsOf[0]);
+            check.check(String.format(Locale.ROOT, "war: with the staff, less of the side in the player's sight within its reach before it is seen: %.1f%% against %.1f%%"
+                    + " (rounds within its reach %d of %d, %d of %d)", reachedOf[1] == 0 ? 0 : 100 * sightOf[1] / reachedOf[1], reachedOf[0] == 0 ? 0 : 100 * sightOf[0] / reachedOf[0],
+                    reachedOf[1], roundsOf[1], reachedOf[0], roundsOf[0]),
+                    reachedOf[1] * 2 > roundsOf[1] && reachedOf[0] * 2 > roundsOf[0] && sightOf[1] / reachedOf[1] < sightOf[0] / reachedOf[0]);
         return true;
     }
 
