@@ -127,7 +127,7 @@ final class AiCheckCommander {
         Mob rep = null;
         for (Mob m : ours) if (m.isAlive()) rep = m;
         if (AiCommander.commandedAt.getOrDefault(OURS, Long.MIN_VALUE) == now && rep != null) {
-            List<AiCommander.Group> groups = AiCommander.groups(level, rep);
+            List<AiIntel.Group> groups = AiCommander.groups(level, OURS);
             int[] sent = sent(groups, now);
             for (int g = 0; g < 2; g++) most[g] = Math.max(most[g], sent[g]);
         }
@@ -151,11 +151,11 @@ final class AiCheckCommander {
     }
 
     /** squads of ours counted to each group (the mobs, the player), as the commander counts them */
-    private int[] sent(List<AiCommander.Group> groups, long now) {
+    private int[] sent(List<AiIntel.Group> groups, long now) {
         int[] sent = new int[2];
         for (AiSquads.Squad s : AiSquads.squads(level)) {
             if (!ours.contains(s.bots.get(0).mob)) continue;
-            AiCommander.Group g = AiCommander.counted(s, groups, now);
+            AiIntel.Group g = AiCommander.counted(s, groups, now);
             if (g == null) continue;
             if (g.has(player.getId())) sent[1]++;
             else for (Mob m : theirs) if (g.has(m.getId())) {
@@ -184,7 +184,7 @@ final class AiCheckCommander {
         Mob rep = null;
         for (Mob m : ours) if (m.isAlive()) rep = m;
         if (rep == null) return lossesDone();
-        List<AiCommander.Group> groups = AiCommander.groups(level, rep);
+        List<AiIntel.Group> groups = AiCommander.groups(level, OURS);
         if (AiCommander.commandedAt.getOrDefault(OURS, Long.MIN_VALUE) == now) most[0] = Math.max(most[0], sent(groups, now)[0]);
         if (seenAt[0] < 0) for (Mob m : ours) if (sees(m, theirs)) seenAt[0] = ticks;
         if (seenAt[0] >= 0 && lossAt < 0) {
@@ -192,7 +192,7 @@ final class AiCheckCommander {
             List<Mob> sentMobs = new ArrayList<>();
             for (AiSquads.Squad s : AiSquads.squads(level)) {
                 if (!ours.contains(s.bots.get(0).mob)) continue;
-                AiCommander.Group g = AiCommander.counted(s, groups, now);
+                AiIntel.Group g = AiCommander.counted(s, groups, now);
                 if (g == null || g.has(player.getId())) continue;
                 for (AiBot b : s.bots) sentMobs.add(b.mob);
                 // one of the squad downed by one of them
