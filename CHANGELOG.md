@@ -1,5 +1,19 @@
 # Changelog
 
+## X1115
+
+- AI medic, care under fire: while one of its squad sees the enemy, a medic
+  fights as a rifleman and treats no one, itself neither; it treats the hurt
+  once none of its squad sees the enemy. A soldier hurt below 60% of its
+  health, with a medic of its squad with kits left, goes to cover it can fight
+  from as soon as it sees the enemy and does not move on to better cover or
+  shift when shot at. Server key aiMedicCover (on). On a 30-fight test run a
+  medic running in the fight cost its side more than its kits gave back, with
+  smoke thrown for the run or not; with this rule its side lived about as well
+  as with no medic. The medic check's fights are longer (all with three times
+  their health, both sides behind low walls, four against five) and split
+  three ways: no medic, a medic without this, a medic with it.
+
 ## X1109
 
 - AI soldiers in a fight now weigh height when picking cover: a spot above
