@@ -9,6 +9,7 @@ import java.util.WeakHashMap;
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.ReaimTimes;
+import acup.gunfeel.ai.AiIntel.Group;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
@@ -18,12 +19,13 @@ import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
  * A side's commander (stage 5, R5; the owner, 2026-11-14: "they will attack other teams and players, just a rough
- * whereabouts"). No mob: the side's mind. Every EVERY_MIN to EVERY_MAX ticks, for each team of AI soldiers, it finds
- * the groups of its enemies (AI mobs of a team it fights within aiRadius of a player, players it fights; those within
- * GROUP of one another one group, a group known by its members from one order to the next) and sends each of its
- * squads with no one to fight to the nearest group within REACH (and twice aiRadius): by its rough whereabouts only,
- * an area of radius RADIUS_MIN round the group's middle, wider (to RADIUS_MAX) the longer none of the side has seen
- * any of them, its middle off by up to half the radius. The squad goes there (AiSoldier, when it knows of no one:
+ * whereabouts"). No mob: the side's mind. Every EVERY_MIN to EVERY_MAX ticks, for each team of AI soldiers, it takes
+ * the groups of its enemies from its side's picture (AiIntel, stage 7 C0: AI mobs of a team it fights, players it
+ * fights; those within 24 blocks of one another one group, a group known by its members from one report to the next;
+ * of the mobs, only those that think, near a player) and sends each of its squads with no one to fight to the
+ * nearest group within REACH (and twice aiRadius): by its rough whereabouts only, the picture's circle round the
+ * group (16 blocks, wider to 32 the longer none of the side has seen any of them, its middle off theirs by up to half
+ * the radius). The squad goes there (AiSoldier, when it knows of no one:
  * legs of LEG blocks) and looks through the area with its own eyes, as before; what it sees it fights as ever. PER
  * squads to a group at most (those fighting one counted); a squad with no group left is the reserve and stays where it
  * is, unless the side lost a soldier to a group within HELP ticks (R5b): then HELP_MORE squads more may go there, and
@@ -39,14 +41,10 @@ public final class AiCommander {
     static boolean on = true;
     /** a side's orders this often, ticks (between the two, by chance) */
     static final int EVERY_MIN = 100, EVERY_MAX = 140;
-    /** enemies this near one another are one group; a squad goes for a group this far off at most (and twice aiRadius); blocks */
-    static final double GROUP = 24, REACH = 160;
+    /** a squad goes for a group this far off at most (and twice aiRadius), blocks */
+    static final double REACH = 160;
     /** squads to a group at most */
     static final int PER = 2;
-    /** the area's radius: when they were seen a moment ago; at most; blocks */
-    static final double RADIUS_MIN = 16, RADIUS_MAX = 32;
-    /** the area widens a block every this many ticks none of the side has seen any of them; its middle moves this often */
-    static final int WIDEN = 40, SHIFT = 600;
     /** a squad goes in legs this long, blocks; a leg is set again after this many ticks; one looking through the area picks another place this often */
     static final double LEG = 24;
     static final int LEG_AGAIN = 100, LOOK_AGAIN = 120;
@@ -83,13 +81,14 @@ public final class AiCommander {
         int slot, of;
     }
 
-    /** a side's own: its next orders, when each enemy was last seen by one of it, when each last downed one of it */
+    /** a side's own: its next orders */
     private static final class Side {
         long next = Long.MIN_VALUE;
-        final Map<Integer, Long> seen = new HashMap<>(), lost = new HashMap<>();
     }
 
     private static final Map<ServerLevel, Map<String, Side>> LEVELS = new WeakHashMap<>();
+    /** the soonest a side's picture is due again, per level */
+    private static final Map<ServerLevel, Long> reportDue = new WeakHashMap<>();
 
     private AiCommander() {
     }
@@ -100,6 +99,7 @@ public final class AiCommander {
 
     public static void forget(ServerLevel level) {
         LEVELS.remove(level);
+        AiIntel.forget(level);
     }
 
     static boolean help() {
@@ -113,57 +113,52 @@ public final class AiCommander {
     static void died(ServerLevel level, AiBot fallen, long tick) {
         if (!on()) return;
         Map<String, Side> sides = LEVELS.get(level);
-        Side side = sides == null ? null : sides.get(AiSquads.team(fallen));
-        if (side == null) return;
+        String team = AiSquads.team(fallen);
+        if (sides == null || !sides.containsKey(team)) return;
         // the mob that hit it last, else whom the game credits (a player who hit it lately first)
         LivingEntity by = fallen.mob.getLastHurtByMob();
         if (by == null || !AiTeams.enemy(fallen.mob, by)) by = fallen.mob.getKillCredit();
         AiSquads.Squad s = AiSquads.of(fallen);
-        if (by != null && by != fallen.mob && AiTeams.enemy(fallen.mob, by)) side.lost.put(by.getId(), tick);
-        else if (s != null && s.target >= 0) side.lost.put(s.target, tick);
-        else if (fallen.order != null && tick <= fallen.order.until) for (int id : fallen.order.ids) side.lost.put(id, tick);
+        if (by != null && by != fallen.mob && AiTeams.enemy(fallen.mob, by)) AiIntel.lost(level, team, by.getId(), tick);
+        else if (s != null && s.target >= 0) AiIntel.lost(level, team, s.target, tick);
+        else if (fallen.order != null && tick <= fallen.order.until) for (int id : fallen.order.ids) AiIntel.lost(level, team, id, tick);
     }
 
     /** squads that may go to this group: PER, one more where the side lost a soldier lately */
-    private static int room(Side side, Group g) {
-        if (!side.lost.isEmpty() && help()) for (LivingEntity m : g.members()) if (side.lost.containsKey(m.getId())) return PER + HELP_MORE;
-        return PER;
+    private static int room(Group g, long now) {
+        return help() && g.known().lost != Long.MIN_VALUE && now - g.known().lost <= HELP ? PER + HELP_MORE : PER;
     }
 
-    /** a group of enemies: its members, their middle, its lead (the least id) */
-    record Group(List<LivingEntity> members, double x, double y, double z, int lead) {
-        boolean has(int id) {
-            for (LivingEntity m : members) if (m.getId() == id) return true;
-            return false;
-        }
-
-        boolean any(int @Nullable [] ids) {
-            if (ids != null) for (int id : ids) if (has(id)) return true;
-            return false;
-        }
-
-        int[] ids() {
-            int[] out = new int[members.size()];
-            for (int i = 0; i < out.length; i++) out[i] = members.get(i).getId();
-            return out;
-        }
-    }
 
     /** every server tick, after the squads are made (AiBots): each side whose time it is gives its orders */
     static void tick(ServerLevel level) {
         if (!on()) return;
         long now = level.getGameTime();
         Map<String, Side> sides = LEVELS.computeIfAbsent(level, k -> new HashMap<>());
-        boolean due = sides.isEmpty();
+        boolean due = sides.isEmpty() || now >= reportDue.getOrDefault(level, Long.MIN_VALUE);
         for (Side side : sides.values()) due |= now >= side.next;
-        // a side not met before is due at once; else nothing to do before the soonest one's time (a new side is
-        // found on the next one's, at most EVERY_MAX later)
+        // a side not met before is due at once; else nothing to do before the soonest one's time, orders or report (a
+        // new side is found on the next one's, at most EVERY_MAX later)
         if (!due) return;
         Map<String, List<AiSquads.Squad>> byTeam = new HashMap<>();
         for (AiSquads.Squad s : AiSquads.squads(level)) {
             String team = AiSquads.team(s.bots.get(0));
             if (!team.isEmpty()) byTeam.computeIfAbsent(team, t -> new ArrayList<>()).add(s);
         }
+        // no side with squads (AI mobs of no team, or alone): looked at again with the squads made again
+        if (byTeam.isEmpty()) {
+            sides.clear();
+            reportDue.put(level, now + AiSquads.EVERY);
+            return;
+        }
+        // the sides' pictures first (AiIntel): every soldier of a side with squads counts, alone, asleep or in a squad
+        Map<String, List<AiBot>> own = new HashMap<>();
+        for (String team : byTeam.keySet()) own.put(team, new ArrayList<>());
+        for (AiBot b : AiBots.bots(level)) {
+            List<AiBot> l = b.brain instanceof AiSoldier && b.mob.isAlive() && !b.mob.isRemoved() ? own.get(AiSquads.team(b)) : null;
+            if (l != null) l.add(b);
+        }
+        reportDue.put(level, AiIntel.tick(level, own, now));
         for (var e : byTeam.entrySet()) {
             Side side = sides.computeIfAbsent(e.getKey(), t -> new Side());
             if (now < side.next) continue;
@@ -174,18 +169,7 @@ public final class AiCommander {
     }
 
     private static void command(ServerLevel level, String team, Side side, List<AiSquads.Squad> squads, long now) {
-        LivingEntity rep = squads.get(0).bots.get(0).mob;
-        List<Group> groups = groups(level, rep);
-        // what the side has seen of them: by any of its own
-        for (AiSquads.Squad s : squads)
-            for (AiBot b : s.bots)
-                for (Group g : groups)
-                    for (LivingEntity m : g.members()) {
-                        TargetMemory.Contact c = b.memory.contact(m.getId());
-                        if (c != null && c.state == TargetMemory.State.VISIBLE) side.seen.put(m.getId(), now);
-                    }
-        side.seen.values().removeIf(t -> now - t > RADIUS_MAX * WIDEN * 4);
-        side.lost.values().removeIf(t -> now - t > HELP);
+        List<Group> groups = groups(level, team);
         commandedAt.put(team, now);
         Map<Group, Integer> sent = new java.util.IdentityHashMap<>();
         List<AiSquads.Squad> going = new ArrayList<>(), idle = new ArrayList<>();
@@ -203,9 +187,9 @@ public final class AiCommander {
         // squad of others is not a squad sent)
         for (AiSquads.Squad s : going) {
             Group g = going(s, groups, now);
-            if (g != null && !failed(s, g, now) && sent.getOrDefault(g, 0) < room(side, g)) {
+            if (g != null && !failed(s, g, now) && sent.getOrDefault(g, 0) < room(g, now)) {
                 sent.merge(g, 1, Integer::sum);
-                give(s, g, side, now, false);
+                give(s, g, now, false);
             } else idle.add(s);
         }
         // the rest: each the nearest group with room, not one it gave up lately; none: the reserve
@@ -229,7 +213,7 @@ public final class AiCommander {
             // none: the reserve, unless there is a group where the side loses soldiers with room for one more
             boolean helping = false;
             if (best == null) for (Group g : groups) {
-                if (sent.getOrDefault(g, 0) >= room(side, g) || failed(s, g, now)) continue;
+                if (sent.getOrDefault(g, 0) >= room(g, now) || failed(s, g, now)) continue;
                 double dx = g.x() - sx, dz = g.z() - sz, d = dx * dx + dz * dz;
                 if (d < bestD) {
                     bestD = d;
@@ -244,7 +228,7 @@ public final class AiCommander {
             }
             if (helping) helped++;
             sent.merge(best, 1, Integer::sum);
-            give(s, best, side, now, true);
+            give(s, best, now, true);
         }
     }
 
@@ -286,15 +270,9 @@ public final class AiCommander {
         return n * 2 >= s.bots.size();
     }
 
-    /** the area for the group, as the side knows of it now: the middle off by up to half the radius, wider the longer unseen */
-    private static void give(AiSquads.Squad s, Group g, Side side, long now, boolean fresh) {
-        long seen = Long.MIN_VALUE;
-        for (LivingEntity m : g.members()) seen = Math.max(seen, side.seen.getOrDefault(m.getId(), Long.MIN_VALUE));
-        double r = seen == Long.MIN_VALUE ? RADIUS_MAX : Mth.clamp(RADIUS_MIN + (now - seen) / (double) WIDEN, RADIUS_MIN, RADIUS_MAX);
-        // off by up to half the radius, the same way for a while (a rough whereabouts, not a jittering one)
-        var rng = new java.util.Random(g.lead() * 31L + now / SHIFT * 1_000_003L);
-        double a = rng.nextDouble() * Math.PI * 2, off = rng.nextDouble() * r * 0.5;
-        double x = g.x() + Math.cos(a) * off, z = g.z() + Math.sin(a) * off;
+    /** the area for the group: its circle, as the side's picture has it now (AiIntel) */
+    private static void give(AiSquads.Squad s, Group g, long now, boolean fresh) {
+        double x = g.x(), z = g.z(), r = g.r();
         if (fresh) orders++;
         int[] ids = g.ids();
         int i = 0;
@@ -314,42 +292,13 @@ public final class AiCommander {
     }
 
     /**
-     * its enemies' groups: AI mobs of a team it fights and players it fights (not in creative), within GROUP of one
-     * another; mobs only within aiRadius of a player (the side knows of none farther: those stand, AiBots)
+     * its enemies' groups, as its side's picture has them (AiIntel): of the mobs, only groups one of which thinks now
+     * (near a player): the side's squads go for none farther (those stand, AiBots); a group all of which are gone
+     * since the report is none
      */
-    static List<Group> groups(ServerLevel level, LivingEntity rep) {
-        List<LivingEntity> foes = new ArrayList<>();
-        double r2 = AiBots.radius() * AiBots.radius();
-        for (AiBot b : AiBots.bots(level)) {
-            if (!AiSquads.live(b) || !AiTeams.enemy(rep, b.mob)) continue;
-            boolean near = AiBots.awake;
-            for (Player p : level.players()) if (!near && !p.isSpectator() && p.distanceToSqr(b.mob) <= r2) near = true;
-            if (near) foes.add(b.mob);
-        }
-        for (Player p : level.players()) if (!p.isSpectator() && !p.isCreative() && p.isAlive() && AiTeams.enemy(rep, p)) foes.add(p);
+    static List<Group> groups(ServerLevel level, String team) {
         List<Group> out = new ArrayList<>();
-        boolean[] taken = new boolean[foes.size()];
-        for (int i = 0; i < foes.size(); i++) {
-            if (taken[i]) continue;
-            List<LivingEntity> g = new ArrayList<>();
-            g.add(foes.get(i));
-            taken[i] = true;
-            for (int k = 0; k < g.size(); k++)
-                for (int j = 0; j < foes.size(); j++)
-                    if (!taken[j] && g.get(k).distanceToSqr(foes.get(j)) <= GROUP * GROUP) {
-                        taken[j] = true;
-                        g.add(foes.get(j));
-                    }
-            double x = 0, y = 0, z = 0;
-            int lead = Integer.MAX_VALUE;
-            for (LivingEntity m : g) {
-                x += m.getX() / g.size();
-                y += m.getY() / g.size();
-                z += m.getZ() / g.size();
-                lead = Math.min(lead, m.getId());
-            }
-            out.add(new Group(g, x, y, z, lead));
-        }
+        for (Group g : AiIntel.groups(level, team)) if (g.known().awake && g.alive()) out.add(g);
         return out;
     }
 
@@ -422,7 +371,7 @@ public final class AiCommander {
 
     /** /armsai info */
     public static String info() {
-        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d sent where the side loses soldiers, %d groups given up", orders,
-                reserve, helped, gaveUp);
+        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d sent where the side loses soldiers, %d groups given up; %s", orders,
+                reserve, helped, gaveUp, AiIntel.info());
     }
 }
