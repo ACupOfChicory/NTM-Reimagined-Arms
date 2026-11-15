@@ -1,6 +1,6 @@
 # Changelog
 
-## X1095
+## X1105
 
 - AI medic, care under fire: while one of its squad sees the enemy, a medic
   fights as a rifleman and treats no one, itself neither; it treats the hurt
@@ -13,6 +13,26 @@
   check's fights are longer (all with three times their health, both sides
   behind low walls, four against five) and split three ways: no medic, a
   medic without this, a medic with it.
+
+## X1104
+
+- The jar's `META-INF/licenses/` names HBM's Nuclear Tech Mod (LGPL-3.0) as
+  the source of the files made from it, with the LGPL's text.
+
+## X1102
+
+- AI soldiers in a fight look for cover they can shoot from: cover that only
+  hides them no longer crowds it out, and when nothing near lets them fire
+  they look ahead toward the enemy (a hillside in steps used to keep them
+  behind the crest).
+
+## X1100
+
+- AI side commanders send the reserve where the side loses soldiers: for a
+  minute after an enemy downs one of the team (the one that downed it; else
+  whom its squad fought; else the group it was sent to), three squads may go
+  to that group instead of two, and a squad that would stay where it is goes
+  there. New server setting `aiCommanderHelp` (true).
 
 ## X1093
 

@@ -27,6 +27,7 @@ class ReuseTomlTest {
     static final String ASSETS = "src/main/resources/assets/";
     static final String OWNER = "2026 ACupOfChicory";
     static final String DEFAULT_LICENSE = "GPL-3.0-or-later";
+    static final List<String> NTM = List.of("HbmMods (The Bobcat) and contributors to Hbm's Nuclear Tech Mod", OWNER);
 
     record Rule(List<String> paths, List<String> copyright, String license, String precedence) {
         boolean isDefault() { return paths.equals(List.of("**")); }
@@ -183,6 +184,32 @@ class ReuseTomlTest {
                 assertTrue(r.paths().contains(f), "texture matched by a glob, not by name: " + f);
             }
         }
+    }
+
+
+    /** What is made from NTM's files is NTM's authors' and the owner's, under NTM's LGPL; the owner's own art stays the owner's. */
+    @Test
+    void ntmDerivedFilesAreNtmsAndTheOwners() throws IOException {
+        List<Rule> rules = rules();
+        int n = 0;
+        for (String f : files()) {
+            boolean ntm = f.startsWith("src/main/resources/assets/hbm/") || f.startsWith("src/main/resources/data/hbm/recipe/")
+                    || f.startsWith("src/main/resources/data/ntmgunfeel/recipe/ntm/") || f.startsWith("src/test/gundata/")
+                    || f.startsWith("src/test/blockfacts/") || f.equals("src/main/resources/ntmgunfeel-machine-shapes.pack")
+                    || f.equals("src/main/resources/assets/ntmgunfeel/water/ammo.tsv");
+            if (!ntm) continue;
+            n++;
+            Rule r = resolve(rules, f);
+            assertEquals(NTM, r.copyright(), f);
+            assertEquals("LGPL-3.0-only", r.license(), f);
+        }
+        assertTrue(n > 80, "NTM-derived files found: " + n);
+        for (String own : List.of(ASSETS + "ntmgunfeel/textures/item/ammo_g12_shock.png", ASSETS + "ntmgunfeel/textures/effect/hole_old.png",
+                ASSETS + "ntmgunfeel/textures/particle/water_ring.png", "src/main/resources/data/hbm/tags/item/gun_mechanisms/steel.json")) {
+            assertTrue(resolve(rules, own).isDefault(), "the owner's file under another rule: " + own);
+        }
+        assertEquals(Files.readString(LICENSES.resolve("LGPL-3.0-only.txt")), Files.readString(Path.of("third-party/ntm-LGPL-3.0.txt")),
+                "the LGPL in the jar is the one in LICENSES/");
     }
 
     /** Bullet hit sounds: the author and license in REUSE.toml are the ones CREDITS.txt gives. */

@@ -26,7 +26,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * any of them, its middle off by up to half the radius. The squad goes there (AiSoldier, when it knows of no one:
  * legs of LEG blocks) and looks through the area with its own eyes, as before; what it sees it fights as ever. PER
  * squads to a group at most (those fighting one counted); a squad with no group left is the reserve and stays where it
- * is. A squad that looked through an area GIVE_UP ticks in all and found no one, or whose way there failed FAILS legs
+ * is, unless the side lost a soldier to a group within HELP ticks (R5b): then HELP_MORE squads more may go there, and
+ * the reserve goes. The group a soldier is lost to: that of the one that downed it; else that of whom its squad
+ * fought; else the one it was sent to. A squad that looked through an area GIVE_UP ticks in all and found no one, or whose way there failed FAILS legs
  * running with no PROGRESS, gives that group up for AVOID (half of it or more) and is sent to another. Lone soldiers (no squad) and soldiers of no team get
  * no orders. No places set by command, no buildings as targets.
  */
@@ -56,8 +58,14 @@ public final class AiCommander {
     /** an order lasts this long unless given again, ticks */
     static final int LASTS = 400;
 
-    /** the stands: orders given (squads sent), times a squad was held in reserve, areas given up */
-    public static int orders, reserve, gaveUp;
+    /** the server setting: the reserve goes where its side loses soldiers (R5b); off only for the stands' "before" */
+    public static final String HELP_KEY = "aiCommanderHelp";
+    static boolean help = true;
+    /** a group that downed one of the side this lately, ticks; squads more that may go to it then */
+    static final int HELP = 1200, HELP_MORE = 1;
+
+    /** the stands: orders given (squads sent), times a squad was held in reserve, areas given up, reserves sent where the side loses soldiers */
+    public static int orders, reserve, gaveUp, helped;
     /** the stands: the game tick each side (by its team) was last given its orders */
     static final Map<String, Long> commandedAt = new HashMap<>();
 
@@ -75,10 +83,10 @@ public final class AiCommander {
         int slot, of;
     }
 
-    /** a side's own: its next orders, when each enemy was last seen by one of it */
+    /** a side's own: its next orders, when each enemy was last seen by one of it, when each last downed one of it */
     private static final class Side {
         long next = Long.MIN_VALUE;
-        final Map<Integer, Long> seen = new HashMap<>();
+        final Map<Integer, Long> seen = new HashMap<>(), lost = new HashMap<>();
     }
 
     private static final Map<ServerLevel, Map<String, Side>> LEVELS = new WeakHashMap<>();
@@ -92,6 +100,34 @@ public final class AiCommander {
 
     public static void forget(ServerLevel level) {
         LEVELS.remove(level);
+    }
+
+    static boolean help() {
+        return help && ReaimTimes.flag(HELP_KEY, true);
+    }
+
+    /**
+     * One of a side down (AiBots.died): where the side loses soldiers. The one that downed it, if of a side it fights;
+     * else whom its squad fought; else the group it was sent to.
+     */
+    static void died(ServerLevel level, AiBot fallen, long tick) {
+        if (!on()) return;
+        Map<String, Side> sides = LEVELS.get(level);
+        Side side = sides == null ? null : sides.get(AiSquads.team(fallen));
+        if (side == null) return;
+        // the mob that hit it last, else whom the game credits (a player who hit it lately first)
+        LivingEntity by = fallen.mob.getLastHurtByMob();
+        if (by == null || !AiTeams.enemy(fallen.mob, by)) by = fallen.mob.getKillCredit();
+        AiSquads.Squad s = AiSquads.of(fallen);
+        if (by != null && by != fallen.mob && AiTeams.enemy(fallen.mob, by)) side.lost.put(by.getId(), tick);
+        else if (s != null && s.target >= 0) side.lost.put(s.target, tick);
+        else if (fallen.order != null && tick <= fallen.order.until) for (int id : fallen.order.ids) side.lost.put(id, tick);
+    }
+
+    /** squads that may go to this group: PER, one more where the side lost a soldier lately */
+    private static int room(Side side, Group g) {
+        if (!side.lost.isEmpty() && help()) for (LivingEntity m : g.members()) if (side.lost.containsKey(m.getId())) return PER + HELP_MORE;
+        return PER;
     }
 
     /** a group of enemies: its members, their middle, its lead (the least id) */
@@ -149,6 +185,7 @@ public final class AiCommander {
                         if (c != null && c.state == TargetMemory.State.VISIBLE) side.seen.put(m.getId(), now);
                     }
         side.seen.values().removeIf(t -> now - t > RADIUS_MAX * WIDEN * 4);
+        side.lost.values().removeIf(t -> now - t > HELP);
         commandedAt.put(team, now);
         Map<Group, Integer> sent = new java.util.IdentityHashMap<>();
         List<AiSquads.Squad> going = new ArrayList<>(), idle = new ArrayList<>();
@@ -166,7 +203,7 @@ public final class AiCommander {
         // squad of others is not a squad sent)
         for (AiSquads.Squad s : going) {
             Group g = going(s, groups, now);
-            if (g != null && !failed(s, g, now) && sent.getOrDefault(g, 0) < PER) {
+            if (g != null && !failed(s, g, now) && sent.getOrDefault(g, 0) < room(side, g)) {
                 sent.merge(g, 1, Integer::sum);
                 give(s, g, side, now, false);
             } else idle.add(s);
@@ -189,11 +226,23 @@ public final class AiCommander {
                     best = g;
                 }
             }
+            // none: the reserve, unless there is a group where the side loses soldiers with room for one more
+            boolean helping = false;
+            if (best == null) for (Group g : groups) {
+                if (sent.getOrDefault(g, 0) >= room(side, g) || failed(s, g, now)) continue;
+                double dx = g.x() - sx, dz = g.z() - sz, d = dx * dx + dz * dz;
+                if (d < bestD) {
+                    bestD = d;
+                    best = g;
+                    helping = true;
+                }
+            }
             if (best == null) {
                 for (AiBot b : s.bots) b.order = null;
                 reserve++;
                 continue;
             }
+            if (helping) helped++;
             sent.merge(best, 1, Integer::sum);
             give(s, best, side, now, true);
         }
@@ -373,6 +422,7 @@ public final class AiCommander {
 
     /** /armsai info */
     public static String info() {
-        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d groups given up", orders, reserve, gaveUp);
+        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d sent where the side loses soldiers, %d groups given up", orders,
+                reserve, helped, gaveUp);
     }
 }

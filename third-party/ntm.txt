@@ -1,0 +1,32 @@
+HBM's Nuclear Tech Mod — HbmMods (The Bobcat) и участники проекта
+https://github.com/HbmMods/Hbm-s-Nuclear-Tech-GIT
+Лицензия: GNU LGPL версии 3 (README и файлы LICENSE, LICENSE.LESSER репозитория).
+
+NTM NEXT, порт на Minecraft 26.2 — movblock, на основе мода HbmMods.
+Разобрана версия: hbm-neoforge-1.0.3.jar, лицензия в метаданных мода —
+LGPL-3.0-only (META-INF/neoforge.mods.toml).
+
+NTM Reimagined Arms — аддон к NTM: он вызывает код NTM в игре, но не копирует
+его. Из NTM взяты данные и производные от его ресурсов:
+- assets/hbm/textures/item/part_mechanism_*.png — пять новых механизмов
+  оружия: маска механизмов NTM, перекрашенная палитрами деталей оружия NTM
+  того же материала (tools/gun_mechanisms.py); их items и models/item — как у
+  механизмов NTM;
+- data/hbm/recipe и data/ntmgunfeel/recipe/ntm — рецепты NTM (оружие, броня,
+  шприц Med-X): под id NTM — с заменённым механизмом или с изменениями
+  баланса, в recipe/ntm — сами рецепты NTM без изменений;
+  data/ntmgunfeel/recipe/mechanisms и balance — рецепт Tesla Cannon NTM с
+  заменённым механизмом и с изменениями баланса;
+- ntmgunfeel-machine-shapes.pack — формы машин NTM для пуль, снятые с их
+  моделей в игре;
+- assets/ntmgunfeel/water/ammo.tsv — патроны NTM: что чем стреляет и цвет
+  носика пули с текстуры патрона;
+- выгрузки для тестов (src/test/gundata, src/test/blockfacts) и закреплённые
+  по ним результаты (src/test/pinned: ammo, spread, materials) — числа
+  оружия, патронов и блоков NTM.
+
+Изменения и сборка этих файлов — ACupOfChicory, 2026. Эти файлы
+распространяются по GNU LGPL версии 3 (LGPL-3.0-only). Полный текст —
+ntm-LGPL-3.0.txt в этом каталоге; LGPL дополняет GNU GPL версии 3, её текст —
+tacz-GPL-3.0.txt там же. Модели, текстуры оружия, звуки и код NTM в мод не
+входят.

@@ -1311,6 +1311,7 @@ public final class AiSoldier implements AiBrain {
         p.friendCovers = friends[0];
         p.friendPeeks = friends[1];
         if (fight) {
+            p.fight = true;
             p.peekBonus = CoverQuery.PEEK_FIGHT;
             p.othersSoft = true;
             // rays for the other threats and the places to shoot from

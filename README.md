@@ -271,8 +271,9 @@ page. They are alphas: expect bugs and back up your world.
   of its squads, two at most to one group, to roughly where you, or another
   team it fights, are (an area of radius 16 to 32 blocks, wider the longer
   none of them has seen you), and the squad looks through it with its own
-  eyes. A minute there with no one found, and the squad goes for another group
-  (server key `aiCommander`).
+  eyes. A minute there with no one found, and the squad goes for another
+  group. Where the team loses soldiers, one squad more may go: the reserve
+  comes up (server keys `aiCommander`, `aiCommanderHelp`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
@@ -537,6 +538,11 @@ licensed under GPL-3.0-or-later as well.
 Every file is by ACupOfChicory under GPL-3.0-or-later except those named in
 [REUSE.toml](REUSE.toml) ([REUSE](https://reuse.software/) 3.x), which gives each
 one's author and license; the license texts are in [LICENSES/](LICENSES).
+
+Files made from HBM's Nuclear Tech Mod (HbmMods (The Bobcat) and contributors;
+the NTM NEXT port by movblock), such as the new gun mechanisms' textures, NTM's
+recipes, the machines' bullet shapes and NTM's numbers the tests check, stay
+under its LGPL-3.0-only; see [third-party/ntm.txt](third-party/ntm.txt).
 
 Model hitbox code derives in part from Countered's Accurate Hitboxes (MIT). The
 author, source link and license are in
