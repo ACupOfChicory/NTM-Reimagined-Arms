@@ -1,5 +1,17 @@
 # Changelog
 
+## X1134
+
+- AI soldiers with one of their own in the line of fire step aside sooner:
+  the ticks they hold fire for a friend (or for their own cover in front of
+  the gun) now add up through the pauses of their bursts. Before, each pause
+  put the count back to none, a burst shorter than a second never got there,
+  and a soldier could stand behind its own for seconds without a shot. The
+  count ends with a shot, with no target, or two seconds with no fire wanted.
+  The unseen check sets its two dummies side by side across the player's way
+  (spawned by chance one stood in the other's line now and then), and has a
+  round of its own with one right behind the other.
+
 ## X1129
 
 - AI side commanders give each squad a task. A squad at least half as strong

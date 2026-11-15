@@ -55,10 +55,18 @@ public final class AiGunner {
     /** for the stands: shots let go blind, and the tick of the last */
     public int blindShots;
     public long lastBlind = Long.MIN_VALUE;
-    /** ticks in a row it would have shot but another AI mob was in the line; ticks of that in all (the stands) */
+    /**
+     * ticks it would have shot but another AI mob was in the line, since its last shot (the pauses of its bursts
+     * between kept: a burst shorter than the soldier's patience, and it never stepped aside); ticks of that in all (the
+     * stands)
+     */
     public int blockedTicks, holds;
-    /** ticks it held fire with a block that stops bullets just past its gun (its own cover), and such holds (the stands) */
+    /** ticks it held fire with a block that stops bullets just past its gun (its own cover), so too; such holds (the stands) */
     public int coverTicks, coverHolds;
+    /** the counts above go back to none once it has not wanted to fire this long, ticks (a pause of a burst is shorter) */
+    static final int HOLD_PAUSE = 40;
+    /** the last tick it wanted to fire */
+    private long wantedAt = Long.MIN_VALUE / 2;
     /** a block that stops bullets this near along the line of fire is its own cover, not the target's: no shot */
     static final double MUZZLE_CLEAR = 2.5;
     /** the line of fire starts this far under its eyes (NTM fires from the eyes, a gun's own offset off them) */
@@ -271,6 +279,15 @@ public final class AiGunner {
         ammo.lastLoaded = mag instanceof MagazineSingleTypeBase ? mag.getAmount(stack, null) : -1;
     }
 
+    /**
+     * A count of ticks it held fire for one reason, after this tick: one more while it holds (the first, the holds
+     * over before); none once it shot, or the holds are over (its aim taken away, no fire wanted for HOLD_PAUSE); else
+     * as it was (a pause of its burst keeps it).
+     */
+    static int held(int count, boolean holds, boolean shot, boolean over) {
+        return holds ? (over ? 1 : count + 1) : shot || over ? 0 : count;
+    }
+
     /** let go of every key: the mob stops shooting at once */
     public void release() {
         wantFire = false;
@@ -300,6 +317,10 @@ public final class AiGunner {
         }
         if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
         long time = level.getGameTime();
+        // the holds counted on through the pauses of its bursts: a shot, its aim taken away (idle, ordered) or no fire
+        // wanted a while ends them (read before this tick's want: a count from before a sleep starts over)
+        boolean holdsOver = aim == null || time - wantedAt > HOLD_PAUSE;
+        if (wantFire) wantedAt = time;
         if (state == ItemGunBaseNT.GunState.RELOADING && reloadFrom < 0) reloadFrom = time;
         else if (reloadFrom >= 0 && state == ItemGunBaseNT.GunState.IDLE) {
             // ready again (NTM's reload ends in DRAWING, its end animation); not one it was not ticked through
@@ -315,19 +336,20 @@ public final class AiGunner {
                 && !AiWater.swims(mob);
         // a grenadier's shells go only as lobs worked out to burst clear of its own (AiGrenadier), never straight
         if (shoot && exact == null && AiGrenadier.lobsOnly(mob, stack)) shoot = false;
-        if (shoot && checkLine && AiBots.friendInLine(level, mob, AiLean.eye(mob), aim, CLEAR_CONE)) {
+        boolean friend = shoot && checkLine && AiBots.friendInLine(level, mob, AiLean.eye(mob), aim, CLEAR_CONE);
+        if (friend) {
             // one of its own between it and the target: it holds fire
             shoot = false;
-            blockedTicks++;
             holds++;
-        } else if (shoot || !wantFire) blockedTicks = 0;
+        }
+        blockedTicks = held(blockedTicks, friend, shoot, holdsOver);
         covered = shoot && ownCover(level);
         if (covered) {
             // its own cover in front of the gun (it sees over it, the bullet would not go over): it holds fire
             shoot = false;
-            coverTicks++;
             coverHolds++;
-        } else if (shoot || !wantFire) coverTicks = 0;
+        }
+        coverTicks = held(coverTicks, covered, shoot, holdsOver);
         if (shoot) {
             if (!held) {
                 if (acup.gunfeel.ProneFire.blocks(mob, stack)) crawlPulls++;
