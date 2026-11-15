@@ -423,9 +423,13 @@ final class AiCheckWar {
         check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight: %.1f%% of them in it against %.1f%% straight (40%% less at least), %.2f times as long (1.5 at most)",
                 100 * waySeen, 100 * straightSeen, longer), !staffRan || !ways.isEmpty() && waySeen <= straightSeen * 0.6 && longer <= 1.5);
         check.check(String.format(Locale.ROOT, "war: a way takes %.2f ms off the server thread (5 at most)", msRoute), msRoute <= 5);
-        // C2: with the staff's tasks no squad stands about with nothing to do
-        check.check(String.format(Locale.ROOT, "war: with the staff's tasks, the soldiers stand with no foe known and no order %.1f%% of their time (2%% at most)",
-                aliveOf[TASKS] == 0 ? 0 : 100.0 * idleOf[TASKS] / aliveOf[TASKS]), !tasksRan || aliveOf[TASKS] > 0 && idleOf[TASKS] * 50 <= aliveOf[TASKS]);
+        // C2: with the staff's tasks no squad stands about with nothing to do, and the squads were sent at the player
+        // (a reserve or a hold is an order too: not all of them)
+        int sentAt = 0;
+        for (int i = 0; i < tasksOf.size(); i++)
+            if (i % MODES == TASKS) for (StaffPlan.Kind k : new StaffPlan.Kind[] {StaffPlan.Kind.ADVANCE, StaffPlan.Kind.PIN, StaffPlan.Kind.FLANK}) sentAt += tasksOf.get(i)[k.ordinal()];
+        check.check(String.format(Locale.ROOT, "war: with the staff's tasks, the soldiers stand with no foe known and no order %.1f%% of their time (2%% at most); %d tasks to advance, pin or go round",
+                aliveOf[TASKS] == 0 ? 0 : 100.0 * idleOf[TASKS] / aliveOf[TASKS], sentAt), !tasksRan || aliveOf[TASKS] > 0 && idleOf[TASKS] * 50 <= aliveOf[TASKS] && sentAt > 0);
         // with two rounds or more each way (the full war, -PaiCheckWarRounds): within the player's reach, before they
         // see it, less of the side in its sight with the staff than without; a round in which none of the side came
         // within its reach counts for neither (the side may have stood: that is no hiding), and most rounds must

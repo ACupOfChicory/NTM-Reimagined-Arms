@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
  * <ul>
  * <li>one at least half as strong again as the group: it advances on it (or scouts its area if the side has not seen
  * any of it for STALE ticks);
- * <li>else, a second free one within reach too: the nearer pins it from a place PIN blocks off on the way to the side,
+ * <li>else, a second free one within reach too: the nearer pins it from a place PIN blocks off it toward that squad,
  * the other goes round to a place FLANK_D blocks off it, FLANK_ANGLE off the line from the pinning one;
  * <li>else, one weaker than a third less than the group: it holds a place near it, higher, from which it sees it;
  * <li>else it advances (scouts).
@@ -23,7 +23,8 @@ import org.jspecify.annotations.Nullable;
  * its own side not falling back, or BACK blocks away from the group. With no group at all, each free squad scouts a
  * sector of the ring round the side's middle (RING blocks off), one after another as the side's sector turns. Any
  * other squad left is the reserve and stays where it is. A squad keeps its task KEEP ticks at least while its group is
- * still there (falling back aside); one that went round and got there advances next.
+ * still there (falling back aside); one that went round and got there advances next. A squad is not sent to a group it
+ * gave up lately (R5: none of it could get there).
  */
 final class StaffPlan {
     enum Kind {
@@ -51,9 +52,12 @@ final class StaffPlan {
     /**
      * A squad: where its middle is; its strength; soldiers alive, how many it had when given its task; most of it out
      * of rounds; its task now (null: none), since when, the group it is for (an index into the groups, -1: none), got
-     * to its place.
+     * to its place; the group it gave up lately (-1: none).
      */
-    record Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there) {
+    record Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid) {
+        Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there) {
+            this(x, z, strength, alive, was, out, kind, since, group, there, -1);
+        }
     }
 
     /** a group: its circle's middle and radius, its strength, ticks since one of the side saw any of it (Long.MAX_VALUE: never), room for squads (R5b) */
@@ -84,7 +88,7 @@ final class StaffPlan {
         // those keeping their tasks
         for (int i = 0; i < squads.size(); i++) {
             Squad s = squads.get(i);
-            if (out[i] != null || s.kind == null || s.group < 0 || s.group >= groups.size() || now - s.since >= KEEP) continue;
+            if (out[i] != null || s.kind == null || s.group < 0 || s.group >= groups.size() || s.group == s.avoid || now - s.since >= KEEP) continue;
             if (s.kind == Kind.RESERVE || s.kind == Kind.BACK || s.kind == Kind.FLANK && s.there) continue;
             if (sent[s.group] >= groups.get(s.group).room) continue;
             Group g = groups.get(s.group);
@@ -114,7 +118,7 @@ final class StaffPlan {
         for (int k : order) {
             Group g = groups.get(k);
             while (sent[k] < Math.min(per, g.room)) {
-                int a = nearest(squads, out, g, reach, -1);
+                int a = nearest(squads, out, g, k, reach, -1);
                 if (a < 0) break;
                 Squad sa = squads.get(a);
                 if (sent[k] > 0 || sa.strength >= ALONE * g.strength) {
@@ -122,7 +126,7 @@ final class StaffPlan {
                     sent[k]++;
                     continue;
                 }
-                int b = sent[k] + 1 < Math.min(per, g.room) ? nearest(squads, out, g, reach, a) : -1;
+                int b = sent[k] + 1 < Math.min(per, g.room) ? nearest(squads, out, g, k, reach, a) : -1;
                 if (b >= 0) {
                     // the pair keeps the parts it had (a squad going round does not turn back to pin)
                     if (sa.group == k && sa.kind == Kind.FLANK || squads.get(b).group == k && squads.get(b).kind == Kind.PIN) {
@@ -150,7 +154,7 @@ final class StaffPlan {
             int best = -1;
             double bestD = reach * reach;
             for (int k = 0; k < groups.size(); k++) {
-                if (sent[k] >= groups.get(k).room) continue;
+                if (sent[k] >= groups.get(k).room || k == s.avoid) continue;
                 double d = d2(groups.get(k), s.x, s.z);
                 if (d < bestD) {
                     bestD = d;
@@ -168,7 +172,9 @@ final class StaffPlan {
             if (out[i] != null) continue;
             Squad s = squads.get(i);
             if (groups.isEmpty()) {
-                double a = 2 * Math.PI * Math.floorMod(sector + turn++, SECTORS) / SECTORS;
+                // one scouting a sector already keeps it (AiCommander): the next sectors to the new ones
+                boolean keeps = s.kind == Kind.SCOUT && s.group < 0;
+                double a = 2 * Math.PI * Math.floorMod(sector + (keeps ? 0 : turn++), SECTORS) / SECTORS;
                 double x = sideX + RING * Math.cos(a), z = sideZ + RING * Math.sin(a);
                 out[i] = new Task(Kind.SCOUT, -1, x, z, IntelBook.R_MAX, x, z);
             } else out[i] = new Task(Kind.RESERVE, -1, s.x, s.z, PLACE, s.x, s.z);
@@ -186,12 +192,12 @@ final class StaffPlan {
         return dx * dx + dz * dz;
     }
 
-    /** the free squad nearest the group within reach, not this one (-1: none) */
-    private static int nearest(List<Squad> squads, Task[] out, Group g, double reach, int not) {
+    /** the free squad nearest the group (k) within reach, not this one, not one that gave it up (-1: none) */
+    private static int nearest(List<Squad> squads, Task[] out, Group g, int k, double reach, int not) {
         int best = -1;
         double bestD = reach * reach;
         for (int i = 0; i < squads.size(); i++) {
-            if (i == not || out[i] != null) continue;
+            if (i == not || out[i] != null || squads.get(i).avoid == k) continue;
             double d = d2(g, squads.get(i).x, squads.get(i).z);
             if (d < bestD) {
                 bestD = d;

@@ -110,21 +110,30 @@ public final class AiCommander {
 
     /**
      * A squad's task as the staff gave it (C2), one to all of it (the staff's squad: those with the same one): what,
-     * since when, how many it had then, the group's members then, where to face at its place, whether it got there.
+     * since when, the soldiers it was given to (its losses counted among them, not those of them out of the squad),
+     * the group's members then and where the group was when its place was picked, where to face at its place, whether
+     * it got there.
      */
     static final class Job {
         final StaffPlan.Kind kind;
         final long since;
-        final int was;
+        final List<AiBot> bots;
         final int[] ids;
-        double faceX, faceZ;
+        double gx, gz, faceX, faceZ;
         boolean there;
 
-        Job(StaffPlan.Kind kind, long since, int was, int[] ids) {
+        Job(StaffPlan.Kind kind, long since, List<AiBot> bots, int[] ids) {
             this.kind = kind;
             this.since = since;
-            this.was = was;
+            this.bots = bots;
             this.ids = ids;
+        }
+
+        /** of those it was given to, alive still */
+        int alive() {
+            int n = 0;
+            for (AiBot b : bots) if (b.mob.isAlive()) n++;
+            return n;
         }
 
         /** a task at a place (stand there), not an area to go through */
@@ -381,8 +390,11 @@ public final class AiCommander {
             Job job = job(s, now);
             jobs.add(job);
             int group = job == null ? -1 : groups.indexOf(match(job.ids, groups));
-            own.add(new StaffPlan.Squad(sx, sz, strength, alive, job == null ? alive : job.was, out * 2 > alive, job == null ? null : job.kind, job == null ? 0 : job.since,
-                    group, job != null && job.there));
+            // a group it gave up lately (none of it could get there): not again for AVOID
+            int avoid = -1;
+            for (int k = 0; k < groups.size() && avoid < 0; k++) if (failed(s, groups.get(k), now)) avoid = k;
+            own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), out * 2 > alive, job == null ? null : job.kind,
+                    job == null ? 0 : job.since, group, job != null && job.there, avoid));
         }
         if (all == 0) return;
         sideX /= all;
@@ -394,7 +406,8 @@ public final class AiCommander {
 
     /**
      * A soldier with a task of the staff's left out of the squads (more than AiSquads.NEAR off the others: it fell
-     * behind): the task of the nearest squad of its side within reach, to catch up with it; none: its own kept.
+     * behind): the task of the nearest squad of its side within reach as that squad has it now, to catch up with it;
+     * none: its order runs out.
      */
     private static void strays(ServerLevel level, String team, List<AiSquads.Squad> squads, long now) {
         double reach = Math.min(REACH, AiBots.radius() * 2);
@@ -418,11 +431,9 @@ public final class AiCommander {
                     best = o;
                 }
             }
-            if (best == null || best.job == mine.job) {
-                mine.until = now + LASTS;
-                continue;
-            }
-            Order o = new Order();
+            // none within reach: its order runs out, it is on its own
+            if (best == null) continue;
+            Order o = best.job == mine.job ? mine : new Order();
             o.job = best.job;
             o.x = best.x;
             o.z = best.z;
@@ -431,10 +442,15 @@ public final class AiCommander {
             o.ids = best.ids;
             o.until = now + LASTS;
             o.of = 1;
-            o.way = best.way;
-            takeUp(o, b);
+            if (o.way != best.way) {
+                o.way = best.way;
+                o.route = null;
+                o.noRoute = false;
+                o.routeFails = 0;
+                takeUp(o, b);
+            }
+            if (o != mine) strays++;
             b.order = o;
-            strays++;
         }
     }
 
@@ -462,15 +478,19 @@ public final class AiCommander {
         // a sector scouted with no group known: the same one till it is looked through (given up there); a new one
         // turns the side's sectors on
         if (t.kind() == StaffPlan.Kind.SCOUT && g == null) {
-            if (same) {
-                for (AiBot b : s.bots)
-                    if (b.order != null && b.order.job == had) {
-                        t = new StaffPlan.Task(t.kind(), -1, b.order.x, b.order.z, b.order.r, b.order.x, b.order.z);
-                        break;
-                    }
-            } else side.sector++;
+            if (same) t = kept(s, had, t, false);
+            else side.sector++;
         }
-        Job job = same ? had : new Job(t.kind(), now, alive(s), ids);
+        // a place to stand at kept while its group stays about where it was (it is not picked again as the picture
+        // and the squad move: a squad going round does not swap sides halfway); falling back, the place it went for
+        if (same && had.place() && (g == null || Math.hypot(g.x() - had.gx, g.z() - had.gz) <= REROUTE)) t = kept(s, had, t, true);
+        // falling back, the losses still counted from those it had before (not from those it has left)
+        Job job = same ? had
+                : new Job(t.kind(), now, t.kind() == StaffPlan.Kind.BACK && had != null ? had.bots : List.copyOf(s.bots), ids);
+        if (!same || g != null && Math.hypot(g.x() - job.gx, g.z() - job.gz) > REROUTE) {
+            job.gx = g == null ? t.x() : g.x();
+            job.gz = g == null ? t.z() : g.z();
+        }
         if (!same) {
             given[t.kind().ordinal()]++;
             if (t.kind() == StaffPlan.Kind.RESERVE) reserve++;
@@ -503,10 +523,12 @@ public final class AiCommander {
         }
     }
 
-    private static int alive(AiSquads.Squad s) {
-        int n = 0;
-        for (AiBot b : s.bots) if (b.mob.isAlive()) n++;
-        return n;
+    /** the task's place as the squad has it now (its face too, for a place) */
+    private static StaffPlan.Task kept(AiSquads.Squad s, Job had, StaffPlan.Task t, boolean face) {
+        for (AiBot b : s.bots)
+            if (b.order != null && b.order.job == had)
+                return new StaffPlan.Task(t.kind(), t.group(), b.order.x, b.order.z, b.order.r, face ? t.faceX() : b.order.x, face ? t.faceZ() : b.order.z);
+        return t;
     }
 
     /** the group with one of these in it, null if none */

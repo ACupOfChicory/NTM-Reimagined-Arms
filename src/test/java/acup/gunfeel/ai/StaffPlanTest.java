@@ -159,6 +159,25 @@ class StaffPlanTest {
     }
 
     @Test
+    void aGroupGivenUpLatelyIsNotGivenAgain() {
+        Squad gaveUp = new Squad(0, 0, 3, 3, 3, false, null, 0, -1, false, 0);
+        Task[] t = plan(List.of(gaveUp), List.of(group(0, 100, 1)));
+        assertEquals(Kind.RESERVE, t[0].kind());
+        // another group: that one
+        Task[] u = plan(List.of(gaveUp), List.of(group(0, 100, 1), group(100, 0, 1)));
+        assertEquals(1, u[0].group());
+    }
+
+    @Test
+    void aNewScoutTakesTheNextSectorNotOneKept() {
+        // the first keeps its sector (the commander has its place); the new one takes the side's next one
+        Squad keeping = new Squad(0, 0, 3, 3, 3, false, Kind.SCOUT, NOW - 100, -1, false);
+        Task[] t = StaffPlan.plan(List.of(keeping, squad(5, 0, 3)), List.of(), null, 0, 0, 160, AiCommander.PER, NOW, 2);
+        double a = Math.atan2(t[1].z(), t[1].x());
+        assertEquals(Math.floorMod(2, StaffPlan.SECTORS), Math.floorMod(Math.round(a / (2 * Math.PI / StaffPlan.SECTORS)), StaffPlan.SECTORS));
+    }
+
+    @Test
     void aPairLookedAtAgainKeepsItsParts() {
         // past KEEP the plan is made afresh: the one going round, now the nearer, still goes round
         Squad round = new Squad(10, 60, 3, 3, 3, false, Kind.FLANK, NOW - StaffPlan.KEEP, 0, false);

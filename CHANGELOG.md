@@ -1,6 +1,6 @@
 # Changelog
 
-## X1121
+## X1122
 
 - AI side commanders give each squad a task. A squad at least half as strong
   again as an enemy group advances on it; two squads about as strong as it
@@ -11,7 +11,9 @@
   soldiers, or most of whose soldiers ran out of rounds, falls back on the
   nearest squad of its side. With no enemy known, the squads scout round
   their side in turn. A soldier that fell behind its squad is sent after
-  it. A task is kept 20 seconds at least. New server setting
+  it; a squad is not sent again to a group it could not reach. A task is
+  kept 20 seconds at least, its place while the group stays about where it
+  was. New server setting
   `aiCommanderTasks` (true); false: each squad goes for the nearest group, as
   before.
 
