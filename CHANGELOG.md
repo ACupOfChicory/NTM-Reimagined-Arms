@@ -1,5 +1,20 @@
 # Changelog
 
+## X1111
+
+- AI side commanders give each squad a task. A squad at least half as strong
+  again as an enemy group advances on it; two squads about as strong as it
+  work together: one pins it from a lookout about 60 blocks off, higher and
+  in sight of it, while the other goes round to its side; a squad too weak
+  for it holds a higher place nearby that sees it; a group none of the side
+  has seen for a minute is scouted. A squad that lost more than half its
+  soldiers, or most of whose soldiers ran out of rounds, falls back on the
+  nearest squad of its side. With no enemy known, the squads scout round
+  their side in turn. A soldier that fell behind its squad is sent after
+  it. A task is kept 20 seconds at least. New server setting
+  `aiCommanderTasks` (true); false: each squad goes for the nearest group, as
+  before.
+
 ## X1110
 
 - AI side commanders keep their own map of the land round the side

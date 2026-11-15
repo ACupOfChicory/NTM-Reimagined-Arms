@@ -88,6 +88,15 @@ public final class AiCommander {
         }
     }
 
+    /**
+     * the server setting: the side's staff gives each squad a task (stage 7 C2, StaffPlan): advance, pin, go round,
+     * hold, scout, fall back, wait; off: as R5, the nearest group or the reserve; off only for the stands' "before"
+     */
+    public static final String TASKS_KEY = "aiCommanderTasks";
+    static boolean tasks = true;
+    /** the stands: tasks given, by kind (StaffPlan.Kind's order) */
+    public static final int[] given = new int[StaffPlan.Kind.values().length];
+
     /** the server setting: the reserve goes where its side loses soldiers (R5b); off only for the stands' "before" */
     public static final String HELP_KEY = "aiCommanderHelp";
     static boolean help = true;
@@ -95,12 +104,39 @@ public final class AiCommander {
     static final int HELP = 1200, HELP_MORE = 1;
 
     /** the stands: orders given (squads sent), times a squad was held in reserve, areas given up, reserves sent where the side loses soldiers */
-    public static int orders, reserve, gaveUp, helped;
+    public static int orders, reserve, gaveUp, helped, strays;
     /** the stands: the game tick each side (by its team) was last given its orders */
     static final Map<String, Long> commandedAt = new HashMap<>();
 
+    /**
+     * A squad's task as the staff gave it (C2), one to all of it (the staff's squad: those with the same one): what,
+     * since when, how many it had then, the group's members then, where to face at its place, whether it got there.
+     */
+    static final class Job {
+        final StaffPlan.Kind kind;
+        final long since;
+        final int was;
+        final int[] ids;
+        double faceX, faceZ;
+        boolean there;
+
+        Job(StaffPlan.Kind kind, long since, int was, int[] ids) {
+            this.kind = kind;
+            this.since = since;
+            this.was = was;
+            this.ids = ids;
+        }
+
+        /** a task at a place (stand there), not an area to go through */
+        boolean place() {
+            return kind != StaffPlan.Kind.ADVANCE && kind != StaffPlan.Kind.SCOUT;
+        }
+    }
+
     /** a squad's order, a copy to each of it: the area, the group (its members' ids, its lead's), till when */
     static final class Order {
+        /** the staff's task it is for (C2; null: R5's, an area) */
+        @Nullable Job job;
         double x, z, r;
         int lead;
         int[] ids = new int[0];
@@ -121,11 +157,15 @@ public final class AiCommander {
         /** legs of the way that could not be walked, one after another; at ROUTE_FAILS it walks straight (as R5) for the rest of the order */
         int routeFails;
         boolean noRoute;
+        /** at its task's place, stopped there (C2) */
+        boolean stood;
     }
 
     /** a side's own: its next orders */
     private static final class Side {
         long next = Long.MIN_VALUE;
+        /** with no group known, the sector of the ring round it its squads scout next (C2) */
+        int sector;
         /** the side's reports seen (a new one: its map made again) */
         long reports;
     }
@@ -139,6 +179,10 @@ public final class AiCommander {
 
     public static boolean on() {
         return on && ReaimTimes.flag(KEY, true);
+    }
+
+    static boolean tasks() {
+        return tasks && ReaimTimes.flag(TASKS_KEY, true);
     }
 
     public static void forget(ServerLevel level) {
@@ -232,6 +276,10 @@ public final class AiCommander {
         List<Group> groups = groups(level, team);
         waysLeft = WAYS;
         commandedAt.put(team, now);
+        if (tasks()) {
+            tasks(level, team, side, squads, groups, now);
+            return;
+        }
         Map<Group, Integer> sent = new java.util.IdentityHashMap<>();
         List<AiSquads.Squad> going = new ArrayList<>(), idle = new ArrayList<>();
         // squads at a fight first: counted to the group of their target
@@ -293,6 +341,174 @@ public final class AiCommander {
         }
     }
 
+    /**
+     * The staff's tasks (C2): each squad as the plan has it (StaffPlan) from its strength, losses, rounds and the task
+     * most of it has now; each group from its kinds and health, how lately seen, its room (R5b).
+     */
+    private static void tasks(ServerLevel level, String team, Side side, List<AiSquads.Squad> squads, List<Group> groups, long now) {
+        List<StaffPlan.Group> foes = new ArrayList<>(groups.size());
+        for (Group g : groups) {
+            IntelBook.Group k = g.known();
+            int n = 0;
+            double strength = 0;
+            for (int kind = 0; kind < k.kinds.length; kind++) {
+                n += k.kinds[kind];
+                strength += k.kinds[kind] * StaffPlan.weight(kind);
+            }
+            if (n > 0) strength *= Math.min(1, k.health / n);
+            foes.add(new StaffPlan.Group(g.x(), g.z(), g.r(), strength, k.seen == Long.MIN_VALUE ? Long.MAX_VALUE : now - k.seen, room(g, now)));
+        }
+        List<StaffPlan.Squad> own = new ArrayList<>(squads.size());
+        List<Job> jobs = new ArrayList<>(squads.size());
+        double sideX = 0, sideZ = 0;
+        int all = 0;
+        boolean supply = AiSupply.on() && ReaimTimes.flag(AiSupply.OUT_KEY, true);
+        for (AiSquads.Squad s : squads) {
+            double sx = 0, sz = 0, strength = 0;
+            int alive = 0, out = 0;
+            for (AiBot b : s.bots) {
+                sx += b.mob.getX() / s.bots.size();
+                sz += b.mob.getZ() / s.bots.size();
+                if (!b.mob.isAlive()) continue;
+                alive++;
+                boolean empty = supply && !b.gunner.ammo.infinite() && b.gunner.ammo.reserve() <= 0 && b.gunner.capacity() > 0;
+                if (empty) out++;
+                strength += StaffPlan.weight(AiRole.of(b).ordinal()) * Math.min(1, b.mob.getHealth() / b.mob.getMaxHealth()) * (empty ? 0.3 : 1);
+                sideX += b.mob.getX();
+                sideZ += b.mob.getZ();
+                all++;
+            }
+            Job job = job(s, now);
+            jobs.add(job);
+            int group = job == null ? -1 : groups.indexOf(match(job.ids, groups));
+            own.add(new StaffPlan.Squad(sx, sz, strength, alive, job == null ? alive : job.was, out * 2 > alive, job == null ? null : job.kind, job == null ? 0 : job.since,
+                    group, job != null && job.there));
+        }
+        if (all == 0) return;
+        sideX /= all;
+        sideZ /= all;
+        StaffPlan.Task[] plan = StaffPlan.plan(own, foes, AiHqMap.of(level, team), sideX, sideZ, Math.min(REACH, AiBots.radius() * 2), PER, now, side.sector);
+        for (int i = 0; i < squads.size(); i++) task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
+        strays(level, team, squads, now);
+    }
+
+    /**
+     * A soldier with a task of the staff's left out of the squads (more than AiSquads.NEAR off the others: it fell
+     * behind): the task of the nearest squad of its side within reach, to catch up with it; none: its own kept.
+     */
+    private static void strays(ServerLevel level, String team, List<AiSquads.Squad> squads, long now) {
+        double reach = Math.min(REACH, AiBots.radius() * 2);
+        for (AiBot b : AiBots.bots(level)) {
+            Order mine = b.order;
+            if (mine == null || mine.job == null || now > mine.until || !(b.brain instanceof AiSoldier) || !b.mob.isAlive()) continue;
+            if (AiSquads.of(b) != null || !team.equals(AiSquads.team(b))) continue;
+            Order best = null;
+            double bestD = reach * reach;
+            for (AiSquads.Squad s : squads) {
+                Order o = null;
+                double sx = 0, sz = 0;
+                for (AiBot c : s.bots) {
+                    sx += c.mob.getX() / s.bots.size();
+                    sz += c.mob.getZ() / s.bots.size();
+                    if (o == null && c.order != null && c.order.job != null && now <= c.order.until) o = c.order;
+                }
+                double dx = sx - b.mob.getX(), dz = sz - b.mob.getZ(), d = dx * dx + dz * dz;
+                if (o != null && d < bestD) {
+                    bestD = d;
+                    best = o;
+                }
+            }
+            if (best == null || best.job == mine.job) {
+                mine.until = now + LASTS;
+                continue;
+            }
+            Order o = new Order();
+            o.job = best.job;
+            o.x = best.x;
+            o.z = best.z;
+            o.r = best.r;
+            o.lead = best.lead;
+            o.ids = best.ids;
+            o.until = now + LASTS;
+            o.of = 1;
+            o.way = best.way;
+            takeUp(o, b);
+            b.order = o;
+            strays++;
+        }
+    }
+
+    /** the task most of the squad has now (none: null) */
+    private static @Nullable Job job(AiSquads.Squad s, long now) {
+        Job best = null;
+        int most = 0;
+        for (AiBot b : s.bots) {
+            Job j = b.order != null && now <= b.order.until ? b.order.job : null;
+            if (j == null) continue;
+            int n = 0;
+            for (AiBot c : s.bots) if (c.order != null && now <= c.order.until && c.order.job == j) n++;
+            if (n > most) {
+                most = n;
+                best = j;
+            }
+        }
+        return most * 2 >= s.bots.size() ? best : null;
+    }
+
+    /** the squad's task: the one it has if the same (its time kept), else a new one; its way there, each its order */
+    private static void task(ServerLevel level, String team, Side side, AiSquads.Squad s, @Nullable Job had, StaffPlan.Task t, @Nullable Group g, long now) {
+        int[] ids = g == null ? new int[0] : g.ids();
+        boolean same = had != null && had.kind == t.kind() && (g == null ? had.ids.length == 0 : g.any(had.ids));
+        // a sector scouted with no group known: the same one till it is looked through (given up there); a new one
+        // turns the side's sectors on
+        if (t.kind() == StaffPlan.Kind.SCOUT && g == null) {
+            if (same) {
+                for (AiBot b : s.bots)
+                    if (b.order != null && b.order.job == had) {
+                        t = new StaffPlan.Task(t.kind(), -1, b.order.x, b.order.z, b.order.r, b.order.x, b.order.z);
+                        break;
+                    }
+            } else side.sector++;
+        }
+        Job job = same ? had : new Job(t.kind(), now, alive(s), ids);
+        if (!same) {
+            given[t.kind().ordinal()]++;
+            if (t.kind() == StaffPlan.Kind.RESERVE) reserve++;
+            else if (t.kind() != StaffPlan.Kind.BACK) orders++;
+        }
+        job.faceX = t.faceX();
+        job.faceZ = t.faceZ();
+        Way way = t.kind() == StaffPlan.Kind.RESERVE ? null : way(level, team, s, t.x(), t.z());
+        int i = 0;
+        for (AiBot b : s.bots) {
+            Order o = b.order != null && b.order.job == job ? b.order : new Order();
+            o.job = job;
+            o.x = t.x();
+            o.z = t.z();
+            o.r = t.r();
+            o.lead = g == null ? -1 : g.lead();
+            o.ids = ids;
+            o.until = now + LASTS;
+            o.slot = i++;
+            o.of = s.bots.size();
+            if (o.way != way && (way == null || o.walked != way)) {
+                o.way = way;
+                o.route = null;
+                o.noRoute = false;
+                o.routeFails = 0;
+                takeUp(o, b);
+            } else if (o.noRoute) o.route = null;
+            else if (o.route != null && far(o.route, o.at, b)) o.at = ahead(o.route, b.mob.getX(), b.mob.getZ());
+            b.order = o;
+        }
+    }
+
+    private static int alive(AiSquads.Squad s) {
+        int n = 0;
+        for (AiBot b : s.bots) if (b.mob.isAlive()) n++;
+        return n;
+    }
+
     /** the group with one of these in it, null if none */
     private static @Nullable Group match(int[] ids, List<Group> groups) {
         for (Group g : groups) if (g.any(ids)) return g;
@@ -336,11 +552,11 @@ public final class AiCommander {
         double x = g.x(), z = g.z(), r = g.r();
         if (fresh) orders++;
         int[] ids = g.ids();
-        Way way = way(level, team, s, g, x, z);
+        Way way = way(level, team, s, x, z);
         int i = 0;
         for (AiBot b : s.bots) {
             // the same group (one of its members still in it): the same order, its time in the area kept
-            Order o = b.order != null && g.any(b.order.ids) ? b.order : new Order();
+            Order o = b.order != null && b.order.job == null && g.any(b.order.ids) ? b.order : new Order();
             o.x = x;
             o.z = z;
             o.r = r;
@@ -367,10 +583,10 @@ public final class AiCommander {
      * asked to go, else a new one looked for off the server thread over the staff's map (null: no staff, no map yet,
      * none left to ask for this time: straight legs as R5)
      */
-    private static @Nullable Way way(ServerLevel level, String team, AiSquads.Squad s, Group g, double x, double z) {
+    private static @Nullable Way way(ServerLevel level, String team, AiSquads.Squad s, double x, double z) {
         if (!staff()) return null;
         for (AiBot b : s.bots) {
-            if (b.order == null || !g.any(b.order.ids)) continue;
+            if (b.order == null) continue;
             // the one it goes by or waits for; or one walked to its end (not one that ended short, at the map's edge:
             // the map has moved on with the squad since)
             Way w = b.order.way != null ? b.order.way : b.order.walked;
@@ -465,10 +681,13 @@ public final class AiCommander {
         Order o = bot.order;
         if (!has(bot, tick)) return false;
         double dx = o.x - bot.mob.getX(), dz = o.z - bot.mob.getZ(), d = Math.hypot(dx, dz);
-        // in once it is within half the radius; out again past the whole of it
-        boolean there = d <= o.r * 0.5 || o.lastInside == tick - 1 && d <= o.r;
+        // in an area once it is within half the radius, out again past the whole of it; at a place (C2) within its
+        // radius, away again past twice that
+        boolean place = o.job != null && o.job.place();
+        boolean there = place ? d <= o.r || o.lastInside == tick - 1 && d <= o.r * 2 : d <= o.r * 0.5 || o.lastInside == tick - 1 && d <= o.r;
         bot.gunner.fire(false);
         if (!there) {
+            o.stood = false;
             boolean stuck = bot.mover.failed();
             // a leg that could not be walked (the map not built that far yet, or no way): counted only when it is no
             // nearer than at the last one
@@ -525,6 +744,17 @@ public final class AiCommander {
         }
         o.lastInside = tick;
         o.fails = 0;
+        // at its place: it stands there facing the group (not looking through an area, not giving it up)
+        if (place) {
+            o.job.there = true;
+            if (!o.stood) {
+                o.stood = true;
+                bot.mover.stop();
+            }
+            boolean face = Math.hypot(o.job.faceX - bot.mob.getX(), o.job.faceZ - bot.mob.getZ()) > 2;
+            if (bot.mob.isAlive()) bot.gunner.aim(face ? new net.minecraft.world.phys.Vec3(o.job.faceX, bot.mob.getEyeY(), o.job.faceZ) : null);
+            return true;
+        }
         if (++o.inside > GIVE_UP) return giveUp(bot, o, tick);
         if (tick >= o.nextLeg || bot.mover.arrived() || bot.mover.failed()) {
             o.nextLeg = tick + LOOK_AGAIN;
@@ -555,7 +785,9 @@ public final class AiCommander {
 
     /** /armsai info */
     public static String info() {
-        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d sent where the side loses soldiers, %d groups given up, %d ways (%.2f ms each, off the server thread); %s; %s", orders,
-                reserve, helped, gaveUp, routes.get(), routes.get() == 0 ? 0 : routeNanos.get() / 1e6 / routes.get(), AiIntel.info(), AiHqMap.info());
+        StringBuilder t = new StringBuilder();
+        for (StaffPlan.Kind k : StaffPlan.Kind.values()) t.append(t.length() == 0 ? "" : ", ").append(k.name().toLowerCase(java.util.Locale.ROOT)).append(' ').append(given[k.ordinal()]);
+        return String.format(java.util.Locale.ROOT, "commanders: %d orders, %d times a squad held in reserve, %d sent where the side loses soldiers, %d groups given up, %d ways (%.2f ms each, off the server thread); tasks given: %s, %d to catch up with a squad; %s; %s", orders,
+                reserve, helped, gaveUp, routes.get(), routes.get() == 0 ? 0 : routeNanos.get() / 1e6 / routes.get(), t, strays, AiIntel.info(), AiHqMap.info());
     }
 }
