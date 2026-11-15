@@ -357,7 +357,7 @@ public final class AiGrenades {
      * (an AI mob, a player of its team) within that too: where it is, where it is on its way to, the peek it looks out
      * from. Down more than 0: it, down that high where it is till the burst, may be nearer, CLOSE_BURST on, shielded.
      */
-    private static boolean ownNear(ServerLevel level, VoxelRay.Source src, Mob m, Vec3 b, double down) {
+    static boolean ownNear(ServerLevel level, VoxelRay.Source src, Mob m, Vec3 b, double down) {
         double s2 = (SAFE + OWN_MARGIN) * (SAFE + OWN_MARGIN), d2 = m.distanceToSqr(b);
         if (d2 < s2 && !(down > 0 && d2 >= CLOSE_BURST * CLOSE_BURST)) return true;
         for (AiBot o : AiBots.bots(level)) {

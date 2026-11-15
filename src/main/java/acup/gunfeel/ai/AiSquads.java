@@ -131,6 +131,12 @@ public final class AiSquads {
         }
     }
 
+    /** the level's squads as last made (AiCommander) */
+    static List<Squad> squads(ServerLevel level) {
+        PerLevel l = LEVELS.get(level);
+        return l == null ? List.of() : l.squads;
+    }
+
     static String team(AiBot b) {
         return b.mob.getTeam() == null ? "" : b.mob.getTeam().getName();
     }
@@ -163,14 +169,15 @@ public final class AiSquads {
         s.based = rifles > 0 && rifles < s.bots.size();
         if (s.target < 0) return;
         for (AiBot b : s.bots)
-            if (flankers.contains(b.mob.getId()) && b.memory.contact(s.target) != null && !(s.based && AiRole.of(b) == AiRole.BASE)) {
+            if (flankers.contains(b.mob.getId()) && b.memory.contact(s.target) != null && !(s.based && AiRole.of(b) == AiRole.BASE) && !AiMarksman.is(b) && !AiGrenadier.is(b)) {
                 s.flanker = b.mob.getId();
                 return;
             }
         double most = 2;
         for (AiBot b : s.bots) {
             Vec3 t = where(b, s.target);
-            if (t == null || b.prone.lying() || s.based && AiRole.of(b) == AiRole.BASE) continue;
+            // the base of fire, a marksman and a grenadier keep their places
+            if (t == null || b.prone.lying() || s.based && AiRole.of(b) == AiRole.BASE || AiMarksman.is(b) || AiGrenadier.is(b)) continue;
             double c = cos(b.mob.getX() - t.x, b.mob.getZ() - t.z, s.cx - t.x, s.cz - t.z);
             if (c < most) {
                 most = c;
@@ -228,11 +235,11 @@ public final class AiSquads {
         return s != null && s.based && AiRole.of(bot) == AiRole.BASE;
     }
 
-    /** one of its squad that is no base of fire knows of this target */
+    /** one of its squad that is no base of fire nor marksman knows of this target */
     private static boolean riflemanKnows(AiBot bot, int target) {
         Squad s = of(bot);
         if (s == null) return false;
-        for (AiBot b : s.bots) if (b != bot && live(b) && AiRole.of(b) != AiRole.BASE && b.memory.contact(target) != null) return true;
+        for (AiBot b : s.bots) if (b != bot && live(b) && AiRole.of(b) != AiRole.BASE && !AiMarksman.is(b) && !AiGrenadier.is(b) && b.memory.contact(target) != null) return true;
         return false;
     }
 
@@ -259,6 +266,8 @@ public final class AiSquads {
     /** on its way: to cover, or after a target */
     static boolean moving(AiBot b) {
         if (!live(b) || !(b.brain instanceof AiSoldier s)) return false;
+        // a marksman going from perch to perch goes its own way, not the squad's (AiMarksman)
+        if (AiMarksman.perched(b)) return false;
         AiSoldier.Mode m = s.mode();
         return (m == AiSoldier.Mode.TO_COVER || m == AiSoldier.Mode.SEARCH) && b.mover.goal() != Long.MIN_VALUE && !b.mover.arrived();
     }
@@ -266,6 +275,8 @@ public final class AiSquads {
     /** in its cover (or out at its peek), gun loaded: ready to fire for those on the move */
     static boolean covering(AiBot b) {
         if (!live(b) || !(b.brain instanceof AiSoldier s) || moving(b)) return false;
+        // a marksman at its perch watches over them as they go (overwatch: the research's Halo, F.E.A.R.)
+        if (AiMarksman.perched(b)) return AiMarksman.there(b) && !b.gunner.reloading() && b.gunner.loaded() != 0;
         AiSoldier.Mode m = s.mode();
         return (m == AiSoldier.Mode.COVER || m == AiSoldier.Mode.PEEK || m == AiSoldier.Mode.HOLD) && s.spot() != null && !b.gunner.reloading()
                 && b.gunner.loaded() != 0;
@@ -297,7 +308,9 @@ public final class AiSquads {
     static boolean mayHunt(AiBot bot, int target) {
         if (!on || !(bot.mob.level() instanceof ServerLevel level)) return true;
         // its base of fire stays, while a rifleman of its squad knows of the target and may go
-        if (base(bot) && riflemanKnows(bot, target)) return false;
+        if ((base(bot) || AiMarksman.is(bot)) && riflemanKnows(bot, target)) return false;
+        // a grenadier does not go after them: near them its shells cannot go (AiGrenadier.MIN)
+        if (AiGrenadier.is(bot)) return false;
         String team = team(bot);
         if (offTeams.contains(team)) return true;
         int n = 0;

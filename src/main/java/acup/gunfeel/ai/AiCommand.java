@@ -180,9 +180,11 @@ public final class AiCommand {
         String team = kit.team();
         var mobs = AiSpawn.spawn(c.getSource().getLevel(), c.getSource().getPosition(), kind, count, gun);
         if (team != null) for (var m : mobs) AiTeams.join(c.getSource().getLevel(), m, team);
-        // a number and no role named: the roles are dealt among them (each a supplier by chance, aiSupplyShare, from two up)
-        int dealt = kit.role() == null ? AiRole.deal(mobs, c.getSource().getLevel().getRandom()) : 0;
-        String kitted = kit.putOn(mobs) + (dealt == 0 ? "" : ", " + dealt + (dealt == 1 ? " of them a supplier" : " of them suppliers"));
+        // a number and no role named: the roles are dealt among them (each a supplier or a medic by chance, aiSupplyShare,
+        // aiMedicShare, from two up)
+        int[] dealt = kit.role() == null ? AiRole.deal(mobs, c.getSource().getLevel().getRandom()) : new int[2];
+        String kitted = kit.putOn(mobs) + (dealt[0] == 0 ? "" : ", " + dealt[0] + (dealt[0] == 1 ? " of them a supplier" : " of them suppliers"))
+                + (dealt[1] == 0 ? "" : ", " + dealt[1] + (dealt[1] == 1 ? " of them a medic" : " of them medics"));
         int n = mobs.size();
         c.getSource().sendSuccess(() -> Component.literal(n + " AI " + kind.name().toLowerCase(java.util.Locale.ROOT) + (n == 1 ? "" : "s")
                 + " spawned" + (team == null ? "" : " in team " + team) + kitted + (n < count ? " (no room for " + (count - n) + ")" : "")), true);
@@ -214,7 +216,7 @@ public final class AiCommand {
     private static int info(CommandContext<CommandSourceStack> c) {
         TacticalMap map = TacticalMap.peek(c.getSource().getLevel());
         String text = (map == null ? "no tactical map in this level" : map.info()) + "\nAI mobs "
-                + AiBots.count(c.getSource().getLevel()) + " (" + AiSquads.roles(AiBots.all(c.getSource().getLevel())) + "); senses: " + Senses.info() + "; " + CoverQuery.info();
+                + AiBots.count(c.getSource().getLevel()) + " (" + AiSquads.roles(AiBots.all(c.getSource().getLevel())) + "); senses: " + Senses.info() + "; " + CoverQuery.info() + "; " + AiMarksman.info() + "; " + AiGrenadier.info() + "; " + AiMedic.info() + "; " + AiCommander.info();
         AiTerrain terrain = AiTerrain.peek(c.getSource().getLevel());
         String all = terrain == null ? text : text + "\n" + terrain.info();
         c.getSource().sendSuccess(() -> Component.literal(all), false);

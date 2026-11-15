@@ -319,15 +319,37 @@ public final class AiSoldier implements AiBrain {
         crouch = false;
         bot.gunner.blind = false;
         bot.gunner.low = false;
+        orderedNow = false;
         decide(bot, tick);
+        if (orderedNow) {
+            orderGoal = bot.mover.goal();
+            orderAim = bot.gunner.aimPoint();
+        } else if (orderGoal != Long.MIN_VALUE || orderAim != null) {
+            // its order over (done with, given up, held back, or something else to see to): the order's walk and look
+            // end with it, unless what it does now set its own
+            if (orderGoal != Long.MIN_VALUE && bot.mover.goal() == orderGoal) bot.mover.stop();
+            if (orderAim != null && bot.gunner.aimPoint() == orderAim) bot.gunner.aim(null);
+            orderGoal = Long.MIN_VALUE;
+            orderAim = null;
+        }
         // sliding or rolling: no shot (pose-contract §4)
         if (bot.dash.on(tick)) bot.gunner.fire(false);
         body(bot, tick);
         if (AiThoughts.on()) thoughts.note(this, bot, tick);
     }
 
+    /** it went by its side's order this tick (AiCommander); the walk and the look the order set it last */
+    private boolean orderedNow;
+    private long orderGoal = Long.MIN_VALUE;
+    private @Nullable Vec3 orderAim;
+
     /** this tick it keeps low behind low cover (the decision sets it; standing unless it does) */
     private boolean crouch;
+
+    /** down on its knees this tick (AiMarksman between its shots) */
+    void crouch(boolean on) {
+        crouch = on;
+    }
     /** reloading the last tick (a reload begun calls out) */
     private boolean wasReloading;
     /** ticks it rises before a burst over low cover */
@@ -437,6 +459,11 @@ public final class AiSoldier implements AiBrain {
         }
         // its squad's supplier on a run to one that is short (AiSupply): nothing else till it has handed over
         if (AiSupply.step(this, bot, level, tick)) return;
+        // its squad's medic on its way to one hurt, or treating them (AiMedic)
+        if (AiMedic.step(this, bot, level, tick)) {
+            why = Why.MEDIC;
+            return;
+        }
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again
@@ -456,7 +483,9 @@ public final class AiSoldier implements AiBrain {
         // (not into a room ahead of those that go in together: AiEntry)
         else if (c != null && c.state != TargetMemory.State.VISIBLE && !(AiEntry.on() && AiEntry.roomed(bot, level, c, tick)) && flank(bot, level, c, tick)) {
         }
-        // gone behind cover a moment ago: a grenade over it
+        // gone behind cover a moment ago: a grenadier's shell where they went (AiGrenadier), else a grenade over it
+        else if (c != null && c.state == TargetMemory.State.LOST && tick - c.lostTick >= LOST_FIRST && AiGrenadier.step(this, bot, level, c, tick))
+            why = Why.GRENADIER;
         else if (c != null && c.state == TargetMemory.State.LOST && tick - c.lostTick >= LOST_FIRST
                 && grenade(bot, level, new Vec3(c.lostX, c.lostY, c.lostZ), tick, true)) {
         }
@@ -484,6 +513,9 @@ public final class AiSoldier implements AiBrain {
             search(bot, level, c, tick);
         else if (c != null && c.state == TargetMemory.State.SEARCH) hold(bot, level, c, tick);
         else if (n != null) alert(bot, level, n, tick);
+        // knows of no one: its side's commander's order, if it has one (AiCommander)
+        else if (ordered(bot, level, tick)) {
+        }
         else idle(bot, tick);
     }
 
@@ -719,6 +751,16 @@ public final class AiSoldier implements AiBrain {
         TacticalMap map = TacticalMap.of(level);
         // shaken: back to cover farther off, one wave of its squad at a time
         if (fallBack(bot, level, map, c, eye, tick)) return;
+        // a marksman with a target far off: from its perch (AiMarksman)
+        if (AiMarksman.step(this, bot, level, c, tick)) {
+            why = Why.MARKSMAN;
+            return;
+        }
+        // a grenadier: its shells lobbed at them (AiGrenadier)
+        if (AiGrenadier.step(this, bot, level, c, tick)) {
+            why = Why.GRENADIER;
+            return;
+        }
         // hit, or a shot close past it: often other cover
         TargetMemory.Noise hurt = bot.memory.noise();
         if (hurt != null && hurt.hurt && hurt.tick != hitSeen) {
@@ -1672,6 +1714,22 @@ public final class AiSoldier implements AiBrain {
             bot.mover.costs(PathSearch.Cost.NONE);
             bot.mover.goTo(cell, 1.5, CREEP);
         }
+    }
+
+    /** to an area its side's commander sent its squad to, and through it (AiCommander); false: no order */
+    private boolean ordered(AiBot bot, ServerLevel level, long tick) {
+        if (!AiCommander.has(bot, tick)) return false;
+        if (mode != Mode.IDLE) {
+            bot.gunner.aim(null);
+            drop(bot);
+            bot.mover.stop();
+            watch = null;
+        }
+        if (!AiCommander.step(bot, level, tick)) return false;
+        mode(Mode.IDLE, tick);
+        why = Why.ORDER;
+        orderedNow = true;
+        return true;
     }
 
     private void idle(AiBot bot, long tick) {

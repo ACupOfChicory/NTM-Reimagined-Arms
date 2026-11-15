@@ -121,6 +121,24 @@ public final class Arena {
     // across the cover rows. Endless rounds (a measurement must not end with empty guns) and no damage (TAG); every
     // AI mob thinks with no player near (AiBots.wakeAll)
     public void aiPairs(int n) {
+        aiPairs(n, 0, null, null);
+    }
+
+    // every mob of the stand down to this share of its health (the medics' phase: no one is hurt on the arena else)
+    public void hurtAll(float share) {
+        for (net.minecraft.world.entity.Entity e : level.getAllEntities())
+            if (e instanceof Mob m && m.entityTags().contains(TAG)) m.setHealth(share * m.getMaxHealth());
+    }
+
+    // aiPairs, with every every-th pair (both sides alike) given this role by word (AiRole), and this gun if not null
+    // (a grenadier needs its launcher)
+    public void aiPairs(int n, int every, @org.jspecify.annotations.Nullable String role, @org.jspecify.annotations.Nullable String gun) {
+        aiPairs(n, every, role, gun, true);
+    }
+
+    // aiPairs; heard false: none hears the one across from it, they know of no one at first (their commanders bring
+    // them together: AiCommander)
+    public void aiPairs(int n, int every, @org.jspecify.annotations.Nullable String role, @org.jspecify.annotations.Nullable String gun, boolean heard) {
         acup.gunfeel.ai.AiBots.wakeAll(true);
         var board = level.getScoreboard();
         EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse("hbm:entity_fbi"));
@@ -143,6 +161,10 @@ public final class Arena {
             level.addFreshEntity(m);
             var bot = acup.gunfeel.ai.AiBots.get(m);
             if (bot == null) throw new IllegalStateException("an FBI tagged armsai is not an AI mob");
+            if (every > 0 && i / 2 % every == 0) {
+                if (gun != null) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.parse(gun))));
+                if (role != null) acup.gunfeel.ai.AiRole.give(m, role);
+            }
             bot.gunner.ammo.setInfinite();
             bot.gunner.loadFree();
             made.add(m);
@@ -150,7 +172,7 @@ public final class Arena {
         // behind the rows they may see nothing of each other at first: each hears the one across from it fire, as
         // fbiPairs gives each FBI the one across as its target, and goes to find them
         long tick = level.getGameTime();
-        for (int i = 0; i + 1 < made.size(); i += 2) {
+        for (int i = 0; heard && i + 1 < made.size(); i += 2) {
             Mob w = made.get(i), e = made.get(i + 1);
             acup.gunfeel.ai.AiBots.get(w).memory.heard(e.getX(), e.getY(), e.getZ(), tick, true, false);
             acup.gunfeel.ai.AiBots.get(e).memory.heard(w.getX(), w.getY(), w.getZ(), tick, true, false);

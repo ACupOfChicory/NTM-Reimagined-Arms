@@ -54,7 +54,12 @@ public final class AiBench {
     // boom0: the same explosions on the empty arena, the explosion's own cost; ai100: the mod's AI mobs, two teams of
     // 50 FBI going at each other as fbi100's (Arena.aiPairs); aiboom: the same with fbi100's explosions; aiwood: ai100
     // on the arena as land with mounds, a pond and trees all over it (Arena.wood); aicrater: ai100 with two of NTM's
-    // bombs and a trench dug across a side's way (CraterWatch, its rows in <name>-crater.tsv)
+    // bombs and a trench dug across a side's way (CraterWatch, its rows in <name>-crater.tsv); ai100marks: ai100
+    // with one of each five a marksman (AiMarksman), what the role costs; ai100gren: the same with grenadiers
+    // (AiGrenadier), each with NTM's Congo Lake; ai100med: with medics (AiMedic), every mob at half its health (the
+    // stand's mobs take no damage: a kit is used once on each, the rest is their looks); ai100cmd: ai100 with none
+    // hearing the one across, so those behind the rows know of no one at first and their sides' commanders send
+    // them (AiCommander), what the orders cost
     static final List<Phase> PHASES = List.of(
             new Phase("empty", 0, a -> {
             }),
@@ -67,6 +72,13 @@ public final class AiBench {
             new Phase("boom0", 0, a -> {
             }, 150, 300, 450),
             new Phase("ai100", 100, a -> a.aiPairs(100)),
+            new Phase("ai100marks", 100, a -> a.aiPairs(100, 5, "marksman", null)),
+            new Phase("ai100gren", 100, a -> a.aiPairs(100, 5, "grenadier", "hbm:gun_congolake")),
+            new Phase("ai100med", 100, a -> {
+                a.aiPairs(100, 5, "medic", null);
+                a.hurtAll(0.5F);
+            }),
+            new Phase("ai100cmd", 100, a -> a.aiPairs(100, 0, null, null, false)),
             new Phase("aiboom", 100, a -> a.aiPairs(100), 150, 300, 450),
             new Phase("aiwood", 100, a -> {
                 a.wood();
@@ -367,6 +379,8 @@ public final class AiBench {
                 (acup.gunfeel.ai.AiBots.bystanderNanos - byAt) / 1e6 / n));
         var terrain = acup.gunfeel.ai.AiTerrain.peek(level);
         if (terrain != null) notes.add(terrain.info());
+        // the roles' counts so far (the whole run: a phase with none of them adds nothing)
+        notes.add(acup.gunfeel.ai.AiMarksman.info() + "; " + acup.gunfeel.ai.AiGrenadier.info() + "; " + acup.gunfeel.ai.AiMedic.info() + "; " + acup.gunfeel.ai.AiCommander.info());
         if (crater != null) {
             notes.add(crater.note(n));
             for (String h : crater.holed()) System.out.println("[AiBench] # в яме: " + h);

@@ -247,6 +247,30 @@ page. They are alphas: expect bugs and back up your world.
   `role supplier` makes one by word (server keys `aiSupply`,
   `aiSupplyShare`, `aiSupplyOut`, `aiSupplyMagazines`, `aiSupplyGrenades`,
   `aiSupplySmokes`).
+- A bot with a scoped gun is its squad's marksman: with you 24 blocks off or
+  farther it climbs to a perch behind its squad, high and with a long view of
+  you, mostly 40 to 90 blocks off, fires single shots from there a second
+  apart and moves on after two or three, as soon as it is shot at, or when it
+  has had no shot for five seconds. It never goes round the side, and leaves
+  looking for you to its squad's riflemen while one of them knows where you
+  are. `role marksman` makes one by word (server key `aiMarksman`).
+- A bot with a grenade launcher (40 mm) is its squad's grenadier: it lobs its
+  shells over your low cover and onto the place you just ducked out of sight
+  at, the barrel raised as far as the shell drops, never within 17 blocks of
+  itself or its own. `role grenadier` makes one by word (server key
+  `aiGrenadier`).
+- A squad may have a medic: it runs to one of its own (or to you, if you are
+  on its team) who has lost more than 40% of their health, when the way is out
+  of the enemy's sight, kneels by them three seconds, not firing, and gives
+  half their health back; it treats itself too. `/armsai spawn` with a number
+  makes medics by chance; `role medic` makes one by word (server keys
+  `aiMedic`, `aiMedicKits`, `aiMedicShare`).
+- A team of bots that knows of no one comes for you: its commander sends each
+  of its squads, two at most to one group, to roughly where you, or another
+  team it fights, are (an area of radius 16 to 32 blocks, wider the longer
+  none of them has seen you), and the squad looks through it with its own
+  eyes. A minute there with no one found, and the squad goes for another group
+  (server key `aiCommander`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim

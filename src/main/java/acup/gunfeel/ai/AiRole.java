@@ -10,17 +10,24 @@ import acup.gunfeel.ReaimTimes;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * What an AI mob is to its squad, by the gun in its hands (the owner, 2026-11-11: no role of its own for suppression,
- * it is the machine gunner's work, as in the manuals: the base of fire keeps them down while the others go round).
- * {@link #BASE}: a gun that fires on while the trigger is held, fast (a shot every {@link #FAST} ticks at most), real
- * bullets (no beam, nothing slow: a flamer, a grenade), with a belt or a magazine of aiBaseMagazine rounds or more: a
- * machine gun, a minigun, an automatic with a big magazine. Anyone else is a {@link #RIFLE}. Worked out again when
- * the gun in its hands is another.
+ * What an AI mob is to its squad, by the gun in its hands (the owner, 2026-11-11: no role of its own for
+ * suppression, it is the machine gunner's work, as in the manuals: the base of fire keeps them down while the others
+ * go round). {@link #BASE}: a gun that fires on while the trigger is held, fast (a shot every {@link #FAST} ticks at
+ * most), real bullets (no beam, nothing slow: a flamer, a grenade), with a belt or a magazine of aiBaseMagazine
+ * rounds or more: a machine gun, a minigun, an automatic with a big magazine. {@link #GRENADIER}: any other gun with
+ * 40 mm grenades in it (AiGrenadier.shell). {@link #MARKSMAN}: any other gun with a scope (NTM's scope texture).
+ * Anyone else is a {@link #RIFLE}. Worked out again when the gun in its hands is another.
  */
 public enum AiRole {
     RIFLE, BASE,
     /** hands out magazines and grenades to its squad (AiSupply); by word or by the spawn, never by the gun */
-    SUPPLIER;
+    SUPPLIER,
+    /** fights from afar from perches (AiMarksman): a scoped gun that is no base of fire's, or by word */
+    MARKSMAN,
+    /** lobs 40 mm grenades over cover (AiGrenadier): a gun that fires them, or by word */
+    GRENADIER,
+    /** treats the hurt of its squad and its side's players (AiMedic); by word or by the spawn, never by the gun */
+    MEDIC;
 
     /** the server settings: roles by the gun; a base of fire's magazine from this many rounds */
     public static final String KEY = "aiRoles", MAG_KEY = "aiBaseMagazine";
@@ -65,6 +72,13 @@ public enum AiRole {
         else bot.mob.getPersistentData().putString(ROLE_KEY, role.word());
     }
 
+    /** a role by word for this AI mob, from outside the package (the bench); nothing for a mob that is none or a word that is no role */
+    public static void give(net.minecraft.world.entity.Mob mob, String word) {
+        AiBot b = AiBots.get(mob);
+        AiRole r = named(word);
+        if (b != null && r != null) assign(b, r);
+    }
+
     /** the role kept on the mob, when it comes back into the world */
     static void restore(AiBot bot) {
         bot.assigned = bot.mob.getPersistentData().getString(ROLE_KEY).map(AiRole::named).orElse(null);
@@ -75,18 +89,24 @@ public enum AiRole {
 
     /**
      * The roles dealt among mobs spawned by number with no role named (the owner, 2026-11-14): each is a supplier
-     * with the share aiSupplyShare, by chance, each on its own; no most to a squad, there may be none or several. The
-     * rest go by their guns. How many were made suppliers.
+     * with the share aiSupplyShare, else a medic with the share aiMedicShare, by chance, each on its own; no most to a
+     * squad, there may be none or several. The rest go by their guns. How many were made {suppliers, medics}.
      */
-    static int deal(java.util.List<? extends net.minecraft.world.entity.Mob> mobs, net.minecraft.util.RandomSource rng) {
-        if (!on() || !AiSupply.on() || mobs.size() < DEAL_FROM) return 0;
-        float share = AiSupply.share();
-        int dealt = 0;
+    static int[] deal(java.util.List<? extends net.minecraft.world.entity.Mob> mobs, net.minecraft.util.RandomSource rng) {
+        int[] dealt = new int[2];
+        if (!on() || mobs.size() < DEAL_FROM) return dealt;
+        float supply = AiSupply.on() ? AiSupply.share() : 0F, medic = AiMedic.on() ? AiMedic.share() : 0F;
         for (net.minecraft.world.entity.Mob m : mobs) {
             AiBot b = AiBots.get(m);
-            if (b == null || b.assigned != null || rng.nextFloat() >= share) continue;
-            assign(b, SUPPLIER);
-            dealt++;
+            if (b == null || b.assigned != null) continue;
+            float r = rng.nextFloat();
+            if (r < supply) {
+                assign(b, SUPPLIER);
+                dealt[0]++;
+            } else if (r < supply + medic) {
+                assign(b, MEDIC);
+                dealt[1]++;
+            }
         }
         return dealt;
     }
@@ -106,6 +126,14 @@ public enum AiRole {
     @SuppressWarnings("rawtypes")
     static AiRole by(ItemStack stack) {
         if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return RIFLE;
+        AiRole base = byFire(gun, stack);
+        if (base != RIFLE) return base;
+        if (AiGrenadier.shell(stack) != null) return GRENADIER;
+        return acup.gunfeel.PistolHold.scoped(stack) ? MARKSMAN : RIFLE;
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static AiRole byFire(ItemGunBaseNT gun, ItemStack stack) {
         try {
             Receiver rec = gun.getConfig(stack, 0).getReceivers(stack)[0];
             IMagazine mag = rec.getMagazine(stack);

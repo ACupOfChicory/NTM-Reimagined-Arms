@@ -1,5 +1,61 @@
 # Changelog
 
+## X1093
+
+- AI side commanders: every five to seven seconds, for each team of AI
+  soldiers, a commander (no mob) finds the groups of their enemies, AI
+  soldiers of a team they fight and players not in creative, and sends each of
+  the team's squads that knows of no one to the nearest group within 160
+  blocks (and within twice aiRadius), two squads to a group at most, those
+  already fighting one counted; the rest stay where they are. It knows only
+  roughly where they are: an area of radius 16 blocks when one of the side saw
+  them a moment ago, wider the longer none has, up to 32, its middle off by up
+  to half the radius. The squad walks there and looks through the area with
+  its own eyes; what it sees it fights as before. After a minute in the area
+  with no one found, or when its way there cannot be walked, it gives that
+  group up for two minutes and goes for another. Lone soldiers and soldiers of
+  no team get no orders; mobs farther than aiRadius from every player are not
+  sent for. New server setting `aiCommander` (true).
+
+- AI medics: a soldier with the new role medic carries six kits. When one of
+  its squad, or a player of its team, falls under 60% of their health, it runs
+  to them, while it is not pinned down, no enemy is within 12 blocks of it and
+  the hurt soldier is not out in an enemy's sight, kneels by them three
+  seconds and a kit gives half their health back; it does not fire meanwhile.
+  A player hit by a mob in the last five seconds it leaves be. One medic to
+  one hurt; hurt itself, it treats itself; after a fight it goes round the
+  hurt. No one else heals. `/armsai spawn` with a number and no role makes
+  each mob, by chance, a supplier (aiSupplyShare) or else a medic (new setting
+  `aiMedicShare`, 0.12; both shares of all spawned); `role medic` makes one by
+  word. New server settings `aiMedic` (true) and `aiMedicKits` (6).
+
+- AI grenadiers: a soldier whose gun fires 40 mm grenades (NTM's Congo Lake
+  and MK108; the GL-54 with a magazine of them in) is its squad's grenadier.
+  Before, it aimed its launcher as a rifle, straight at what it saw, and its
+  shells fell short. Now it lobs them: the barrel raised as far as the shell
+  drops on its way, worked out over the blocks, so a shell comes down on one
+  sitting behind low cover, on the place one went out of sight a moment ago
+  (two shells there at most) and on one in the open. Its own grenade's rule is
+  the hand grenades': no burst within 17 blocks of it or one of its own, and
+  its launcher never fires straight; nearer, and between lobs, it holds its
+  fire and fights on from cover as a rifleman would. Its hand misjudges the
+  place by about 4% of the distance; the gun's spread and damage are NTM's. It
+  goes neither round the side nor after a target (near it, its shells cannot
+  go). `/armsai spawn` and `/armsai kit` take `role grenadier`; new server
+  setting `aiGrenadier` (true by default).
+
+- AI marksmen: a soldier with a scoped gun that is no machine gun is its
+  squad's marksman. With its target 24 blocks off or farther it takes a perch
+  behind its squad (15 to 40 blocks, mostly), 40 to 90 off the target, high
+  over it and with the target in sight, fires single shots a second apart, and
+  after two or three, as soon as it is shot at, or after five seconds with no
+  shot, moves to another. On its perch it covers the squad as a machine gunner
+  does. It never goes round the side, and leaves looking for a lost target to
+  its squad's riflemen while one of them knows of it; nearer, out of rounds,
+  or with no perch to be had, it fights as a rifleman. Its gun, aim and damage
+  are as anyone's. `/armsai spawn` and `/armsai kit` take `role marksman`; new
+  server setting `aiMarksman` (true by default).
+
 ## X1086
 
 - AI soldiers see through leaves by how thick they are: through a block or

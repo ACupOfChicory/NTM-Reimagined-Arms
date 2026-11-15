@@ -154,8 +154,8 @@ public final class AiSupply {
      */
     private static boolean fetch(AiSoldier s, AiBot bot, ServerLevel level, long tick) {
         Left mine = bot.supplyFetch;
-        // the base of fire keeps its place: it does not go for one
-        if (mine == null && ((tick + bot.mob.getId()) % HEIR_EVERY != 0 || tick < bot.supplyNext || AiRole.of(bot) == AiRole.BASE)) return false;
+        // the base of fire keeps its place, a medic its kits: neither goes for one
+        if (mine == null && ((tick + bot.mob.getId()) % HEIR_EVERY != 0 || tick < bot.supplyNext || AiRole.of(bot) == AiRole.BASE || AiRole.of(bot) == AiRole.MEDIC)) return false;
         java.util.List<Left> all = LEFT.get(level);
         if (mine == null) {
             if (all == null || all.isEmpty() || !free(bot, tick) || seesFoe(bot)) return false;
@@ -314,7 +314,7 @@ public final class AiSupply {
     }
 
     /** not pinned down, not lying, not reloading, and none it sees near */
-    private static boolean free(AiBot bot, long tick) {
+    static boolean free(AiBot bot, long tick) {
         if (bot.prone.pinned(tick) || bot.prone.lying()) return false;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         return c == null || c.state != TargetMemory.State.VISIBLE || bot.mob.distanceToSqr(c.x, c.y, c.z) >= FOE_NEAR * FOE_NEAR;
@@ -362,7 +362,7 @@ public final class AiSupply {
     }
 
     /** it sees one of them and is not at a place of cover: to run up to it is to run into that one's fire */
-    private static boolean exposed(AiBot b) {
+    static boolean exposed(AiBot b) {
         TargetMemory.Contact c = b.memory.focus(b.mob.getX(), b.mob.getZ());
         if (c == null || c.state != TargetMemory.State.VISIBLE) return false;
         return !(b.brain instanceof AiSoldier s && s.spot() != null && b.mover.arrived());
