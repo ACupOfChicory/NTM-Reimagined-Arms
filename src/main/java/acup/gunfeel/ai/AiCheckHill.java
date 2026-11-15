@@ -31,7 +31,7 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
  * the foe where it stood.
  */
 final class AiCheckHill {
-    static final int X0 = 3000, Z0 = 0, SX = 96, SZ = 80, RUN = 1200, SQUAD = 4, ROUNDS = 4, WARM = 40;
+    static final int X0 = 3000, Z0 = 0, SX = 96, SZ = 80, RUN = 1200, SQUAD = 4, ROUNDS = 4, WARM = 40, WARM_MAX = 600;
     /** the crest's z and height; a block lower every SLOPE blocks either way */
     static final int CREST_Z = 40, CREST_H = 10, SLOPE = 2;
     static final int MARGIN = 16;
@@ -60,10 +60,23 @@ final class AiCheckHill {
     /** per round: now?, fighting ticks, with a place to fire, on the slope facing the foe, hits on the foe, on the squad, shots */
     private final List<double[]> results = new ArrayList<>();
 
-    AiCheckHill(AiCheck check, ServerLevel level, int y) {
+    /** heights: rounds with height weighed (AiSoldier.heights) and not, the cover picked as now in both */
+    private final boolean heights;
+
+    AiCheckHill(AiCheck check, ServerLevel level, int y, boolean heights) {
         this.check = check;
         this.level = level;
         this.y = y;
+        this.heights = heights;
+    }
+
+    private String how(boolean now) {
+        return heights ? now ? "height weighed" : "height not weighed" : now ? "now" : "as before";
+    }
+
+    private void toggle(boolean now) {
+        CoverQuery.pick = heights || now;
+        AiSoldier.heights = !heights || now;
     }
 
     /** the second round of each pair picks as now */
@@ -89,7 +102,13 @@ final class AiCheckHill {
             return false;
         }
         if (warming) {
-            if (++warm >= WARM) start();
+            warm++;
+            if (heights) {
+                // the land's layers for the skyline and slopes (AiTerrain), as far as they get in WARM_MAX
+                AiTerrain t = AiTerrain.of(level);
+                t.want(X0 + SX / 2, Z0 + SZ / 2);
+                if (warm >= WARM && (t.settled() && t.tile(X0 + SX / 2, Z0 + CREST_Z) != null || warm >= WARM_MAX)) start();
+            } else if (warm >= WARM) start();
             return false;
         }
         ticks++;
@@ -190,7 +209,7 @@ final class AiCheckHill {
         AiSquads.on = true;
         AiSquads.offTeams.clear();
         AiSquads.forget(level);
-        CoverQuery.pick = now();
+        toggle(now());
         foe = spawn(X0 + SX / 2 + 0.5, Z0 + FOE_Z, "hill_foe", 180F);
         var speed = foe.getAttribute(Attributes.MOVEMENT_SPEED);
         if (speed != null) speed.setBaseValue(0);
@@ -209,9 +228,9 @@ final class AiCheckHill {
     }
 
     private void report() {
-        lines.add(String.format(Locale.ROOT, "     hill, round %d, a fight's cover picked %s: in cover or out to fire %d ticks, with a place to fire from %d (%.0f%%),"
+        lines.add(String.format(Locale.ROOT, "     hill, round %d, %s: in cover or out to fire %d ticks, with a place to fire from %d (%.0f%%),"
                 + " %.1f blocks over the foe on average; behind the crest / on it / on the slope facing the foe / on the plain %s; shots %d, hits on the foe %d, on the squad %d",
-                round + 1, now() ? "now" : "as before", fighting, canFire, fighting == 0 ? 0 : 100.0 * canFire / fighting, fighting == 0 ? 0 : over / fighting,
+                round + 1, how(now()), fighting, canFire, fighting == 0 ? 0 : 100.0 * canFire / fighting, fighting == 0 ? 0 : over / fighting,
                 Arrays.toString(where), shots, hitsOn, hitsBy));
         results.add(new double[] {now() ? 1 : 0, fighting, canFire, where[2], hitsOn, hitsBy, shots});
     }
@@ -229,7 +248,9 @@ final class AiCheckHill {
      * blocks over the foe summed]
      */
     private int[] choices(boolean now) {
-        CoverQuery.pick = now;
+        toggle(now);
+        AiTerrain t = AiTerrain.peek(level);
+        Skyline.Land land = t == null ? null : Skyline.of(t);
         int[] out = new int[5];
         TacticalMap map = TacticalMap.of(level);
         VoxelRay.Source voxels = AiBots.voxels(level);
@@ -243,6 +264,11 @@ final class AiCheckHill {
                 p.othersSoft = true;
                 p.rayBudget = 48;
                 p.fightAt = 30;
+                if (heights && now) {
+                    p.up = CoverQuery.UP;
+                    p.land = land;
+                    p.reach = AiSoldier.SLOPE_REACH;
+                }
                 List<CoverQuery.Spot> found = CoverQuery.find(map, voxels, new Vec3(X0 + x + 0.5, y + height(z), Z0 + z + 0.5), List.of(eye), p, k -> false, 1);
                 if (found.isEmpty()) continue;
                 CoverQuery.Spot s = found.get(0);
@@ -251,24 +277,25 @@ final class AiCheckHill {
                 if (place(BlockPos.getZ(s.cell()) - Z0) == 2) out[3]++;
                 out[4] += (int) Math.round(10 * (BlockPos.getY(s.cell()) - y));
             }
-        CoverQuery.pick = true;
+        toggle(true);
         return out;
     }
 
     private boolean finishAll() {
         counting = null;
-        CoverQuery.pick = true;
+        toggle(true);
         AiSquads.forget(level);
         for (String s : lines) check.out(s);
         double[] before = sum(false), now = sum(true);
         for (double[] s : List.of(before, now))
-            check.out(String.format(Locale.ROOT, "     hill, a fight's cover picked %s: %.0f ticks in cover, with a place to fire from %.0f%%, on the slope facing the foe %.0f;"
-                    + " shots %.0f, hits on the foe %.0f, on the squad %.0f", s == now ? "now" : "as before", s[0], s[0] == 0 ? 0 : 100 * s[1] / s[0], s[2], s[5], s[3], s[4]));
+            check.out(String.format(Locale.ROOT, "     hill, %s: %.0f ticks in cover, with a place to fire from %.0f%%, on the slope facing the foe %.0f;"
+                    + " shots %.0f, hits on the foe %.0f, on the squad %.0f", how(s == now), s[0], s[0] == 0 ? 0 : 100 * s[1] / s[0], s[2], s[5], s[3], s[4]));
         int[] b = choices(false), n = choices(true);
         for (int[] c : List.of(b, n))
             check.out(String.format(Locale.ROOT, "     hill, cover a fight picks from %d places by the crest, %s: found %d, with a place to fire from %d, on the slope facing the foe %d,"
-                    + " %.1f blocks over the ground on average", c[0], c == n ? "now" : "as before", c[1], c[2], c[3], c[1] == 0 ? 0 : c[4] / 10.0 / c[1]));
+                    + " %.1f blocks over the ground on average", c[0], how(c == n), c[1], c[2], c[3], c[1] == 0 ? 0 : c[4] / 10.0 / c[1]));
         force(false);
+        if (heights) return true;
         check.check(String.format(Locale.ROOT, "hill: a fight's cover by the crest is one to fire from (%d of %d places, %d as before)", n[2], n[0], b[2]),
                 n[2] > b[2] && n[2] * 4 >= n[0] * 3);
         double fb = before[0] == 0 ? 0 : before[1] / before[0], fn = now[0] == 0 ? 0 : now[1] / now[0];
