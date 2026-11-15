@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The jar's `META-INF/licenses/` names HBM's Nuclear Tech Mod (LGPL-3.0) as
+  the source of the files made from it, with the LGPL's text.
+
 ## X1093
 
 - AI side commanders: every five to seven seconds, for each team of AI

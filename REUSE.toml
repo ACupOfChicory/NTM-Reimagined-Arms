@@ -16,9 +16,10 @@ precedence = "override"
 SPDX-FileCopyrightText = "2026 ACupOfChicory"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
-# Copies of the GPL itself.
+# Copies of the GPL and LGPL themselves.
 [[annotations]]
 path = [
+    "third-party/ntm-LGPL-3.0.txt",
     "third-party/superb-warfare-GPL-3.0.txt",
     "third-party/tacz-GPL-3.0.txt",
 ]
@@ -73,6 +74,36 @@ SPDX-FileCopyrightText = [
     "2026 ACupOfChicory",
 ]
 SPDX-License-Identifier = "MIT AND GPL-3.0-or-later"
+
+# Data and art made from NTM's (third-party/ntm.txt): its gun mechanisms recoloured, its recipes, its machines'
+# shapes, its guns', ammo's and blocks' numbers.
+[[annotations]]
+path = [
+    "src/main/resources/assets/hbm/items/part_mechanism_*.json",
+    "src/main/resources/assets/hbm/models/item/part_mechanism_*.json",
+    "src/main/resources/assets/hbm/textures/item/part_mechanism_dura_steel.png",
+    "src/main/resources/assets/hbm/textures/item/part_mechanism_ferrouranium.png",
+    "src/main/resources/assets/hbm/textures/item/part_mechanism_steel.png",
+    "src/main/resources/assets/hbm/textures/item/part_mechanism_tc_alloy.png",
+    "src/main/resources/assets/hbm/textures/item/part_mechanism_workers_alloy.png",
+    "src/main/resources/data/hbm/recipe/*.json",
+    "src/main/resources/data/ntmgunfeel/recipe/ntm/*.json",
+    "src/main/resources/data/ntmgunfeel/recipe/mechanisms/gun_tesla_cannon.json",
+    "src/main/resources/data/ntmgunfeel/recipe/balance/gun_tesla_cannon.json",
+    "src/main/resources/ntmgunfeel-machine-shapes.pack",
+    "src/main/resources/assets/ntmgunfeel/water/ammo.tsv",
+    "src/test/gundata/*.tsv",
+    "src/test/blockfacts/*.tsv",
+    "src/test/pinned/ammo.txt",
+    "src/test/pinned/spread.txt",
+    "src/test/pinned/materials.txt",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "HbmMods (The Bobcat) and contributors to Hbm's Nuclear Tech Mod",
+    "2026 ACupOfChicory",
+]
+SPDX-License-Identifier = "LGPL-3.0-only"
 
 # GL-54 model: a modified derivative of "Low-Poly XM-29 OICW" by TastyTony (third-party/gl54-model.txt).
 [[annotations]]
