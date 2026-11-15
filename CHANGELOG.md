@@ -1,5 +1,10 @@
 # Changelog
 
+## X1104
+
+- The jar's `META-INF/licenses/` names HBM's Nuclear Tech Mod (LGPL-3.0) as
+  the source of the files made from it, with the LGPL's text.
+
 ## X1102
 
 - AI soldiers in a fight look for cover they can shoot from: cover that only
