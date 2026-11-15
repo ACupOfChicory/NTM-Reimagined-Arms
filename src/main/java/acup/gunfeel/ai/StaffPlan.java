@@ -13,8 +13,9 @@ import org.jspecify.annotations.Nullable;
  * <ul>
  * <li>one at least half as strong again as the group: it advances on it (or scouts its area if the side has not seen
  * any of it for STALE ticks);
- * <li>else, a second free one within reach too: the nearer pins it from a place PIN blocks off it toward that squad,
- * the other goes round to a place FLANK_D blocks off it, FLANK_ANGLE off the line from the pinning one;
+ * <li>else, a second free one within reach too: one pins it from a place PIN blocks off it toward that squad, the
+ * other goes round (which does which: the one less in the enemy's sight on the way there, on the map; else the nearer
+ * pins) to a place FLANK_D blocks off it, FLANK_ANGLE off the line from the pinning one;
  * <li>else, one weaker than a third less than the group: it holds a place near it, higher, from which it sees it;
  * <li>else it advances (scouts).
  * </ul>
@@ -128,16 +129,21 @@ final class StaffPlan {
                 }
                 int b = sent[k] + 1 < Math.min(per, g.room) ? nearest(squads, out, g, k, reach, a) : -1;
                 if (b >= 0) {
-                    // the pair keeps the parts it had (a squad going round does not turn back to pin)
-                    if (sa.group == k && sa.kind == Kind.FLANK || squads.get(b).group == k && squads.get(b).kind == Kind.PIN) {
+                    Squad sb = squads.get(b);
+                    // the pair keeps the parts it had (a squad going round does not turn back to pin); a new pair takes
+                    // the parts that keep it out of the enemy's sight the more on the way to their places
+                    boolean had = sa.group == k && (sa.kind == Kind.PIN || sa.kind == Kind.FLANK) || sb.group == k && (sb.kind == Kind.PIN || sb.kind == Kind.FLANK);
+                    Task p = pin(grid, g, k, sa.x, sa.z), f = flank(grid, g, k, p.x(), p.z(), sb.x, sb.z);
+                    Task p2 = pin(grid, g, k, sb.x, sb.z), f2 = flank(grid, g, k, p2.x(), p2.z(), sa.x, sa.z);
+                    boolean swap = had ? sa.group == k && sa.kind == Kind.FLANK || sb.group == k && sb.kind == Kind.PIN
+                            : exposed(grid, sb, p2) + exposed(grid, sa, f2) < exposed(grid, sa, p) + exposed(grid, sb, f) - 1;
+                    if (swap) {
                         int c = a;
                         a = b;
                         b = c;
-                        sa = squads.get(a);
+                        p = p2;
+                        f = f2;
                     }
-                    Task p = pin(grid, g, k, sa.x, sa.z);
-                    Squad sb = squads.get(b);
-                    Task f = flank(grid, g, k, p.x(), p.z(), sb.x, sb.z);
                     out[a] = p;
                     out[b] = f != null ? f : area(g, k);
                     sent[k] += 2;
@@ -180,6 +186,16 @@ final class StaffPlan {
             } else out[i] = new Task(Kind.RESERVE, -1, s.x, s.z, PLACE, s.x, s.z);
         }
         return out;
+    }
+
+    /**
+     * blocks of the squad's walk to the task's place in the enemy's sight on the map, straight there and short of the
+     * last HqGrid.END (the place itself may be in its sight: a lookout is); none with no map or no place
+     */
+    static double exposed(@Nullable HqGrid grid, Squad s, @Nullable Task t) {
+        if (grid == null || t == null) return 0;
+        double len = Math.hypot(t.x() - s.x, t.z() - s.z);
+        return len <= HqGrid.END ? 0 : grid.seenPart(s.x, s.z, new double[] {t.x(), t.z()}, HqGrid.END) * (len - HqGrid.END);
     }
 
     /** lost more than half of it, or most of it out of rounds */

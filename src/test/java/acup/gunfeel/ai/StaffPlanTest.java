@@ -152,6 +152,27 @@ class StaffPlanTest {
     }
 
     @Test
+    void aNewPairPinsWithTheOneLessInSightOnItsWay() {
+        HqGrid g = HqGridTest.field();
+        // a strip the enemy sees straight south of the group (an open slope), the rest hidden
+        for (int i = 0; i < HqGrid.N; i++)
+            for (int k = 0; k < HqGrid.N; k++) g.seen[HqGrid.index(i, k)] = i == 26 && k >= 27 && k <= 37 ? 1 : 0;
+        double gx = HqGridTest.mid(26), gz = HqGridTest.mid(44);
+        Group grp = new Group(gx, gz, 16, 3, 0, AiCommander.PER);
+        // the south squad the nearer: pinning, it would walk up the strip
+        Squad south = squad(HqGridTest.mid(26), HqGridTest.mid(26), 3), east = squad(HqGridTest.mid(34), HqGridTest.mid(27), 3);
+        Task[] t = StaffPlan.plan(List.of(south, east), List.of(grp), g, gx, HqGridTest.mid(20), 200, AiCommander.PER, NOW, 0);
+        assertEquals(Kind.FLANK, t[0].kind());
+        assertEquals(Kind.PIN, t[1].kind());
+        Task own = StaffPlan.pin(g, grp, 0, south.x(), south.z());
+        assertTrue(StaffPlan.exposed(g, east, t[1]) + StaffPlan.exposed(g, south, t[0]) < StaffPlan.exposed(g, south, own),
+                "less in sight than the south one pinning");
+        // with no map: the nearer pins
+        Task[] u = StaffPlan.plan(List.of(south, east), List.of(grp), null, gx, HqGridTest.mid(20), 200, AiCommander.PER, NOW, 0);
+        assertEquals(Kind.PIN, u[0].kind());
+    }
+
+    @Test
     void strengthWeighsRoles() {
         assertEquals(1, StaffPlan.weight(AiRole.RIFLE.ordinal()));
         assertEquals(1.5, StaffPlan.weight(AiRole.BASE.ordinal()));
