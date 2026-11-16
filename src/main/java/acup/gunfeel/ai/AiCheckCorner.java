@@ -22,7 +22,7 @@ import net.minecraft.world.phys.Vec3;
  * the corner (a soldier of the other side that cannot walk: it turns, aims and fires). The squad goes looking for it
  * round the end (AiSoldier.search). Counted each round, at the first sight either way between the holder and a hunter:
  * who saw first and how far apart; how far the hunter's head was turned off the holder (the turn it still had to make);
- * who hit first, how many hunters were hit before their first hit; how near the end of the wall the hunters came; the
+ * who hit first, how many hunters were hit before their first hit; how near the end of the wall the hunters came before the first sight; the
  * ticks two hunters moved at once (the one moving covered by none). A measure first (notes/ai/plan-corner-search):
  * the bars come with the numbers.
  */
@@ -40,6 +40,8 @@ final class AiCheckCorner {
     static final double WIDE_DEG = 45;
     /** the holder saw a hunter this many ticks before any hunter saw it, or more: an edge (a tick or two is at once) */
     static final int LEAD = 5;
+    /** a hunter this near the end of the wall (blocks) came round it hugging the wall */
+    static final double HUG = 1;
 
     private final AiCheck check;
     private final ServerLevel level;
@@ -58,6 +60,8 @@ final class AiCheckCorner {
     /** over the rounds: meetings, the holder first, wide turns, the holder hit first, hunters hit before they hit */
     private int meetings, holderFirst, holderAhead, wide, holderHitFirst, hunterHitFirst, hitBeforeAll, movingAll;
     private double nearestAll = Double.MAX_VALUE, distanceSum;
+    /** rounds a hunter came within HUG of the end before the first sight: round it hugging the wall */
+    private int hugged;
 
     AiCheckCorner(AiCheck check, ServerLevel level, int y) {
         this.check = check;
@@ -85,7 +89,8 @@ final class AiCheckCorner {
             AiBot b = AiBots.get(h);
             boolean searching = b != null && b.brain instanceof AiSoldier s && s.mode() == AiSoldier.Mode.SEARCH;
             if (searching && h.getDeltaMovement().horizontalDistanceSqr() > 0.0004) moving++;
-            nearestEnd = Math.min(nearestEnd, Math.hypot(h.getX() - end.x, h.getZ() - end.z));
+            // how it came round: up to the first sight either way (after it the fight takes them anywhere)
+            if (sightAt < 0) nearestEnd = Math.min(nearestEnd, Math.hypot(h.getX() - end.x, h.getZ() - end.z));
             // hit: its health went down since the last tick
             if (h.getHealth() < hunterHp[i] - 0.01F) {
                 if (holderHit < 0) holderHit = ticks;
@@ -184,7 +189,7 @@ final class AiCheckCorner {
                 : hunterSaw >= 0 && (holderSaw < 0 || hunterSaw < holderSaw) ? "hunter" : "both";
         String hitFirst = holderHit < 0 && hunterHit < 0 ? "none" : hunterHit < 0 || holderHit >= 0 && holderHit < hunterHit ? "holder" : holderHit < 0 || hunterHit < holderHit ? "hunter" : "both";
         lines.add(String.format(Locale.ROOT, "     corner, round %d (held %d back): met at tick %d; first saw %s (holder %d, hunter %d), %.1f blocks apart, the hunter's head %.0f degrees off;"
-                        + " first hit by %s (holder's %d, hunters' %d), hunters hit before theirs %d; nearest a hunter came to the end %.1f; two hunters moving at once %d ticks",
+                        + " first hit by %s (holder's %d, hunters' %d), hunters hit before theirs %d; nearest a hunter came to the end before the first sight %.1f; two hunters moving at once %d ticks",
                 round + 1, HOLD[round], sightAt, first, holderSaw, hunterSaw, sawDistance, turnDeg, hitFirst, holderHit, hunterHit, hitBefore, nearestEnd, bothMoving));
         if (met) {
             meetings++;
@@ -198,6 +203,7 @@ final class AiCheckCorner {
         hitBeforeAll += hitBefore;
         movingAll += bothMoving;
         nearestAll = Math.min(nearestAll, nearestEnd);
+        if (nearestEnd <= HUG) hugged++;
         holder.discard();
         for (Mob h : hunters) h.discard();
         hunters.clear();
@@ -206,8 +212,8 @@ final class AiCheckCorner {
     private void report() {
         for (String l : lines) check.out(l);
         check.out(String.format(Locale.ROOT, "     corner: met %d of %d rounds; the holder saw first %d of them, %.1f blocks apart on average; the hunter's head %.0f degrees or more off %d;"
-                        + " the holder hit first %d rounds; hunters hit before theirs %d; nearest to the end %.1f; two hunters moving at once %d ticks",
-                meetings, HOLD.length, holderFirst, meetings == 0 ? 0 : distanceSum / meetings, WIDE_DEG, wide, holderHitFirst, hitBeforeAll, nearestAll, movingAll));
+                        + " the holder hit first %d rounds; hunters hit before theirs %d; nearest to the end before the first sight %.1f, within %.0f block of it in %d rounds; two hunters moving at once %d ticks",
+                meetings, HOLD.length, holderFirst, meetings == 0 ? 0 : distanceSum / meetings, WIDE_DEG, wide, holderHitFirst, hitBeforeAll, nearestAll, HUG, hugged, movingAll));
         check.check(String.format(Locale.ROOT, "corner: the hunters come round the end and meet the holder in half the rounds at least (%d of %d)", meetings, HOLD.length),
                 2 * meetings >= HOLD.length);
         // a guard: a hunter comes round with its gun on what the end opens, seen as soon as it sees (2026-11-16: the
