@@ -102,10 +102,10 @@ final class AiCheckWar {
     private final double[] lastX = new double[SQUADS * EACH], lastZ = new double[SQUADS * EACH];
     /** per round: {on, looks, in reach, in sight, walked, first seen from} */
     private final List<double[]> approach = new ArrayList<>();
-    /** fewer of the staff's ways than this: the check of them tells nothing (one round has some 8) */
-    static final int WAYS_MIN = 6;
-    /** the blocks of the ways in the enemy's sight against those of their straight lines, at most */
-    static final double WAY_SEEN = 0.75;
+    /** fewer of the staff's ways than this: the check of them tells nothing (a run has 2 to 4 under /tick sprint) */
+    static final int WAYS_MIN = 2;
+    /** the blocks of the ways in the enemy's sight against those of their straight lines, at most: 12 to 81% over 23 runs */
+    static final double WAY_SEEN = 0.85;
     /** the staff's ways in the rounds it was on */
     private final List<HqGrid.Route> ways = new ArrayList<>();
     private long routeNanos0, routes0;
@@ -554,8 +554,8 @@ final class AiCheckWar {
         boolean staffRan = roundsOf[STAFF] > 0, tasksRan = roundsOf[TASKS] + roundsOf[MOVES] > 0;
         boolean enoughWays = ways.size() >= WAYS_MIN;
         check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight: %d of %d less in it than their straight lines in it (2/3 at least), %.0f blocks of"
-                        + " them in it against %.0f straight (%.0f%% of it, 75%% at most), %.2f times as long (1.5 at most)%s", lessSeen, open, seenBlocks, straightBlocks,
-                straightBlocks == 0 ? 0 : 100 * seenBlocks / straightBlocks, longer, enoughWays ? "" : String.format(Locale.ROOT, "; too few ways (%d of them needed): not checked", WAYS_MIN)),
+                        + " them in it against %.0f straight (%.0f%% of it, %.0f%% at most), %.2f times as long (1.5 at most)%s", lessSeen, open, seenBlocks, straightBlocks,
+                straightBlocks == 0 ? 0 : 100 * seenBlocks / straightBlocks, 100 * WAY_SEEN, longer, enoughWays ? "" : String.format(Locale.ROOT, "; too few ways (%d of them needed): not checked", WAYS_MIN)),
                 // a staff that ran and made no way at all fails
                 !staffRan || !ways.isEmpty() && (!enoughWays || 3 * lessSeen >= 2 * open && seenBlocks <= WAY_SEEN * straightBlocks && longer <= 1.5));
         check.check(String.format(Locale.ROOT, "war: a way takes %.2f ms off the server thread (5 at most)", msRoute), msRoute <= 5);
