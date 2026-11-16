@@ -379,7 +379,8 @@ final class BotHandStand {
             for (int y = 0; y < in.getHeight(); y++) for (int x = 0; x < in.getWidth(); x++) b.setPixel(x, y, mode != REAL ? 0 : in.getPixel(x, y));
             mc().getTextureManager().register(inner(asset), new DynamicTexture(() -> "hand stand inner", b));
         }
-        replace(com.hbm.main.ResourceManager.fbi_tex, mode, 128, 64);
+        // the agent's skin (NTM's ResourceManager.fbi_tex), by its path: the stand adds nothing to the NTM the mod calls
+        replace(Identifier.fromNamespaceAndPath("hbm", "textures/entity/fbi.png"), mode, 128, 64);
         if (playerSkin == null) playerSkin = mc().player.getSkin().body().texturePath();
         replace(playerSkin, mode, 128, 64);
     }
