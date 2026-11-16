@@ -230,9 +230,16 @@ final class AiCheckTeams {
             spawn(red, RED, new Vec3(BX0 + BSIZE / 2 + 0.5, y, BZ0 + 3.5));
             spawn(blue, BLUE, new Vec3(BX0 + BSIZE / 2 + 0.5, y, BZ0 + BSIZE - 3.5));
         } else {
+            // the fight's field: built here too, the teams run alone (or the first) as well
+            AiCheckFight.field(level, y);
             spawn(red, RED, new Vec3(65.5, y, 9.5));
             spawn(blue, BLUE, new Vec3(65.5, y, 33.5));
         }
+        // each side facing the other's (a fight of two sides that know where the other is): an AI soldier with no
+        // one in sight and nothing heard stands as it is, and with each spawned facing anywhere (AiSpawn) now and then
+        // none of the ten had one of the other side in its view, and no fight began
+        face(red, blue);
+        face(blue, red);
         AiBots.refreshTargets(level);
         if (!listening) NeoForge.EVENT_BUS.addListener(LivingIncomingDamageEvent.class, e -> {
             AiCheckTeams c = counting;
@@ -315,6 +322,24 @@ final class AiCheckTeams {
                 bots.add(bot);
             }
             into.add(m);
+        }
+    }
+
+    /** each of them turned to the middle of the others */
+    private static void face(List<Mob> them, List<Mob> others) {
+        if (others.isEmpty()) return;
+        double x = 0, z = 0;
+        for (Mob o : others) {
+            x += o.getX();
+            z += o.getZ();
+        }
+        x /= others.size();
+        z /= others.size();
+        for (Mob m : them) {
+            float yaw = (float) Math.toDegrees(Math.atan2(z - m.getZ(), x - m.getX())) - 90F;
+            m.setYRot(yaw);
+            m.setYHeadRot(yaw);
+            m.setYBodyRot(yaw);
         }
     }
 
