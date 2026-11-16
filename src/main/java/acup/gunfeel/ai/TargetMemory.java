@@ -30,6 +30,8 @@ public final class TargetMemory {
         public int parts;
         /** where it was last seen (feet), and its motion then, blocks per tick */
         public double x, y, z, vx, vz;
+        /** where it was in sight last, glimpsed or seen (x z: where it was last seen once noticed) */
+        public double glimpseX, glimpseZ;
         public long seenTick = Long.MIN_VALUE;
         /** ticks in sight while being noticed, and the ticks it needed at its last look (the debug view) */
         int sightTicks, notice;
@@ -115,6 +117,8 @@ public final class TargetMemory {
             contacts.add(c);
         }
         c.seenThisLook = true;
+        c.glimpseX = x;
+        c.glimpseZ = z;
         c.notice = c.state == State.GLIMPSED ? notice : notice / 2;
         if (c.state == State.GLIMPSED) {
             c.sightTicks += profile.period();

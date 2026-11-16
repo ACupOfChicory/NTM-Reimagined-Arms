@@ -416,16 +416,33 @@ public final class AiBots {
         Vec3 d = to.subtract(from);
         double len = d.length();
         if (len < 1e-3) return false;
-        Vec3 u = d.scale(1 / len), end = to.add(u);
+        Vec3 u = d.scale(1 / len), end = to.add(u), look = shooter.getViewVector(1F);
         double tan = Math.tan(Math.toRadians(coneDegrees));
         for (AiBot b : l.bots.values()) {
             Mob m = b.mob;
             if (m == shooter || m.isRemoved() || !m.isAlive() || !AiTeams.own(shooter, m)) continue;
-            if (crosses(m, from, u, end, len, tan)) return true;
+            if (crosses(m, from, u, end, len, tan) || beside(m, from, look)) return true;
         }
         if (shooter.getTeam() != null) for (Player p : level.players())
-            if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && crosses(p, from, u, end, len, tan)) return true;
+            if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && (crosses(p, from, u, end, len, tan) || beside(p, from, look))) return true;
         return false;
+    }
+
+    /** one of its own this near the eye, blocks across, and not behind it: a shot hits it (the bullet starts a block ahead, to the gun hand) */
+    static final double BESIDE = 1.8, BEHIND_DEGREES = 160;
+    /** near the shooter the cone is this much wider, blocks, out to NEAR_LINE (a held trigger fires once more after one steps in) */
+    static final double NEAR_MARGIN = 0.4, NEAR_LINE = 4;
+
+    // whether the entity stands close beside the shooter's eye, anywhere but right behind it (the stands: 0.5 to 1.3
+    // blocks off, 40 to 125 degrees off the look, hit by the bullet's first tick)
+    private static boolean beside(LivingEntity m, Vec3 from, Vec3 look) {
+        Vec3 c = m.getBoundingBox().getCenter();
+        double dx = c.x - from.x, dz = c.z - from.z, h = Math.hypot(dx, dz);
+        if (h >= BESIDE || Math.abs(c.y - from.y) > 2.5) return false;
+        double lh = Math.hypot(look.x, look.z);
+        // closer than a block: hit whichever side of it
+        if (h < 1 || lh < 1e-3) return true;
+        return Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, (dx * look.x + dz * look.z) / (h * lh))))) < BEHIND_DEGREES;
     }
 
     // whether the entity is in the cone from `from` along u (len long, widening by tan a block)
@@ -433,7 +450,7 @@ public final class AiBots {
         net.minecraft.world.phys.AABB box = m.getBoundingBox();
         double t = box.getCenter().subtract(from).dot(u);
         if (t <= 0 || t > len + 1) return false;
-        net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan);
+        net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan + (t < NEAR_LINE ? NEAR_MARGIN : 0));
         return grown.contains(from) || grown.clip(from, end).isPresent();
     }
 

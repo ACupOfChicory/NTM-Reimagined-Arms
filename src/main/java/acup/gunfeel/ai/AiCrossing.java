@@ -54,6 +54,8 @@ public final class AiCrossing {
     static final int FAILS = 3, STALE = 200;
     /** one joins its side's crossing to the foe only this near its near bank, blocks */
     static final double JOIN = 32;
+    /** the cover lifts its fire off a place one of its own over the river is this near, blocks */
+    static final double LIFT = 8;
     /** a squad that was under fire this long ago at most, ticks, goes after a foe out of its sight across water */
     static final int FIRED = 600;
     /** the smoke's burst this far past the far bank, blocks */
@@ -182,13 +184,15 @@ public final class AiCrossing {
             s.crossing(bot, to, AiSoldier.RUN, null, tick, "over the river with its wave");
             return true;
         }
-        // the cover, while some of it are over the water: keeps the foe under fire from where it stands, a burst every
-        // few seconds, at it in sight, else where it was last (behind the smoke, behind its wall)
-        if (op.cover.contains(bot) && !op.going.isEmpty() && !AiWater.swims(bot.mob) && side(op, bot.mob.position()) < 0) {
+        // the cover, from the wait at the edge till the last go over: keeps the foe under fire from where it stands, a
+        // burst every few seconds, at it in sight, else where it was last (behind the smoke, behind its wall); its own at
+        // the edge and in the water kept out of its line
+        if (op.cover.contains(bot) && op.phase != Phase.LAST && !op.going.containsKey(bot) && !AiWater.swims(bot.mob) && side(op, bot.mob.position()) < 0) {
             TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
             if (c != null) {
                 boolean seen = c.state == TargetMemory.State.VISIBLE;
-                s.coverFire(bot, seen ? new Vec3(c.x, c.y + 1.1, c.z) : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ), tick);
+                Vec3 at = seen ? new Vec3(c.x, c.y + 1.1, c.z) : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+                s.coverFire(bot, at, tick, lifted(op, at));
                 return true;
             }
         }
@@ -238,6 +242,13 @@ public final class AiCrossing {
     static double side(Op op, Vec3 p) {
         double mx = (BlockPos.getX(op.near) + BlockPos.getX(op.far)) / 2.0 + 0.5, mz = (BlockPos.getZ(op.near) + BlockPos.getZ(op.far)) / 2.0 + 0.5;
         return (p.x - mx) * op.ux + (p.z - mz) * op.uz;
+    }
+
+    /** fire lifted off a place: one of its own over the river, out of the water, within LIFT of it (gone in at the foe) */
+    private static boolean lifted(Op op, Vec3 at) {
+        for (AiBot b : op.members)
+            if (b.mob.isAlive() && !AiWater.swims(b.mob) && side(op, b.mob.position()) > 0 && Math.hypot(b.mob.getX() - at.x, b.mob.getZ() - at.z) < LIFT) return true;
+        return false;
     }
 
     /** where a foe is (in sight) or was last */

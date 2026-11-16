@@ -1,6 +1,6 @@
 # Changelog
 
-## X1238
+## X1252
 
 - An AI squad pinning an enemy group and the squad sent round its side now
   work as a pair. The one going round signals when it gets to its place, runs
@@ -17,6 +17,26 @@
   as before.
 - A bounding AI squad no longer runs on with no one covering it when the
   soldiers of one of its halves leave it: it is halved again.
+
+## X1231
+
+- AI soldiers looking round as sentries notice a foe in front of them again,
+  and go where they are sent: since X1223 a sentry's look round could turn
+  its head away from someone it had just glimpsed and stopped its walk every
+  tick. A sentry now looks up to 60 degrees either side of the way it faces
+  and turns its head to anyone it glimpses.
+
+## X1227
+
+- Soldiers no longer shoot their own: they hold fire with a comrade close
+  beside them, and a machine gun keeps a wider line clear for the kick of its
+  burst.
+
+## X1225
+
+- Soldiers crossing a river no longer shoot through their own waiting at the
+  water's edge or swimming, and the bank's covering fire lifts off the place
+  where those already over are going in.
 
 ## X1223
 
