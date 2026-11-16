@@ -293,8 +293,9 @@ final class AiCheckBunker {
         int[] cmd = results.remove(results.size() - 1);
         check.out(String.format(Locale.ROOT, "     bunker, /armsai bunker: of the squad %d of %d left, the one inside %s; grenades in %d, throws begun %d; %d ticks", cmd[1], SQUAD,
                 cmd[3] < 0 ? "up" : "down at tick " + cmd[3] + (cmd[4] > 0 ? " by a blast" : ""), cmd[5], cmd[6], cmd[9]));
-        check.check(String.format(Locale.ROOT, "bunker: /armsai bunker makes a bunker with one slit, the squad takes it (slits %d; %d grenades in, the one inside %s)", commandSlits, cmd[5],
-                cmd[3] < 0 ? "up" : "down"), commandSlits == 1 && cmd[3] >= 0);
+        // (by the drill: a throw begun at the slit; the one inside shot through it from afar at once is no drill the owner sees)
+        check.check(String.format(Locale.ROOT, "bunker: /armsai bunker makes a bunker with one slit, the squad takes it by the drill (slits %d; throws begun %d, %d grenades in, the one inside %s)", commandSlits, cmd[6], cmd[5],
+                cmd[3] < 0 ? "up" : "down"), commandSlits == 1 && cmd[3] >= 0 && cmd[6] > 0);
         String[] names = {"aiBunker off (before)", "aiBunker on"};
         double[][] sum = new double[2][10];
         int[] n = new int[2], down = new int[2];

@@ -1,6 +1,16 @@
 # Changelog
 
-## X1334
+## X1347
+
+- AI soldiers going down a long ladder (such as the sixty-block shaft of NTM's
+  bunker) no longer stop and hang halfway down it; they climb on down to its
+  foot.
+- `/armsai bunker` now puts the squad in a row behind a low wall, out of the
+  slit's sight, so it takes the bunker by its drill (out of the slit's fire,
+  along the wall, a grenade in) instead of shooting the one inside through the
+  slit from where it stands.
+
+## X1345
 
 - An AI squad sent round the flank for a pinning squad now gives its signal to
   attack only once it is truly round to the side of the enemy. Before, it could

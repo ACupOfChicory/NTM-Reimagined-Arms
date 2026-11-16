@@ -22,7 +22,8 @@ import net.minecraft.world.phys.Vec3;
  * ground and when, who is left of either side, what each of the squad was doing at the end. Checked only that it was
  * placed, read as a building with no slit (AiBunker) and that nothing in the AI threw. The way down is a steel trapdoor
  * over a ladder sixty deep: ROUNDS rounds on the one bunker, the way down a shaft (AiHatch) off and on by turns;
- * checked that with it the squad gets under the ground and loses no more than without (the hub taken is counted).
+ * checked that none hangs halfway down the shaft and that some get to its foot in every round (how many, down by the
+ * drill, the hub taken and those lost are counted).
  */
 final class AiCheckBunkerNtm {
     static final int X0 = 4300, Z0 = 0, REACH = 40, RUN = 2400, SQUAD = 4, INSIDE = 2;
@@ -38,6 +39,12 @@ final class AiCheckBunkerNtm {
     private final int y;
     private boolean started, placed;
     private int ticks, faults0, firstDown = -1, downs, round, roundAt;
+    /** AiHatch.down as the round began; the on rounds some went down the ladder in */
+    private int hatchDown0, ladderRounds;
+    /** off rounds and on some of the squad got to the shaft's foot in */
+    private final int[] footRounds = new int[2];
+    /** of the squad left in the shaft halfway down as a round ran out (hung on the ladder), off rounds and on */
+    private final int[] hung = new int[2];
     /** per round, off ones and on ones: got under the ground, the hub taken, of the squad left, rounds */
     private final int[][] sums = new int[2][4];
     private final boolean hatchOn = AiHatch.on;
@@ -90,7 +97,8 @@ final class AiCheckBunkerNtm {
         for (int i = 0; i < squad.size(); i++) {
             Mob m = squad.get(i);
             if (!m.isAlive() || under[i]) continue;
-            if (m.getY() < ground - 2) {
+            // (at the shaft's foot: halfway down it is no getting under, they hung there)
+            if (m.getY() < BlockPos.getY(hub) + 2) {
                 under[i] = true;
                 downs++;
                 if (firstDown < 0) firstDown = rt;
@@ -203,6 +211,7 @@ final class AiCheckBunkerNtm {
 
     private void spawn() {
         roundAt = ticks;
+        hatchDown0 = AiHatch.down;
         AiHatch.on = hatchOn && round % 2 == 1;
         double hx = BlockPos.getX(hub) + 0.5, hy = BlockPos.getY(hub), hz = BlockPos.getZ(hub) + 0.5;
         for (int i = 0; i < INSIDE; i++) {
@@ -257,7 +266,13 @@ final class AiCheckBunkerNtm {
         sums[k][1] += in == 0 ? 1 : 0;
         sums[k][2] += (int) left;
         sums[k][3]++;
-        check.out(String.format(Locale.ROOT, "     bunkerntm %d (%s): %d ticks; of the squad %d of %d left, %d got under the ground (the first at tick %d); in the hub %d of %d left;%s", round,
+        if (rt >= RUN)
+            for (Mob m : squad)
+                // (over the squad stacked at the foot: waiting on the ladder over its own holding the foot is no hanging)
+                if (m.isAlive() && m.getY() >= BlockPos.getY(hub) + 2 * SQUAD && m.getY() < ground - 2) hung[k]++;
+        if (k == 1 && AiHatch.down > hatchDown0) ladderRounds++;
+        if (downs > 0) footRounds[k]++;
+        check.out(String.format(Locale.ROOT, "     bunkerntm %d (%s): %d ticks; of the squad %d of %d left, %d got to the shaft's foot (the first at tick %d); in the hub %d of %d left;%s", round,
                 AiHatch.on ? "on" : "off", rt, left, squad.size(), downs, firstDown, in, inside.size(), where()));
         for (Mob m : squad) m.discard();
         for (Mob m : inside) m.discard();
@@ -281,7 +296,7 @@ final class AiCheckBunkerNtm {
                     AiBots.get(m) instanceof AiBot b && b.brain instanceof AiSoldier so ? so.mode() + "/" + so.why + " goal " + (b.mover.goal() == Long.MIN_VALUE ? "-"
                             : BlockPos.getX(b.mover.goal()) + " " + BlockPos.getY(b.mover.goal()) + " " + BlockPos.getZ(b.mover.goal())) + (b.mover.failed() ? " failed" : "") + (b.mover.noWay() ? " no way" : "")
                             + " contacts " + b.memory.contacts().size() : ""));
-        check.out(String.format(Locale.ROOT, "     bunkerntm: %d ticks; of the squad %d of %d left, %d got under the ground (the first at tick %d); in the hub %d of %d left; the squad at the end:%s",
+        check.out(String.format(Locale.ROOT, "     bunkerntm: %d ticks; of the squad %d of %d left, %d got to the shaft's foot (the first at tick %d); in the hub %d of %d left; the squad at the end:%s",
                 ticks, squad.stream().filter(Mob::isAlive).count(), squad.size(), downs, firstDown, inside.stream().filter(Mob::isAlive).count(), inside.size(), where));
         AiHatch.on = hatchOn;
         check.out(String.format(Locale.ROOT, "     bunkerntm: rounds off: got under %d, the hub taken %d, of the squad left %d, of %d rounds; on: got under %d, the hub taken %d, of the squad left %d, of %d rounds",
@@ -289,10 +304,16 @@ final class AiCheckBunkerNtm {
         check.out(String.format(Locale.ROOT, "     bunkerntm: ways down a shaft begun %d, grenades down %d, none %d (too deep %d), down the ladder %d; none found: not under %d, no cell %d, no way %d, no shaft %d", AiHatch.begun - hatch0[0],
                 AiHatch.frags - hatch0[1], AiHatch.noFrag - hatch0[2], AiHatch.deepNoFrag - hatch0[3], AiHatch.down - hatch0[4], AiHatch.none[0], AiHatch.none[1], AiHatch.none[2], AiHatch.none[3]));
         if (hatchOn && sums[1][3] > 0) {
-            check.check(String.format(Locale.ROOT, "bunkerntm: with the way down a shaft the squad gets under the ground (%d of %d, before %d)", sums[1][0], SQUAD * sums[1][3], sums[0][0]),
-                    sums[1][0] * 4 >= SQUAD * sums[1][3] * 3);
+            // (got to the foot and lost are counted, not checked: off it goes down the ladder too, and either way the
+            // two holding the foot shoot some going down; checked is what was wrong: hanging halfway, no drill down)
+            check.out(String.format(Locale.ROOT, "     bunkerntm: with the way down a shaft to the shaft's foot %d of %d (before %d); of the squad left %d (%d before)", sums[1][0], SQUAD * sums[1][3], sums[0][0],
+                    sums[1][2], sums[0][2]));
+            check.check(String.format(Locale.ROOT, "bunkerntm: none hangs halfway down the shaft as a round runs out (%d, %d before)", hung[1], hung[0]), hung[0] == 0 && hung[1] == 0);
+            // (down by the drill itself counted: one shot off the ladder, or slow under fire, goes on as it may, uncounted)
+            check.out(String.format(Locale.ROOT, "     bunkerntm: with it down the ladder by the drill in %d of %d rounds", ladderRounds, sums[1][3]));
+            check.check(String.format(Locale.ROOT, "bunkerntm: some get to the shaft's foot in every round (%d of %d, %d of %d before)", footRounds[1], sums[1][3], footRounds[0], sums[0][3]),
+                    footRounds[0] == sums[0][3] && footRounds[1] == sums[1][3]);
             // (the hub taken is counted, not checked: two holding the shaft's foot shoot most going down it either way)
-            check.check(String.format(Locale.ROOT, "bunkerntm: with it no more of the squad lost (%d left, %d before)", sums[1][2], sums[0][2]), sums[1][2] >= sums[0][2]);
         }
         check.check("bunkerntm: nothing in the AI threw on it (" + (AiRooms.faults - faults0) + ")", AiRooms.faults == faults0);
         for (Mob m : squad) m.discard();
