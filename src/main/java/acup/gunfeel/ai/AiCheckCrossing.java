@@ -53,7 +53,15 @@ final class AiCheckCrossing {
     private final ServerLevel level;
     private final int y;
     private boolean started;
-    private int shooterDown, hurt, lastBankShot;
+    private int shooterDown, hurt, lastBankShot, shooterBefore, lastShooterShots;
+    /** one of the squad was under fire this round (AiWater.underFire: what a crossing after a foe out of sight waits for) */
+    private boolean firedOn;
+
+    /** the shots the one at the wall fired this round (kept when it is down) */
+    private int shooterShots() {
+        if (shooter != null && AiBots.get(shooter) instanceof AiBot sb) lastShooterShots = sb.gunner.shots - shooterBefore;
+        return lastShooterShots;
+    }
     private float[] health = new float[0];
     private int round = -1, ticks, takenAt, inWaterDown, mostSwimming, swimTicks, coveredTicks, over;
     private final List<Mob> squad = new ArrayList<>(), held = new ArrayList<>();
@@ -87,6 +95,7 @@ final class AiCheckCrossing {
             return false;
         }
         ticks++;
+        shooterShots();
         if (ticks % HEARD == 0 && held.get(0).isAlive())
             for (Mob m : squad) if (m.isAlive() && AiBots.get(m) instanceof AiBot b) b.memory.heard(HUT_X + 0.5, y, HUT_Z + 0.5, level.getGameTime(), true, false);
         // the one at the wall watches the river: the nearest of the squad is seen now and then (it keeps them under fire)
@@ -96,6 +105,7 @@ final class AiCheckCrossing {
             if (near != null) sb.memory.seen(near.getId(), near.getX(), near.getY(), near.getZ(), level.getGameTime(), 0);
         }
         int swimming = 0, left = 0, foes = 0;
+        boolean overNow = false;
         boolean bankFires = false;
         for (int i = 0; i < squad.size(); i++) {
             Mob m = squad.get(i);
@@ -111,19 +121,26 @@ final class AiCheckCrossing {
             if (!m.isAlive()) {
                 if (down.add(m.getId())) {
                     if (m.isInWater()) inWaterDown++;
-                    downs.add(String.format(Locale.ROOT, "%d at tick %d at %.1f %.1f%s", i, ticks, m.getX(), m.getZ(), m.isInWater() ? " in the water" : ""));
+                    var src = m.getLastDamageSource();
+                    var by = src == null ? null : src.getEntity();
+                    int k = by == null ? -1 : squad.indexOf(by);
+                    downs.add(String.format(Locale.ROOT, "%d at tick %d at %.1f %.1f%s by %s (%s)", i, ticks, m.getX(), m.getZ(), m.isInWater() ? " in the water" : "",
+                            src == null ? "?" : src.type().msgId(), by == null ? "-" : k >= 0 ? "the squad's " + k + (AiBots.get((Mob) by) instanceof AiBot kb && kb.brain instanceof AiSoldier ks ? " " + ks.mode() + "/" + ks.why + (AiCrossing.of(kb) != null ? " in a crossing" : "") : "") : held.indexOf(by) == 0 ? "the one in the hut" : by == shooter ? "the one at the wall" : by.getType().toShortString()));
                 }
                 continue;
             }
             left++;
             if (AiWater.swims(m)) swimming++;
+            else if (m.getZ() < RZ0 - 0.5) overNow = true;
+            if (b != null && AiWater.underFire(b, level.getGameTime())) firedOn = true;
         }
         mostSwimming = Math.max(mostSwimming, swimming);
         if (bankFires) lastBankShot = ticks;
         if (swimming > 0) {
             swimTicks++;
-            // covered: one on the bank fired within a burst's gap (AiSoldier.COVER_EVERY)
-            if (ticks - lastBankShot <= AiSoldier.COVER_EVERY) coveredTicks++;
+            // covered: one on the bank fired within a burst's gap (AiSoldier.COVER_EVERY), or its own over already (the cover
+            // lifts its fire off the place they went in at: those over hold it)
+            if (ticks - lastBankShot <= AiSoldier.COVER_EVERY || overNow) coveredTicks++;
         }
         if (shooterDown < 0 && !held.get(1).isAlive()) shooterDown = ticks;
         // the bank's taken when the one in the hut is down
@@ -139,7 +156,7 @@ final class AiCheckCrossing {
         check.out(String.format(Locale.ROOT, "     crossing, round %d, at the end:%s; down: %s", round + 1, where, downs));
         downs.clear();
         results.add(new int[] {causeway() ? 2 : round % 2, foes, left, ticks, takenAt, inWaterDown, over, mostSwimming, swimTicks, coveredTicks, AiCrossing.smoked - smokedBefore,
-                AiCrossing.begun - begunBefore, AiCrossing.back - backBefore, shooterDown, hurt});
+                AiCrossing.begun - begunBefore, AiCrossing.back - backBefore, shooterDown, hurt, firedOn ? 1 : 0, shooterShots()});
         for (Mob m : squad) m.discard();
         for (Mob m : held) m.discard();
         squad.clear();
@@ -220,6 +237,9 @@ final class AiCheckCrossing {
         for (int i = 0; i < SQUAD; i++) squad.add(spawn(START_X[i], START_Z + (i == SQUAD - 1 ? 3 : 0), "crossing_side", 180F, i == SQUAD - 1 ? MG : RIFLE));
         AiBots.refreshTargets(level);
         shotsBefore = new int[SQUAD];
+        lastShooterShots = 0;
+        firedOn = false;
+        shooterBefore = AiBots.get(shooter) instanceof AiBot sb ? sb.gunner.shots : 0;
         health = new float[SQUAD];
         for (int i = 0; i < SQUAD; i++) health[i] = squad.get(i).getHealth();
         long now = level.getGameTime();
@@ -242,20 +262,27 @@ final class AiCheckCrossing {
         AiCrossing.on = true;
         counting = null;
         String[] names = {"aiCrossing off (before)", "aiCrossing on", "aiCrossing on, a causeway over"};
-        double[][] sum = new double[3][15];
+        double[][] sum = new double[3][17];
+        // the rounds with aiCrossing in which the one at the wall fired on the squad (none: it hid behind its wall the
+        // whole round, no fight, no crossing under fire to begin), and the crossings begun in them
+        int fired = 0, firedBegun = 0;
         int[] n = new int[3], taken = new int[3];
         double[] takenTicks = new double[3];
         for (int i = 0; i < results.size(); i++) {
             int[] r = results.get(i);
             n[r[0]]++;
             for (int k = 1; k < r.length; k++) sum[r[0]][k] += r[k];
+            if (r[0] == 1 && r[15] > 0) {
+                fired++;
+                if (r[11] > 0) firedBegun++;
+            }
             if (r[4] >= 0) {
                 taken[r[0]]++;
                 takenTicks[r[0]] += r[4];
             }
             check.out(String.format(Locale.ROOT, "     crossing, round %d, %s: the one in the hut %d of %d left, of the squad %d of %d, %d ticks, taken %s; down in the water %d, over %d,"
-                    + " most swimming at once %d; ticks one swam %d, with one on the bank firing %d; crossings begun %d, with smoke %d; swam back %d; the one at the wall down %s; the squad hurt %d times",
-                    i + 1, names[r[0]], r[1], 1, r[2], SQUAD, r[3], r[4] < 0 ? "never" : "at tick " + r[4], r[5], r[6], r[7], r[8], r[9], r[11], r[10], r[12], r[13] < 0 ? "never" : "at tick " + r[13], r[14]));
+                    + " most swimming at once %d; ticks one swam %d, with one on the bank firing %d; crossings begun %d, with smoke %d; swam back %d; the one at the wall down %s, fired %d shots; the squad under fire %s, hurt %d times",
+                    i + 1, names[r[0]], r[1], 1, r[2], SQUAD, r[3], r[4] < 0 ? "never" : "at tick " + r[4], r[5], r[6], r[7], r[8], r[9], r[11], r[10], r[12], r[13] < 0 ? "never" : "at tick " + r[13], r[16], r[15] > 0 ? "yes" : "never", r[14]));
         }
         for (int a = 0; a < 3; a++)
             check.out(String.format(Locale.ROOT, "     crossing, %s, %d rounds: the bank taken in %d (%.0f ticks on average); of the squad %.0f of %d left, down in the water %.0f, over %.0f;"
@@ -263,11 +290,11 @@ final class AiCheckCrossing {
                     names[a], n[a], taken[a], taken[a] == 0 ? 0 : takenTicks[a] / taken[a], sum[a][2], n[a] * SQUAD, sum[a][5], sum[a][6], n[a] == 0 ? 0 : sum[a][7] / n[a],
                     sum[a][8] == 0 ? 0 : 100 * sum[a][9] / sum[a][8], sum[a][11], sum[a][10], sum[a][12], sum[a][14]));
         check.check("crossing: all rounds ran", results.size() == ROUNDS);
-        check.check(String.format(Locale.ROOT, "crossing: with aiCrossing a crossing is begun in every round, with smoke in most (%.0f, %.0f of %d)", sum[1][11], sum[1][10], n[1]),
-                sum[1][11] >= n[1] && sum[1][10] * 2 > n[1]);
+        check.check(String.format(Locale.ROOT, "crossing: with aiCrossing a crossing is begun in every round the squad is under fire, with smoke in most (%d of %d; smoke %.0f of %.0f; of %d rounds)",
+                firedBegun, fired, sum[1][10], sum[1][11], n[1]), fired >= 2 && firedBegun == fired && sum[1][10] * 2 > sum[1][11]);
         check.check(String.format(Locale.ROOT, "crossing: with aiCrossing no more than four swim at once (%.1f on average)", n[1] == 0 ? 0 : sum[1][7] / n[1]),
                 n[1] > 0 && sum[1][7] <= 4 * n[1]);
-        check.check(String.format(Locale.ROOT, "crossing: with aiCrossing most of the swimming is covered from the bank (%.0f%%)", sum[1][8] == 0 ? 0 : 100 * sum[1][9] / sum[1][8]),
+        check.check(String.format(Locale.ROOT, "crossing: with aiCrossing most of the swimming is covered, from the bank or by those over (%.0f%%)", sum[1][8] == 0 ? 0 : 100 * sum[1][9] / sum[1][8]),
                 sum[1][9] * 2 > sum[1][8]);
         check.check(String.format(Locale.ROOT, "crossing: with aiCrossing the bank is taken in more rounds, or sooner (%d, %.0f ticks; %d, %.0f before)", taken[1],
                 taken[1] == 0 ? 0 : takenTicks[1] / taken[1], taken[0], taken[0] == 0 ? 0 : takenTicks[0] / taken[0]),

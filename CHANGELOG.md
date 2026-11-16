@@ -1,5 +1,11 @@
 # Changelog
 
+## X1225
+
+- Soldiers crossing a river no longer shoot through their own waiting at the
+  water's edge or swimming, and the bank's covering fire lifts off the place
+  where those already over are going in.
+
 ## X1223
 
 - AI soldiers that lose a foe behind a wall at close range no longer stand
