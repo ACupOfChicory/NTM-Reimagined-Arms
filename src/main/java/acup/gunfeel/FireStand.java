@@ -72,7 +72,7 @@ final class FireStand {
     private static List<Case> cases;
     private static int index, step, until, frames, ticks, hurts, lastHurt;
     private static volatile int incoming, deaths;
-    private static long casingSum, casingSamples, casingMax, drawnSum;
+    private static long casingSum, casingSamples, casingPeak, drawnSum;
     // alt=A/B (ntm, cull, batch): the casings' way switched every 32 frames in one case, each frame's time to its way
     private static String[] alt;
     private static final long[][] ALT_FRAMES = new long[2][100_000];
@@ -287,7 +287,7 @@ final class FireStand {
                     int n = casings();
                     casingSum += n;
                     casingSamples++;
-                    casingMax = Math.max(casingMax, n);
+                    casingPeak = Math.max(casingPeak, n);
                     drawnSum += CasingCull.drawn;
                 }
                 lastHurt = mc.player.hurtTime;
@@ -297,7 +297,7 @@ final class FireStand {
                 step = 2;
                 until = now() + MEASURE;
                 frames = ticks = hurts = incoming = deaths = 0;
-                casingSum = casingSamples = casingMax = drawnSum = 0;
+                casingSum = casingSamples = casingPeak = drawnSum = 0;
                 serverMs = 0;
                 serverSamples = 0;
                 PACKETS.clear();
@@ -349,7 +349,7 @@ final class FireStand {
                 ms(f.length == 0 ? 0 : f[f.length - 1]), d(worstSum == 0 ? 0 : worst / (worstSum / 1e9)), ms(ksum / Math.max(1, k.length)),
                 ms(pct(k, 99)), d(serverSamples == 0 ? 0 : serverMs / serverSamples), Integer.toString(hurts), Integer.toString(incoming), Integer.toString(deaths), d(packets / sec),
                 Long.toString(ClientSmoke.particlesSeen() - partsAt), Long.toString(ClientSmoke.holesSeen() - holesAt),
-                Long.toString(ClientSmoke.tracesSeen() - tracersAt), Integer.toString(bots), Long.toString(casingSamples == 0 ? 0 : casingSum / casingSamples), Long.toString(casingMax), Long.toString(casingSamples == 0 ? 0 : drawnSum / casingSamples)));
+                Long.toString(ClientSmoke.tracesSeen() - tracersAt), Integer.toString(bots), Long.toString(casingSamples == 0 ? 0 : casingSum / casingSamples), Long.toString(casingPeak), Long.toString(casingSamples == 0 ? 0 : drawnSum / casingSamples)));
         var byRate = new ArrayList<>(PACKETS.entrySet());
         byRate.sort((a, b) -> Long.compare(b.getValue().sum(), a.getValue().sum()));
         for (var e : byRate) PACKET_ROWS.add(c.text + "\t" + e.getKey() + "\t" + d(e.getValue().sum() / sec));

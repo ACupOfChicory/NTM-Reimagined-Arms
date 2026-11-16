@@ -28,9 +28,9 @@ public final class CasingCull {
     private static Vec3 cam;
     private static double limit2;
     private static int left;
-    private static RenderType type;
-    private static List<PoseStack.Pose> poses = new ArrayList<>();
-    private static List<SubmitNodeCollector.CustomGeometryRenderer> bodies = new ArrayList<>();
+    // the frame's one call of the bodies, null till its first body
+    private static List<PoseStack.Pose> poses;
+    private static List<SubmitNodeCollector.CustomGeometryRenderer> bodies;
     /** bodies drawn in the last frame, of how many (the stand's count) */
     static int drawn, alive;
     private static double[] d2 = new double[256];
@@ -47,9 +47,15 @@ public final class CasingCull {
         if (d2.length < instances.size()) d2 = new double[instances.size() * 2];
         if (max >= 0 && instances.size() > max) {
             for (Object o : instances) {
-                CasingInstanceAccess i = (CasingInstanceAccess) o;
-                double x = i.gunfeel$relX(), y = i.gunfeel$relY() - i.gunfeel$heightQuarter() + i.gunfeel$scaleLift(), z = i.gunfeel$relZ();
-                double d = x * x + y * y + z * z;
+                // the accessor not applied: NTM's casings as they are
+                if (!(o instanceof CasingInstanceAccess i)) {
+                    cam = null;
+                    return;
+                }
+                // as the pose's matrix holds it (PoseStack.translate takes it in floats), so body() finds the same
+                float x = (float) i.gunfeel$relX(), y = (float) (i.gunfeel$relY() - i.gunfeel$heightQuarter() + i.gunfeel$scaleLift()),
+                        z = (float) i.gunfeel$relZ();
+                double d = distance2(x, y, z);
                 if (d <= FAR * FAR && inView(x, y, z)) d2[n++] = d;
             }
         }
@@ -57,9 +63,12 @@ public final class CasingCull {
         left = max < 0 ? Integer.MAX_VALUE : max;
         alive = instances.size();
         drawn = 0;
-        poses = new ArrayList<>();
-        bodies = new ArrayList<>();
-        type = null;
+        poses = null;
+        bodies = null;
+    }
+
+    static double distance2(float x, float y, float z) {
+        return (double) x * x + (double) y * y + (double) z * z;
     }
 
     /**
@@ -75,38 +84,33 @@ public final class CasingCull {
     }
 
     /**
-     * a casing's body at this pose (NTM's call): true when it is taken care of here (left out, or kept for the one call
-     * of the frame), false for NTM's own call
+     * a casing's body at this pose (NTM's call): true when it is taken care of here (left out, or put in the frame's
+     * one call), false for NTM's own call. The one call goes where NTM's first body went, so the bodies keep their
+     * place among the casings' smoke; it is drawn after this frame's casings are all in it.
      */
-    public static boolean body(PoseStack stack, RenderType renderType, SubmitNodeCollector.CustomGeometryRenderer renderer) {
+    public static boolean body(SubmitNodeCollector collector, PoseStack stack, RenderType renderType,
+            SubmitNodeCollector.CustomGeometryRenderer renderer) {
         if (!on || cam == null) return false;
         var m = stack.last().pose();
-        double x = m.m30(), y = m.m31(), z = m.m32();
-        double d = x * x + y * y + z * z;
-        if (d > limit2 || left <= 0 || !inView(x, y, z)) return true;
+        float x = m.m30(), y = m.m31(), z = m.m32();
+        if (distance2(x, y, z) > limit2 || left <= 0 || !inView(x, y, z)) return true;
         left--;
         drawn++;
         if (!batch) return false;
-        type = renderType;
+        if (bodies == null) {
+            List<PoseStack.Pose> p = poses = new ArrayList<>();
+            List<SubmitNodeCollector.CustomGeometryRenderer> b = bodies = new ArrayList<>();
+            collector.submitCustomGeometry(new PoseStack(), renderType, (pose, consumer) -> {
+                for (int i = 0; i < b.size(); i++) b.get(i).render(p.get(i), consumer);
+            });
+        }
         poses.add(stack.last().copy());
         bodies.add(renderer);
         return true;
     }
 
-    /** the frame's bodies in one call, after NTM's casings */
-    public static void end(SubmitNodeCollector collector) {
-        if (!on || bodies.isEmpty()) return;
-        List<PoseStack.Pose> p = poses;
-        List<SubmitNodeCollector.CustomGeometryRenderer> b = bodies;
-        collector.submitCustomGeometry(new PoseStack(), type, (pose, consumer) -> {
-            for (int i = 0; i < b.size(); i++) b.get(i).render(p.get(i), consumer);
-        });
-        poses = new ArrayList<>();
-        bodies = new ArrayList<>();
-    }
-
     // relative to the camera; a casing's box with its spin, a quarter of a block across
-    private static boolean inView(double x, double y, double z) {
+    private static boolean inView(float x, float y, float z) {
         if (frustum == null) return true;
         double ax = cam.x + x, ay = cam.y + y, az = cam.z + z;
         return frustum.isVisible(new AABB(ax - 0.25, ay - 0.25, az - 0.25, ax + 0.25, ay + 0.25, az + 0.25));
