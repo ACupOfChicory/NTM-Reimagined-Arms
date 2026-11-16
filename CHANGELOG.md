@@ -1,5 +1,10 @@
 # Changelog
 
+## X1323
+
+- With Sodium installed, bots' hands no longer show a patch of the armour's
+  sleeve (or the agent's suit) where the palm should be.
+
 ## X1311
 
 - When the AI soldier who was to throw a grenade into a room or round a
