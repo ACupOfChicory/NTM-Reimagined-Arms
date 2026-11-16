@@ -148,7 +148,7 @@ public final class AiCheck {
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
             int[] at = {0}, grenadesFor = {-1};
             // when the stage began, real time (its length goes out with it)
-            long[] began = {System.nanoTime()};
+            long[] began = {System.nanoTime(), 0};
             // the fighters' moves for the legs' replay (AiLegsLog, -PaiLegs) where they walk into houses (the teams'
             // fights, the battle among them, log their own)
             List<String> legsIn = List.of("entry", "clearing");
@@ -166,6 +166,7 @@ public final class AiCheck {
                     if (at[0] < stages.size() && grenadesFor[0] != at[0]) {
                         grenadesFor[0] = at[0];
                         began[0] = System.nanoTime();
+                        began[1] = check.level.getGameTime();
                         AiLegsLog.stage = names.get(at[0]);
                         if (legsIn.contains(names.get(at[0]))) AiLegsLog.begin();
                         AiGrenades.trace = true;
@@ -179,7 +180,8 @@ public final class AiCheck {
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {
                         if (counted) AiLegsLog.flush();
                         // the call-outs of the stage; in the battle some, and no squad talking over itself
-                        check.out(String.format(java.util.Locale.ROOT, "     stage %s: %.0f s real time", names.get(at[0]), (System.nanoTime() - began[0]) / 1e9));
+                        check.out(String.format(java.util.Locale.ROOT, "     stage %s: %.0f s real time, %d ticks", names.get(at[0]), (System.nanoTime() - began[0]) / 1e9,
+                                check.level.getGameTime() - began[1]));
                         check.out("     call-outs in " + names.get(at[0]) + ": " + AiVoice.info());
                         check.out(String.format(java.util.Locale.ROOT, "     pinned down in %s: %.1f%% of %d mob ticks (aiSuppression %s)", names.get(at[0]),
                                 AiBots.botTicks == 0 ? 0 : 100.0 * AiBots.pinnedTicks / AiBots.botTicks, AiBots.botTicks, AiUnderFire.on()));
