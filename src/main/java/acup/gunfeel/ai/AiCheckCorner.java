@@ -119,10 +119,10 @@ final class AiCheckCorner {
         return round >= HOLD.length;
     }
 
-    /** b knows the mob is there, seen this tick or the last few (noticed, not a glimpse) */
-    private static boolean sees(AiBot b, Mob m, long now) {
+    /** b knows the mob is there, seen this tick or the last few (noticed, not a glimpse), and since the round began (not the memory it was given) */
+    private boolean sees(AiBot b, Mob m, long now) {
         TargetMemory.Contact c = b.memory.contact(m.getId());
-        return c != null && c.state == TargetMemory.State.VISIBLE && now - c.seenTick <= 4;
+        return c != null && c.state == TargetMemory.State.VISIBLE && c.seenTick > startedAt && now - c.seenTick <= 4;
     }
 
     /** the meeting, from the hunter in it: how far from the holder, and how far its head was off it */
@@ -132,6 +132,9 @@ final class AiCheckCorner {
         float to = (float) Math.toDegrees(Math.atan2(holder.getZ() - h.getZ(), holder.getX() - h.getX())) - 90F;
         turnDeg = Math.abs(Mth.wrapDegrees(to - h.getYHeadRot()));
     }
+
+    /** the game tick the round began: what it was given to remember is not a sight */
+    private long startedAt;
 
     private void start(int r) {
         round = r;
@@ -162,6 +165,7 @@ final class AiCheckCorner {
         AiBots.refreshTargets(level);
         // each side saw the other a moment ago, then the wall: lost behind it
         long now = level.getGameTime();
+        startedAt = now;
         AiBot hb = AiBots.get(holder);
         for (Mob h : hunters) {
             AiBot b = AiBots.get(h);
