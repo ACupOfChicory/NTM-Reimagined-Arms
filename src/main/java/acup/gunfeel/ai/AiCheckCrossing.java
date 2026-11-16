@@ -77,6 +77,8 @@ final class AiCheckCrossing {
     private final java.util.Set<Integer> down = new java.util.HashSet<>();
     private int[] shotsBefore = new int[0];
     private int smokedBefore, begunBefore, backBefore, watchesBefore, scoutedBefore;
+    /** AiCrossing.smokeWhy when the stage began */
+    private final int[] smokeWhy0 = AiCrossing.smokeWhy.clone();
     /** the drill: ticks one of the main body swam with one of the far side's security not over; one of the near side's with one of the main body not over; the most of the main body swimming at once; reports seen, places in them */
     private int mainEarly, nearEarly, mostMain, reports, spots;
     private String lastReport = "none";
@@ -341,6 +343,8 @@ final class AiCheckCrossing {
                     + " most swimming at once %.1f on average; of the ticks one swam %.0f%% with one on the bank firing; crossings begun %.0f, with smoke %.0f; swam back %.0f; hurt %.0f times",
                     names[a], n[a], taken[a], taken[a] == 0 ? 0 : takenTicks[a] / taken[a], sum[a][2], n[a] * SQUAD, sum[a][5], sum[a][6], n[a] == 0 ? 0 : sum[a][7] / n[a],
                     sum[a][8] == 0 ? 0 : 100 * sum[a][9] / sum[a][8], sum[a][11], sum[a][10], sum[a][12], sum[a][14]));
+        check.out(String.format(Locale.ROOT, "     crossing, why smoke: under fire %d, its own fire heard %d, a foe known at the far bank %d",
+                AiCrossing.smokeWhy[0] - smokeWhy0[0], AiCrossing.smokeWhy[1] - smokeWhy0[1], AiCrossing.smokeWhy[2] - smokeWhy0[2]));
         check.check("crossing: all rounds ran", results.size() == ROUNDS);
         check.check(String.format(Locale.ROOT, "crossing: with no order the squad swims nowhere and does not cross (ticks swum %.0f, crossings %.0f, of %d rounds)", sum[WATCH][8], sum[WATCH][11], n[WATCH]),
                 n[WATCH] > 0 && sum[WATCH][8] == 0 && sum[WATCH][11] == 0);

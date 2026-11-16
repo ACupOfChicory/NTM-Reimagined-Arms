@@ -83,8 +83,37 @@ public final class BotPoser {
     static final float CYCLE = Mth.TWO_PI / 0.6662F;
     /** the clips' legs come in from this speed to this, blocks a tick (vanilla's straight swing below) */
     static final float MOVE_FROM = 0.01F, MOVE_FULL = 0.05F;
-    /** from a walk to a jog, from a jog to a sprint, blocks a tick (an AI mob walks at 0.19, runs at 0.33: BotStand) */
-    static final float JOG_FROM = 0.20F, JOG_FULL = 0.26F, SPRINT_FROM = 0.27F, SPRINT_FULL = 0.33F;
+    /**
+     * from a walk to a jog, from a jog to a sprint, blocks a tick. An AI mob walks at 0.19, marches at 0.27 (a jog) and
+     * runs at 0.32 (a sprint): the paces' modifiers (AiSoldier) go twice into the game's push. The jog is whole under
+     * the march and the sprint goes from half way between the march and the run, so a pace's speed going up and down
+     * a little does not swing the legs from one clip to the other.
+     */
+    static final float JOG_FROM = 0.20F, JOG_FULL = 0.24F, SPRINT_FROM = 0.29F, SPRINT_FULL = 0.305F;
+    /**
+     * the run's legs (Config.botRunGait) come in from a walk's speed to a march's, whole at a march and a run, where
+     * vanilla's pace goes no faster (4 times the step, a block a tick at most: from 0.25 blocks a tick): tempo slows the
+     * steps to this share (a step of both legs in 0.6 s, the sprint clip's own 0.67 s; vanilla's 0.47), stride swings
+     * the thighs this much wider about the run clips' middle (the jog's and the sprint's thighs go from -79 and -73 to
+     * 41 degrees: about -17)
+     */
+    static final float RUN_FROM = 0.22F, RUN_FULL = 0.26F, TEMPO_RUN = 0.78F, STRIDE_RUN = 1.3F, STRIDE_MIDDLE = -17F;
+
+    /** how far the run's legs are in at this speed, 0 .. 1 */
+    static float running(float speed) {
+        return BotAnimator.smooth((speed - RUN_FROM) / (RUN_FULL - RUN_FROM));
+    }
+
+    /** the share of vanilla's pace the steps go at (Config.botRunGait tempo), 1 at a walk */
+    static float tempo(float speed) {
+        return "tempo".equals(acup.gunfeel.Config.botRunGait) ? 1F - (1F - TEMPO_RUN) * running(speed) : 1F;
+    }
+
+    /** how much wider the thighs swing (Config.botRunGait stride), 1 at a walk */
+    static float stride(float speed) {
+        return "stride".equals(acup.gunfeel.Config.botRunGait) ? 1F + (STRIDE_RUN - 1F) * running(speed) : 1F;
+    }
+
     /** ticks for the reload's clip to come in over the arms */
     static final float RELOAD_IN = 8F;
     /**
@@ -533,10 +562,15 @@ public final class BotPoser {
             total += ws[i];
         }
         if (total <= 0F) return;
+        // ahead only (the walk's, the jog's and the sprint's share): the clips back and aside swing about another middle
+        float wide = 1F + (stride(speed) - 1F) * (ws[0] + ws[1] + ws[2]);
         for (int b = 0; b < LEGS.length; b++) {
             ModelPart part = p.get(LEGS[b]);
             if (part == null) continue;
-            part.xRot = Mth.lerp(w, part.xRot, Mth.DEG_TO_RAD * acc[b][0] / total);
+            float x = acc[b][0] / total;
+            // the thighs (not the shins) wider on the run
+            if (wide != 1F && (b == 0 || b == 2)) x = STRIDE_MIDDLE + (x - STRIDE_MIDDLE) * wide;
+            part.xRot = Mth.lerp(w, part.xRot, Mth.DEG_TO_RAD * x);
             part.yRot = Mth.lerp(w, part.yRot, Mth.DEG_TO_RAD * acc[b][1] / total);
             part.zRot = Mth.lerp(w, part.zRot, Mth.DEG_TO_RAD * acc[b][2] / total);
         }

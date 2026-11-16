@@ -120,6 +120,10 @@ public final class Config {
     // AI mobs' call-outs (AiVoice): heard or not, and how loud, times the game's Voice/Speech slider
     public static boolean aiVoice = true;
     public static float aiVoiceVolume = 1F;
+    // AI mobs' legs on the run, past the pace vanilla's walk stops at (BotPoser.RUN_FROM): vanilla, tempo or stride
+    // (BotPoser.tempo, BotPoser.stride; any other is vanilla)
+    public static String botRunGait = "vanilla";
+    public static final java.util.List<String> RUN_GAITS = java.util.List.of("vanilla", "tempo", "stride");
     // suppression (Suppression): how much the screen darkens and the sounds go down for this player, 0 to 1, times the
     // server's
     public static float suppressionDarken = 1F, suppressionMuffle = 1F;
@@ -331,6 +335,9 @@ public final class Config {
             aiVoice: AI mobs' call-outs heard (contact, a grenade, a reload, falling back...; the server may turn them
               off, aiVoices)
             aiVoiceVolume: how loud they are, 0 to 1, times the game's Voice/Speech slider
+            botRunGait: AI mobs' legs when they run (a march, a storm): vanilla (the steps as fast as vanilla's walk goes
+              at most), tempo (fewer steps, nearer the run's own pace; the feet slide more), stride (longer steps at the
+              same pace; the feet slide less). /gunfeel botrungait
             suppressionDarken: how much the screen darkens under fire (bullets past and hitting near, blasts near), 0 to 1,
               times the server's (at most 40 % darker at the edges, 22 % in the middle)
             suppressionMuffle: how much the other sounds go down under fire, 0 to 1, times the server's (the world's down to
@@ -586,6 +593,7 @@ public final class Config {
         hitVolume = Math.max(0F, Math.min(4F, num(p, "hitVolume", hitVolume)));
         aiVoice = bool(p, "aiVoice", aiVoice);
         aiVoiceVolume = Math.max(0F, Math.min(1F, num(p, "aiVoiceVolume", aiVoiceVolume)));
+        botRunGait = p.getProperty("botRunGait", botRunGait).trim().toLowerCase(java.util.Locale.ROOT);
         suppressionDarken = Math.max(0F, Math.min(1F, num(p, "suppressionDarken", suppressionDarken)));
         suppressionMuffle = Math.max(0F, Math.min(1F, num(p, "suppressionMuffle", suppressionMuffle)));
         casingMax = Math.max(-1, Math.min(16384, Math.round(num(p, "casingMax", casingMax))));
@@ -730,6 +738,7 @@ public final class Config {
         p.setProperty("hitVolume", Float.toString(hitVolume));
         p.setProperty("aiVoice", Boolean.toString(aiVoice));
         p.setProperty("aiVoiceVolume", Float.toString(aiVoiceVolume));
+        p.setProperty("botRunGait", botRunGait);
         p.setProperty("suppressionDarken", Float.toString(suppressionDarken));
         p.setProperty("suppressionMuffle", Float.toString(suppressionMuffle));
         p.setProperty("casingMax", Integer.toString(casingMax));

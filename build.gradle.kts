@@ -524,6 +524,8 @@ neoForge {
             if (providers.gradleProperty("aiCheckWarStill").isPresent) systemProperty("ntmgunfeel.checkAiWarStill", "true")
             // -PaiCheckWarNear=N: the near rounds after the far one, C3 and C4 by turns (2 by default)
             providers.gradleProperty("aiCheckWarNear").orNull?.let { systemProperty("ntmgunfeel.checkAiWarNear", it) }
+            // -PaiCheckWarPinned=N: the pinned rounds after the near ones, a squad kept under fire (C5; 2 by default)
+            providers.gradleProperty("aiCheckWarPinned").orNull?.let { systemProperty("ntmgunfeel.checkAiWarPinned", it) }
             // -PaiWorld=<a world's folder> -PaiWorldAt=x,y,z,radius[,up]: that world (a copy) read as the AI reads it (AiCheckWorld)
             providers.gradleProperty("aiWorldAt").orNull?.let { systemProperty("ntmgunfeel.checkAiWorld", it) }
             // -PaiLegs=<file>: the fighters' moves, tick by tick, for the legs' replay (AiLegsLog, BotLegsReplayTest)

@@ -60,6 +60,28 @@ public final class GripCommand {
                     c.getSource().sendSuccess(() -> Component.literal("Громкость попаданий: " + v + (v > 1F ? " (звук накладывается " + (int) Math.ceil(v - 1e-3F) + " раза)" : "")), false);
                     return 1;
                 })))
+                .then(Commands.literal("botrungait").executes(c -> {
+                    c.getSource().sendSuccess(() -> Component.literal("Бег ботов: " + Config.botRunGait
+                            + " (vanilla, tempo — реже шаг, stride — шире шаг). /gunfeel botrungait <режим>"), false);
+                    return 1;
+                }).then(Commands.argument("gait", StringArgumentType.word())
+                        .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(Config.RUN_GAITS, b))
+                        .executes(c -> {
+                    String g = StringArgumentType.getString(c, "gait").toLowerCase(java.util.Locale.ROOT);
+                    if (!Config.RUN_GAITS.contains(g)) {
+                        c.getSource().sendFailure(Component.literal("Нет такого режима: " + g + " (vanilla, tempo, stride)"));
+                        return 0;
+                    }
+                    Config.botRunGait = g;
+                    try {
+                        Config.setInFile("botRunGait", g);
+                    } catch (java.io.IOException e) {
+                        c.getSource().sendFailure(Component.literal("Не записалось в конфиг: " + e.getMessage()));
+                        return 0;
+                    }
+                    c.getSource().sendSuccess(() -> Component.literal("Бег ботов: " + g), false);
+                    return 1;
+                })))
                 .then(Commands.literal("quality").executes(c -> {
                     c.getSource().sendSuccess(() -> Component.literal("Качество: " + Config.quality
                             + " (low, medium, high, realism). /gunfeel quality <пресет>"), false);

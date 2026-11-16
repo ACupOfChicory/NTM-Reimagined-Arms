@@ -138,7 +138,8 @@ public final class CoverQuery {
                         int x = (sx << 4) + c.x(i), y = (sy << 4) + c.y(i), z = (sz << 4) + c.z(i);
                         if (y < y0 || y > y1 || y < low && y < threatFeet + OVER) continue;
                         // no cover is taken swimming
-                        if ((c.flags(i) & SectionCells.SWIM) != 0) continue;
+                        // nor on a ladder: it hangs there and can do nothing (a shaft is no cover from the foe under it)
+                        if ((c.flags(i) & (SectionCells.SWIM | SectionCells.CLIMB)) != 0) continue;
                         double cx = x + 0.5, cz = z + 0.5;
                         double dx = cx - self.x, dz = cz - self.z, d2 = dx * dx + dz * dz;
                         if (d2 > r2) continue;

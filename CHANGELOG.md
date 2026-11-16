@@ -1,5 +1,72 @@
 # Changelog
 
+## Unreleased
+
+- Gunshots carry by the gun, for players and AI soldiers alike: a silenced gun
+  is heard only close by, energy weapons a little further, pistols 48 blocks,
+  shotguns and launchers 64, rifles 80, machine guns 96 and anti-materiel
+  rifles 128 (NTM: 16 for every gun). A shot is no louder close by, only
+  heard further; squads nearby now hear a fight and come to it. The server
+  key `gunshotRange` scales the ranges, `0` puts back NTM's 16.
+- A squad crossing a river by the drill smokes the far bank whenever the
+  crossing is watched: under fire, after its own shots have given it away, or
+  knowing of a foe at the far bank. Before, only under fire.
+
+## X1297
+
+- AI squads sent by their commander no longer go round and round the wall of
+  a house with no way in when the place they were sent to is inside it or on
+  its roof: they head for ground at about their own height, give the place up
+  after a few legs that get them no nearer, and do not pick a place they could
+  not reach again.
+
+## X1293
+
+- A 12 gauge electroshock shell that hits someone already shocked, or in the
+  immunity after a shock, now does 90 % of a slug from the same gun, against
+  the same armour and at the same range (with the mod's balance;
+  `balance = ntm` keeps the light hit). It still does not shock again.
+- A shocked player sees discharges jag in from the screen's edges and a light
+  bluish vignette round it, both as strong as the HUD's glitch and fading
+  with the shock (`shockGlitch`); the HUD still shakes.
+
+## X1291
+
+- AI squads march to a fight at a jog instead of a sprint; they still storm
+  and fall back at a run.
+- AI soldiers' legs no longer swing between the jog and the sprint while they
+  run at an even pace.
+- New client setting `botRunGait` (`/gunfeel botrungait`): AI soldiers' legs
+  on the run as before (`vanilla`), with fewer steps (`tempo`) or with longer
+  steps (`stride`).
+
+## X1289
+
+- AI soldiers open trapdoors (NTM's steel hatch too) and climb ladders up and
+  down; a ladder is never taken for cover. A foe lost under the ground down a
+  shaft is gone after by the drill: the squad gathers off the hatch, a grenade
+  goes down first when it reaches the foot before its fuse is out, then they
+  go down one after another, the first at the foot holding the way out, one
+  staying up by the hatch till the others are down. Server key `aiHatches`
+  (true).
+
+## X1287
+
+- AI soldiers that watch a corner the foe could come round from fire bursts at
+  that corner while one of their squad is on the move, instead of holding
+  fire: a squad moves under covering fire again.
+
+## X1284
+
+- AI squads report to their commander: contact, losses, being pinned down,
+  out of rounds, at their place, unable to get through. The commander gives
+  its orders again at once instead of at its next round of orders.
+- A squad pinned down by enemy fire holds where it is and fires back while
+  the nearest free squad goes round the enemy; when the squad going round is
+  the one pinned, the two change over. Pinned for 20 seconds and still losing
+  men, it throws smoke and falls back. Server key `aiCommanderReports`
+  (true); false: the commander answers no report, as before.
+
 ## X1277
 
 - NTM's spent casings are drawn by the graphics card, all of a kind at once:

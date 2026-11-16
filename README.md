@@ -67,7 +67,11 @@ page. They are alphas: expect bugs and back up your world.
   (other mods' too, not the chat or menus) glitches and shakes, the view
   shakes and drifts on its own, and whoever was hit, an AI soldier or any mob
   too, walks 80 % slower (a player's view narrows by a fifth) and
-  spreads their shots wide. Then 3 seconds of immunity. The shooter sees a
+  spreads their shots wide. A shocked player also sees discharges jag in from
+  the screen's edges and a light bluish vignette, as strong as the glitch.
+  Then 3 seconds of immunity: a shell that hits during the shock or the
+  immunity does not shock again but does 90 % of a slug from the same gun
+  (with the mod's balance; about 2 under `balance = ntm`). The shooter sees a
   spark at the crosshair.
 
 ### Hits
@@ -222,7 +226,9 @@ page. They are alphas: expect bugs and back up your world.
 - They see and hear as a person does, run to cover, crouch behind low walls,
   run low past them, lean out round a corner, fire blind over cover and lie
   down in the open. They aim at what they see of you, never miss on purpose
-  and take the gun's recoil.
+  and take the gun's recoil. Shots carry by the gun, for them and for you
+  alike: a rifle is heard 80 blocks off, a pistol 48, a silenced gun only
+  close by (server key `gunshotRange`).
 - Bots of one side fight as a squad: when you vanish behind cover one goes
   round the side while the others fire to keep your head down, and a bot
   leaves cover only while another covers it. Lose them behind a long wall
@@ -293,11 +299,14 @@ page. They are alphas: expect bugs and back up your world.
   creep crouched when close, and storm the last stretch of an advance. A
   squad pinning an enemy and one going round it work together: the pinning
   one keeps the enemy's places under fire once the other is round and goes
-  in, and does not chase a lost enemy far from its place.
+  in, and does not chase a lost enemy far from its place. Squads report
+  contact, losses and being pinned down; a pinned squad holds and fires back
+  while another goes round the enemy, and breaks contact under smoke if it
+  keeps losing men.
   Soldiers far from any player are moved by their commander too, till a
   player comes near (server keys `aiCommander`, `aiCommanderHelp`,
   `aiCommanderStaff`, `aiCommanderTasks`, `aiCommanderMoves`,
-  `aiCommanderPairs`).
+  `aiCommanderPairs`, `aiCommanderReports`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
@@ -336,9 +345,11 @@ page. They are alphas: expect bugs and back up your world.
   machine gunner, the marksman and a rifleman stay on the near bank and keep
   the foe under fire, a pair goes over first and holds the far bank, one of
   them a little further on to watch, the rest follow by pairs, the near bank's
-  cover last at the same place. Smoke onto the far bank only under fire. One
-  shot at while swimming from across, not halfway over yet, swims back and
-  goes again; past halfway it goes on (server key `aiCrossing`).
+  cover last at the same place. Smoke goes onto the far bank when the
+  crossing is watched: the squad is under fire, its own fire has given it
+  away, or it knows of a foe at the far bank. One shot at while swimming from
+  across, not halfway over yet, swims back and goes again; past halfway it
+  goes on (server key `aiCrossing`).
 - A bunker is taken by its firing slits. Any open hole at head height in a
   wall with wall over it is a slit, its field of fire a wedge widening as the
   slit is wide for its depth. Their ways keep out of the wedges; one in a
@@ -350,6 +361,15 @@ page. They are alphas: expect bugs and back up your world.
   and its own do not run from that grenade (server key `aiBunker`). `/armsai bunker
   [squad]` builds a bunker with a slit 20 blocks ahead of you, one inside at
   it, and a squad with a grenade each beside you, to watch.
+- They open trapdoors and climb ladders up and down, NTM's steel hatch
+  included. A foe lost under the ground down a shaft is gone after by the
+  drill: the squad gathers a few blocks off the hatch, one drops a grenade
+  down if it gets to the foot of the shaft before its fuse is out (a shaft as
+  deep as NTM's bunker's is too deep for one) and none of its own is in its
+  reach, then they go down one after another; the first at the foot holds the
+  way out of the shaft till the next is down, and one stays up by the hatch
+  till the others are down, then goes last (server key `aiHatches`). A ladder
+  is never taken for cover.
 - A soldier who sees a foe fall forgets it and tells its squad, so none of
   them waits for it or goes after it where it fell (server key
   `aiDownTold`).
@@ -458,10 +478,11 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `waterSplash` | `true` | Splashes, rings, foam and bubbles on water |
 | `gunWeightTooltip` | `true` | A gun's tooltip names its weight class and how much it slows |
 | `suppressionDarken`, `suppressionMuffle` | `1` | How much the screen darkens and the other sounds go down under fire, 0 to 1 (the server sets the most) |
-| `shockGlitch` | `1` | How much the HUD glitches and shakes when a shock shell hits you, 0 to 1 (the server sets the most and the least) |
+| `shockGlitch` | `1` | How much the HUD glitches and shakes, and how bright the discharges and the vignette at the screen's edges are, when a shock shell hits you, 0 to 1 (the server sets the most and the least) |
 | `casingMax` | `96` | Most of NTM's spent casings drawn at once, the nearest on screen (`-1` = no limit, `0` = none); casings off screen or over 48 blocks away are never drawn |
 | `casingInstances` | `true` | NTM's spent casings drawn by the graphics card, all of a kind in one draw (`false` = NTM's way); off by itself under an Iris shader pack |
 | `soundNoWait` | `true` | A new sound no longer makes the frame wait while the sound thread is busy (many shots, Sound Physics); it starts in the sound thread's turn as before (`false` = the game's way) |
+| `botRunGait` | `vanilla` | AI soldiers' legs on the run: `vanilla`, `tempo` (fewer steps, nearer the run's own pace; the feet slide more), `stride` (longer steps; the feet slide less) |
 | `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
 | `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
 | `enabled` | `true` | The mod's client side as a whole |
@@ -495,10 +516,11 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `suppressionDarken`, `suppressionMuffle` | `1` | The most darkening (40 % at the edges) and muffling (the world's sounds to 40 %) players get |
 | `suppressionFlinch`, `suppressionFlinchDeg` | `false`, `0.22` | A jolt of the view at each event, 0.11 to 0.66 degrees at the default |
 | `shock` | `true` | A shock shell's hit shocks (`false`: it only does its damage) |
-| `shockSeconds`, `shockImmunity` | `2`, `3` | How long a shock lasts at full (it then wears off over 3 more seconds), and the seconds after it when another shell does not shock |
+| `shockSeconds`, `shockImmunity` | `2`, `3` | How long a shock lasts at full (it then wears off over 3 more seconds), and the seconds after it when another shell does not shock (it does 90 % of a slug instead, with the balance) |
 | `shockSpread` | `0.12` | The spread added to a shocked one's shots (NTM's units: buckshot's is 0.035; about 7 degrees) |
 | `shockGlitch`, `shockGlitchMin` | `1`, `0.5` | The most the HUD glitches, and the least share of it a player may turn their own down to |
 | `shockCamera`, `shockShake` | `45`, `0.6` | How fast the view drifts on its own at most (degrees a second), and how much it shakes (degrees) |
+| `gunshotRange` | `1` | How far shots are heard, players and AI bots alike: silenced 16 blocks, energy weapons 24, pistols 48, shotguns and launchers 64, rifles 80, machine guns 96, anti-materiel rifles 128; the part over 16 scaled (`0`: 16 for all, as in NTM) |
 | `gunHitKnockback`, `gunHitTilt` | `false` | `true`: a player hit by an NTM gun's bullet or beam is thrown back as in vanilla; their view tilts with the hit |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |
 | `bulletPierceMachines` | `false` | Bullets pierce machines |
@@ -540,6 +562,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
   value shows it.
 - `/gunfeel quality <preset>`: impact-effect quality.
 - `/gunfeel hitvolume <0..4>`: loudness of hit sounds.
+- `/gunfeel botrungait <vanilla|tempo|stride>`: AI soldiers' legs on the run.
 - `/gunfeel clearholes`: remove the bullet holes on your screen.
 - `/gunfeel settings`: the settings of the gun in hand.
 - `/gunsmoke` (operators): let out smoke clouds, clear them, show how many

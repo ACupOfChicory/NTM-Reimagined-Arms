@@ -36,6 +36,9 @@ public final class AiMover {
     /** a share of the speed it walks at (lying: a third) */
     private double slow = 1.0;
     private int tries;
+    /** searches that came short for want of the map, no try spent on them; this many at most at a goal */
+    private int waits;
+    static final int MAP_WAITS = 12;
     /** keep still this tick (lying, to fire), the goal kept */
     private boolean hold;
     /** in the goal's cell since (the last steps, straight to its middle), and there long enough to count as arrived */
@@ -55,6 +58,12 @@ public final class AiMover {
     /** the map's count of changed blocks when it was so */
     private long noWayAt;
     private long searchStarted;
+    /** how near the goal across the nearest end of a part of a way it walked came, blocks (a wall round the goal: no nearer) */
+    private double partBest = Double.MAX_VALUE;
+    /** a part of a way walked to its end no nearer the goal than this past the nearest before: a try spent, blocks */
+    static final double CLOSER = 2;
+    /** off only for the stands' "before" (AiCheckWall): a part of a way never costs a try */
+    static boolean partTries = true;
     private PathSearch.@Nullable Result walking;
     /** the stamps of the walked path's sections ({@link PathSearch.Result#keys}) it was last found good at */
     private int[] walkStamps = new int[0];
@@ -94,8 +103,9 @@ public final class AiMover {
         this.radius = radius;
         offX = ox;
         offZ = oz;
-        tries = 0;
+        tries = waits = 0;
         noWay = false;
+        partBest = Double.MAX_VALUE;
         inCellSince = Long.MIN_VALUE;
         settled = false;
         walking = null;
@@ -147,7 +157,7 @@ public final class AiMover {
         dry = on;
         if (!on && refused && (failed() || noWay)) {
             refused = false;
-            tries = 0;
+            tries = waits = 0;
             noWay = false;
         }
     }
@@ -290,7 +300,9 @@ public final class AiMover {
             noWayAt = map.changes;
             wantMissing(map, r);
             if (r.found() && r.cells.length > 1) walk(r);
-            else {
+            else if (!r.reached && r.missing.length > 0 && waits++ < MAP_WAITS) {
+                // the map not built yet where the way may go (down a long shaft section after section): no try spent
+            } else {
                 // nowhere to go from here, and every cell in reach was looked at: no other search will find a way
                 tries = noWay ? TRIES : tries + 1;
                 failures++;
@@ -317,8 +329,18 @@ public final class AiMover {
             // (and the part that was all there is: as near as it gets, no other search will do better)
             // (a path dropped for the blocks changed on it is neither: the map is another now)
             if (walking != null && walked) {
-                if (walking.reached) tries++;
+                // (on a ladder: the game's walk, falling, takes every point under it at once and is done half way
+                // down: no try spent, a search from here goes on)
+                if (walking.reached && !mob.onClimbable()) tries++;
                 else if (noWay && map.changes == noWayAt && atEnd(walking)) tries = TRIES;
+                // a part of a way (the search cut short at its cells' bound): the next part, while each brings it nearer;
+                // one that does not (the goal behind a wall, on a roof: the nearest cell to it the same one at its foot
+                // again and again) is a try spent. Not where the map was not built yet on the way (it is being built)
+                else if (partTries && walking.missing.length == 0) {
+                    double d = Math.hypot(BlockPos.getX(goal) + 0.5 - mob.getX(), BlockPos.getZ(goal) + 0.5 - mob.getZ());
+                    if (d > partBest - CLOSER) tries++;
+                    partBest = Math.min(partBest, d);
+                }
             }
             if (failed()) {
                 walking = null;
@@ -408,7 +430,7 @@ public final class AiMover {
         return true;
     }
 
-    private static void wantMissing(TacticalMap map, PathSearch.Result r) {
+    static void wantMissing(TacticalMap map, PathSearch.Result r) {
         int n = 0;
         for (long key : r.missing) {
             if (n++ >= 8) break;

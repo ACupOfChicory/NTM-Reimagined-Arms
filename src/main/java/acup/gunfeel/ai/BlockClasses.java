@@ -65,6 +65,8 @@ public final class BlockClasses {
     static final double COVERS = 0.6;
     /** a part this thin or thinner along the look is seen through (a fence's outline is a quarter thick, a stone wall's three eighths) */
     static final double THICK = 0.3;
+    /** a climbable block taking less than this of its space is stood in (a ladder, vines), more is a block (scaffolding) */
+    static final double CLIMB_PLATE = 0.5;
 
     static byte classify(BlockState state) {
         FluidState fluid = state.getFluidState();
@@ -110,6 +112,8 @@ public final class BlockClasses {
             move = top <= 0.2 ? Voxel.OPEN : top <= 0.5 ? Voxel.LOW : top <= 1.0 ? Voxel.SOLID : Voxel.TALL;
         }
         if (door && state.hasProperty(BlockStateProperties.OPEN) && state.getValue(BlockStateProperties.OPEN)) move = Voxel.OPEN;
+        // a ladder (a plate on a wall, its shape a board a block high) is stood in and climbed, not bumped into
+        if (climb && !liquid && volume < CLIMB_PLATE) move = Voxel.OPEN;
         boolean blocks = move == Voxel.SOLID || move == Voxel.TALL;
         int protect = 0;
         boolean glass = false;

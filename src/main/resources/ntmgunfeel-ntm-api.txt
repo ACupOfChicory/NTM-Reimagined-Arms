@@ -618,6 +618,8 @@ CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setTimer (Lnet/minecraft/wo
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;I)V
 CORE method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F
 CORE method com/hbm/items/weapon/sedna/Receiver getDelayAfterFire (Lnet/minecraft/world/item/ItemStack;)I
+CORE method com/hbm/items/weapon/sedna/Receiver getFireSound (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/Supplier;
+CORE method com/hbm/items/weapon/sedna/Receiver getFireVolume (Lnet/minecraft/world/item/ItemStack;)F
 CORE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V
@@ -1118,12 +1120,14 @@ SHOCK class com/hbm/items/weapon/sedna/mags/IMagazine
 SHOCK class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 SHOCK class com/hbm/particle/SpentCasing
 SHOCK class com/hbm/registration/RegistryHandle
+SHOCK field com/hbm/entity/projectile/EntityBulletBaseMK4 damage F
 SHOCK field com/hbm/items/EnumCasingType BUCKSHOT_ADVANCED Lcom/hbm/items/EnumCasingType;
 SHOCK field com/hbm/items/ModItems GUN_AUTOSHOTGUN Lcom/hbm/registration/RegistryHandle;
 SHOCK field com/hbm/items/ModItems GUN_AUTOSHOTGUN_SHREDDER Lcom/hbm/registration/RegistryHandle;
 SHOCK field com/hbm/items/ModItems GUN_MARESLEG Lcom/hbm/registration/RegistryHandle;
 SHOCK field com/hbm/items/ModItems GUN_SPAS12 Lcom/hbm/registration/RegistryHandle;
 SHOCK field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_ENTITY_HIT Ljava/util/function/BiConsumer;
+SHOCK field com/hbm/items/weapon/sedna/BulletConfig damageMult F
 SHOCK field com/hbm/items/weapon/sedna/BulletConfig id I
 SHOCK field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
 SHOCK field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;

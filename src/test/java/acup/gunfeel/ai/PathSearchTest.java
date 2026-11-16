@@ -91,6 +91,79 @@ class PathSearchTest {
         }
     }
 
+    static final byte LADDER = CellBuilderTest.LADDER;
+    /** a trapdoor shut, a floor: stood on, a hand lifts it */
+    static final byte HATCH = Voxel.of(Voxel.SOLID, true, 2, false, false, true);
+
+    /**
+     * Stone up to y 8 (cells at 9 on top), a room dug out under it (x 10..14, z 11..14, y 0..2), its way in a shaft at
+     * (10, 10) with a ladder up it from the room's floor to y 7, a hatch shut over it at y 8 (or none, open air)
+     */
+    static Grid shaft(boolean hatch, boolean ladder) {
+        Grid g = new Grid(2);
+        for (int x = 0; x < 32; x++)
+            for (int z = 0; z < 32; z++)
+                for (int y = 0; y <= 8; y++) g.set(x, y, z, STONE);
+        for (int x = 10; x <= 14; x++)
+            for (int z = 11; z <= 14; z++)
+                for (int y = 0; y <= 2; y++) g.set(x, y, z, Voxel.AIR);
+        for (int y = 0; y <= 7; y++) g.set(10, y, 10, ladder ? LADDER : Voxel.AIR);
+        g.set(10, 8, 10, hatch ? HATCH : Voxel.AIR);
+        return g.build();
+    }
+
+    /** the steps down the shaft and up it: straight up or down a rung at a time, off its top through the hatch, the rest as ever */
+    static void stepsAreNeighboursOrRungs(PathSearch.Result r) {
+        for (int i = 1; i < r.cells.length; i++) {
+            long a = r.cells[i - 1], b = r.cells[i];
+            int dx = Math.abs(BlockPos.getX(a) - BlockPos.getX(b)), dz = Math.abs(BlockPos.getZ(a) - BlockPos.getZ(b));
+            int dy = BlockPos.getY(b) - BlockPos.getY(a);
+            boolean rung = dx == 0 && dz == 0 && Math.abs(dy) == 1 || dx + dz == 1 && dy == 2;
+            assertTrue(rung || dx <= 1 && dz <= 1 && dx + dz > 0 && dy <= 1 && dy >= -PathSearch.MAX_DROP, "step " + i + ": " + BlockPos.of(a) + " -> " + BlockPos.of(b));
+        }
+    }
+
+    @Test
+    void downALadderThroughAHatchShutAndUpAgain() {
+        Grid g = shaft(true, true);
+        PathSearch.Result down = PathSearch.find(g, at(20, 9, 20), at(13, 0, 13), 0, 4000, PathSearch.Cost.NONE);
+        assertTrue(down.reached, "down the shaft");
+        assertTrue(passes(down, 10, 4, 10), "by its ladder");
+        stepsAreNeighboursOrRungs(down);
+        PathSearch.Result up = PathSearch.find(g, at(13, 0, 13), at(20, 9, 20), 0, 4000, PathSearch.Cost.NONE);
+        assertTrue(up.reached, "up the shaft");
+        assertTrue(passes(up, 10, 4, 10), "by its ladder");
+        stepsAreNeighboursOrRungs(up);
+    }
+
+    @Test
+    void noWayDownAShaftWithNoLadder() {
+        // nine down with nothing to climb by: too far to drop, nothing to climb back up
+        PathSearch.Result down = PathSearch.find(shaft(false, false), at(20, 9, 20), at(13, 0, 13), 0, 4000, PathSearch.Cost.NONE);
+        assertFalse(down.reached);
+        PathSearch.Result up = PathSearch.find(shaft(false, false), at(13, 0, 13), at(20, 9, 20), 0, 4000, PathSearch.Cost.NONE);
+        assertFalse(up.reached);
+    }
+
+    @Test
+    void aShaftFoundOnAWayDown() {
+        Grid g = shaft(true, true);
+        PathSearch.Result down = PathSearch.find(g, at(20, 9, 20), at(13, 0, 13), 0, 4000, PathSearch.Cost.NONE);
+        long[] run = AiHatch.run(down.cells);
+        assertTrue(run != null, "a run of rungs on the way");
+        assertEquals(10, BlockPos.getX(run[1]));
+        assertEquals(10, BlockPos.getZ(run[1]));
+        assertTrue(BlockPos.getY(run[1]) - BlockPos.getY(run[2]) + 1 >= AiHatch.RUNGS, "rungs: " + BlockPos.of(run[1]) + " to " + BlockPos.of(run[2]));
+        assertTrue(BlockPos.getY(run[2]) <= 1, "its foot by the room's floor: " + BlockPos.of(run[2]));
+    }
+
+    @Test
+    void aGrenadeDroppedDownATenBlockShaftIsAtItsFootBeforeItsFuseIsOut() {
+        int t = AiHatch.fallTicks(10);
+        assertTrue(t + AiHatch.FUSE_LEFT <= AiGrenades.FUSE, "ten down in " + t + " ticks");
+        assertTrue(AiHatch.fallTicks(60) + AiHatch.FUSE_LEFT > AiGrenades.FUSE, "sixty down: it bursts in the air");
+    }
+
     @Test
     void straightAcrossTheOpenIsTheShortestWay() {
         Grid g = new Grid(2).build();
