@@ -513,6 +513,44 @@ public final class AiCheck {
         level.playSound(null, mob.getX() + 1, Y, mob.getZ(), net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE.value(), net.minecraft.sounds.SoundSource.BLOCKS, 4F, 1F);
         check("its own sounds are not news", bot.memory.noise() == null);
 
+        // gunshots heard as far as the gun's class carries (GunshotRange): NTM's every gun, its fire sound and the range
+        // its volume gives; a rifle 60 blocks off is heard, loud; a silenced gun 30 blocks off is not
+        java.util.Map<Float, java.util.List<String>> byRange = new java.util.TreeMap<>();
+        java.util.Map<String, net.minecraft.world.item.ItemStack> bySound = new java.util.HashMap<>();
+        for (net.minecraft.world.item.Item item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+            if (!(item instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) continue;
+            net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
+            com.hbm.items.weapon.sedna.Receiver[] recs = gun.getConfig(stack, 0).getReceivers(stack);
+            if (recs == null || recs.length == 0 || recs[0].getFireSound(stack) == null) continue;
+            net.minecraft.sounds.SoundEvent fire = recs[0].getFireSound(stack).get();
+            if (fire == null) continue;
+            float range = fire.getRange(recs[0].getFireVolume(stack));
+            // NTM's own joke (Folly, at volume 100): as NTM has it
+            if (recs[0].getFireVolume(stack) > 100F * 0.99F && fire.location().getPath().contains("loudest")) continue;
+            String key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath().replace("gun_", "");
+            byRange.computeIfAbsent(range, k -> new java.util.ArrayList<>()).add(key + " (" + fire.location().getPath().replace("weapon.fire.", "") + ")");
+            bySound.putIfAbsent(fire.location().getPath(), stack);
+        }
+        StringBuilder ranges = new StringBuilder("     gunshots heard, blocks: ");
+        byRange.forEach((r, g) -> ranges.append(String.format(Locale.ROOT, "%.0f: %s; ", r, String.join(", ", g))));
+        out.add(ranges.toString());
+        check("NTM's guns are heard from 16 (silenced) to 128 blocks (" + byRange.keySet() + ")",
+                !byRange.isEmpty() && byRange.containsKey(16F) && byRange.containsKey(128F) && byRange.keySet().stream().allMatch(r -> r >= 16F && r <= 128F));
+        for (String[] shot : new String[][] {{"weapon.fire.rifle", "78.5", "heard"}, {"weapon.fire.silenced", "48.5", "not heard"}}) {
+            net.minecraft.world.item.ItemStack stack = bySound.get(shot[0]);
+            if (stack == null) {
+                check("a gun of " + shot[0], false);
+                continue;
+            }
+            var rec = ((com.hbm.items.weapon.sedna.ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getReceivers(stack)[0];
+            bot.memory.update(now += 4000);
+            double z = Double.parseDouble(shot[1]);
+            level.playSound(null, 22.5, Y + 1.5, z, rec.getFireSound(stack).get(), net.minecraft.sounds.SoundSource.PLAYERS, rec.getFireVolume(stack), 1F);
+            TargetMemory.Noise g = bot.memory.noise();
+            String what = String.format(Locale.ROOT, "a shot of %s %.0f blocks off is %s", shot[0].replace("weapon.fire.", ""), Math.hypot(mob.getX() - 22.5, mob.getZ() - z), shot[2]);
+            check(what + (shot[2].equals("heard") ? ", loud" : ""), shot[2].equals("heard") ? g != null && g.loud : g == null);
+        }
+
         // a hit tells where from, roughly
         move(target, 22.5, 40.5);
         mob.hurtServer(level, level.damageSources().mobAttack(target), 1F);
