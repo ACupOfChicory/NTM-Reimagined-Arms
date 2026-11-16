@@ -378,7 +378,10 @@ final class StaffMove {
      * end is not waited for)
      */
     private static boolean steps(AiBot b) {
-        return b.active && b.order != null && b.order.route != null && b.memory.focus(b.mob.getX(), b.mob.getZ()) == null;
+        if (!b.active || b.order == null || b.order.route == null) return false;
+        // in a fight it stands, unless it goes round for its pair (C4: AiSoldier goes on by its order)
+        TargetMemory.Contact c = b.memory.focus(b.mob.getX(), b.mob.getZ());
+        return c == null || AiCommander.goesRound(b, c, b.mob.level().getGameTime());
     }
 
     /** on its cover cell (or at its place in the open) */

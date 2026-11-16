@@ -67,6 +67,8 @@ final class AiCheckWar {
     static final double NEAR_Z = 240.5;
     /** a squad going round at its place: one of it within this of it */
     static final double AT_PLACE = 8;
+    /** a squad within this north of the camp's line is still at the camp */
+    static final double CAMP_NEAR = 20;
     static final int FAR_RUN = 2400;
     static final String A = "war_a";
     /** the reports' ages: up to each, ticks (the last: never seen) */
@@ -149,8 +151,11 @@ final class AiCheckWar {
     private final int nears;
     private final List<long[]> nearOf = new ArrayList<>();
     private final java.util.Set<AiCommander.Job> flankJobs = new java.util.HashSet<>(), flankThere = new java.util.HashSet<>();
-    /** the pairs (C4, not near) whose squad going round was sent across the river from the camp's bank */
-    private int pairsAcross;
+    /**
+     * the pairs (C4, not near) whose squad going round was sent across the river: from the camp (its way by the ford too
+     * long for the pair's time), from anywhere on the camp's bank
+     */
+    private int pairsAcross, pairsAcrossAll;
     private int farWoke = -1, farMost;
     private double farNearest = Double.MAX_VALUE;
     private long drifted0, driftBlocked0;
@@ -207,7 +212,10 @@ final class AiCheckWar {
                 AiCommander.Job j = b == null || !m.isAlive() || !AiCommander.has(b, now) ? null : b.order.job;
                 if (j != null && j.kind == StaffPlan.Kind.FLANK) {
                     wentRound.add(m.getId());
-                    if (flankJobs.add(j) && !near && j.partner != null && m.getZ() < Z0 + RIVER_Z && b.order.z > Z0 + RIVER_Z + RIVER_W) pairsAcross++;
+                    if (flankJobs.add(j) && !near && j.partner != null && m.getZ() < Z0 + RIVER_Z && b.order.z > Z0 + RIVER_Z + RIVER_W) {
+                        pairsAcrossAll++;
+                        if (m.getZ() < Z0 + CAMP_Z + CAMP_NEAR) pairsAcross++;
+                    }
                     if (Math.hypot(m.getX() - b.order.x, m.getZ() - b.order.z) <= AT_PLACE) flankThere.add(j);
                 }
                 TargetMemory.Contact c = j == null ? null : b.memory.contact(player.getId());
@@ -749,7 +757,7 @@ final class AiCheckWar {
         }
         if (roundsOf[PAIRS] > 0)
             check.check(String.format(Locale.ROOT, "war: the pairs (C4), no squad going round for a pair sent across the river from the camp (its ford too far for the pair's time):"
-                    + " %d", pairsAcross), pairsAcross == 0);
+                    + " %d (from nearer the ford, in time: %d)", pairsAcross, pairsAcrossAll - pairsAcross), pairsAcross == 0);
         // the near rounds (C4): the way round made in time, the pair works as one
         if (!nearOf.isEmpty()) {
             long[][] n = new long[MODES][10];
