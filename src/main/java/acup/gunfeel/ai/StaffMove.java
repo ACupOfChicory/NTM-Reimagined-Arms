@@ -508,6 +508,32 @@ final class StaffMove {
      * the stands: the squad bounding out of a fight, one of the half covering at least is at its place, standing
      * (facing the enemy): 1; in cover there (one was found): 2; else 0
      */
+    /**
+     * the stands: why the half covering is not at its place while the squad bounds out of a fight, one line a soldier
+     * of it: the squad's task, why not (no order, no place given this bound, how far off it, moving there), and its
+     * own mode and why
+     */
+    static void offPlace(AiCommander.Job j, java.util.function.Consumer<String> out) {
+        State st = j.move;
+        List<AiBot> of = squad(j);
+        int[] half = halves(of, st);
+        for (int i = 0; i < of.size(); i++) {
+            if (half[i] == st.moving) continue;
+            AiBot b = of.get(i);
+            AiCommander.Order o = b.order;
+            String why;
+            if (o == null) why = "no order";
+            else if (o.coverSince != st.since) why = "no place this bound";
+            else if (!atCover(b, o)) {
+                double d = Math.hypot(o.coverX - b.mob.getX(), o.coverZ - b.mob.getZ());
+                why = d <= 16 ? "off its place 16 at most" : d <= 32 ? "off its place 16 to 32" : "off its place over 32";
+            } else if (b.mob.getDeltaMovement().horizontalDistance() >= 0.05) why = "at its place, moving";
+            else why = "at its place";
+            String mode = b.brain instanceof AiSoldier s ? s.mode() + "/" + s.why : "-";
+            out.accept(j.kind + " | " + why + " | " + mode);
+        }
+    }
+
     static int covered(AiCommander.Job j) {
         State st = j.move;
         if (st.mode != Mode.BOUND || st.turn == 0 || !quiet(j)) return 0;
