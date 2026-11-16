@@ -188,10 +188,11 @@ final class StaffPlan {
                         f = f2;
                     }
                     out[a] = p;
-                    // no side to go round to in time (a river between, its ford far: C4): it pins too, rather than be gone
-                    // minutes on the way round; no map yet to tell (it comes soon, the pairs on): it holds about where it is
+                    // no side to go round to in time (a river between, its ford far: C4), or no map yet to tell (it comes
+                    // soon, the pairs on): it holds the best place about it, rather than be gone minutes on the way round
+                    // or go up in the open to pin beside the other
                     boolean blind = grid == null && AiCommander.mapped();
-                    out[b] = blind ? hold(grid, g, k, squads.get(b)) : f != null ? f : pin(grid, g, k, squads.get(b).x, squads.get(b).z);
+                    out[b] = f != null && !blind ? f : grid == null && !blind ? pin(grid, g, k, squads.get(b).x, squads.get(b).z) : hold(grid, g, k, squads.get(b));
                     sent[k] += 2;
                     continue;
                 }

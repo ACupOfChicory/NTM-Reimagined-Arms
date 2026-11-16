@@ -274,7 +274,7 @@ class StaffPlanTest {
     }
 
     @Test
-    void noGoingRoundWhereTheFordIsTooFarAwayButPinningBoth() {
+    void noGoingRoundWhereTheFordIsTooFarAwayButHolding() {
         HqGrid g = HqGridTest.field();
         // the ford far east: neither side got round to in a pair's time
         for (int i = 0; i < HqGrid.N; i++) g.set(i, 16, 63, 0, 1, i == 60 ? 0 : 1);
@@ -283,6 +283,6 @@ class StaffPlanTest {
         assertEquals(null, StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(4)));
         Task[] t = StaffPlan.plan(List.of(squad(gx - 8, HqGridTest.mid(4), 2), squad(gx + 8, HqGridTest.mid(4), 2)), List.of(grp), g, gx, HqGridTest.mid(4), 400, AiCommander.PER, NOW, 0);
         assertEquals(Kind.PIN, t[0].kind());
-        assertEquals(Kind.PIN, t[1].kind());
+        assertEquals(Kind.HOLD, t[1].kind());
     }
 }
