@@ -145,7 +145,7 @@ final class AiCheckAlert {
 
     /**
      * the stand's bar: standing still in the first bucket at most, % (main X1210: 34 to 39; with the knee in the hold:
-     * 9 to 14). Both ends watched by a team is counted, no bar: 13 to 23% on main, no better yet (the exits found lean
+     * 9 to 17). Both ends watched by a team is counted, no bar: 13 to 23% on main, no better yet (the exits found lean
      * to the west end: notes)
      */
     static final double STILL_MOST = 20;

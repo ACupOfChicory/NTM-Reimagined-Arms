@@ -5,7 +5,7 @@
 - AI soldiers that lose a foe behind a wall at close range no longer stand
   upright in the open: with no cover to wait in they go down on a knee, unless
   that would hide the place they watch (in the first three seconds a bot stood
-  still in the open 34 to 39% of the time, now 9 to 14%). A soldier that
+  still in the open 34 to 39% of the time, now 9 to 17%). A soldier that
   knows of no one looks slowly round as a sentry, its head turning at most
   1.5 degrees a tick, instead of staring one way.
 
