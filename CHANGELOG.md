@@ -1,6 +1,6 @@
 # Changelog
 
-## X1168
+## X1185
 
 - The AI commander's ways go by a ford rather than straight through deep
   water: soldiers stop at a river too deep to wade, so a squad sent across

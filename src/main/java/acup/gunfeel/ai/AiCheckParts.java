@@ -223,8 +223,15 @@ final class AiCheckParts {
             // by the share of shots that hit (the shots in a run vary a little with reloads and lying down)
             check.check("aims at a head over a wall and hits it (aiming at the chest hits the wall)", better(r[3], r[2]));
             // its head and chest over a low wall: at the middle of them; the chest is clear of the wall too, so the gain
-            // is small (+0 to +30 points over eight runs) and the check only that it is no worse, give or take a few
-            check.check("aims at the middle of a head and chest over a low wall: hits no fewer than at the chest (4 either way)", r[5][1] + 4 >= r[4][1]);
+            // is small (+13 points on average over 38 runs, give or take 14) and the check only that it is no worse. By
+            // the share of shots that hit, as the rest, not the hits (a run that went to cover fired 10 shots and hit
+            // with 8, fewer hits than the chest's 20 of 38), give or take two standard errors of the difference of the
+            // shares, 10 points at least (a chest's run of 10 shots hit with 9)
+            double middle = (double) r[5][1] / Math.max(1, r[5][0]), atChest = (double) r[4][1] / Math.max(1, r[4][0]);
+            double pooled = (double) (r[5][1] + r[4][1]) / Math.max(1, r[5][0] + r[4][0]);
+            double give = Math.max(0.1, 2 * Math.sqrt(pooled * (1 - pooled) * (1.0 / Math.max(1, r[5][0]) + 1.0 / Math.max(1, r[4][0]))));
+            check.check(String.format(Locale.ROOT, "aims at the middle of a head and chest over a low wall: hits as often as at the chest (%.0f%% of %d shots, %.0f%% of %d;"
+                    + " %.0f points either way)", 100 * middle, r[5][0], 100 * atChest, r[4][0], 100 * give), r[5][0] >= 5 && middle + give >= atChest);
             check.check("aims at legs under a beam and hits them", better(r[7], r[6]));
             // by the share of shots that hit, as the rest: the runs fire 32 to 35 shots each
             check.check("the whole of it in the open: hit as before (0.7 of the share at least)",

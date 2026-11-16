@@ -54,6 +54,11 @@ final class AiCheckLean {
     private int sleepFrom = -1, asleepAt = -1, sleepTries;
     private byte lastLean, lastArms;
     private long lastBoxes = Long.MIN_VALUE;
+    /**
+     * full leans it waits for to see it go to sleep leaned: AiBots looks who is near every 20 ticks, and in between it
+     * unleaned on its own about one time in three (three tries all unleaned: one run in some twenty)
+     */
+    static final int SLEEP_TRIES = 6;
     private boolean sleepOk;
     private String sleepWhat = "-";
 
@@ -166,7 +171,7 @@ final class AiCheckLean {
                 return true;
             }
             asleepAt = ticks;
-            if (lastLean == 0 && ++sleepTries < 3) {
+            if (lastLean == 0 && ++sleepTries < SLEEP_TRIES) {
                 AiBots.awake = true;
                 sleepFrom = asleepAt = -1;
                 return false;
