@@ -1,6 +1,6 @@
 # Changelog
 
-## X1139
+## X1140
 
 - AI side commanders move their soldiers far from any player too. Soldiers
   asleep (no player within `aiRadius`) are put in squads of the commander's

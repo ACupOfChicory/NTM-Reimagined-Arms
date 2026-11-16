@@ -487,6 +487,8 @@ neoForge {
             programArgument("--nogui")
             jvmArgument("-Xmx1200M")
             systemProperty("ntmgunfeel.checkAi", layout.buildDirectory.file("aicheck/result.txt").get().asFile.path)
+            // the stages run sped up (StandSprint, the game's /tick sprint); -PaiRealtime: at 20 ticks a second, as before
+            if (providers.gradleProperty("aiRealtime").isPresent) systemProperty("ntmgunfeel.checkAiRealtime", "true")
             // -PaiStage=<name>: that stage of the check alone (AiCheck)
             providers.gradleProperty("aiStage").orNull?.let { systemProperty("ntmgunfeel.checkAiStage", it) }
             // -PaiCheckWarRounds=<n>: the war's rounds (AiCheckWar; 4 by default, one of each kind: the full check's short war)
