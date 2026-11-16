@@ -854,6 +854,15 @@ public final class AiSoldier implements AiBrain {
                     return;
                 }
             } else shore = Long.MIN_VALUE;
+            // on a ladder (up a shaft, its head out of a hatch) it neither fights nor hides: off it first
+            if (bot.mob.onClimbable() && !bot.mob.onGround()) {
+                long off = AiHatch.offLadder(level, bot.mob);
+                if (off != Long.MIN_VALUE) {
+                    bot.mover.goTo(off, 0.35, RUN);
+                    why = Why.OFF_LADDER;
+                    return;
+                }
+            }
             // in the fire of a bunker's slit with nothing to hide behind: out of its wedge to the side
             if (asideCell != Long.MIN_VALUE && bot.mover.goalIs(asideCell) && bot.mover.failed()) {
                 asideCell = Long.MIN_VALUE;

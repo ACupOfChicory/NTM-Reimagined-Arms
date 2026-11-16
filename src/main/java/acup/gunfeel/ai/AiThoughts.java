@@ -40,6 +40,7 @@ public final class AiThoughts {
         NO_COVER_FAR("no cover, far off: lies, fights"),
         NO_COVER_PINNED("no cover, pinned down: lies, fights"),
         ASHORE("no cover, swimming: swims ashore"),
+        OFF_LADDER("no cover, on a ladder: off it first, at its top or its foot"),
         CROSS("a river to cross by its staff's order: at the near bank, over by the drill, holding the far bank"),
         RECON("a foe across a river, no order to cross: along the bank, looking for a place to cross"),
         HIDE("hides, then peeks"),

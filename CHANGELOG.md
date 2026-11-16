@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers coming up a ladder through a hatch no longer hang on its top
+  rung: they climb on until they can step off on to the ground, and one that
+  finds no cover while on a ladder gets off it first instead of fighting from
+  it.
+
 ## X1297
 
 - AI squads sent by their commander no longer go round and round the wall of
