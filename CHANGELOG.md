@@ -1,5 +1,13 @@
 # Changelog
 
+## X1151
+
+- AI soldiers now go into a trench one wide as into a building: each straight
+  stretch is a room and each turn a doorway. They stack up beside a turn, one
+  steps into it and throws a grenade down the next stretch, and they clear the
+  trench stretch after stretch instead of walking along its edge. New server
+  setting `aiTrenches` (true by default).
+
 ## X1149
 
 - AI soldiers that only heard someone no longer give up after one empty look

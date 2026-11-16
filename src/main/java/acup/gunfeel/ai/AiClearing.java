@@ -21,7 +21,8 @@ import net.minecraft.world.phys.Vec3;
  * soldier goes for the cell of its room nearest to it that no one has seen yet, so it looks in from the doorway
  * first and steps in for the corners. Into a room none of them is in yet, through a doorway, they go as into the
  * first one (AiEntry, with aiEntry on): beside the opening on the near side, then in together, each to its own side.
- * With every room checked they search as before, outside the building.
+ * With every room checked they search as before, outside the building. A trench is searched so as well, its stretches
+ * as rooms (AiTrenches).
  */
 public final class AiClearing {
     /** the server setting: AI soldiers search a building room after room */
@@ -285,10 +286,10 @@ public final class AiClearing {
         s.nextPlan = tick + AGAIN;
         s.lost = lost;
         TacticalMap map = TacticalMap.of(level);
-        AiRooms.Plan plan = AiRooms.of(map, lost);
+        AiRooms.Plan plan = AiTrenches.place(map, lost);
         double speed = Math.sqrt(c.vx * c.vx + c.vz * c.vz);
         for (int k = 1; k <= 3 && (plan == null || plan.rooms() == 0) && speed >= ExitSpots.MOVING; k++)
-            plan = AiRooms.of(map, cell(c.lostX + c.vx / speed * k, c.lostY, c.lostZ + c.vz / speed * k));
+            plan = AiTrenches.place(map, cell(c.lostX + c.vx / speed * k, c.lostY, c.lostZ + c.vz / speed * k));
         if (plan == null || plan.rooms() == 0) return s;
         s.plan = plan;
         s.cells = plan.cells();
