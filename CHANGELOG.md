@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- AI soldiers no longer keep firing at the spot where the enemy they answered fell, standing calm with no one in sight.
+- An AI soldier that answered a contact with a burst from where it stood no
+  longer keeps firing at the spot its target fell, standing calm with no one
+  in sight, for the rest of the fight.
 
 ## X1210
 
