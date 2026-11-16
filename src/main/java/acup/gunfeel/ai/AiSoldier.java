@@ -1703,12 +1703,27 @@ public final class AiSoldier implements AiBrain {
         }
         mode(Mode.HOLD, tick);
         why = spot != null && !bot.mover.arrived() ? Why.HOLD_RUN : bot.gunner.reloading() ? Why.HOLD_RELOAD : Why.HOLD;
+        // no cover to wait in: down on a knee, a smaller mark, where it sees what it watches from there as well
+        if (spot == null && kneels(bot, level, look)) {
+            crouch = true;
+            why = Why.HOLD_KNEEL;
+        }
         // pinned down behind low cover while it waits: bursts blind over it where they went, as in coverCycle
         AiGunner g = bot.gunner;
         if (spot != null && bot.mover.arrived() && (spot.peek() == spot.cell() || !spot.hasPeek())
                 && !(g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any()) && lost.distanceTo(bot.mob.position()) >= BLIND_NEAR
                 && blindFire(bot, level, lost, true, tick)) return;
         if (spot != null && bot.mover.arrived() && g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any()) g.reload();
+    }
+
+    /** standing still, and down on a knee would not hide the place from it (it sees it from there, or does not standing either) */
+    private static boolean kneels(AiBot bot, ServerLevel level, Vec3 look) {
+        Mob m = bot.mob;
+        if (bot.mover.goal() != Long.MIN_VALUE && !bot.mover.arrived() || AiWater.swims(m) || bot.prone.lying()) return false;
+        VoxelRay.Source v = AiBots.voxels(level);
+        Vec3 up = m.position().add(0, m.getDimensions(Pose.STANDING).eyeHeight(), 0), down = m.position().add(0, AiPose.CROUCH_SIZE.eyeHeight(), 0);
+        boolean seesUp = VoxelRay.clear(v, up.x, up.y, up.z, look.x, look.y, look.z, Voxel.SIGHT);
+        return !seesUp || VoxelRay.clear(v, down.x, down.y, down.z, look.x, look.y, look.z, Voxel.SIGHT);
     }
 
     /** at its place beside the way in till its entry's grenade has burst: a foe in sight under fire from there, no step out */
@@ -1929,7 +1944,49 @@ public final class AiSoldier implements AiBrain {
             watch = null;
         }
         mode(Mode.IDLE, tick);
-        why = Why.IDLE;
+        why = sentry(bot, tick) ? Why.SENTRY : Why.IDLE;
+    }
+
+    /**
+     * A sentry's look round: idle, its head held the way it faced, from SENTRY_AFTER ticks on turned SENTRY_TURN degrees
+     * a tick at most to one side of that way, SENTRY_NEAR to SENTRY_ARC off, a rest there, then to the other side, and so
+     * on (one come up quietly from beside or behind is seen); never round through its back
+     */
+    static final int SENTRY_AFTER = 60, SENTRY_REST_MIN = 40, SENTRY_REST_MAX = 120;
+    static final float SENTRY_TURN = 1.5F, SENTRY_ARC = 120F, SENTRY_NEAR = 50F;
+    private long sentryLast = Long.MIN_VALUE, sentryRest, sentryFrom;
+    private float sentryBase, sentryYaw, sentryTo;
+
+    /** whether it looks round now (not while it walks, lies, swims or has a look set by something else) */
+    private boolean sentry(AiBot bot, long tick) {
+        Mob m = bot.mob;
+        boolean fresh = tick - sentryLast > 1;
+        sentryLast = tick;
+        if (fresh) {
+            sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
+            sentryRest = sentryFrom = tick + SENTRY_AFTER;
+        }
+        if (bot.mover.goal() != Long.MIN_VALUE && !bot.mover.arrived() || bot.prone.lying() || AiWater.swims(m)
+                || bot.gunner.aimPoint() != null) {
+            // its base and the yaw it turns from follow the head while something else turns it
+            sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
+            return false;
+        }
+        if (tick >= sentryRest) {
+            // the yaws kept unwrapped, within SENTRY_ARC of the base: the turn goes the way in front, not through its back
+            float d = sentryTo - sentryYaw;
+            if (Math.abs(d) <= SENTRY_TURN) {
+                sentryYaw = sentryTo;
+                sentryRest = tick + SENTRY_REST_MIN + m.getRandom().nextInt(SENTRY_REST_MAX - SENTRY_REST_MIN);
+                // the other side of the way it faced
+                float side = sentryYaw > sentryBase ? -1F : 1F;
+                sentryTo = sentryBase + side * (SENTRY_NEAR + m.getRandom().nextFloat() * (SENTRY_ARC - SENTRY_NEAR));
+            } else sentryYaw += Math.signum(d) * SENTRY_TURN;
+        }
+        // its look held there each tick (with none set the head turns back to its body)
+        Vec3 eye = m.getEyePosition(), at = eye.add(Vec3.directionFromRotation(0F, sentryYaw).scale(16));
+        m.getLookControl().setLookAt(at.x, at.y, at.z, SENTRY_TURN * 4, 10F);
+        return tick >= sentryFrom;
     }
 
     /** for the debug view: what it does, whom it knows of and how, what it decided and why (AiThoughts), a line each */

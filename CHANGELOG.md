@@ -1,5 +1,13 @@
 # Changelog
 
+## X1223
+
+- AI soldiers that lose a foe behind a wall at close range no longer stand
+  upright in the open: with no cover to wait in they go down on a knee, unless
+  that would hide the place they watch. A soldier that
+  knows of no one looks slowly round as a sentry, its head turning at most
+  1.5 degrees a tick, instead of staring one way.
+
 ## X1217
 
 - An AI soldier that answered a contact with a burst from where it stood no
