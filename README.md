@@ -288,10 +288,14 @@ page. They are alphas: expect bugs and back up your world.
   than half its men or ran out of rounds falls back on its own; with no enemy
   known they scout round their side. On the way they march in file while
   far off, bound from cover to cover half by half once near or in sight,
-  creep crouched when close, and storm the last stretch of an advance.
+  creep crouched when close, and storm the last stretch of an advance. A
+  squad pinning an enemy and one going round it work together: the pinning
+  one keeps the enemy's places under fire once the other is round and goes
+  in, and does not chase a lost enemy far from its place.
   Soldiers far from any player are moved by their commander too, till a
   player comes near (server keys `aiCommander`, `aiCommanderHelp`,
-  `aiCommanderStaff`, `aiCommanderTasks`, `aiCommanderMoves`).
+  `aiCommanderStaff`, `aiCommanderTasks`, `aiCommanderMoves`,
+  `aiCommanderPairs`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
