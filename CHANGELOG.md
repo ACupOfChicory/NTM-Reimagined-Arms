@@ -1,6 +1,6 @@
 # Changelog
 
-## X1188
+## X1198
 
 - An AI machine gunner kept as its squad's base of fire no longer goes after
   the foe itself when its riflemen get far off going round the side. Over 16
