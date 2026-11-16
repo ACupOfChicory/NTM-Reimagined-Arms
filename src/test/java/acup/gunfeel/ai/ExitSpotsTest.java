@@ -85,6 +85,31 @@ class ExitSpotsTest {
     }
 
     @Test
+    void behindALongWallOneOfASquadWatchesOneEndAndTheNextTheOther() {
+        // the alert stand's wall: x 12..36 at z 17, three high; the target lost behind it, the watcher south of it, back
+        // from the wall or right against it (as one in cover there); for one alone the walk's exit (or, lost behind the
+        // middle out of the walk's reach, a corner); one of its own on that end: the other end
+        PathSearchTest.Grid g = new PathSearchTest.Grid(3);
+        for (int x = 12; x <= 36; x++)
+            for (int h = 0; h < 3; h++) g.set(x, h, 17, PathSearchTest.STONE);
+        g.build();
+        for (Vec3 eye : new Vec3[] {new Vec3(24.5, 1.62, 10.5), new Vec3(26.5, 1.62, 16.4)})
+            for (double lx : new double[] {20.5, 24.5, 28.5}) {
+                String what = "eye " + eye + " lost " + lx;
+                long first = ExitSpots.pick(g, g::voxel, eye, lx, 0, 24.5, 0, 0, RandomSource.create(5), java.util.List.of());
+                assertNotEquals(Long.MIN_VALUE, first, what);
+                // at an end: past it or just before its end column, where one coming round it shows
+                boolean west = BlockPos.getX(first) <= 12;
+                assertTrue(west || BlockPos.getX(first) >= 36, "at an end: " + BlockPos.of(first) + ", " + what);
+                Vec3 taken = new Vec3(BlockPos.getX(first) + 0.5, BlockPos.getY(first) + 1.1, BlockPos.getZ(first) + 0.5);
+                long next = ExitSpots.pick(g, g::voxel, eye, lx, 0, 24.5, 0, 0, RandomSource.create(6), java.util.List.of(taken));
+                assertNotEquals(Long.MIN_VALUE, next, what);
+                assertTrue(west ? BlockPos.getX(next) >= 36 : BlockPos.getX(next) <= 12, "the other end: " + BlockPos.of(next) + ", " + what);
+                assertTrue(VoxelRay.clear(g::voxel, eye.x, eye.y, eye.z, BlockPos.getX(next) + 0.5, 1.0, BlockPos.getZ(next) + 0.5, Voxel.SIGHT));
+            }
+    }
+
+    @Test
     void aFewPicksATickForAll() {
         long tick = 123456789L;
         for (int i = 0; i < ExitSpots.PER_TICK; i++) assertTrue(ExitSpots.mayPick(tick));

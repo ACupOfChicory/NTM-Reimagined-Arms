@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers that lose a foe behind a long wall share its ends: each looks
+  for a corner the foe could come round that none of its squad watches yet,
+  instead of all watching the nearest end.
+
 ## X1231
 
 - AI soldiers looking round as sentries notice a foe in front of them again,

@@ -107,6 +107,24 @@ final class AiCheckAlert {
             if (w == 3) teamBoth++;
             else for (int i = t * SIDE; i < (t + 1) * SIDE && i < doing.length; i++) if (doing[i] != null) notBoth.merge(doing[i], 1, Integer::sum);
         }
+        // what each chose to watch, a while after the wall: went (where the foe went), W / E (the way out past the west or
+        // east end), went? (a way out chosen, none found: where they went), - (no loss chosen for)
+        if (ticks == CHOICE_AT) {
+            StringBuilder c = new StringBuilder();
+            for (int i = 0; i < mobs.size(); i++) {
+                if (i == SIDE) c.append(" |");
+                AiBot b = AiBots.get(mobs.get(i));
+                String k = "-";
+                if (b != null && b.brain instanceof AiSoldier s) {
+                    Vec3 e = s.exitWatched();
+                    // a way out chosen and none found: it watches where they went (seen from past an end of the wall)
+                    k = !s.exitChosen() ? "went" : e == null ? "went?" : e.x < (WALL_X0 + WALL_X1) / 2.0 ? "W" : "E";
+                }
+                c.append(' ').append(k);
+                choices.merge(k, 1, Integer::sum);
+            }
+            choiceLines.add(c.toString());
+        }
         if (ticks < AFTER) return false;
         StringBuilder t = new StringBuilder(String.format(Locale.ROOT, "     alert, round %d: by %d ticks after the wall [standing still, crouching, moving, looking at an end] of %d fighter ticks:",
                 round + 1, BUCKET, BUCKET * mobs.size()));
@@ -135,7 +153,10 @@ final class AiCheckAlert {
             check.check(String.format(Locale.ROOT, "alert: in the first %d ticks after its foe went behind the wall a fighter stands still in the open"
                     + " (upright, not moving, not watching an end of the wall) at most %.0f%% of the time (%.0f%%)", BUCKET, STILL_MOST, still), still <= STILL_MOST);
             check.out(String.format(Locale.ROOT, "     alert: a team has an end of the wall watched %.0f%% of its ticks, both ends %.0f%%", any, both));
+            check.check(String.format(Locale.ROOT, "alert: a squad shares the ends of the wall: both watched at least %.0f%% of a team's ticks (%.0f%%)",
+                    BOTH_LEAST, both), both >= BOTH_LEAST);
             check.out("     alert: the fighters of a team without both ends watched, mode/look: " + notBoth);
+            check.out("     alert: what they watch " + CHOICE_AT + " ticks after the wall, red | blue, by round:" + String.join(";", choiceLines) + "; in all " + choices);
             round = ROUNDS;
             sentry();
             return false;
@@ -145,12 +166,16 @@ final class AiCheckAlert {
 
     /**
      * the stand's bar: standing still in the first bucket at most, % (main X1210: 34 to 39; with the knee in the hold:
-     * 9 to 17). Both ends watched by a team is counted, no bar: 13 to 23% on main, no better yet (the exits found lean
-     * to the west end: notes)
+     * 9 to 17). Both ends of the wall watched by a team at least, %: on X1231 13 to 23 (the exit's walk from the lost
+     * place got round the near end only), with the squad sharing the corners (ExitSpots.corner) 32 to 52
      */
-    static final double STILL_MOST = 20;
+    static final double STILL_MOST = 20, BOTH_LEAST = 27;
     /** team ticks (after the wall, all rounds) with an end of the wall watched by one of the team, with both; at the last round's end */
     private int teamAny, teamBoth, roundAny, roundBoth;
+    /** the tick after the wall the choices are read; what they chose, per round and in all */
+    static final int CHOICE_AT = 100;
+    private final List<String> choiceLines = new ArrayList<>();
+    private final Map<String, Integer> choices = new TreeMap<>();
     /** what the fighters of a team without both ends watched were doing: mode / where they looked */
     private final Map<String, Integer> notBoth = new TreeMap<>();
     /** the sentry: one soldier, no one about, this long; its head's sweep at least, degrees; its turn a tick at most */
