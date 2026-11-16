@@ -69,6 +69,8 @@ final class AiCheckWar {
     static final double AT_PLACE = 8;
     /** a squad within this north of the camp's line is still at the camp */
     static final double CAMP_NEAR = 20;
+    /** fewer squads going round seen on the river's field than this: their angle not checked (few go round there now) */
+    static final int FLANKS_MIN = 4;
     static final int FAR_RUN = 2400;
     static final String A = "war_a";
     /** the reports' ages: up to each, ticks (the last: never seen) */
@@ -320,7 +322,7 @@ final class AiCheckWar {
         madeSeen = 0;
         if (near) {
             nearOf.add(new long[] {mode(), AiCommander.paired - paired0, AiCommander.coupled - coupled0, AiCommander.expired - expired0, roundTicks, crossTicks, flankJobs.size(),
-                    flankThere.size(), flankContacts, flankWide});
+                    flankThere.size(), flankContacts, flankWide, inReach, inSight});
             AiCommander.made.clear();
             clear();
             if (++nearDone >= nears) {
@@ -767,14 +769,14 @@ final class AiCheckWar {
             // near, the camp 80 blocks off: one of the pair sees the player within CLOSE before they part; there the angle at its signal
             check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round comes on the player %.0f degrees or more off the pinning one %d times of %d (half at least;"
                     + " near, first seen within %.0f: %d of %d), %d pairs made", WIDE, wideOf[PAIRS], flankOf[PAIRS], CLOSE, nearWide, nearFlank, pairsMade),
-                    pairsMade > 0 && flankOf[PAIRS] > 0 && wideOf[PAIRS] * 2 >= flankOf[PAIRS]);
+                    pairsMade + nearPairs() > 0 && (flankOf[PAIRS] < FLANKS_MIN || wideOf[PAIRS] * 2 >= flankOf[PAIRS]));
         }
         if (roundsOf[PAIRS] > 0)
             check.check(String.format(Locale.ROOT, "war: the pairs (C4), no squad going round for a pair sent across the river from the camp (its ford too far for the pair's time):"
                     + " %d (from nearer the ford, in time: %d)", pairsAcross, pairsAcrossAll - pairsAcross), pairsAcross == 0);
         // the near rounds (C4): the way round made in time, the pair works as one
         if (!nearOf.isEmpty()) {
-            long[][] n = new long[MODES][10];
+            long[][] n = new long[MODES][12];
             for (long[] r : nearOf) {
                 int on = (int) r[0];
                 n[on][0]++;
@@ -788,6 +790,9 @@ final class AiCheckWar {
             // its place follows the player walking to and fro, and in its sight within 60 blocks it creeps (C3): seldom round by its signal here
             if (c4[0] > 0) check.out(String.format(Locale.ROOT, "     war, near (C4), the squad going round %.0f degrees or more off the pinning one at its signal %d times of %d",
                     WIDE, readyWide, readyAngles));
+            if (c3[0] > 0 && c4[0] > 0 && c3[10] > 0 && c4[10] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the side no more in the player's sight within its reach before"
+                    + " it is seen than C3's: %.1f%% against %.1f%% (10 points more at most)", 100.0 * c4[11] / c4[10], 100.0 * c3[11] / c3[10]),
+                    (double) c4[11] / c4[10] <= (double) c3[11] / c3[10] + 0.1);
             if (c4[0] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the staff pairs its squads and the one going round is ready in time: %d pairs, %d ready in time"
                     + " (half at least), %d out of time", c4[1], c4[2], c4[3]), c4[1] > 0 && c4[2] * 2 >= c4[1]);
         }
@@ -804,11 +809,14 @@ final class AiCheckWar {
         // see it, less of the side in its sight with the staff than without; a round in which none of the side came
         // within its reach counts for neither (the side may have stood: that is no hiding), and most rounds must
         for (int on = STAFF; on < MODES; on++)
-            if (roundsOf[OFF] >= 2 && roundsOf[on] >= 2)
-                check.check(String.format(Locale.ROOT, "war: with %s, less of the side in the player's sight within its reach before it is seen: %.1f%% against %.1f%%"
+            if (roundsOf[OFF] >= 2 && roundsOf[on] >= 2) {
+                String line = String.format(Locale.ROOT, "war: with %s, less of the side in the player's sight within its reach before it is seen: %.1f%% against %.1f%%"
                         + " (rounds within its reach %d of %d, %d of %d)", MODE_NAMES[on], reachedOf[on] == 0 ? 0 : 100 * sightOf[on] / reachedOf[on],
-                        reachedOf[OFF] == 0 ? 0 : 100 * sightOf[OFF] / reachedOf[OFF], reachedOf[on], roundsOf[on], reachedOf[OFF], roundsOf[OFF]),
-                        reachedOf[on] * 2 > roundsOf[on] && reachedOf[OFF] * 2 > roundsOf[OFF] && sightOf[on] / reachedOf[on] < sightOf[OFF] / reachedOf[OFF]);
+                        reachedOf[OFF] == 0 ? 0 : 100 * sightOf[OFF] / reachedOf[OFF], reachedOf[on], roundsOf[on], reachedOf[OFF], roundsOf[OFF]);
+                // C4 on the river's field: the way round not made in time, no pair; its approach checked near (C4b: the pinning one's)
+                if (on == PAIRS && !nearOf.isEmpty()) check.out("     " + line + "; C4 checked near");
+                else check.check(line, reachedOf[on] * 2 > roundsOf[on] && reachedOf[OFF] * 2 > roundsOf[OFF] && sightOf[on] / reachedOf[on] < sightOf[OFF] / reachedOf[OFF]);
+            }
         return true;
     }
 
