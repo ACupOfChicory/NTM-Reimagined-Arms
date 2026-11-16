@@ -304,7 +304,8 @@ final class StaffMove {
 
     /**
      * a bound's halves as they were given at the mode's start, each kept to its own (the staff's squads are made again
-     * as they move, their order with them); one new to the squad to the smaller half
+     * as they move, their order with them); one new to the squad to the smaller half; a half left empty, all halved
+     * again
      */
     private static int[] halves(List<AiBot> of, State st) {
         int[] base = halves(roles(of)), h = new int[of.size()], n = new int[2];
@@ -323,6 +324,18 @@ final class StaffMove {
             if (o != null) {
                 o.half = h[i];
                 o.halfSince = st.since;
+            }
+        }
+        // a half left empty (those in it gone from the squad): halved again by their roles, else the other half
+        // would go on its own with no one covering it, and the empty one's bounds be over at once
+        if (of.size() >= 2 && (n[0] == 0 || n[1] == 0)) {
+            for (int i = 0; i < of.size(); i++) {
+                h[i] = base[i];
+                AiCommander.Order o = of.get(i).order;
+                if (o != null) {
+                    o.half = h[i];
+                    o.halfSince = st.since;
+                }
             }
         }
         return h;

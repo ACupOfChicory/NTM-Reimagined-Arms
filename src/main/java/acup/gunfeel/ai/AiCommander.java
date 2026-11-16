@@ -1192,6 +1192,18 @@ public final class AiCommander {
         return c != null && Math.hypot(c.lostX - o.x, c.lostZ - o.z) > LEASH && pairs() && on();
     }
 
+    /**
+     * going round for a pair not yet ready, in its time, the foe it knows of farther than StaffPlan.FLANK_D: it goes
+     * on round by the order rather than into a fight from where it is (C4; nearer, it fights: ready)
+     */
+    static boolean goesRound(AiBot bot, TargetMemory.Contact c, long tick) {
+        Order o = bot.order;
+        Job j = o == null || tick > o.until ? null : o.job;
+        if (j == null || j.kind != StaffPlan.Kind.FLANK || j.partner == null || j.ready != Long.MIN_VALUE || tick >= j.due) return false;
+        double x = c.state == TargetMemory.State.VISIBLE ? c.x : c.lostX, z = c.state == TargetMemory.State.VISIBLE ? c.z : c.lostZ;
+        return Math.hypot(x - bot.mob.getX(), z - bot.mob.getZ()) > StaffPlan.FLANK_D && pairs() && on();
+    }
+
     /** /armsai info */
     public static String info() {
         StringBuilder t = new StringBuilder();

@@ -481,8 +481,11 @@ public final class AiSoldier implements AiBrain {
             hit(bot, level, n, tick);
             return;
         }
+        // going round for its side's pair, the foe still far: on round by the order, not into a fight from here (C4)
+        if (c != null && AiCommander.goesRound(bot, c, tick) && ordered(bot, level, tick)) {
+        }
         // in sight, sitting behind low cover (its legs hidden, still): a grenade over it
-        if (c != null && c.state == TargetMemory.State.VISIBLE && sits(c) && grenade(bot, level, new Vec3(c.x, c.y, c.z), tick, false)) {
+        else if (c != null && c.state == TargetMemory.State.VISIBLE && sits(c) && grenade(bot, level, new Vec3(c.x, c.y, c.z), tick, false)) {
         }
         else if (c != null && c.state == TargetMemory.State.VISIBLE) combat(bot, level, c, tick);
         // its squad's flanker: round the side of the place they went out of sight, to cover that sees it
