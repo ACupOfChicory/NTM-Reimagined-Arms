@@ -406,6 +406,10 @@ public final class AiBots {
 
     /** hits one AI mob took from another (the stands) */
     public static int friendlyHits;
+    /** the stands: how the hits on their own came (up to 40) */
+    public static final List<String> friendlyWhy = new java.util.ArrayList<>();
+    /** the stands: the wider line of X1227 (one close beside, the look's and the body's lines, an automatic's cone); off: the aim's line alone */
+    static boolean wideLine = true;
 
     /**
      * One of its own (AiTeams.own: an AI mob it does not fight, a player of its team) in the line from from to to, or
@@ -418,16 +422,33 @@ public final class AiBots {
         Vec3 d = to.subtract(from);
         double len = d.length();
         if (len < 1e-3) return false;
-        Vec3 u = d.scale(1 / len), end = to.add(u), look = shooter.getViewVector(1F);
+        Vec3 u = d.scale(1 / len), look = shooter.getViewVector(1F);
+        // a shot goes on past where it is aimed (a place it fires at, a miss) until a block stops it: glass, a door, a
+        // thin board it goes through (NTM's bullets pierce them), what stops bullets (protection 2 and up) or its reach
+        // stops the line
+        len = Math.max(len, past(level, from, u));
+        Vec3 end = from.add(u.scale(len + 1));
         double tan = Math.tan(Math.toRadians(coneDegrees));
         for (AiBot b : l.bots.values()) {
             Mob m = b.mob;
             if (m == shooter || m.isRemoved() || !m.isAlive() || !AiTeams.own(shooter, m)) continue;
-            if (crosses(m, from, u, end, len, tan) || beside(m, from, look)) return true;
+            if (crosses(m, from, u, end, len, tan) || wideLine && beside(m, from, look)) return true;
         }
         if (shooter.getTeam() != null) for (Player p : level.players())
-            if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && (crosses(p, from, u, end, len, tan) || beside(p, from, look))) return true;
+            if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && (crosses(p, from, u, end, len, tan) || wideLine && beside(p, from, look))) return true;
         return false;
+    }
+
+    /** how far a shot's line is kept clear at most, blocks */
+    static final double PAST = 48;
+    /** the voxel bit of protection 2 and up (Voxel.hard): a block that stops a bullet */
+    static final int STOPS = 1 << (Voxel.PROTECT_SHIFT + 1);
+
+    /** how far along u from `from` a bullet goes before a block stops it, PAST at most */
+    static double past(ServerLevel level, Vec3 from, Vec3 u) {
+        Vec3 far = from.add(u.scale(PAST));
+        double t = VoxelRay.blocked(voxels(level), from.x, from.y, from.z, far.x, far.y, far.z, STOPS);
+        return t < 0 ? PAST : t * PAST;
     }
 
     /** one of its own this near the eye, blocks across, and not behind it: a shot hits it (the bullet starts a block ahead, to the gun hand) */
@@ -452,7 +473,7 @@ public final class AiBots {
         net.minecraft.world.phys.AABB box = m.getBoundingBox();
         double t = box.getCenter().subtract(from).dot(u);
         if (t <= 0 || t > len + 1) return false;
-        net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan + (t < NEAR_LINE ? NEAR_MARGIN : 0));
+        net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan + (wideLine && t < NEAR_LINE ? NEAR_MARGIN : 0));
         return grown.contains(from) || grown.clip(from, end).isPresent();
     }
 
@@ -462,7 +483,19 @@ public final class AiBots {
         if (b == null) return;
         Entity from = source.getEntity();
         if (from instanceof LivingEntity le && le != mob && AiTeams.own(mob, le)) {
-            if (get(le) != null) friendlyHits++;
+            if (get(le) != null) {
+                friendlyHits++;
+                if (friendlyWhy.size() < 40) {
+                    Vec3 look = le.getViewVector(1F), d = mob.position().subtract(le.position());
+                    double h = Math.hypot(d.x, d.z), lh = Math.hypot(look.x, look.z);
+                    double deg = h < 1e-3 || lh < 1e-3 ? 0 : Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, (d.x * look.x + d.z * look.z) / (h * lh)))));
+                    AiBot sb = get(le);
+                    friendlyWhy.add(String.format(java.util.Locale.ROOT, "%s by %s (%s) %.1f blocks off, %.0f deg off its look, direct %s, its mode %s",
+                            source.getMsgId(), le.getMainHandItem().getItem(), le.getName().getString(), h, deg,
+                            source.getDirectEntity() == null ? "-" : source.getDirectEntity().getType().toShortString(),
+                            sb != null && sb.brain instanceof AiSoldier so ? so.mode() + "/" + so.why : "-"));
+                }
+            }
             return;
         }
         long tick = mob.level().getGameTime();

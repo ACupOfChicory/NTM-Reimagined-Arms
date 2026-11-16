@@ -1875,13 +1875,15 @@ public final class AiCommander {
     }
 
     /**
-     * near its place, the one going round round in fact: at its group (as it last knew of it) READY_ANGLE or more off
-     * the pinning one's middle (its place made from an older picture, the group moved on: it goes on to it); its group
-     * not known, or the pinning one all down: as before, its place enough
+     * near its place, the one going round round in fact: at its group (where it sees it, else the staff's picture of
+     * it) READY_ANGLE or more off the pinning one's middle (its place made from an older picture, the group moved on:
+     * it goes on to it); its group not known, or the pinning one all down: as before, its place enough
      */
     private static boolean round(AiBot bot, Job pin, TargetMemory.@Nullable Contact c) {
         if (c == null) return true;
-        double gx = c.state == TargetMemory.State.VISIBLE ? c.x : c.lostX, gz = c.state == TargetMemory.State.VISIBLE ? c.z : c.lostZ;
+        // out of its sight: where it went from sight goes stale as it walks on; the staff's picture of it instead
+        Job f = bot.order == null ? null : bot.order.job;
+        double gx = c.state == TargetMemory.State.VISIBLE ? c.x : f == null ? c.lostX : f.gx, gz = c.state == TargetMemory.State.VISIBLE ? c.z : f == null ? c.lostZ : f.gz;
         double px = 0, pz = 0;
         int n = 0;
         for (AiBot m : pin.members)

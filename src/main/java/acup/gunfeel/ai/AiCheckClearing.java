@@ -74,9 +74,14 @@ final class AiCheckClearing {
         return n;
     }
 
+    /** AiBots.friendlyHits when the stage began: its bullets (and blasts) into its own counted at its end */
+    private int friendly0;
+
     boolean tick() {
         if (!started) {
             started = true;
+            friendly0 = AiBots.friendlyHits;
+            AiBots.friendlyWhy.clear();
             for (int cx = X0 >> 4; cx <= (X0 + SIZE) >> 4; cx++)
                 for (int cz = Z0 >> 4; cz <= (Z0 + SIZE) >> 4; cz++) level.setChunkForced(cx, cz, true);
             AiBots.awake = true;
@@ -218,6 +223,8 @@ final class AiCheckClearing {
                     foundIn[a] == 0 ? 0 : foundAt[a] / foundIn[a], sum[a][3], sum[a][4], n[a] * SQUAD, sum[a][5] / Math.max(1, n[a]), sum[a][6] / Math.max(1, n[a]),
                     sum[a][7] / Math.max(1, n[a]), sum[a][8] / Math.max(1, n[a]), sum[a][9] / 100 / Math.max(1, n[a]), sum[a][10] / Math.max(1, n[a]), sum[a][12] / Math.max(1, n[a])));
         check.check("clearing: all rounds ran", results.size() == ROUNDS);
+        for (String w : AiBots.friendlyWhy) check.out("     a hit on one of its own: " + w);
+        check.check("clearing: close in rooms, no AI mob hits one of its own (" + (AiBots.friendlyHits - friendly0) + ")", AiBots.friendlyHits == friendly0);
         return true;
     }
 }
