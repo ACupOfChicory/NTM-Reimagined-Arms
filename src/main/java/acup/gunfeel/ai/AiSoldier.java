@@ -1491,7 +1491,8 @@ public final class AiSoldier implements AiBrain {
             Vec3 at = new Vec3(c.x, c.y + 1.1, c.z);
             watch = at;
             bot.gunner.aim(at);
-            bot.gunner.fire(true);
+            // its wave beside it at the edge, before it in the water: none of them in the cone (AiSoldier.COVER_CONE)
+            bot.gunner.fire(!(bot.mob.level() instanceof ServerLevel level) || !AiBots.friendInLine(level, bot.mob, AiLean.eye(bot.mob), at, COVER_CONE));
         } else {
             bot.gunner.fire(false);
             if (look != null) {
@@ -1501,8 +1502,11 @@ public final class AiSoldier implements AiBrain {
         }
     }
 
-    /** the cover's fire in its squad's crossing (AiCrossing): where it stands, at the place, a burst of BURST ticks every BURST_EVERY */
-    void coverFire(AiBot bot, Vec3 at, long tick) {
+    /**
+     * the cover's fire in its squad's crossing (AiCrossing): where it stands, at the place, a burst of BURST ticks every
+     * BURST_EVERY; none while lifted (its own at the place)
+     */
+    void coverFire(AiBot bot, Vec3 at, long tick, boolean lifted) {
         // its own swimming across the line to the foe: at a burst's start the aim goes aside along the far bank, a few
         // blocks, till the line is clear (fire on the ground about it, not through them)
         if ((tick + bot.mob.getId()) % COVER_EVERY == 0 && bot.mob.level() instanceof ServerLevel level) {
@@ -1511,7 +1515,7 @@ public final class AiSoldier implements AiBrain {
             double dx = at.x - eye.x, dz = at.z - eye.z, d = Math.hypot(dx, dz);
             if (d > 1e-3)
                 for (double k : COVER_ASIDE) {
-                    if (!AiBots.friendInLine(level, bot.mob, eye, at.add(-dz / d * k, 0, dx / d * k), AiGunner.CLEAR_CONE)) {
+                    if (!AiBots.friendInLine(level, bot.mob, eye, at.add(-dz / d * k, 0, dx / d * k), COVER_CONE)) {
                         coverAside = k;
                         break;
                     }
@@ -1529,11 +1533,17 @@ public final class AiSoldier implements AiBrain {
             g.reload();
             return;
         }
-        g.fire((tick + bot.mob.getId()) % COVER_EVERY < COVER_BURST);
+        // its own gone in at the place: the fire lifted, the gun kept on it
+        // and each shot: none of its own in a cone wider than a shot's (a rifle's spread over those at the water's edge,
+        // over those swimming low)
+        g.fire(!lifted && (tick + bot.mob.getId()) % COVER_EVERY < COVER_BURST && bot.mob.level() instanceof ServerLevel level
+                && !AiBots.friendInLine(level, bot.mob, AiLean.eye(bot.mob), at, COVER_CONE));
     }
 
     /** the cover's bursts in a crossing: this long, ticks, every so many */
     static final int COVER_BURST = 12, COVER_EVERY = 40;
+    /** the cone the cover's fire keeps clear of its own, degrees (wider than a shot's: a rifle's and a machine gun's spread) */
+    static final double COVER_CONE = 8;
     /** where along the far bank, blocks aside of the foe, the cover's aim may go to keep its own out of the line */
     private static final double[] COVER_ASIDE = {0, 2, -2, 4, -4, 6, -6};
     private double coverAside, coverDx, coverDz;
