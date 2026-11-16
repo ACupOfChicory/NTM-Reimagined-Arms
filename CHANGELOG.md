@@ -1,5 +1,31 @@
 # Changelog
 
+## X1227
+
+- Soldiers no longer shoot their own: they hold fire with a comrade close
+  beside them, and a machine gun keeps a wider line clear for the kick of its
+  burst.
+
+## X1225
+
+- Soldiers crossing a river no longer shoot through their own waiting at the
+  water's edge or swimming, and the bank's covering fire lifts off the place
+  where those already over are going in.
+
+## X1223
+
+- AI soldiers that lose a foe behind a wall at close range no longer stand
+  upright in the open: with no cover to wait in they go down on a knee, unless
+  that would hide the place they watch. A soldier that
+  knows of no one looks slowly round as a sentry, its head turning at most
+  1.5 degrees a tick, instead of staring one way.
+
+## X1217
+
+- An AI soldier that answered a contact with a burst from where it stood no
+  longer keeps firing at the spot its target fell, standing calm with no one
+  in sight, for the rest of the fight.
+
 ## X1212
 
 - Soldiers going into a room or round a trench's turn behind a grenade keep

@@ -1491,7 +1491,8 @@ public final class AiSoldier implements AiBrain {
             Vec3 at = new Vec3(c.x, c.y + 1.1, c.z);
             watch = at;
             bot.gunner.aim(at);
-            bot.gunner.fire(true);
+            // its wave beside it at the edge, before it in the water: none of them in the cone (AiSoldier.COVER_CONE)
+            bot.gunner.fire(!(bot.mob.level() instanceof ServerLevel level) || !AiBots.friendInLine(level, bot.mob, AiLean.eye(bot.mob), at, COVER_CONE));
         } else {
             bot.gunner.fire(false);
             if (look != null) {
@@ -1501,8 +1502,11 @@ public final class AiSoldier implements AiBrain {
         }
     }
 
-    /** the cover's fire in its squad's crossing (AiCrossing): where it stands, at the place, a burst of BURST ticks every BURST_EVERY */
-    void coverFire(AiBot bot, Vec3 at, long tick) {
+    /**
+     * the cover's fire in its squad's crossing (AiCrossing): where it stands, at the place, a burst of BURST ticks every
+     * BURST_EVERY; none while lifted (its own at the place)
+     */
+    void coverFire(AiBot bot, Vec3 at, long tick, boolean lifted) {
         // its own swimming across the line to the foe: at a burst's start the aim goes aside along the far bank, a few
         // blocks, till the line is clear (fire on the ground about it, not through them)
         if ((tick + bot.mob.getId()) % COVER_EVERY == 0 && bot.mob.level() instanceof ServerLevel level) {
@@ -1511,7 +1515,7 @@ public final class AiSoldier implements AiBrain {
             double dx = at.x - eye.x, dz = at.z - eye.z, d = Math.hypot(dx, dz);
             if (d > 1e-3)
                 for (double k : COVER_ASIDE) {
-                    if (!AiBots.friendInLine(level, bot.mob, eye, at.add(-dz / d * k, 0, dx / d * k), AiGunner.CLEAR_CONE)) {
+                    if (!AiBots.friendInLine(level, bot.mob, eye, at.add(-dz / d * k, 0, dx / d * k), COVER_CONE)) {
                         coverAside = k;
                         break;
                     }
@@ -1529,11 +1533,17 @@ public final class AiSoldier implements AiBrain {
             g.reload();
             return;
         }
-        g.fire((tick + bot.mob.getId()) % COVER_EVERY < COVER_BURST);
+        // its own gone in at the place: the fire lifted, the gun kept on it
+        // and each shot: none of its own in a cone wider than a shot's (a rifle's spread over those at the water's edge,
+        // over those swimming low)
+        g.fire(!lifted && (tick + bot.mob.getId()) % COVER_EVERY < COVER_BURST && bot.mob.level() instanceof ServerLevel level
+                && !AiBots.friendInLine(level, bot.mob, AiLean.eye(bot.mob), at, COVER_CONE));
     }
 
     /** the cover's bursts in a crossing: this long, ticks, every so many */
     static final int COVER_BURST = 12, COVER_EVERY = 40;
+    /** the cone the cover's fire keeps clear of its own, degrees (wider than a shot's: a rifle's and a machine gun's spread) */
+    static final double COVER_CONE = 8;
     /** where along the far bank, blocks aside of the foe, the cover's aim may go to keep its own out of the line */
     private static final double[] COVER_ASIDE = {0, 2, -2, 4, -4, 6, -6};
     private double coverAside, coverDx, coverDz;
@@ -1703,12 +1713,27 @@ public final class AiSoldier implements AiBrain {
         }
         mode(Mode.HOLD, tick);
         why = spot != null && !bot.mover.arrived() ? Why.HOLD_RUN : bot.gunner.reloading() ? Why.HOLD_RELOAD : Why.HOLD;
+        // no cover to wait in: down on a knee, a smaller mark, where it sees what it watches from there as well
+        if (spot == null && kneels(bot, level, look)) {
+            crouch = true;
+            why = Why.HOLD_KNEEL;
+        }
         // pinned down behind low cover while it waits: bursts blind over it where they went, as in coverCycle
         AiGunner g = bot.gunner;
         if (spot != null && bot.mover.arrived() && (spot.peek() == spot.cell() || !spot.hasPeek())
                 && !(g.loaded() >= 0 && g.loaded() < Math.max(1, g.capacity() / 3) && g.ammo.any()) && lost.distanceTo(bot.mob.position()) >= BLIND_NEAR
                 && blindFire(bot, level, lost, true, tick)) return;
         if (spot != null && bot.mover.arrived() && g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any()) g.reload();
+    }
+
+    /** standing still, and down on a knee would not hide the place from it (it sees it from there, or does not standing either) */
+    private static boolean kneels(AiBot bot, ServerLevel level, Vec3 look) {
+        Mob m = bot.mob;
+        if (bot.mover.goal() != Long.MIN_VALUE && !bot.mover.arrived() || AiWater.swims(m) || bot.prone.lying()) return false;
+        VoxelRay.Source v = AiBots.voxels(level);
+        Vec3 up = m.position().add(0, m.getDimensions(Pose.STANDING).eyeHeight(), 0), down = m.position().add(0, AiPose.CROUCH_SIZE.eyeHeight(), 0);
+        boolean seesUp = VoxelRay.clear(v, up.x, up.y, up.z, look.x, look.y, look.z, Voxel.SIGHT);
+        return !seesUp || VoxelRay.clear(v, down.x, down.y, down.z, look.x, look.y, look.z, Voxel.SIGHT);
     }
 
     /** at its place beside the way in till its entry's grenade has burst: a foe in sight under fire from there, no step out */
@@ -1905,7 +1930,7 @@ public final class AiSoldier implements AiBrain {
     /** to an area its side's commander sent its squad to, and through it (AiCommander); false: no order */
     private boolean ordered(AiBot bot, ServerLevel level, long tick) {
         if (!AiCommander.has(bot, tick)) return false;
-        if (mode != Mode.IDLE) {
+        if (mode != Mode.IDLE || why != Why.ORDER) {
             bot.gunner.aim(null);
             drop(bot);
             bot.mover.stop();
@@ -1919,7 +1944,9 @@ public final class AiSoldier implements AiBrain {
     }
 
     private void idle(AiBot bot, long tick) {
-        if (mode != Mode.IDLE) {
+        // after anything but standing (an answer to a contact fires with no move out of IDLE: its target shot dead and
+        // forgotten, the trigger was left down at that place for the rest of the fight)
+        if (mode != Mode.IDLE || why != Why.IDLE) {
             bot.gunner.fire(false);
             bot.gunner.aim(null);
             drop(bot);
@@ -1927,7 +1954,49 @@ public final class AiSoldier implements AiBrain {
             watch = null;
         }
         mode(Mode.IDLE, tick);
-        why = Why.IDLE;
+        why = sentry(bot, tick) ? Why.SENTRY : Why.IDLE;
+    }
+
+    /**
+     * A sentry's look round: idle, its head held the way it faced, from SENTRY_AFTER ticks on turned SENTRY_TURN degrees
+     * a tick at most to one side of that way, SENTRY_NEAR to SENTRY_ARC off, a rest there, then to the other side, and so
+     * on (one come up quietly from beside or behind is seen); never round through its back
+     */
+    static final int SENTRY_AFTER = 60, SENTRY_REST_MIN = 40, SENTRY_REST_MAX = 120;
+    static final float SENTRY_TURN = 1.5F, SENTRY_ARC = 120F, SENTRY_NEAR = 50F;
+    private long sentryLast = Long.MIN_VALUE, sentryRest, sentryFrom;
+    private float sentryBase, sentryYaw, sentryTo;
+
+    /** whether it looks round now (not while it walks, lies, swims or has a look set by something else) */
+    private boolean sentry(AiBot bot, long tick) {
+        Mob m = bot.mob;
+        boolean fresh = tick - sentryLast > 1;
+        sentryLast = tick;
+        if (fresh) {
+            sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
+            sentryRest = sentryFrom = tick + SENTRY_AFTER;
+        }
+        if (bot.mover.goal() != Long.MIN_VALUE && !bot.mover.arrived() || bot.prone.lying() || AiWater.swims(m)
+                || bot.gunner.aimPoint() != null) {
+            // its base and the yaw it turns from follow the head while something else turns it
+            sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
+            return false;
+        }
+        if (tick >= sentryRest) {
+            // the yaws kept unwrapped, within SENTRY_ARC of the base: the turn goes the way in front, not through its back
+            float d = sentryTo - sentryYaw;
+            if (Math.abs(d) <= SENTRY_TURN) {
+                sentryYaw = sentryTo;
+                sentryRest = tick + SENTRY_REST_MIN + m.getRandom().nextInt(SENTRY_REST_MAX - SENTRY_REST_MIN);
+                // the other side of the way it faced
+                float side = sentryYaw > sentryBase ? -1F : 1F;
+                sentryTo = sentryBase + side * (SENTRY_NEAR + m.getRandom().nextFloat() * (SENTRY_ARC - SENTRY_NEAR));
+            } else sentryYaw += Math.signum(d) * SENTRY_TURN;
+        }
+        // its look held there each tick (with none set the head turns back to its body)
+        Vec3 eye = m.getEyePosition(), at = eye.add(Vec3.directionFromRotation(0F, sentryYaw).scale(16));
+        m.getLookControl().setLookAt(at.x, at.y, at.z, SENTRY_TURN * 4, 10F);
+        return tick >= sentryFrom;
     }
 
     /** for the debug view: what it does, whom it knows of and how, what it decided and why (AiThoughts), a line each */
