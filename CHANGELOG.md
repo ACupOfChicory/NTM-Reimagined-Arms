@@ -1,5 +1,12 @@
 # Changelog
 
+## X1311
+
+- When the AI soldier who was to throw a grenade into a room or round a
+  trench's turn is shot, cannot get to the opening or runs out of time,
+  another of the entry who has a grenade throws it instead; only when none
+  can do they go in without one.
+
 ## X1309
 
 - AI soldiers coming up a ladder through a hatch no longer hang on its top

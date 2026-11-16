@@ -46,6 +46,12 @@ public final class AiEntry {
     public static int entries, frags, noThrow;
     /** the stands: entries gone in before all of them were beside the way in; all there, and none had a throw found from before it */
     public static int unstacked, noPlan;
+    /** the stands: throwers lost before the throw (down, no way out before the opening, out of time) and handed on to another of it */
+    public static int throwerLost, handedOn;
+    /** the stands: how each entry's grenade went, in order (the stand takes them per round) */
+    public static final List<String> fates = new ArrayList<>();
+    /** the stands: told of each entry's first thrower as its step out begins (the trench stand downs it there); null: none */
+    public static java.util.function.@Nullable Consumer<AiBot> firstThrower;
     /** a grenade is thrown this many cells into the room, straight in through the opening */
     static final int DEEP = 4;
     /** the thrower has this long to step out and throw; a throw is worked out this often and this many times; ticks */
@@ -76,6 +82,12 @@ public final class AiEntry {
         int room = AiRooms.OUTSIDE, phase = STACK, fragId = -1, tries, team;
         long made, phaseAt, nextPlan, lost, front = Long.MIN_VALUE;
         @Nullable AiBot thrower;
+        /** those of it that were to throw and could not (down, no way out, out of time): not asked again */
+        final List<AiBot> tried = new ArrayList<>(2);
+        /** its thrower lost: since when another is looked for (MIN_VALUE: not), and why's counts then */
+        long handing = Long.MIN_VALUE;
+        int[] why0 = {};
+        String lostHow = "";
         Vec3 aim = Vec3.ZERO;
         double safe;
         long[] slots = {}, inner = {};
@@ -315,14 +327,38 @@ public final class AiEntry {
                 long waited = tick - op.phaseAt;
                 if (!(all && (op.members.size() >= Math.min(2, op.slots.length) || waited >= WAIT_SECOND) || waited >= STACK_MAX)) return;
                 entries++;
+                int[] w0 = why.clone();
                 op.thrower = all ? thrower(op, level, tick) : null;
-                if (!all) unstacked++;
-                else if (op.thrower == null) noPlan++;
+                if (!all) {
+                    unstacked++;
+                    fate("in before all were beside it (" + op.members.size() + " there)");
+                } else if (op.thrower == null) {
+                    noPlan++;
+                    fate("no throw found: none in the room " + (why[0] - w0[0]) + ", one of it not behind the wall " + (why[1] - w0[1]) + ", another of its side " + (why[2] - w0[2])
+                            + ", a player " + (why[3] - w0[3]) + "; with a grenade " + armed(op));
+                }
                 phase(op, op.thrower != null ? FRAG : GO, tick);
+                if (op.thrower != null && firstThrower != null) firstThrower.accept(op.thrower);
             }
             case FRAG -> {
+                if (op.handing != Long.MIN_VALUE) {
+                    hand(op, level, tick);
+                    return;
+                }
                 AiBot t = op.thrower;
-                if (t == null || !AiSquads.live(t) || t.mover.goal() == op.front && t.mover.failed() || tick - op.phaseAt > FRAG_MAX) phase(op, GO, tick);
+                boolean down = t == null || !AiSquads.live(t), stuck = !down && t.mover.goal() == op.front && t.mover.failed(), late = tick - op.phaseAt > FRAG_MAX;
+                if (down || stuck || late) {
+                    // the thrower lost before its throw (shot stepping out, no way out before the opening, out of time):
+                    // another of it with a grenade throws, if one has a throw; only then in without one
+                    throwerLost++;
+                    if (t != null) op.tried.add(t);
+                    op.tries = 0;
+                    op.thrower = null;
+                    op.handing = tick;
+                    op.why0 = why.clone();
+                    op.lostHow = down ? "down" : stuck ? "with no way out" : "out of time";
+                    hand(op, level, tick);
+                }
             }
             case WAIT -> {
                 Entity g = level.getEntity(op.fragId);
@@ -341,6 +377,39 @@ public final class AiEntry {
         op.phaseAt = tick;
     }
 
+    /** a lost thrower's grenade to another of the entry: looked for as soon as a throw may be worked out this tick, for HAND_MAX at most */
+    static final int HAND_MAX = 20;
+
+    private static void hand(Op op, ServerLevel level, long tick) {
+        int armed = 0;
+        for (AiBot b : op.members) if (b.grenades > 0 && !op.tried.contains(b)) armed++;
+        if (armed > 0 && !AiGrenades.planFree(level, tick) && tick - op.handing < HAND_MAX) return;
+        op.thrower = armed > 0 ? thrower(op, level, tick) : null;
+        // a soldier reloading or lying may be ready in a moment
+        if (op.thrower == null && armed > 0 && tick - op.handing < HAND_MAX && why[0] == op.why0[0] && why[1] == op.why0[1] && why[2] == op.why0[2] && why[3] == op.why0[3]) return;
+        op.handing = Long.MIN_VALUE;
+        if (op.thrower != null) {
+            handedOn++;
+            fate("thrower " + op.lostHow + ", handed on");
+            phase(op, FRAG, tick);
+            return;
+        }
+        fate("thrower " + op.lostHow + ", in without one: " + (armed == 0 ? "none else with a grenade" : "no throw found: none in the room " + (why[0] - op.why0[0])
+                + ", one of it not behind the wall " + (why[1] - op.why0[1]) + ", another of its side " + (why[2] - op.why0[2]) + ", a player " + (why[3] - op.why0[3])));
+        phase(op, GO, tick);
+    }
+
+    private static void fate(String s) {
+        if (fates.size() < 256) fates.add(s);
+    }
+
+    /** of the entry, those with a grenade, as words (the stands) */
+    private static String armed(Op op) {
+        int n = 0;
+        for (AiBot b : op.members) if (b.grenades > 0) n++;
+        return n + " of " + op.members.size();
+    }
+
     private static boolean powder() {
         return ReaimTimes.text(FILLING_KEY, "he").trim().equalsIgnoreCase("powder");
     }
@@ -354,7 +423,7 @@ public final class AiEntry {
         if (!frag || !AiGrenades.on || !ReaimTimes.flag(FRAG_KEY, true) || op.aim == Vec3.ZERO || way == null) return null;
         op.safe = powder() ? POWDER_SAFE : HE_SAFE;
         for (AiBot b : op.members) {
-            if (b.grenades <= 0 || b.gunner.reloading() || b.prone.lying()) continue;
+            if (b.grenades <= 0 || b.gunner.reloading() || b.prone.lying() || op.tried.contains(b)) continue;
             if (way.door) return b;
             if (!AiGrenades.mayPlan(level, tick)) return null;
             VoxelRay.Source src = AiBots.voxels(level);
@@ -379,12 +448,14 @@ public final class AiEntry {
         if (t == null) {
             if (++op.tries >= FRAG_TRIES) {
                 noThrow++;
+                fate("stepped out and threw none");
                 phase(op, GO, tick);
             }
             return;
         }
         op.fragId = s.threwInto(bot, level, t, powder() ? EnumGrenadeFilling.POWDER : EnumGrenadeFilling.HE, tick).getId();
         frags++;
+        fate("thrown");
         phase(op, WAIT, tick);
         go(bot, op.places.get(op.members.indexOf(bot))[1], 0.35);
     }

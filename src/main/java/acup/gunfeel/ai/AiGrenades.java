@@ -94,6 +94,12 @@ public final class AiGrenades {
     private static final Map<ServerLevel, Long> PLANNED = new WeakHashMap<>();
 
     /** whether a throw may be worked out this tick in this level (one a tick, for all its AI mobs) */
+    /** whether a throw may still be worked out in this level this tick (none taken by mayPlan yet) */
+    static boolean planFree(ServerLevel level, long tick) {
+        Long last = PLANNED.get(level);
+        return last == null || last != tick;
+    }
+
     static boolean mayPlan(ServerLevel level, long tick) {
         Long last = PLANNED.put(level, tick);
         return last == null || last != tick;
@@ -744,7 +750,7 @@ public final class AiGrenades {
             if (own && g.e.getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(g.e) && s.downShield(bot, level.getGameTime()) > 0
                     && shielded(src, m.getX(), m.getY(), m.getZ(), s.downShield(bot, level.getGameTime()), g.burst)) continue;
             if (trace && own && g.e.getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(g.e) && !s.throwNote.contains("; runs"))
-                s.throwNote += s.downShield(bot, level.getGameTime()) > 0 ? "; runs: not hidden from the burst" : "; runs: not down";
+                s.throwNote += (s.downShield(bot, level.getGameTime()) > 0 ? "; runs: not hidden from the burst" : "; runs: not down") + s.downWhy(bot, level.getGameTime());
             // its own side's: out to SAFE and OWN_MARGIN (as far as a throw keeps it from its own), 2 more once it runs
             // (no back and forth); it runs to a block past that (OWN_CLEAR)
             double r = own ? SAFE + OWN_MARGIN + (within > DANGER ? 2 : 0) : within;

@@ -300,6 +300,12 @@ public final class AiSoldier implements AiBrain {
         return down ? bot.mob.getBbHeight() : 0;
     }
 
+    /** the stands: why it is not down for its near throw, as words (its pose, a slide or roll, may it lie, its feet, ticks since its arm went over) */
+    String downWhy(AiBot bot, long tick) {
+        return String.format(java.util.Locale.ROOT, " (%s, %d ticks after the throw, pose %s, dash %d, may lie %s, on its feet %s, mode %s, running from %s)", downLying ? "to lie" : "to crouch",
+                tick - throwUntil, bot.mob.getPose(), bot.dash.kind(tick), AiProne.may(bot.mob), bot.mob.onGround(), mode, dodgeFrom == null ? "none" : String.format(java.util.Locale.ROOT, "%.1f %.1f %.1f", dodgeFrom.x, dodgeFrom.y, dodgeFrom.z));
+    }
+
     /** the stands: near throws */
     public int closeThrows;
     /** running from a grenade: the burst it runs from (null: it does not), where to */
