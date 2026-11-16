@@ -110,6 +110,21 @@ class SensesTest {
     }
 
     @Test
+    void aTargetKnownDownIsForgottenAndNoMoreTheFocus() {
+        TargetMemory m = new TargetMemory(P);
+        m.look();
+        m.seen(1, 10, 64, 0, 0, 0);
+        m.seen(2, 0, 64, 10, 0, 0);
+        m.endLook(0);
+        assertEquals(1, m.focus(10, 1).id);
+        m.forget(1);
+        assertNull(m.contact(1));
+        assertEquals(-1, m.focusId);
+        assertEquals(TargetMemory.State.VISIBLE, m.contact(2).state);
+        assertEquals(2, m.focus(10, 1).id);
+    }
+
+    @Test
     void lostTargetStaysWhereItWentOutOfSight() {
         TargetMemory m = new TargetMemory(P);
         long t = 0;

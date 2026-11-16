@@ -496,6 +496,41 @@ public final class AiBots {
         }
         // the nearest of its side calls it out
         if (nearest != null) AiVoice.say(level, nearest, AiVoice.Line.MAN_DOWN, tick);
+        if (downTold()) told(l, victim);
+    }
+
+    /** the server setting: a foe seen to fall is no more gone after, by the one that saw it nor by its squad */
+    public static final String DOWN_KEY = "aiDownTold";
+    /** off only for the stands' "before" */
+    static boolean downTold = true;
+    /** the stands: foes seen to fall, and the squad mates told so that knew of the foe */
+    public static int seenDown, toldDown;
+
+    static boolean downTold() {
+        return downTold && acup.gunfeel.ReaimTimes.flag(DOWN_KEY, true);
+    }
+
+    /**
+     * A foe down that an AI mob had in sight: it forgets it (it does not wait for it where it fell, nor search for it),
+     * and so does the rest of its squad (it tells them). One that did not see it fall and is in no such squad goes on
+     * as before: a target out of sight, lost where it was last seen.
+     */
+    private static void told(PerLevel l, LivingEntity victim) {
+        int id = victim.getId();
+        for (AiBot b : l.bots.values()) {
+            if (b.mob == victim || !b.mob.isAlive() || AiTeams.own(b.mob, victim)) continue;
+            TargetMemory.Contact c = b.memory.contact(id);
+            if (c == null || c.state != TargetMemory.State.VISIBLE) continue;
+            seenDown++;
+            b.memory.forget(id);
+            AiSquads.Squad s = AiSquads.of(b);
+            if (s == null) continue;
+            for (AiBot o : s.bots)
+                if (o != b && o.memory.contact(id) != null) {
+                    toldDown++;
+                    o.memory.forget(id);
+                }
+        }
     }
 
     /** one that fights: an AI mob, a player, a stand's target (not a cow) */

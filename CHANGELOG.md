@@ -1,5 +1,32 @@
 # Changelog
 
+## X1153
+
+- An AI soldier that sees a foe fall now forgets it and tells its squad, so
+  none of them waits for it, searches for it or throws a grenade where it
+  fell. New server setting `aiDownTold` (true by default).
+- In a trench, the grenade thrown round a turn now goes after the defender
+  still there, and downs or drives them out much more often.
+
+## X1151
+
+- AI soldiers now go into a trench one wide as into a building: each straight
+  stretch is a room and each turn a doorway. They stack up beside a turn, one
+  steps into it and throws a grenade down the next stretch, and they clear the
+  trench stretch after stretch instead of walking along its edge. New server
+  setting `aiTrenches` (true by default).
+
+## X1149
+
+- AI soldiers that only heard someone no longer give up after one empty look
+  from cover. At the end of a wall a lean round the corner put the eye a
+  fifth of a block out, aimed at where the noise seemed to come from, which
+  the ear puts blocks off; when that look shows nothing they now step out to
+  look with the whole eye past the edge. And when they then go to see where
+  the noise came from, a noise heard high over the floor (the ear errs up and
+  down too) no longer makes them forget it and stand idle for the rest of the
+  fight: they go to the floor under it.
+
 ## X1144
 
 - AI soldiers now see under high tree crowns: only leaves at eye height
