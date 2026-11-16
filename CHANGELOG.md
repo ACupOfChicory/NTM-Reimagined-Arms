@@ -1,5 +1,12 @@
 # Changelog
 
+## X1360
+
+- An AI squad sent round the flank no longer gives its signal to attack when the
+  enemy it lost sight of has moved on: it now judges whether it is round to the
+  side by where its staff last placed the enemy, not by the spot where it last
+  saw them.
+
 ## X1358
 
 - An AI soldier left on a ladder with nothing to do (its search or order over
