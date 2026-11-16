@@ -36,7 +36,7 @@ final class AiCheckCorner {
     static final double[] HUNTERS_X = {6020.5, 6023.5, 6026.5};
     static final Identifier RIFLE = Identifier.fromNamespaceAndPath("hbm", "gun_carbine");
     static final String HUNT = "corner_hunt", HOLDS = "corner_hold";
-    /** a hunter's head this far off the holder or more: it had a wide turn to make (the plan's bar: half the meetings) */
+    /** a hunter's head this far off the holder or more: it had a wide turn to make (the guard: one meeting at most) */
     static final double WIDE_DEG = 45;
 
     private final AiCheck check;
@@ -54,7 +54,7 @@ final class AiCheckCorner {
     private boolean[] hunterHitYet = new boolean[SIDE];
     private final List<String> lines = new ArrayList<>();
     /** over the rounds: meetings, the holder first, wide turns, the holder hit first, hunters hit before they hit */
-    private int meetings, holderFirst, wide, holderHitFirst, hitBeforeAll, movingAll;
+    private int meetings, holderFirst, wide, holderHitFirst, hunterHitFirst, hitBeforeAll, movingAll;
     private double nearestAll = Double.MAX_VALUE, distanceSum;
 
     AiCheckCorner(AiCheck check, ServerLevel level, int y) {
@@ -191,6 +191,7 @@ final class AiCheckCorner {
             if (turnDeg >= WIDE_DEG) wide++;
         }
         if (hitFirst.equals("holder")) holderHitFirst++;
+        if (hitFirst.equals("hunter")) hunterHitFirst++;
         hitBeforeAll += hitBefore;
         movingAll += bothMoving;
         nearestAll = Math.min(nearestAll, nearestEnd);
@@ -204,9 +205,15 @@ final class AiCheckCorner {
         check.out(String.format(Locale.ROOT, "     corner: met %d of %d rounds; the holder saw first %d of them, %.1f blocks apart on average; the hunter's head %.0f degrees or more off %d;"
                         + " the holder hit first %d rounds; hunters hit before theirs %d; nearest to the end %.1f; two hunters moving at once %d ticks",
                 meetings, HOLD.length, holderFirst, meetings == 0 ? 0 : distanceSum / meetings, WIDE_DEG, wide, holderHitFirst, hitBeforeAll, nearestAll, movingAll));
-        // a measure first: only that they met (the stand works)
         check.check(String.format(Locale.ROOT, "corner: the hunters come round the end and meet the holder in half the rounds at least (%d of %d)", meetings, HOLD.length),
                 2 * meetings >= HOLD.length);
+        // a guard: a hunter comes round with its gun on what the end opens, seen as soon as it sees (2026-11-16: the
+        // holder first 2 and 3 of 6, by a tick; heads 0 to 10 degrees off; the hunters hit first 11 of 12)
+        check.check(String.format(Locale.ROOT, "corner: the holder sees first in two thirds of the meetings at most (%d of %d)", holderFirst, meetings),
+                3 * holderFirst <= 2 * meetings);
+        check.check(String.format(Locale.ROOT, "corner: a hunter's head is %.0f degrees or more off the holder in one meeting at most (%d)", WIDE_DEG, wide), wide <= 1);
+        check.check(String.format(Locale.ROOT, "corner: the hunters hit first in two thirds of the rounds with a hit at least (%d of %d)", hunterHitFirst, hunterHitFirst + holderHitFirst),
+                3 * hunterHitFirst >= 2 * (hunterHitFirst + holderHitFirst));
     }
 
     private Mob spawn(double x, double z, String team, float yaw) {
