@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- An AI squad going down a shaft after an enemy no longer climbs down it one
+  after another into the fire of those holding its foot. Down a shaft too
+  deep for a grenade it drops a smoke grenade first, if it has one, and goes
+  down close under the cloud. With no smoke it sends one at a time: when the
+  one down there is shot, or seen or heard under fire, the others stop
+  coming. Those on the upper half of the ladder climb back, and the squad
+  holds the hatch from beside it instead, not over it in the line of fire. A
+  minute later, with nothing more heard from the foot, it tries once more,
+  unless the shaft has already cost it a soldier: then no one goes down it
+  again without smoke for five minutes.
+
 ## X1364
 
 - AI soldiers no longer shoot their own squad mates with fire aimed at a
