@@ -225,14 +225,17 @@ page. They are alphas: expect bugs and back up your world.
   and take the gun's recoil.
 - Bots of one side fight as a squad: when you vanish behind cover one goes
   round the side while the others fire to keep your head down, and a bot
-  leaves cover only while another covers it. They throw grenades, run from
+  leaves cover only while another covers it. Lose them behind a long wall
+  and they split its ends between them: one watches where you went, the
+  others the corners you could come round. They throw grenades, run from
   grenades thrown at them, including a player's, and do not turn their heads
   to the sounds of animals.
 - A bot that has lost you behind cover and has none of its own does not
   stand in the open: it goes down on a knee, unless that would hide the place
-  it watches. A bot that knows of no one looks slowly round, its head turning
-  at most 1.5 degrees a tick, so one creeping up from the side or behind can
-  be seen.
+  it watches. A bot that knows of no one looks slowly round, up to 60 degrees
+  either side of the way it faces and never so far that this way leaves its
+  view, so one creeping up from the side can be seen; it turns its head to
+  anyone it glimpses.
 - Fire suppresses them as it does you: bullets passing close, hitting their
   cover or bursting near pin a bot down, and a squad kept under fire loses
   heart, holds back and falls back (server key `aiSuppression`).
@@ -287,10 +290,14 @@ page. They are alphas: expect bugs and back up your world.
   than half its men or ran out of rounds falls back on its own; with no enemy
   known they scout round their side. On the way they march in file while
   far off, bound from cover to cover half by half once near or in sight,
-  creep crouched when close, and storm the last stretch of an advance.
+  creep crouched when close, and storm the last stretch of an advance. A
+  squad pinning an enemy and one going round it work together: the pinning
+  one keeps the enemy's places under fire once the other is round and goes
+  in, and does not chase a lost enemy far from its place.
   Soldiers far from any player are moved by their commander too, till a
   player comes near (server keys `aiCommander`, `aiCommanderHelp`,
-  `aiCommanderStaff`, `aiCommanderTasks`, `aiCommanderMoves`).
+  `aiCommanderStaff`, `aiCommanderTasks`, `aiCommanderMoves`,
+  `aiCommanderPairs`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
@@ -321,12 +328,28 @@ page. They are alphas: expect bugs and back up your world.
   beside a turn, one steps into it and throws a grenade down the next
   stretch, then they go in and search stretch after stretch, instead of
   walking along the edge above it (server key `aiTrenches`).
-- A squad crosses a river to a foe on the far bank by waves: the machine
-  gunner, the marksman and a rifleman or two stay on the bank and keep the
-  foe under fire, one throws smoke onto the far bank, half the squad (four
-  at most) swims over and holds past the bank, then the rest, the machine
-  gunner last. One shot at while swimming, nearer the bank it left, swims
-  back and goes with the next wave (server key `aiCrossing`).
+- A river between a squad and its foe is dealt with by the field manual. On
+  its own the squad does not swim it: it keeps to its bank, two riflemen go
+  along the bank looking for a bridge, a ford or a narrow place to swim, and
+  it reports the foe and what it found to its staff. A bridge or a ford is
+  walked as any way. Ordered over by its staff, it crosses by the drill: the
+  machine gunner, the marksman and a rifleman stay on the near bank and keep
+  the foe under fire, a pair goes over first and holds the far bank, one of
+  them a little further on to watch, the rest follow by pairs, the near bank's
+  cover last at the same place. Smoke onto the far bank only under fire. One
+  shot at while swimming from across, not halfway over yet, swims back and
+  goes again; past halfway it goes on (server key `aiCrossing`).
+- A bunker is taken by its firing slits. Any open hole at head height in a
+  wall with wall over it is a slit, its field of fire a wedge widening as the
+  slit is wide for its depth. Their ways keep out of the wedges; one in a
+  wedge with nothing to hide behind steps aside out of it. The machine gunner
+  fires into a slit it cannot see the foe behind. Through a slit in a wall
+  two blocks thick or more (a bunker, not a house's open window) the one of
+  the squad with a grenade nearest it goes to the wall beside it, out of its
+  fire, steps out before it and throws a grenade in, then back to the wall,
+  and its own do not run from that grenade (server key `aiBunker`). `/armsai bunker
+  [squad]` builds a bunker with a slit 20 blocks ahead of you, one inside at
+  it, and a squad with a grenade each beside you, to watch.
 - A soldier who sees a foe fall forgets it and tells its squad, so none of
   them waits for it or goes after it where it fell (server key
   `aiDownTold`).

@@ -192,6 +192,8 @@ public final class AiSoldier implements AiBrain {
     private int exitId = Integer.MIN_VALUE;
     private long exitFor = Long.MIN_VALUE, exitFrom = Long.MIN_VALUE;
     private boolean exitWanted;
+    /** where the loss it chose for was (its squad mates match their losses to it: sameLoss) */
+    private double exitLostX, exitLostZ;
     private @Nullable Vec3 exit;
     private static final long WHERE_IT_STANDS = Long.MIN_VALUE + 1;
     /** exits it chose to watch (the stands) */
@@ -430,6 +432,8 @@ public final class AiSoldier implements AiBrain {
 
     private void decide(AiBot bot, long tick) {
         if (!(bot.mob.level() instanceof ServerLevel level)) return;
+        // its ways keep out of the fire of slits its foes are behind (AiBunker), whatever it is doing
+        bot.mover.avoid(AiBunker.avoid(bot, level, tick));
         if (tick - unreachableSince > 400) {
             unreachable.clear();
             unreachableSince = tick;
@@ -477,6 +481,8 @@ public final class AiSoldier implements AiBrain {
         }
         // a river to cross to a foe: at the water's edge for its wave, or over with it (AiCrossing)
         if (AiCrossing.step(this, bot, level, tick)) return;
+        // its side's thrower at a bunker's slit: beside it, out to throw, back (AiBunker)
+        if (AiBunker.step(this, bot, level, tick)) return;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again
@@ -494,8 +500,11 @@ public final class AiSoldier implements AiBrain {
             shelter(bot, shelter, c, tick);
             return;
         }
+        // going round for its side's pair, the foe still far: on round by the order, not into a fight from here (C4)
+        if (c != null && AiCommander.goesRound(bot, c, tick) && ordered(bot, level, tick)) {
+        }
         // in sight, sitting behind low cover (its legs hidden, still): a grenade over it
-        if (c != null && c.state == TargetMemory.State.VISIBLE && sits(c) && grenade(bot, level, new Vec3(c.x, c.y, c.z), tick, false)) {
+        else if (c != null && c.state == TargetMemory.State.VISIBLE && sits(c) && grenade(bot, level, new Vec3(c.x, c.y, c.z), tick, false)) {
         }
         else if (c != null && c.state == TargetMemory.State.VISIBLE) combat(bot, level, c, tick);
         // its squad's flanker: round the side of the place they went out of sight, to cover that sees it
@@ -835,6 +844,20 @@ public final class AiSoldier implements AiBrain {
                     return;
                 }
             } else shore = Long.MIN_VALUE;
+            // in the fire of a bunker's slit with nothing to hide behind: out of its wedge to the side
+            if (asideCell != Long.MIN_VALUE && bot.mover.goalIs(asideCell) && bot.mover.failed()) {
+                asideCell = Long.MIN_VALUE;
+                asideAt = tick + ASIDE_EVERY * 5;
+            }
+            if (!AiWater.swims(bot.mob) && AiSquads.mayMove(bot) && tick >= asideAt && (asideCell == Long.MIN_VALUE || !bot.mover.goalIs(asideCell))) {
+                asideAt = tick + ASIDE_EVERY;
+                asideCell = AiBunker.aside(level, bot, tick);
+            }
+            if (asideCell != Long.MIN_VALUE && AiSquads.mayMove(bot) && !(bot.mover.goalIs(asideCell) && bot.mover.arrived())) {
+                moveFiring(bot, asideCell, RUN, null, tick, "out of a slit's fire to the side", Why.BUNKER);
+                return;
+            }
+            asideCell = Long.MIN_VALUE;
             if (dist >= PRONE_NEVER && (dist >= PRONE_FAR || bot.prone.pinned(tick) || longReload(g) && g.reloading())) bot.prone.want();
             why = dist < PRONE_NEVER ? Why.NO_COVER : dist >= PRONE_FAR ? Why.NO_COVER_FAR : bot.prone.pinned(tick) ? Why.NO_COVER_PINNED : Why.NO_COVER;
             burst(bot, tick, true);
@@ -1056,16 +1079,23 @@ public final class AiSoldier implements AiBrain {
         if (c.id != exitId || c.lostTick != exitFor) {
             exitId = c.id;
             exitFor = c.lostTick;
+            exitLostX = c.lostX;
+            exitLostZ = c.lostZ;
             exitFrom = Long.MIN_VALUE;
             exit = null;
-            exitWanted = bot.mob.getRandom().nextFloat() < exitShare;
+            // its squad covers the corners between them: one of them on where they went, the rest each on another way out;
+            // where they went hidden from where it watches (a wall between): no use watching a wall, it watches a way out
+            int squadOn = squadWatches(bot, c);
+            Vec3 eye = watchEye(bot);
+            boolean wentSeen = VoxelRay.clear(AiBots.voxels((ServerLevel) bot.mob.level()), eye.x, eye.y, eye.z, c.lostX, c.lostY + 1.1, c.lostZ, Voxel.SIGHT);
+            exitWanted = exitShare > 0F && (!wentSeen || squadOn == WATCH_WENT || squadOn != WATCH_EXIT && bot.mob.getRandom().nextFloat() < exitShare);
         }
         long from = spot == null ? WHERE_IT_STANDS : spot.hasPeek() ? spot.peek() : spot.cell();
         if (exitWanted && from != exitFrom && ExitSpots.mayPick(tick)) {
             exitFrom = from;
             ServerLevel level = (ServerLevel) bot.mob.level();
             long cell = ExitSpots.pick(TacticalMap.of(level), AiBots.voxels(level), watchEye(bot), c.lostX, c.lostY, c.lostZ, c.vx, c.vz,
-                    bot.mob.getRandom());
+                    bot.mob.getRandom(), squadExits(bot, c));
             boolean had = exit != null;
             exit = cell == Long.MIN_VALUE ? null : new Vec3(BlockPos.getX(cell) + 0.5, BlockPos.getY(cell) + 1.1, BlockPos.getZ(cell) + 0.5);
             if (exit != null && !had) {
@@ -1074,6 +1104,51 @@ public final class AiSoldier implements AiBrain {
             }
         }
         return exit != null ? exit : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+    }
+
+    /** what the rest of its squad watches for the same loss: WATCH_WENT one of them where it went, else WATCH_EXIT one a way out, else 0 */
+    static final int WATCH_WENT = 1, WATCH_EXIT = 2;
+    /** a squad mate's loss this near in time, of the same target or of one lost this near it, is the same loss: ticks, blocks */
+    static final int SAME_LOSS = 60;
+    static final double SAME_PLACE = 8;
+
+    /** a squad mate chose for the same loss (foes gone behind the same wall together count as one) */
+    private static boolean sameLoss(AiSoldier os, TargetMemory.Contact c) {
+        if (os.exitId == Integer.MIN_VALUE || Math.abs(os.exitFor - c.lostTick) > SAME_LOSS) return false;
+        if (os.exitId == c.id) return true;
+        double dx = os.exitLostX - c.lostX, dz = os.exitLostZ - c.lostZ;
+        return dx * dx + dz * dz <= SAME_PLACE * SAME_PLACE;
+    }
+
+    private static int squadWatches(AiBot bot, TargetMemory.Contact c) {
+        AiSquads.Squad s = AiSquads.of(bot);
+        if (s == null) return 0;
+        int on = 0;
+        for (AiBot o : s.bots)
+            if (o != bot && o.brain instanceof AiSoldier os && sameLoss(os, c)) {
+                if (!os.exitWanted) return WATCH_WENT;
+                on = WATCH_EXIT;
+            }
+        return on;
+    }
+
+    /** the ways out its squad mates watch for the same loss */
+    private static List<Vec3> squadExits(AiBot bot, TargetMemory.Contact c) {
+        AiSquads.Squad s = AiSquads.of(bot);
+        if (s == null) return List.of();
+        List<Vec3> out = new java.util.ArrayList<>(2);
+        for (AiBot o : s.bots)
+            if (o != bot && o.brain instanceof AiSoldier os && os.exit != null && sameLoss(os, c)) out.add(os.exit);
+        return out;
+    }
+
+    /** the stands: the way out it watches for its loss (null: none, or where they went), and whether it chose one */
+    @Nullable Vec3 exitWatched() {
+        return exit;
+    }
+
+    boolean exitChosen() {
+        return exitWanted;
     }
 
     /** it watches where a target it lost may come out (its choice for this loss made now if not yet) */
@@ -1477,15 +1552,29 @@ public final class AiSoldier implements AiBrain {
      * it fires as it goes; else it looks where it is told.
      */
     void crossing(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what) {
+        moveFiring(bot, cell, speed, look, tick, what, Why.CROSS);
+    }
+
+    /** AiBunker.aside: the cell out of a slit's wedge it makes for, and when it looks for one next */
+    private long asideCell = Long.MIN_VALUE, asideAt;
+    static final int ASIDE_EVERY = 20;
+
+    /** the same for another errand of its side's (why: what it is): AiCrossing's scout, AiBunker's thrower */
+    void moveFiring(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what, Why why) {
+        moveFiring(bot, cell, speed, look, tick, what, why, 0.6);
+    }
+
+    /** the same, there within this far of the cell's middle (blocks) */
+    void moveFiring(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what, Why why, double near) {
         if (spot != null) drop(bot);
         if (bot.mover.failed() && bot.mover.goalIs(cell)) bot.mover.stop();
         if (!bot.mover.goalIs(cell)) {
             bot.mover.costs(PathSearch.Cost.NONE);
-            bot.mover.goTo(cell, 0.6, speed);
+            bot.mover.goTo(cell, near, speed);
             event(bot, tick, what);
         }
         mode(bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
-        why = Why.CROSS;
+        this.why = why;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         if (c != null && c.state == TargetMemory.State.VISIBLE && !AiWater.swims(bot.mob)) {
             Vec3 at = new Vec3(c.x, c.y + 1.1, c.z);
@@ -1633,7 +1722,9 @@ public final class AiSoldier implements AiBrain {
      */
     private void suppress(AiBot bot, TargetMemory.Contact c, long tick) {
         CoverQuery.Spot s = spot;
-        Vec3 lost = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+        // gone behind a bunker's slit it sees: at the slit (AiBunker)
+        Vec3 slit = bot.mob.level() instanceof ServerLevel sl ? AiBunker.slitFor(sl, bot, c, tick) : null;
+        Vec3 lost = slit != null ? slit : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
         watch = lost;
         AiGunner g = bot.gunner;
         g.aim(lost);
@@ -1944,9 +2035,9 @@ public final class AiSoldier implements AiBrain {
     }
 
     private void idle(AiBot bot, long tick) {
-        // after anything but standing (an answer to a contact fires with no move out of IDLE: its target shot dead and
-        // forgotten, the trigger was left down at that place for the rest of the fight)
-        if (mode != Mode.IDLE || why != Why.IDLE) {
+        // after anything but standing or a sentry's look round (an answer to a contact fires with no move out of IDLE: its
+        // target shot dead and forgotten, the trigger was left down at that place for the rest of the fight)
+        if (mode != Mode.IDLE || why != Why.IDLE && why != Why.SENTRY) {
             bot.gunner.fire(false);
             bot.gunner.aim(null);
             drop(bot);
@@ -1960,10 +2051,15 @@ public final class AiSoldier implements AiBrain {
     /**
      * A sentry's look round: idle, its head held the way it faced, from SENTRY_AFTER ticks on turned SENTRY_TURN degrees
      * a tick at most to one side of that way, SENTRY_NEAR to SENTRY_ARC off, a rest there, then to the other side, and so
-     * on (one come up quietly from beside or behind is seen); never round through its back
+     * on (one come up quietly from beside is seen; the way it faced stays in its view, 140 degrees across); never round
+     * through its back. A glimpse of someone (in sight, not yet noticed): it turns its head to them and stops there
      */
     static final int SENTRY_AFTER = 60, SENTRY_REST_MIN = 40, SENTRY_REST_MAX = 120;
-    static final float SENTRY_TURN = 1.5F, SENTRY_ARC = 120F, SENTRY_NEAR = 50F;
+    static final float SENTRY_TURN = 1.5F, SENTRY_ARC = 60F, SENTRY_NEAR = 30F;
+    /** a glimpse (in sight, not yet noticed): the look round stops, the head turns to it this fast, degrees a tick */
+    static final float SENTRY_GLIMPSE_TURN = 4F;
+    /** its head this far off the way the look round holds it: something else turned it, degrees */
+    static final float SENTRY_TURNED = 10F;
     private long sentryLast = Long.MIN_VALUE, sentryRest, sentryFrom;
     private float sentryBase, sentryYaw, sentryTo;
 
@@ -1972,7 +2068,9 @@ public final class AiSoldier implements AiBrain {
         Mob m = bot.mob;
         boolean fresh = tick - sentryLast > 1;
         sentryLast = tick;
-        if (fresh) {
+        // new to idle, or its head turned by something else since (put to face somewhere, knocked round): the way it
+        // faces now is the way it watches, and it holds it SENTRY_AFTER ticks first
+        if (fresh || Math.abs(net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot() - sentryYaw)) > SENTRY_TURNED) {
             sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
             sentryRest = sentryFrom = tick + SENTRY_AFTER;
         }
@@ -1982,7 +2080,21 @@ public final class AiSoldier implements AiBrain {
             sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
             return false;
         }
-        if (tick >= sentryRest) {
+        // something in the corner of its eye: it turns to it (the way it faces from now on), not on round away from it
+        TargetMemory.Contact glimpse = null;
+        for (TargetMemory.Contact c : bot.memory.contacts())
+            if (c.state == TargetMemory.State.GLIMPSED) {
+                glimpse = c;
+                break;
+            }
+        if (glimpse != null) {
+            float to = sentryYaw + net.minecraft.util.Mth.wrapDegrees(
+                    (float) Math.toDegrees(Math.atan2(glimpse.glimpseZ - m.getZ(), glimpse.glimpseX - m.getX())) - 90F - sentryYaw);
+            float d = to - sentryYaw;
+            sentryYaw += Math.abs(d) <= SENTRY_GLIMPSE_TURN ? d : Math.signum(d) * SENTRY_GLIMPSE_TURN;
+            sentryBase = sentryTo = sentryYaw;
+            sentryRest = Math.max(sentryRest, tick + SENTRY_REST_MIN);
+        } else if (tick >= sentryRest) {
             // the yaws kept unwrapped, within SENTRY_ARC of the base: the turn goes the way in front, not through its back
             float d = sentryTo - sentryYaw;
             if (Math.abs(d) <= SENTRY_TURN) {

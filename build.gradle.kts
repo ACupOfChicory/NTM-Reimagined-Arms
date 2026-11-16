@@ -514,12 +514,16 @@ neoForge {
             if (providers.gradleProperty("aiRealtime").isPresent) systemProperty("ntmgunfeel.checkAiRealtime", "true")
             // -PaiStage=<name>: that stage of the check alone (AiCheck)
             providers.gradleProperty("aiStage").orNull?.let { systemProperty("ntmgunfeel.checkAiStage", it) }
-            // -PaiCheckWarRounds=<n>: the war's rounds (AiCheckWar; 4 by default, one of each kind: the full check's short war)
+            // -PaiCheckWarRounds=<n>: the war's rounds (AiCheckWar; 5 by default, one of each kind: the full check's short war)
             providers.gradleProperty("aiCheckWarRounds").orNull?.let { systemProperty("ntmgunfeel.checkAiWarRounds", it) }
             // -PaiCheckWarDump=<file>: the war's staff maps, ways and soldiers' places, for a look at them off the stand
             providers.gradleProperty("aiCheckWarDump").orNull?.let { systemProperty("ntmgunfeel.checkAiWarDump", it) }
             // -PaiCheckWarBare: the war's wood with no undergrowth (crowns over the head alone: a look standing goes under them)
             if (providers.gradleProperty("aiCheckWarBare").isPresent) systemProperty("ntmgunfeel.checkAiWarBare", "true")
+            // -PaiCheckWarStill: the war's player never hides (the squads going round meet it: the pairs, C4)
+            if (providers.gradleProperty("aiCheckWarStill").isPresent) systemProperty("ntmgunfeel.checkAiWarStill", "true")
+            // -PaiCheckWarNear=N: the near rounds after the far one, C3 and C4 by turns (2 by default)
+            providers.gradleProperty("aiCheckWarNear").orNull?.let { systemProperty("ntmgunfeel.checkAiWarNear", it) }
             // -PaiWorld=<a world's folder> -PaiWorldAt=x,y,z,radius[,up]: that world (a copy) read as the AI reads it (AiCheckWorld)
             providers.gradleProperty("aiWorldAt").orNull?.let { systemProperty("ntmgunfeel.checkAiWorld", it) }
             // -PaiLegs=<file>: the fighters' moves, tick by tick, for the legs' replay (AiLegsLog, BotLegsReplayTest)

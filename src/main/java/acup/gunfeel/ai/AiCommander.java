@@ -70,6 +70,8 @@ public final class AiCommander {
      * group of the enemy than DRIFT_STOP blocks (asleep they cannot fight)
      */
     static final int DRIFT = 20;
+    /** a pair's one going round looked at for a fight this often, ticks (C4) */
+    static final int COUPLE = 10;
     static final double DRIFT_STEP = 4, DRIFT_CLIMB = 3, DRIFT_STOP = 48;
     /** new ways a side asks for at most each time it gives its orders (the rest keep theirs or go straight till the next) */
     static final int WAYS = 3;
@@ -87,6 +89,8 @@ public final class AiCommander {
     static final class Way {
         final double toX, toZ;
         volatile HqGrid.@Nullable Route route;
+        /** where it crosses water (the crossing's doctrine), null: it does not */
+        volatile StaffCross.@Nullable Site site;
         volatile boolean done;
 
         Way(double toX, double toZ) {
@@ -101,6 +105,27 @@ public final class AiCommander {
      */
     public static final String TASKS_KEY = "aiCommanderTasks";
     static boolean tasks = true;
+    /**
+     * the server setting: a pair pinning and going round works together (stage 7 C4): the one going round there, or in
+     * a fight, signals; the pinning one then keeps the group's places under fire, the other advances; their time up
+     * (PAIR_PACE), both advance. Squads pinning or holding go no farther after a foe than LEASH from their place. Off
+     * only for the stands' "before"
+     */
+    public static final String PAIRS_KEY = "aiCommanderPairs";
+    static boolean pairs = true;
+    /** a pair's time: the way round at this pace (blocks a tick, its bounds and all) half as long again, and PAIR_MORE more, PAIR_MOST at most; ticks */
+    static final double PAIR_PACE = 0.15;
+    static final int PAIR_MORE = 600, PAIR_MOST = 1800;
+    /** pinning or holding: after a foe lost no farther than this from its place, blocks */
+    static final double LEASH = 24;
+    /** the one going round for a pair runs into its group within this (blocks to the group's middle): ready, there or not */
+    static final double RUN_INTO = 20;
+    /** the one going round shot at within this many ticks: it fights back */
+    static final long UNDER_FIRE = 40;
+    /** the stands: pairs made, those whose one going round got there (or into a fight) in time, the ticks that took in all, those whose time ran out */
+    public static int paired, coupled, expired;
+    public static long coupleTicks;
+
     /** the stands: tasks given, by kind (StaffPlan.Kind's order) */
     public static final int[] given = new int[StaffPlan.Kind.values().length];
 
@@ -134,6 +159,10 @@ public final class AiCommander {
         List<AiBot> members;
         /** how it goes along its way (C3) */
         final StaffMove.State move = new StaffMove.State();
+        /** the pair's other (C4: pinning and going round, of the same group), its time up at due, the one going round there (or in a fight) at ready */
+        @Nullable Job partner;
+        long due = Long.MAX_VALUE, ready = Long.MIN_VALUE, pairedAt;
+        boolean late;
 
         Job(StaffPlan.Kind kind, long since, List<AiBot> bots, int[] ids) {
             this.kind = kind;
@@ -170,6 +199,12 @@ public final class AiCommander {
         int inside, fails;
         /** its place in the squad, for a spread of the legs' ends */
         int slot, of;
+        /**
+         * a crossing (the staff's task CROSS): the place on the near bank to go over from, how (null: not a crossing),
+         * where to gather on the far bank
+         */
+        double crossX, crossZ, farX, farZ;
+        AiCrossing.@Nullable Kind crossKind;
         /** the staff's way there as asked for (stage 7 C1, the squad's one); null: straight, as R5 */
         @Nullable Way way;
         /** a way walked to its end: not taken up again (on from there in straight legs) */
@@ -203,6 +238,8 @@ public final class AiCommander {
         int sector;
         /** the side's reports seen (a new one: its map made again) */
         long reports;
+        /** its last tasks given with no map yet (the pairs on: none to go round): all looked at afresh once it has one */
+        boolean blind;
     }
 
     private static final Map<ServerLevel, Map<String, Side>> LEVELS = new WeakHashMap<>();
@@ -228,6 +265,10 @@ public final class AiCommander {
 
     static boolean staff() {
         return staff && ReaimTimes.flag(STAFF_KEY, true);
+    }
+
+    static boolean pairs() {
+        return pairs && ReaimTimes.flag(PAIRS_KEY, true);
     }
 
     static boolean help() {
@@ -263,6 +304,7 @@ public final class AiCommander {
         if (!on()) return;
         long now = level.getGameTime();
         if (tasks() && now % DRIFT == 0) drift(level, now);
+        if (tasks() && pairs() && now % COUPLE == 0) couple(level, now);
         Map<String, Side> sides = LEVELS.computeIfAbsent(level, k -> new HashMap<>());
         boolean due = sides.isEmpty() || now >= reportDue.getOrDefault(level, Long.MIN_VALUE);
         for (Side side : sides.values()) due |= now >= side.next;
@@ -404,6 +446,8 @@ public final class AiCommander {
         double sideX = 0, sideZ = 0;
         int all = 0;
         boolean supply = AiSupply.on() && ReaimTimes.flag(AiSupply.OUT_KEY, true);
+        HqGrid grid = AiHqMap.of(level, team);
+        boolean afresh = side.blind && grid != null;
         for (AiSquads.Squad s : squads) {
             double sx = 0, sz = 0, strength = 0;
             int alive = 0, out = 0;
@@ -425,14 +469,31 @@ public final class AiCommander {
             // a group it gave up lately (none of it could get there): not again for AVOID
             int avoid = -1;
             for (int k = 0; k < groups.size() && avoid < 0; k++) if (failed(s, groups.get(k), now)) avoid = k;
+            boolean pair = pairs() && job != null && job.partner != null;
+            // a pair's time up with the one going round not ready: counted here, before the plan gives it another task
+            if (pair && job.kind == StaffPlan.Kind.FLANK && job.ready == Long.MIN_VALUE && now >= job.due && !job.late) {
+                job.late = true;
+                expired++;
+            }
             own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), out * 2 > alive, job == null ? null : job.kind,
-                    job == null ? 0 : job.since, group, job != null && job.there, avoid, asleep(s)));
+                    job == null ? 0 : afresh ? now - StaffPlan.KEEP : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE));
         }
         if (all == 0) return;
         sideX /= all;
         sideZ /= all;
-        StaffPlan.Task[] plan = StaffPlan.plan(own, foes, AiHqMap.of(level, team), sideX, sideZ, Math.min(REACH, AiBots.radius() * 2), PER, now, side.sector);
-        for (int i = 0; i < squads.size(); i++) task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
+        StaffPlan.Task[] plan = StaffPlan.plan(own, foes, grid, sideX, sideZ, Math.min(REACH, AiBots.radius() * 2), PER, now, side.sector);
+        side.blind = grid == null && mapped();
+        for (int i = 0; i < squads.size(); i++) {
+            // a squad crossing a river now keeps its task till it is over (the drill is not broken off half way)
+            Job cj = jobs.get(i);
+            if (cj != null && crossing(cj)) {
+                // its orders kept alive meanwhile (they last LASTS)
+                for (AiBot b : cj.members) if (b.order != null && b.order.job == cj) b.order.until = Math.max(b.order.until, now + LASTS);
+                continue;
+            }
+            task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
+        }
+        if (pairs()) pair(squads, grid, now);
         strays(level, team, squads, now);
     }
 
@@ -817,6 +878,7 @@ public final class AiCommander {
                         routes.incrementAndGet();
                         if (made.size() < 1000) made.add(r);
                     }
+                    w.site = r == null ? null : StaffCross.site(grid, r);
                     w.route = r;
                 } finally {
                     w.done = true;
@@ -834,6 +896,18 @@ public final class AiCommander {
         if (o.route != null || w == null || !w.done) return;
         o.route = w.route;
         o.at = o.route == null ? 0 : ahead(o.route, b.mob.getX(), b.mob.getZ());
+        // the staff's crossing on it (the squad goes over by the drill: AiCrossing), unless already past its water;
+        // one begun (it is past the near bank's point) is kept as it is
+        if (o.crossKind != null && started(b, o)) return;
+        StaffCross.Site c = o.route == null ? null : w.site;
+        o.crossKind = null;
+        if (c != null && !past(b.mob.getX(), b.mob.getZ(), c.x(), c.z(), c.farX(), c.farZ())) {
+            o.crossX = c.x();
+            o.crossZ = c.z();
+            o.farX = c.farX();
+            o.farZ = c.farZ();
+            o.crossKind = c.kind();
+        }
         // its first leg at once, not when the straight one walked meanwhile is due again
         if (o.route != null) o.nextLeg = Long.MIN_VALUE;
     }
@@ -875,6 +949,56 @@ public final class AiCommander {
     /** it has an order to go by now */
     static boolean has(AiBot bot, long tick) {
         return on() && bot.order != null && tick <= bot.order.until;
+    }
+
+    /**
+     * its order now if its way crosses water ahead of it (the staff's crossing: crossX/Z the near bank's point,
+     * crossKind how, farX/Z where to gather past the far bank), else null; once past the far bank, null for good
+     */
+    static @Nullable Order crossing(AiBot bot, long tick) {
+        Order o = bot.order;
+        if (o == null || o.crossKind == null || !has(bot, tick)) return null;
+        if (past(bot.mob.getX(), bot.mob.getZ(), o.crossX, o.crossZ, o.farX, o.farZ)) {
+            o.crossKind = null;
+            // on along its way from where it is now; the last of the squad over: its way of going begun afresh there
+            // (its bounds' halves and covers were of the near bank)
+            if (o.route != null) o.at = ahead(o.route, bot.mob.getX(), bot.mob.getZ());
+            Job j = o.job;
+            if (j != null) {
+                boolean all = true;
+                for (AiBot b : j.members) if (b.mob.isAlive() && b.order != null && b.order.job == j && b.order.crossKind != null) all = false;
+                if (all) StaffMove.afresh(j);
+            }
+            return null;
+        }
+        return o;
+    }
+
+    /** one of the job's squad has begun its crossing and is not over yet */
+    private static boolean crossing(Job j) {
+        for (AiBot b : j.members)
+            if (b.mob.isAlive() && b.order != null && b.order.job == j && b.order.crossKind != null && started(b, b.order)) return true;
+        return false;
+    }
+
+    /** past the near bank's point of its crossing, toward the far bank */
+    private static boolean started(AiBot b, Order o) {
+        return ((b.mob.getX() - o.crossX) * (o.farX - o.crossX) + (b.mob.getZ() - o.crossZ) * (o.farZ - o.crossZ)) > 0;
+    }
+
+    /** at x, z: as far along from the crossing's point toward the gathering place as it is, or farther */
+    static boolean past(double x, double z, double cx, double cz, double fx, double fz) {
+        double dx = fx - cx, dz = fz - cz, len2 = dx * dx + dz * dz;
+        return len2 < 1e-9 || ((x - cx) * dx + (z - cz) * dz) >= len2;
+    }
+
+    /**
+     * a squad of the side reported (AiCrossing: an enemy across water, places to cross found): its staff looks at its
+     * tasks again soon
+     */
+    public static void reported(ServerLevel level, String team) {
+        Side side = LEVELS.computeIfAbsent(level, l -> new HashMap<>()).get(team);
+        if (side != null) side.next = Math.min(side.next, level.getGameTime() + 1);
     }
 
     /**
@@ -968,6 +1092,7 @@ public final class AiCommander {
         // at its place: it stands there facing the group (not looking through an area, not giving it up)
         if (place) {
             o.job.there = true;
+            if (o.job.kind == StaffPlan.Kind.FLANK) ready(level, o.job, tick);
             if (!o.stood) {
                 o.stood = true;
                 bot.mover.stop();
@@ -1029,6 +1154,171 @@ public final class AiCommander {
         bot.mover.goTo(BlockPos.asLong(bx, y, bz), 2, speed);
         if (bot.order != null) bot.order.moveLeg = false;
         if (bot.mob.isAlive()) bot.gunner.aim(new net.minecraft.world.phys.Vec3(x, y + 1.5, z));
+    }
+
+    /**
+     * The pairs (C4): each new squad going round with the squad pinning its group, their time set (the way round at
+     * PAIR_PACE, half as long again, PAIR_MORE more, PAIR_MOST at most); a pair whose time ran out counted.
+     */
+    private static void pair(List<AiSquads.Squad> squads, @Nullable HqGrid grid, long now) {
+        List<Job> pins = new ArrayList<>(), flanks = new ArrayList<>();
+        List<AiSquads.Squad> flankers = new ArrayList<>();
+        for (AiSquads.Squad s : squads) {
+            Job j = job(s, now);
+            // asleep (moved by drift, not step): never there to signal, not paired
+            if (j == null || asleep(s) && j.partner == null) continue;
+            if (j.kind == StaffPlan.Kind.PIN) pins.add(j);
+            else if (j.kind == StaffPlan.Kind.FLANK) {
+                flanks.add(j);
+                flankers.add(s);
+            }
+        }
+        // a pair whose other is gone (its squad dead, its task another now) before it was ready: undone, to pair again
+        for (List<Job> l : List.of(pins, flanks))
+            for (Job j : l)
+                if (j.partner != null && j.ready == Long.MIN_VALUE && (j.partner.partner != j || !pins.contains(j.partner) && !flanks.contains(j.partner))) {
+                    j.partner = null;
+                    j.due = Long.MAX_VALUE;
+                }
+        for (int i = 0; i < flanks.size(); i++) {
+            Job f = flanks.get(i);
+            if (f.partner == null) for (Job p : pins) {
+                if (p.partner != null || !shares(p.ids, f.ids)) continue;
+                AiSquads.Squad s = flankers.get(i);
+                double sx = 0, sz = 0;
+                for (AiBot b : s.bots) {
+                    sx += b.mob.getX() / s.bots.size();
+                    sz += b.mob.getZ() / s.bots.size();
+                }
+                AiBot first = s.bots.get(0);
+                // its way there over the map (by a ford, round the hill), else the straight line by DETOUR
+                double d = first.order == null ? 0 : Math.hypot(first.order.x - sx, first.order.z - sz) * HqGrid.DETOUR;
+                if (grid != null && first.order != null) {
+                    int ai = grid.cellX(sx), ak = grid.cellZ(sz), bi = grid.cellX(first.order.x), bk = grid.cellZ(first.order.z);
+                    int[] w = ai < 0 || ak < 0 || bi < 0 || bk < 0 ? null : grid.path(ai, ak, bi, bk, 0);
+                    if (w != null) d = Math.max(d, HqGrid.cells(w) * HqGrid.CELL);
+                }
+                f.partner = p;
+                p.partner = f;
+                f.pairedAt = p.pairedAt = now;
+                f.due = p.due = now + Math.min(PAIR_MOST, (long) (d / PAIR_PACE * 1.5) + PAIR_MORE);
+                paired++;
+                break;
+            }
+        }
+    }
+
+    private static boolean contains(int[] a, int x) {
+        for (int y : a) if (y == x) return true;
+        return false;
+    }
+
+    private static boolean shares(int[] a, int[] b) {
+        for (int x : a) for (int y : b) if (x == y) return true;
+        return false;
+    }
+
+    /**
+     * a pair's one going round in a fight with its group (its squad's target one of it) once round: within LEASH of
+     * its place, or run into it within RUN_INTO of itself, as AiSoldier lets it fight (seen from afar on the way, it
+     * goes on round), or shot at: ready (C4)
+     */
+    private static void couple(ServerLevel level, long now) {
+        for (AiSquads.Squad s : AiSquads.squads(level)) {
+            if (s.target < 0) continue;
+            for (AiBot b : s.bots) {
+                Job j = b.order != null && now <= b.order.until ? b.order.job : null;
+                if (j != null && j.kind == StaffPlan.Kind.FLANK && j.partner != null && j.ready == Long.MIN_VALUE && contains(j.ids, s.target)
+                        && (Math.hypot(b.mob.getX() - b.order.x, b.mob.getZ() - b.order.z) <= LEASH || ranInto(b, b.memory.contact(s.target)) || shotAt(b, now))) {
+                    ready(level, j, now);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * a pair's one going round there, or in a fight (C4), in its time: it signals (its first a sign to the enemy, the
+     * pinning one's first a sign to come on), and its side gives its orders again now (it to advance, the other to keep
+     * the group's places under fire)
+     */
+    private static void ready(ServerLevel level, Job f, long now) {
+        if (f.ready != Long.MIN_VALUE || f.partner == null || !pairs() || now >= f.due) return;
+        f.ready = f.partner.ready = now;
+        coupled++;
+        coupleTicks += now - f.pairedAt;
+        for (AiBot b : f.members)
+            if (b.mob.isAlive() && b.order != null && b.order.job == f) {
+                b.gesture(AiPose.SIGNAL_POINT, AiVoice.SIGN_TICKS, now);
+                Map<String, Side> sides = LEVELS.get(level);
+                Side side = sides == null ? null : sides.get(AiSquads.team(b));
+                if (side != null) side.next = now + 1;
+                break;
+            }
+        for (AiBot b : f.partner.members)
+            if (b.mob.isAlive() && b.order != null && b.order.job == f.partner) {
+                b.gesture(AiPose.SIGNAL_COME, AiVoice.SIGN_TICKS, now);
+                break;
+            }
+    }
+
+    /**
+     * pinning for a pair whose one going round is there (C4): it keeps the places of the group it lost under fire
+     * (AiSquads.suppresses)
+     */
+    static boolean presses(AiBot bot, long tick) {
+        Order o = bot.order;
+        Job j = o == null || tick > o.until ? null : o.job;
+        boolean p = j != null && j.kind == StaffPlan.Kind.PIN && j.ready != Long.MIN_VALUE && tick < j.due && pairs() && on();
+        if (p) pressed++;
+        return p;
+    }
+
+    /** the stands: times a pinning soldier kept a lost foe's places under fire for its pair (C4) */
+    public static long pressed;
+
+    /**
+     * pinning or holding (C4), once within LEASH of its place (on the way there it is free): a foe lost farther than
+     * LEASH from the place is not gone after, nor gone round
+     */
+    static boolean leashed(AiBot bot, int target, long tick) {
+        Order o = bot.order;
+        Job j = o == null || tick > o.until ? null : o.job;
+        if (j == null || j.kind != StaffPlan.Kind.PIN && j.kind != StaffPlan.Kind.HOLD) return false;
+        if (Math.hypot(bot.mob.getX() - o.x, bot.mob.getZ() - o.z) > LEASH) return false;
+        TargetMemory.Contact c = bot.memory.contact(target);
+        return c != null && Math.hypot(c.lostX - o.x, c.lostZ - o.z) > LEASH && pairs() && on();
+    }
+
+    /**
+     * going round for a pair not yet ready, in its time, the foe it knows of farther than RUN_INTO: it goes on round by
+     * the order rather than into a fight from where it is (C4; nearer, it fights: ready)
+     */
+    static boolean goesRound(AiBot bot, TargetMemory.Contact c, long tick) {
+        Order o = bot.order;
+        Job j = o == null || tick > o.until ? null : o.job;
+        if (j == null || j.kind != StaffPlan.Kind.FLANK || j.partner == null || j.ready != Long.MIN_VALUE || tick >= j.due) return false;
+        double x = c.state == TargetMemory.State.VISIBLE ? c.x : c.lostX, z = c.state == TargetMemory.State.VISIBLE ? c.z : c.lostZ;
+        if (Math.hypot(x - bot.mob.getX(), z - bot.mob.getZ()) <= RUN_INTO) return false;
+        // shot at lately: it fights back rather than walk on under fire
+        return !shotAt(bot, tick) && pairs() && on();
+    }
+
+    /** a contact within RUN_INTO of the bot: it has run into it (C4: the one going round ready, fighting) */
+    private static boolean ranInto(AiBot bot, TargetMemory.@Nullable Contact c) {
+        if (c == null) return false;
+        double x = c.state == TargetMemory.State.VISIBLE ? c.x : c.lostX, z = c.state == TargetMemory.State.VISIBLE ? c.z : c.lostZ;
+        return Math.hypot(x - bot.mob.getX(), z - bot.mob.getZ()) <= RUN_INTO;
+    }
+
+    private static boolean shotAt(AiBot bot, long now) {
+        TargetMemory.Noise n = bot.memory.noise();
+        return n != null && n.hurt && now - n.tick <= UNDER_FIRE;
+    }
+
+    /** the pairs on and the staff's map made (no map yet: the pairs' squads both pin till it is in) */
+    static boolean mapped() {
+        return pairs() && staff() && AiTerrain.ON;
     }
 
     /** /armsai info */

@@ -16,20 +16,29 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * The AI check's river crossed under fire (AiCrossing, stage 6 T7): a stone plain cut across by a river 12 wide and 3
+ * The AI check's river (AiCrossing, by the field manuals): a stone plain cut across by a river 12 wide and 3
  * deep, its ends walled (no way round). Two of one team hold the north bank (they do not walk): one in a stone hut
  * whose door is on its far side (out of reach from the south bank: the bank is taken when it is down), one behind a
  * wall a block high before it, firing on the river, hurt by none further off than {@link #REACH} (fire from the south
  * bank cannot put it down: those over the river can), watching the river (the nearest of the squad seen now and then);
  * the one in the hut heard now and then; a squad of six of another, a machine
- * gunner with five riflemen, a smoke grenade each, on the south bank, know where they are. Rounds by twos, aiCrossing off (before: none begins a swim under fire, one not under fire swims
- * as it will) and on (by waves, covered, behind smoke). Counted: whether the bank was taken and when, who of the squad
- * is left, who went down in the water, who got over, the most swimming at once, the share of the ticks one swam with
- * one on the bank firing (within the gap between two bursts), crossings with smoke. Last a round with aiCrossing on and a
- * causeway over the river at one end: a dry way over, along which they go as they will, no crossing begun.
+ * gunner with five riflemen, a smoke grenade each, on the south bank, know where they are. Rounds by twos: aiCrossing
+ * off (before: none begins a swim under fire, one not under fire swims as it will); on with no order (it keeps to its
+ * bank, looks along it for a place to cross and reports); on with its staff's order to swim over at the middle (the
+ * drill: the far side's security first, the rest by pairs, the near side's security last). Counted: whether the bank was
+ * taken and when, who of the squad is left, who went down in the water, who got over, the most swimming at once, the
+ * share of the ticks one swam with one on the bank firing, smoke, the drill's order kept, reports and places found.
+ * Last a round with no order and a causeway over the river at one end: a dry way over, walked; no watch, no crossing.
  */
 final class AiCheckCrossing {
-    static final int X0 = 3700, Z0 = 0, SX = 64, SZ = 64, RUN = 2400, ROUNDS = 7, SQUAD = 6;
+    static final int X0 = 3700, Z0 = 0, SX = 64, SZ = 64, RUN = 2400, WATCH_RUN = 1200, ROUNDS = 7, SQUAD = 6;
+    static final String SIDE = "crossing_side";
+    /** the arms: off, on with no order, on ordered, the causeway */
+    static final int OFF = 0, WATCH = 1, ORDER = 2, CAUSEWAY = 3;
+    /** the order: over at the middle of the river, to a rally point past the far bank */
+    static final double CROSS_X = 3731.5, CROSS_Z = 36.5, FAR_Z = 20.5;
+    /** the neck, x from NECK_X0 to NECK_X1 */
+    static final int NECK_X0 = 3741, NECK_X1 = 3745;
     /** the last round's: a causeway over the river at CAUSEWAY_X0..1 (a dry way over: no crossing is to begin), this many ticks */
     static final int CAUSEWAY_X0 = 3702, CAUSEWAY_X1 = 3704, CAUSEWAY_RUN = 800;
     /** the river, z from RZ0 to RZ1, DEPTH deep */
@@ -67,7 +76,10 @@ final class AiCheckCrossing {
     private final List<Mob> squad = new ArrayList<>(), held = new ArrayList<>();
     private final java.util.Set<Integer> down = new java.util.HashSet<>();
     private int[] shotsBefore = new int[0];
-    private int smokedBefore, begunBefore, backBefore;
+    private int smokedBefore, begunBefore, backBefore, watchesBefore, scoutedBefore;
+    /** the drill: ticks one of the main body swam with one of the far side's security not over; one of the near side's with one of the main body not over; the most of the main body swimming at once; reports seen, places in them */
+    private int mainEarly, nearEarly, mostMain, reports, spots;
+    private String lastReport = "none";
     /** per round: {on, held left, squad left, ticks, taken at, down in the water, over, most swimming, swim ticks, covered, smoked, begun, back} */
     private final List<int[]> results = new ArrayList<>();
 
@@ -135,6 +147,36 @@ final class AiCheckCrossing {
             if (b != null && AiWater.underFire(b, level.getGameTime())) firedOn = true;
         }
         mostSwimming = Math.max(mostSwimming, swimming);
+        if (arm() == ORDER) {
+            boolean farOut = false, mainOut = false, mainSwims = false, nearSwims = false;
+            int mainSwim = 0;
+            for (Mob m : squad) {
+                if (!m.isAlive() || !(AiBots.get(m) instanceof AiBot b)) continue;
+                AiCrossing.Role r = AiCrossing.role(b);
+                boolean overThere = m.getZ() < RZ0 - 0.5 && !m.isInWater();
+                if (r == AiCrossing.Role.FAR && !overThere) farOut = true;
+                if (r == AiCrossing.Role.MAIN && !overThere) mainOut = true;
+                if (!AiWater.swims(m)) continue;
+                if (r == AiCrossing.Role.MAIN) {
+                    mainSwims = true;
+                    mainSwim++;
+                }
+                if (r == AiCrossing.Role.NEAR) nearSwims = true;
+            }
+            if (mainSwims && farOut) mainEarly++;
+            if (nearSwims && mainOut) nearEarly++;
+            mostMain = Math.max(mostMain, mainSwim);
+        }
+        if (arm() == WATCH || arm() == CAUSEWAY) {
+            var rs = AiCrossing.reports(level, SIDE);
+            if (!rs.isEmpty()) {
+                reports = Math.max(reports, rs.size());
+                for (var r : rs) {
+                    spots = Math.max(spots, r.spots().size());
+                    lastReport = String.format(Locale.ROOT, "squad %d, bank %.0f %.0f, foes %s, places %s", r.squadId(), r.bankX(), r.bankZ(), java.util.Arrays.toString(r.foeIds()), r.spots());
+                }
+            }
+        }
         if (bankFires) lastBankShot = ticks;
         if (swimming > 0) {
             swimTicks++;
@@ -146,17 +188,18 @@ final class AiCheckCrossing {
         // the bank's taken when the one in the hut is down
         if (held.get(0).isAlive()) foes++;
         if (foes == 0 && takenAt < 0) takenAt = ticks;
-        if (ticks < (causeway() ? CAUSEWAY_RUN : RUN) && left > 0 && foes > 0) return false;
+        if (ticks < (causeway() ? CAUSEWAY_RUN : arm() == WATCH ? WATCH_RUN : RUN) && left > 0 && foes > 0) return false;
         over = 0;
         for (Mob m : squad) if (m.isAlive() && m.getZ() < RZ0 - 0.5 && !m.isInWater()) over++;
         StringBuilder where = new StringBuilder();
         for (Mob m : squad)
             if (m.isAlive() && AiBots.get(m) instanceof AiBot b && b.brain instanceof AiSoldier so)
                 where.append(String.format(Locale.ROOT, " %.1f %.1f %.1f %s/%s%s;", m.getX(), m.getY() - y, m.getZ(), so.mode(), so.why, AiSquads.base(b) ? " base" : ""));
-        check.out(String.format(Locale.ROOT, "     crossing, round %d, at the end:%s; down: %s", round + 1, where, downs));
+        check.out(String.format(Locale.ROOT, "     crossing, round %d, at the end:%s; down: %s; the last report: %s", round + 1, where, downs, lastReport));
         downs.clear();
-        results.add(new int[] {causeway() ? 2 : round % 2, foes, left, ticks, takenAt, inWaterDown, over, mostSwimming, swimTicks, coveredTicks, AiCrossing.smoked - smokedBefore,
-                AiCrossing.begun - begunBefore, AiCrossing.back - backBefore, shooterDown, hurt, firedOn ? 1 : 0, shooterShots()});
+        results.add(new int[] {arm(), foes, left, ticks, takenAt, inWaterDown, over, mostSwimming, swimTicks, coveredTicks, AiCrossing.smoked - smokedBefore,
+                AiCrossing.begun - begunBefore, AiCrossing.back - backBefore, shooterDown, hurt, firedOn ? 1 : 0, shooterShots(), mainEarly, nearEarly, mostMain, reports, spots,
+                AiCrossing.watches - watchesBefore, AiCrossing.scouted - scoutedBefore});
         for (Mob m : squad) m.discard();
         for (Mob m : held) m.discard();
         squad.clear();
@@ -170,6 +213,10 @@ final class AiCheckCrossing {
         return round == ROUNDS - 1;
     }
 
+    private int arm() {
+        return causeway() ? CAUSEWAY : round / 2 == 0 ? OFF : round / 2 == 1 ? WATCH : ORDER;
+    }
+
     private void set(int x, int yy, int z, BlockState st) {
         level.setBlock(new BlockPos(x, yy, z), st, Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
     }
@@ -178,7 +225,9 @@ final class AiCheckCrossing {
         BlockState stone = Blocks.STONE.defaultBlockState(), air = Blocks.AIR.defaultBlockState(), water = Blocks.WATER.defaultBlockState();
         for (int x = X0; x < X0 + SX; x++)
             for (int z = Z0; z < Z0 + SZ; z++) {
-                boolean river = z >= RZ0 && z <= RZ1 && x > X0 && x < X0 + SX - 1 && !(causeway() && x >= CAUSEWAY_X0 && x <= CAUSEWAY_X1);
+                boolean river = z >= RZ0 && z <= RZ1 && x > X0 && x < X0 + SX - 1 && !(causeway() && x >= CAUSEWAY_X0 && x <= CAUSEWAY_X1)
+                        // with no order, a neck of the river 8 wide along the bank: a place to swim the scouts find
+                        && !(arm() == WATCH && x >= NECK_X0 && x <= NECK_X1 && (z < RZ0 + 2 || z > RZ1 - 2));
                 set(x, y - DEPTH - 1, z, stone);
                 for (int d = DEPTH; d >= 1; d--) set(x, y - d, z, river ? water : stone);
                 // the field walled round three high: no way round the river
@@ -221,7 +270,11 @@ final class AiCheckCrossing {
         shooterDown = -1;
         lastBankShot = -1000;
         down.clear();
-        AiCrossing.on = r % 2 == 1 || causeway();
+        AiCrossing.on = arm() != OFF;
+        AiCrossing.STAND_ORDERS.clear();
+        if (arm() == ORDER) AiCrossing.STAND_ORDERS.put(SIDE, new AiCrossing.Task(CROSS_X, CROSS_Z, AiCrossing.Kind.SWIM, CROSS_X, FAR_Z));
+        mainEarly = nearEarly = mostMain = reports = spots = 0;
+        lastReport = "none";
         AiSquads.on = true;
         AiSquads.offTeams.clear();
         AiSquads.forget(level);
@@ -234,7 +287,7 @@ final class AiCheckCrossing {
             if (held.size() == 1) shooter = m;
             held.add(m);
         }
-        for (int i = 0; i < SQUAD; i++) squad.add(spawn(START_X[i], START_Z + (i == SQUAD - 1 ? 3 : 0), "crossing_side", 180F, i == SQUAD - 1 ? MG : RIFLE));
+        for (int i = 0; i < SQUAD; i++) squad.add(spawn(START_X[i], START_Z + (i == SQUAD - 1 ? 3 : 0), SIDE, 180F, i == SQUAD - 1 ? MG : RIFLE));
         AiBots.refreshTargets(level);
         shotsBefore = new int[SQUAD];
         lastShooterShots = 0;
@@ -256,50 +309,54 @@ final class AiCheckCrossing {
         smokedBefore = AiCrossing.smoked;
         begunBefore = AiCrossing.begun;
         backBefore = AiCrossing.back;
+        watchesBefore = AiCrossing.watches;
+        scoutedBefore = AiCrossing.scouted;
     }
 
     private boolean finish() {
         AiCrossing.on = true;
+        AiCrossing.STAND_ORDERS.clear();
         counting = null;
-        String[] names = {"aiCrossing off (before)", "aiCrossing on", "aiCrossing on, a causeway over"};
-        double[][] sum = new double[3][17];
-        // the rounds with aiCrossing in which the one at the wall fired on the squad (none: it hid behind its wall the
-        // whole round, no fight, no crossing under fire to begin), and the crossings begun in them
-        int fired = 0, firedBegun = 0;
-        int[] n = new int[3], taken = new int[3];
-        double[] takenTicks = new double[3];
+        String[] names = {"aiCrossing off (before)", "aiCrossing on, no order", "aiCrossing on, ordered over at the middle", "aiCrossing on, no order, a causeway over"};
+        double[][] sum = new double[4][24];
+        int[] n = new int[4], taken = new int[4];
+        double[] takenTicks = new double[4];
         for (int i = 0; i < results.size(); i++) {
             int[] r = results.get(i);
             n[r[0]]++;
             for (int k = 1; k < r.length; k++) sum[r[0]][k] += r[k];
-            if (r[0] == 1 && r[15] > 0) {
-                fired++;
-                if (r[11] > 0) firedBegun++;
-            }
             if (r[4] >= 0) {
                 taken[r[0]]++;
                 takenTicks[r[0]] += r[4];
             }
             check.out(String.format(Locale.ROOT, "     crossing, round %d, %s: the one in the hut %d of %d left, of the squad %d of %d, %d ticks, taken %s; down in the water %d, over %d,"
-                    + " most swimming at once %d; ticks one swam %d, with one on the bank firing %d; crossings begun %d, with smoke %d; swam back %d; the one at the wall down %s, fired %d shots; the squad under fire %s, hurt %d times",
-                    i + 1, names[r[0]], r[1], 1, r[2], SQUAD, r[3], r[4] < 0 ? "never" : "at tick " + r[4], r[5], r[6], r[7], r[8], r[9], r[11], r[10], r[12], r[13] < 0 ? "never" : "at tick " + r[13], r[16], r[15] > 0 ? "yes" : "never", r[14]));
+                    + " most swimming at once %d; ticks one swam %d, with one on the bank firing %d; crossings begun %d, with smoke %d; swam back %d; the one at the wall down %s, fired %d shots;"
+                    + " the squad under fire %s, hurt %d times; the drill: the main body swam before the far side's security was over %d ticks, the near side's before the main body %d,"
+                    + " the most of the main body swimming at once %d; watches %d, looks along the bank %d, reports %d, places in one %d",
+                    i + 1, names[r[0]], r[1], 1, r[2], SQUAD, r[3], r[4] < 0 ? "never" : "at tick " + r[4], r[5], r[6], r[7], r[8], r[9], r[11], r[10], r[12],
+                    r[13] < 0 ? "never" : "at tick " + r[13], r[16], r[15] > 0 ? "yes" : "never", r[14], r[17], r[18], r[19], r[22], r[23], r[20], r[21]));
         }
-        for (int a = 0; a < 3; a++)
+        for (int a = 0; a < 4; a++)
             check.out(String.format(Locale.ROOT, "     crossing, %s, %d rounds: the bank taken in %d (%.0f ticks on average); of the squad %.0f of %d left, down in the water %.0f, over %.0f;"
                     + " most swimming at once %.1f on average; of the ticks one swam %.0f%% with one on the bank firing; crossings begun %.0f, with smoke %.0f; swam back %.0f; hurt %.0f times",
                     names[a], n[a], taken[a], taken[a] == 0 ? 0 : takenTicks[a] / taken[a], sum[a][2], n[a] * SQUAD, sum[a][5], sum[a][6], n[a] == 0 ? 0 : sum[a][7] / n[a],
                     sum[a][8] == 0 ? 0 : 100 * sum[a][9] / sum[a][8], sum[a][11], sum[a][10], sum[a][12], sum[a][14]));
         check.check("crossing: all rounds ran", results.size() == ROUNDS);
-        check.check(String.format(Locale.ROOT, "crossing: with aiCrossing a crossing is begun in every round the squad is under fire, with smoke in most (%d of %d; smoke %.0f of %.0f; of %d rounds)",
-                firedBegun, fired, sum[1][10], sum[1][11], n[1]), fired >= 2 && firedBegun == fired && sum[1][10] * 2 > sum[1][11]);
-        check.check(String.format(Locale.ROOT, "crossing: with aiCrossing no more than four swim at once (%.1f on average)", n[1] == 0 ? 0 : sum[1][7] / n[1]),
-                n[1] > 0 && sum[1][7] <= 4 * n[1]);
-        check.check(String.format(Locale.ROOT, "crossing: with aiCrossing most of the swimming is covered, from the bank or by those over (%.0f%%)", sum[1][8] == 0 ? 0 : 100 * sum[1][9] / sum[1][8]),
-                sum[1][9] * 2 > sum[1][8]);
-        check.check(String.format(Locale.ROOT, "crossing: with aiCrossing the bank is taken in more rounds, or sooner (%d, %.0f ticks; %d, %.0f before)", taken[1],
-                taken[1] == 0 ? 0 : takenTicks[1] / taken[1], taken[0], taken[0] == 0 ? 0 : takenTicks[0] / taken[0]),
-                taken[1] > taken[0] || taken[1] == taken[0] && taken[1] > 0 && takenTicks[1] / taken[1] < takenTicks[0] / taken[0]);
-        check.check(String.format(Locale.ROOT, "crossing: with a dry way over (a causeway) no crossing is begun (%.0f)", sum[2][11]), n[2] == 1 && sum[2][11] == 0);
+        check.check(String.format(Locale.ROOT, "crossing: with no order the squad swims nowhere and does not cross (ticks swum %.0f, crossings %.0f, of %d rounds)", sum[WATCH][8], sum[WATCH][11], n[WATCH]),
+                n[WATCH] > 0 && sum[WATCH][8] == 0 && sum[WATCH][11] == 0);
+        check.check(String.format(Locale.ROOT, "crossing: with no order it watches the bank, looks along it and reports the foe across to its staff, with places to cross (watches %.0f, looks %.0f, reports %.0f, places %.0f, of %d rounds)",
+                sum[WATCH][22], sum[WATCH][23], sum[WATCH][20], sum[WATCH][21], n[WATCH]), sum[WATCH][22] >= n[WATCH] && sum[WATCH][23] > n[WATCH] && sum[WATCH][20] >= n[WATCH] && sum[WATCH][21] >= n[WATCH]);
+        check.check(String.format(Locale.ROOT, "crossing: ordered, it crosses once in every round, and some get over (begun %.0f of %d rounds, over %.0f)", sum[ORDER][11], n[ORDER], sum[ORDER][6]),
+                n[ORDER] > 0 && sum[ORDER][11] == n[ORDER] && sum[ORDER][6] > 0);
+        check.check(String.format(Locale.ROOT, "crossing: ordered, the far side's security is over before the main body swims, and the near side's goes last (%.0f, %.0f ticks out of turn)",
+                sum[ORDER][17], sum[ORDER][18]), sum[ORDER][17] == 0 && sum[ORDER][18] == 0);
+        int mostMainAll = 0;
+        for (int[] r : results) if (r[0] == ORDER) mostMainAll = Math.max(mostMainAll, r[19]);
+        check.check(String.format(Locale.ROOT, "crossing: ordered, the main body goes by pairs (at most %d of it swimming at once in a round)", mostMainAll), mostMainAll <= 2);
+        check.check(String.format(Locale.ROOT, "crossing: ordered, most of the swimming is covered, from the bank or by those over (%.0f%%)", sum[ORDER][8] == 0 ? 0 : 100 * sum[ORDER][9] / sum[ORDER][8]),
+                sum[ORDER][9] * 2 > sum[ORDER][8]);
+        check.check(String.format(Locale.ROOT, "crossing: with a dry way over (a causeway) no watch and no crossing is begun (%.0f, %.0f)", sum[CAUSEWAY][22], sum[CAUSEWAY][11]),
+                n[CAUSEWAY] == 1 && sum[CAUSEWAY][11] == 0 && sum[CAUSEWAY][22] == 0);
         return true;
     }
 }
