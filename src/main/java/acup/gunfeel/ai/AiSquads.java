@@ -28,6 +28,11 @@ public final class AiSquads {
     static final int EVERY = 40;
     /** one of a squad is this near another of it, blocks */
     static final double NEAR = 16;
+    /**
+     * its base of fire (AiRole.BASE) stays where it fires from while the riflemen go round the side: it is one of
+     * theirs this many times as far (cut off at NEAR, it was a rifleman again and went after the foe itself)
+     */
+    static final double BASE_REACH = 2;
     /** the most in one squad */
     static final int MAX = 6;
     /**
@@ -107,7 +112,7 @@ public final class AiSquads {
                 for (int j = 0; j < free.size(); j++) {
                     if (taken[j] || !team.equals(teams.get(j))) continue;
                     for (AiBot in : s.bots) {
-                        double d = in.mob.distanceToSqr(free.get(j).mob);
+                        double d = apart(in.mob.distanceToSqr(free.get(j).mob), AiRole.of(in) == AiRole.BASE || AiRole.of(free.get(j)) == AiRole.BASE);
                         if (d <= bestD) {
                             bestD = d;
                             best = j;
@@ -129,6 +134,11 @@ public final class AiSquads {
             l.squads.add(s);
             for (AiBot b : s.bots) l.of.put(b.mob.getId(), s);
         }
+    }
+
+    /** how far apart two are for the squads, squared: as they stand, or BASE_REACH times nearer with a base of fire */
+    static double apart(double distSqr, boolean base) {
+        return base ? distSqr / (BASE_REACH * BASE_REACH) : distSqr;
     }
 
     /** the level's squads as last made (AiCommander) */
