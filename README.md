@@ -326,12 +326,17 @@ page. They are alphas: expect bugs and back up your world.
   beside a turn, one steps into it and throws a grenade down the next
   stretch, then they go in and search stretch after stretch, instead of
   walking along the edge above it (server key `aiTrenches`).
-- A squad crosses a river to a foe on the far bank by waves: the machine
-  gunner, the marksman and a rifleman or two stay on the bank and keep the
-  foe under fire, one throws smoke onto the far bank, half the squad (four
-  at most) swims over and holds past the bank, then the rest, the machine
-  gunner last. One shot at while swimming, nearer the bank it left, swims
-  back and goes with the next wave (server key `aiCrossing`).
+- A river between a squad and its foe is dealt with by the field manual. On
+  its own the squad does not swim it: it keeps to its bank, two riflemen go
+  along the bank looking for a bridge, a ford or a narrow place to swim, and
+  it reports the foe and what it found to its staff. A bridge or a ford is
+  walked as any way. Ordered over by its staff, it crosses by the drill: the
+  machine gunner, the marksman and a rifleman stay on the near bank and keep
+  the foe under fire, a pair goes over first and holds the far bank, one of
+  them a little further on to watch, the rest follow by pairs, the near bank's
+  cover last at the same place. Smoke onto the far bank only under fire. One
+  shot at while swimming from across, not halfway over yet, swims back and
+  goes again; past halfway it goes on (server key `aiCrossing`).
 - A soldier who sees a foe fall forgets it and tells its squad, so none of
   them waits for it or goes after it where it fell (server key
   `aiDownTold`).

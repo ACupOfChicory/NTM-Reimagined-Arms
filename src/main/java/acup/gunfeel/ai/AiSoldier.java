@@ -1480,6 +1480,11 @@ public final class AiSoldier implements AiBrain {
      * it fires as it goes; else it looks where it is told.
      */
     void crossing(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what) {
+        moveFiring(bot, cell, speed, look, tick, what, Why.CROSS);
+    }
+
+    /** the same for another errand of its side's (why: what it is): AiCrossing's scout */
+    void moveFiring(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what, Why why) {
         if (spot != null) drop(bot);
         if (bot.mover.failed() && bot.mover.goalIs(cell)) bot.mover.stop();
         if (!bot.mover.goalIs(cell)) {
@@ -1488,7 +1493,7 @@ public final class AiSoldier implements AiBrain {
             event(bot, tick, what);
         }
         mode(bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
-        why = Why.CROSS;
+        this.why = why;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         if (c != null && c.state == TargetMemory.State.VISIBLE && !AiWater.swims(bot.mob)) {
             Vec3 at = new Vec3(c.x, c.y + 1.1, c.z);
