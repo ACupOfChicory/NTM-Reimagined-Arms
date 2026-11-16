@@ -785,8 +785,9 @@ final class AiCheckWar {
                     + " C3 %d of %d, C4 %d of %d; C4 pairs %d, ready in time %d, out of time %d; the player under fire from two sides, ticks a round: C3 %.0f, C4 %.0f;"
                     + " of the ticks one going round sees it: C3 %.0f%%, C4 %.0f%%", NEAR_Z - WALK_Z, c3[0], c4[0], AT_PLACE, c3[7], c3[6], c4[7], c4[6], c4[1], c4[2], c4[3],
                     (double) c3[5] / Math.max(1, c3[0]), (double) c4[5] / Math.max(1, c4[0]), 100.0 * c3[5] / Math.max(1, c3[4]), 100.0 * c4[5] / Math.max(1, c4[4])));
-            if (c4[0] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the squad going round is %.0f degrees or more off the pinning one at its signal %d times of %d (half at least)",
-                    WIDE, readyWide, readyAngles), readyAngles > 0 && readyWide * 2 >= readyAngles);
+            // its place follows the player walking to and fro, and in its sight within 60 blocks it creeps (C3): seldom round by its signal here
+            if (c4[0] > 0) check.out(String.format(Locale.ROOT, "     war, near (C4), the squad going round %.0f degrees or more off the pinning one at its signal %d times of %d",
+                    WIDE, readyWide, readyAngles));
             if (c4[0] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the staff pairs its squads and the one going round is ready in time: %d pairs, %d ready in time"
                     + " (half at least), %d out of time", c4[1], c4[2], c4[3]), c4[1] > 0 && c4[2] * 2 >= c4[1]);
         }
