@@ -73,8 +73,54 @@ final class AiCheckWar {
     static final int PIN_AT = 300, HELP_IN = 200;
     /** a squad's task changed again within this: a flap (C5: the staff answering reports at once), ticks */
     static final int FLAP = 200;
-    /** the share of changes that were flaps before C5 (C4b, war of 60 rounds) */
+    /**
+     * the share of changes that were flaps before C5: C4b's war of 60 rounds, 110 of 1032 changes (10.7 %). The check's
+     * flaps as a binomial of it: more than flapsAllowed of n changes happen by chance under FLAP_LEVEL, more is a rise
+     */
     static final double FLAPS_BEFORE = 110.0 / 1032;
+    /** the chance of failing the flaps' check with no rise at all (the coordinator's 1 %, 2026-11-16) */
+    static final double FLAP_LEVEL = 0.01;
+    /**
+     * the most flaps of {@code n} squads' changes the check lets pass: the largest k with P(X >= k) >= FLAP_LEVEL, X of
+     * Binomial(n, FLAPS_BEFORE) (n 30: 8; n 90: 17)
+     */
+    static int flapsAllowed(long n) {
+        // P(X >= k) from the top down: the tail grows as k falls
+        double p = FLAPS_BEFORE, tail = 0;
+        for (long k = n; k >= 0; k--) {
+            tail += Math.exp(logChoose(n, k) + k * Math.log(p) + (n - k) * Math.log1p(-p));
+            if (tail >= FLAP_LEVEL) return (int) k;
+        }
+        return 0;
+    }
+
+    private static double logChoose(long n, long k) {
+        double s = 0;
+        for (long i = 1; i <= k; i++) s += Math.log((double) (n - k + i) / i);
+        return s;
+    }
+
+    /** why one stands with no foe known and no order: its order ran out (the staff gave it none again), the staff took it back (cannot get there), in no squad (no staff's order for it), none given */
+    static final int IDLE_EXPIRED = 0, IDLE_GAVE_UP = 1, IDLE_NO_SQUAD = 2, IDLE_NONE = 3;
+    private static final String[] IDLE_NAMES = {"order ran out", "taken back", "in no squad", "none given"};
+
+    /** the idle's whys (a round's: IDLE_*), counted as idle is; the ticks past their order's end of those it ran out on */
+    private final long[] idleWhy = new long[4];
+    private long idleLate;
+
+    /** the idle's whys of a round's idles line (alive, idle, the whys, the late ticks): "(order ran out 3, ...)" or "" */
+    private static String whys(long[] id) {
+        if (id.length < 7 || id[1] == 0) return "";
+        StringBuilder s = new StringBuilder(" (");
+        for (int k = 0; k < IDLE_NAMES.length; k++) {
+            if (id[2 + k] == 0) continue;
+            if (s.length() > 2) s.append(", ");
+            s.append(IDLE_NAMES[k]).append(' ').append(id[2 + k]);
+            if (k == IDLE_EXPIRED) s.append(String.format(Locale.ROOT, ", %.0f ticks past on the mean", (double) id[6] / id[2]));
+        }
+        return s.append(" of the looks)").toString();
+    }
+
     /** a squad going round at its place: one of it within this of it */
     static final double AT_PLACE = 8;
     /** a squad within this north of the camp's line is still at the camp */
@@ -171,7 +217,9 @@ final class AiCheckWar {
     private long pinReport, pinHeld, pinHelp, pinHelpKind, pinMade0;
     /** each soldier's task and when it changed; changes, of them within FLAP of the one before */
     private final java.util.Map<Integer, Object[]> lastJob = new java.util.HashMap<>();
-    private long jobChanges, flaps, flapsAnswered;
+    private long jobChanges, flaps, flapsAnswered, flapsHelp;
+    /** the staff's tasks counted already: a squad's change once, not once for each of it */
+    private final java.util.Set<AiCommander.Job> changeCounted = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     private final long[] changesOf = new long[MODES], flapsOf = new long[MODES];
     private final java.util.Map<String, Integer> flapKinds = new java.util.TreeMap<>();
     /** the pinned round's fire begun (the side knows of the player: a task for its group) */
@@ -248,15 +296,23 @@ final class AiCheckWar {
             // a flap: a change within FLAP of its last change (its first task given is none)
             if (was == null) lastJob.put(m.getId(), new Object[] {j, Long.MIN_VALUE});
             else if (j != null && was[0] != j) {
-                if (was[0] != null) {
+                // a squad's change once (the task is the squad's: each of it changes with it), by the first of it seen
+                if (was[0] != null && changeCounted.add(jb)) {
                     jobChanges++;
                     changesOf[mode()]++;
                     if ((Long) was[1] != Long.MIN_VALUE && now - (Long) was[1] < FLAP) {
-                        flaps++;
-                        flapsOf[mode()]++;
-                        // its new task given in answer to a report (C5), not on the staff's own time
-                        if (now - AiCommander.answeredAt <= LOOK) flapsAnswered++;
-                        flapKinds.merge(was[0] + ">" + j + (pinRound ? " (pinned)" : near ? " (near)" : ""), 1, Integer::sum);
+                        String kind = was[0] + ">" + j + (pinRound ? " (pinned)" : near ? " (near)" : "");
+                        // sent to help a squad pinned down (C5's drill, at once by design): no flap
+                        if (jb.helps) {
+                            flapsHelp++;
+                            flapKinds.merge(kind + " help", 1, Integer::sum);
+                        } else {
+                            flaps++;
+                            flapsOf[mode()]++;
+                            // its new task given in answer to a report (C5), not on the staff's own time
+                            if (now - AiCommander.answeredAt <= LOOK) flapsAnswered++;
+                            flapKinds.merge(kind, 1, Integer::sum);
+                        }
                     }
                 }
                 lastJob.put(m.getId(), new Object[] {j, now});
@@ -334,7 +390,13 @@ final class AiCheckWar {
             AiBot b = AiBots.get(m);
             if (b == null || !m.isAlive()) continue;
             alive++;
-            if (b.memory.focus(m.getX(), m.getZ()) == null && !AiCommander.has(b, now)) idle++;
+            if (b.memory.focus(m.getX(), m.getZ()) == null && !AiCommander.has(b, now)) {
+                idle++;
+                // why (a soldier waiting for its squad's way has its order already: never here)
+                int why = b.order != null ? IDLE_EXPIRED : b.orderFailedUntil > now ? IDLE_GAVE_UP : AiSquads.of(b) == null ? IDLE_NO_SQUAD : IDLE_NONE;
+                idleWhy[why]++;
+                if (why == IDLE_EXPIRED) idleLate += now - b.order.until;
+            }
         }
         // the squads' ways of going (C3): each squad's mode, and bounding, whether one of the half covering is in cover
         if (ticks % LOOK == 0) {
@@ -403,7 +465,7 @@ final class AiCheckWar {
             return false;
         }
         results.add(new int[] {seenAt, down()});
-        idles.add(new long[] {alive, idle});
+        idles.add(new long[] {alive, idle, idleWhy[0], idleWhy[1], idleWhy[2], idleWhy[3], idleLate});
         // the tasks given, then the stragglers sent after a squad
         int[] t = new int[given0.length + 1];
         for (int k = 0; k < given0.length; k++) t[k] = AiCommander.given[k] - given0[k];
@@ -612,6 +674,8 @@ final class AiCheckWar {
         reportsSeen = 0;
         looks = inReach = inSight = 0;
         alive = idle = 0;
+        java.util.Arrays.fill(idleWhy, 0);
+        idleLate = 0;
         java.util.Arrays.fill(modeTicks, 0);
         bounding = covering = inCover = 0;
         given0 = AiCommander.given.clone();
@@ -746,7 +810,7 @@ final class AiCheckWar {
         int[] fromN = new int[MODES];
         // rounds of each, and of them those in which one of the side came within the player's reach
         int[] roundsOf = new int[MODES], reachedOf = new int[MODES];
-        long[] aliveOf = new long[MODES], idleOf = new long[MODES];
+        long[] aliveOf = new long[MODES], idleOf = new long[MODES], tasksWhy = new long[7];
         long bounds = 0, covers = 0, coversHard = 0, pairsMade = 0, pairsReady = 0, pairsLate = 0;
         long[] flankOf = new long[MODES], wideOf = new long[MODES], roundOf = new long[MODES], crossOf = new long[MODES];
         for (int i = 0; i < results.size(); i++) {
@@ -769,12 +833,14 @@ final class AiCheckWar {
             long[] id = idles.get(i);
             aliveOf[on] += id[0];
             idleOf[on] += id[1];
+            // the whys with the staff's tasks, all such rounds
+            if (on >= TASKS && id.length >= 7) for (int k = 0; k < 7; k++) tasksWhy[k] += id[k];
             StringBuilder kinds = new StringBuilder();
             for (StaffPlan.Kind k : StaffPlan.Kind.values())
                 if (tasksOf.get(i)[k.ordinal()] > 0) kinds.append(kinds.length() == 0 ? "" : ", ").append(k.name().toLowerCase(Locale.ROOT)).append(' ').append(tasksOf.get(i)[k.ordinal()]);
             int strays = tasksOf.get(i)[StaffPlan.Kind.values().length];
-            check.out(String.format(Locale.ROOT, "     war, round %d: standing with no foe known and no order %.1f%% of the soldiers' time; tasks given: %s%s", i + 1,
-                    id[0] == 0 ? 0 : 100.0 * id[1] / id[0], kinds.length() == 0 ? "none" : kinds, strays > 0 ? "; " + strays + " sent after their squad" : ""));
+            check.out(String.format(Locale.ROOT, "     war, round %d: standing with no foe known and no order %.1f%% of the soldiers' time%s; tasks given: %s%s", i + 1,
+                    id[0] == 0 ? 0 : 100.0 * id[1] / id[0], whys(id), kinds.length() == 0 ? "none" : kinds, strays > 0 ? "; " + strays + " sent after their squad" : ""));
             long[] mv = movesOf.get(i);
             long[] pr = pairsOf.get(i);
             if (on >= TASKS) check.out(String.format(Locale.ROOT, "     war, round %d: squads going round that saw the player within 64 blocks %d, of them %.0f degrees or more off the pinning one %d; pairs %d,"
@@ -860,8 +926,8 @@ final class AiCheckWar {
         }
         for (int i = 0; i < tasksOf.size(); i++)
             if (i % MODES >= TASKS) for (StaffPlan.Kind k : new StaffPlan.Kind[] {StaffPlan.Kind.ADVANCE, StaffPlan.Kind.PIN, StaffPlan.Kind.FLANK}) sentAt += tasksOf.get(i)[k.ordinal()];
-        check.check(String.format(Locale.ROOT, "war: with the staff's tasks, the soldiers stand with no foe known and no order %.1f%% of their time (2%% at most); %d tasks to advance, pin or go round",
-                tasksAlive == 0 ? 0 : 100.0 * tasksIdle / tasksAlive, sentAt), !tasksRan || tasksAlive > 0 && tasksIdle * 50 <= tasksAlive && sentAt > 0);
+        check.check(String.format(Locale.ROOT, "war: with the staff's tasks, the soldiers stand with no foe known and no order %.1f%% of their time%s (2%% at most); %d tasks to advance, pin or go round",
+                tasksAlive == 0 ? 0 : 100.0 * tasksIdle / tasksAlive, whys(tasksWhy), sentAt), !tasksRan || tasksAlive > 0 && tasksIdle * 50 <= tasksAlive && sentAt > 0);
         // C3: bounding, one half at least is in cover facing the enemy most of the time
         // C4: the squad going round comes on the group from its side; before it (C2, C3) as a share too
         long nearFlank = 0, nearWide = 0;
@@ -918,9 +984,11 @@ final class AiCheckWar {
         check.out("     war, task changes within " + FLAP + " ticks by mode:" + fl + " by kind " + flapKinds);
         // flaps were there before C5 (C4b's war, 60 rounds: 110 of 1032 changes, FLAPS_BEFORE: scouting to advancing,
         // falling back out of rounds and back); the reports' answers (most orders now) add none to speak of
-        if (jobChanges > 0) check.check(String.format(Locale.ROOT, "war: a soldier's task changed again within %d ticks of the last %d times of %d (%.1f%%; before C5 %.1f%%, 2 points more"
-                + " at most; %d of them given in answer to a report)", FLAP, flaps, jobChanges, 100.0 * flaps / jobChanges, 100 * FLAPS_BEFORE, flapsAnswered),
-                (double) flaps / jobChanges <= FLAPS_BEFORE + 0.02);
+        // by squads' tasks (each of a squad changes with it), not by soldiers; a help to a squad pinned down no flap; at
+        // most what chance gives at the rate before C5 (flapsAllowed: n changes, k flaps, the most allowed)
+        if (jobChanges > 0) check.check(String.format(Locale.ROOT, "war: a squad's task changed again within %d ticks of the last: n %d, k %d (%.1f%%), %d allowed (%.1f%% before C5,"
+                + " %.0f%% by chance at most); %d of them given in answer to a report; %d sent to help one pinned down, not counted", FLAP, jobChanges, flaps, 100.0 * flaps / jobChanges,
+                flapsAllowed(jobChanges), 100 * FLAPS_BEFORE, 100 * FLAP_LEVEL, flapsAnswered, flapsHelp), flaps <= flapsAllowed(jobChanges));
         if (AiCommander.askedN > 0) check.check(String.format(Locale.ROOT, "war: the staff gives its orders again at most %d ticks after a report (%d most)", AiCommander.ASKED_GAP + AiCommander.LOOK,
                 AiCommander.askedMost), AiCommander.askedMost <= AiCommander.ASKED_GAP + AiCommander.LOOK);
         if (!pinOf.isEmpty()) {

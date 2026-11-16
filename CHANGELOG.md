@@ -1,5 +1,13 @@
 # Changelog
 
+## X1297
+
+- AI squads sent by their commander no longer go round and round the wall of
+  a house with no way in when the place they were sent to is inside it or on
+  its roof: they head for ground at about their own height, give the place up
+  after a few legs that get them no nearer, and do not pick a place they could
+  not reach again.
+
 ## X1293
 
 - A 12 gauge electroshock shell that hits someone already shocked, or in the
