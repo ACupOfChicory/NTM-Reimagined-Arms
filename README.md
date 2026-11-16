@@ -316,6 +316,12 @@ page. They are alphas: expect bugs and back up your world.
   beside a turn, one steps into it and throws a grenade down the next
   stretch, then they go in and search stretch after stretch, instead of
   walking along the edge above it (server key `aiTrenches`).
+- A squad crosses a river to a foe on the far bank by waves: the machine
+  gunner, the marksman and a rifleman or two stay on the bank and keep the
+  foe under fire, one throws smoke onto the far bank, half the squad (four
+  at most) swims over and holds past the bank, then the rest, the machine
+  gunner last. One shot at while swimming, nearer the bank it left, swims
+  back and goes with the next wave (server key `aiCrossing`).
 - A soldier who sees a foe fall forgets it and tells its squad, so none of
   them waits for it or goes after it where it fell (server key
   `aiDownTold`).

@@ -475,6 +475,8 @@ public final class AiSoldier implements AiBrain {
             why = Why.MEDIC;
             return;
         }
+        // a river to cross to a foe: at the water's edge for its wave, or over with it (AiCrossing)
+        if (AiCrossing.step(this, bot, level, tick)) return;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again
@@ -1441,6 +1443,94 @@ public final class AiSoldier implements AiBrain {
         AiVoice.say(level, bot, AiVoice.Line.SMOKE_OUT, tick);
         return true;
     }
+
+    /**
+     * A smoke grenade onto the far bank of a river its squad crosses (AiCrossing): thrown as hard as the way there needs,
+     * if one is left and it may throw now. Whether it threw.
+     */
+    boolean smokeOver(AiBot bot, ServerLevel level, Vec3 at, long tick) {
+        if (!AiSmoke.on || bot.smokes <= 0 || AiWater.swims(bot.mob) || !AiSmoke.ready() || !acup.gunfeel.smoke.SmokeClouds.enabled()) return false;
+        if (tick < throwUntil || bot.gunner.reloading() || !AiGrenades.mayPlan(level, tick)) return false;
+        double force = AiSmoke.force(Math.hypot(at.x - bot.mob.getX(), at.z - bot.mob.getZ()));
+        AiGrenades.Throw th = AiGrenades.plan(level, bot.mob, at, true, 0, force);
+        if (th == null) return false;
+        AiSmoke.toss(level, bot.mob, th, force);
+        bot.smokes--;
+        AiAdapter.keepSmokes(bot);
+        lastSmoke = tick;
+        throwUntil = tick + THROW_TICKS;
+        smoked++;
+        bot.gunner.fire(false);
+        AiVoice.say(level, bot, AiVoice.Line.SMOKE_OUT, tick);
+        event(bot, tick, "smoke onto the far bank for its wave");
+        return true;
+    }
+
+    /**
+     * On its way in its squad's crossing (AiCrossing): to the cell, nothing else; a foe in sight and it not swimming,
+     * it fires as it goes; else it looks where it is told.
+     */
+    void crossing(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what) {
+        if (spot != null) drop(bot);
+        if (bot.mover.failed() && bot.mover.goalIs(cell)) bot.mover.stop();
+        if (!bot.mover.goalIs(cell)) {
+            bot.mover.costs(PathSearch.Cost.NONE);
+            bot.mover.goTo(cell, 0.6, speed);
+            event(bot, tick, what);
+        }
+        mode(bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
+        why = Why.CROSS;
+        TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
+        if (c != null && c.state == TargetMemory.State.VISIBLE && !AiWater.swims(bot.mob)) {
+            Vec3 at = new Vec3(c.x, c.y + 1.1, c.z);
+            watch = at;
+            bot.gunner.aim(at);
+            bot.gunner.fire(true);
+        } else {
+            bot.gunner.fire(false);
+            if (look != null) {
+                watch = look;
+                bot.gunner.aim(look);
+            }
+        }
+    }
+
+    /** the cover's fire in its squad's crossing (AiCrossing): where it stands, at the place, a burst of BURST ticks every BURST_EVERY */
+    void coverFire(AiBot bot, Vec3 at, long tick) {
+        // its own swimming across the line to the foe: at a burst's start the aim goes aside along the far bank, a few
+        // blocks, till the line is clear (fire on the ground about it, not through them)
+        if ((tick + bot.mob.getId()) % COVER_EVERY == 0 && bot.mob.level() instanceof ServerLevel level) {
+            coverAside = 0;
+            Vec3 eye = AiLean.eye(bot.mob);
+            double dx = at.x - eye.x, dz = at.z - eye.z, d = Math.hypot(dx, dz);
+            if (d > 1e-3)
+                for (double k : COVER_ASIDE) {
+                    if (!AiBots.friendInLine(level, bot.mob, eye, at.add(-dz / d * k, 0, dx / d * k), AiGunner.CLEAR_CONE)) {
+                        coverAside = k;
+                        break;
+                    }
+                }
+            coverDx = d > 1e-3 ? -dz / d : 0;
+            coverDz = d > 1e-3 ? dx / d : 0;
+        }
+        at = at.add(coverDx * coverAside, 0, coverDz * coverAside);
+        watch = at;
+        bot.gunner.aim(at);
+        why = Why.CROSS;
+        AiGunner g = bot.gunner;
+        if (g.loaded() == 0 && g.ammo.any()) {
+            g.fire(false);
+            g.reload();
+            return;
+        }
+        g.fire((tick + bot.mob.getId()) % COVER_EVERY < COVER_BURST);
+    }
+
+    /** the cover's bursts in a crossing: this long, ticks, every so many */
+    static final int COVER_BURST = 12, COVER_EVERY = 40;
+    /** where along the far bank, blocks aside of the foe, the cover's aim may go to keep its own out of the line */
+    private static final double[] COVER_ASIDE = {0, 2, -2, 4, -4, 6, -6};
+    private double coverAside, coverDx, coverDz;
 
     private static boolean noSmoke(int why) {
         AiSmoke.skipped[why]++;

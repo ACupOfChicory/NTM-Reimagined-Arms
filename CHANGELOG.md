@@ -1,5 +1,14 @@
 # Changelog
 
+## X1202
+
+- A squad crosses a river to a foe on the far bank by waves: the machine
+  gunner, the marksman and a rifleman or two keep the foe under fire from the
+  bank, one throws smoke onto the far bank, half the squad (four at most)
+  swims over and holds past the bank, then the rest, the machine gunner last.
+  One shot at while swimming on the near half turns back and goes with the
+  next wave. Server setting `aiCrossing` (on).
+
 ## X1194
 
 - Being shot at by many AI soldiers costs much less frame time. NTM drew every

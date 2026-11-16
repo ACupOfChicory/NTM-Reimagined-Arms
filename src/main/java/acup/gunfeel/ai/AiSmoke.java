@@ -107,8 +107,18 @@ public final class AiSmoke {
 
     /** thrown by the mob with this turn, FORCE hard */
     static void toss(ServerLevel level, Mob m, AiGrenades.Throw t) {
-        AiGrenades.launch(level, m, t, item(t.yaw()), FORCE / EnumGrenadeShell.FRAG.getYeetForce());
+        toss(level, m, t, FORCE);
+    }
+
+    /** thrown this hard (across a river: AiCrossing) */
+    static void toss(ServerLevel level, Mob m, AiGrenades.Throw t, double force) {
+        AiGrenades.launch(level, m, t, item(t.yaw()), force / EnumGrenadeShell.FRAG.getYeetForce());
         thrown++;
+    }
+
+    /** as hard as it must be thrown to burst this far off: FORCE to MAX blocks, harder farther (a throw's reach grows with the square of its speed), a frag's at most */
+    static double force(double far) {
+        return Mth.clamp(FORCE * Math.sqrt(far / MAX), FORCE, EnumGrenadeShell.FRAG.getYeetForce());
     }
 
     /**
