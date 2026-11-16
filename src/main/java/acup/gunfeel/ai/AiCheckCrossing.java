@@ -20,7 +20,8 @@ import net.minecraft.world.phys.Vec3;
  * deep, its ends walled (no way round). Two of one team hold the north bank (they do not walk): one in a stone hut
  * whose door is on its far side (out of reach from the south bank: the bank is taken when it is down), one behind a
  * wall a block high before it, firing on the river, hurt by none further off than {@link #REACH} (fire from the south
- * bank cannot put it down: those over the river can); the one in the hut heard now and then; a squad of six of another, a machine
+ * bank cannot put it down: those over the river can), watching the river (the nearest of the squad seen now and then);
+ * the one in the hut heard now and then; a squad of six of another, a machine
  * gunner with five riflemen, a smoke grenade each, on the south bank, know where they are. Rounds by twos, aiCrossing off (before: none begins a swim under fire, one not under fire swims
  * as it will) and on (by waves, covered, behind smoke). Counted: whether the bank was taken and when, who of the squad
  * is left, who went down in the water, who got over, the most swimming at once, the share of the ticks one swam with
@@ -88,6 +89,12 @@ final class AiCheckCrossing {
         ticks++;
         if (ticks % HEARD == 0 && held.get(0).isAlive())
             for (Mob m : squad) if (m.isAlive() && AiBots.get(m) instanceof AiBot b) b.memory.heard(HUT_X + 0.5, y, HUT_Z + 0.5, level.getGameTime(), true, false);
+        // the one at the wall watches the river: the nearest of the squad is seen now and then (it keeps them under fire)
+        if (ticks % HEARD == 0 && shooter.isAlive() && AiBots.get(shooter) instanceof AiBot sb) {
+            Mob near = null;
+            for (Mob m : squad) if (m.isAlive() && (near == null || m.distanceToSqr(shooter) < near.distanceToSqr(shooter))) near = m;
+            if (near != null) sb.memory.seen(near.getId(), near.getX(), near.getY(), near.getZ(), level.getGameTime(), 0);
+        }
         int swimming = 0, left = 0, foes = 0;
         boolean bankFires = false;
         for (int i = 0; i < squad.size(); i++) {
