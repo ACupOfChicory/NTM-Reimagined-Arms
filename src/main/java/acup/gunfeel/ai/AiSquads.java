@@ -20,7 +20,7 @@ import net.minecraft.world.phys.Vec3;
  * them move at a time, at most two go after one lost target. One with a machine gun among riflemen is the squad's
  * base of fire (AiRole): it stays and fires. A mob alone, or with this off, fights as before.
  * Squads are made again every {@link #EVERY} ticks: the AI mobs of one team (or of none) within {@link #NEAR} blocks
- * of one another, chained, {@link #MAX} at most. No word goes between them: each acts on what it knows itself.
+ * of one another (a base of fire {@link #BASE_REACH} times as far), chained, {@link #MAX} at most. No word goes between them: each acts on what it knows itself.
  * Server thread.
  */
 public final class AiSquads {
@@ -100,7 +100,8 @@ public final class AiSquads {
         boolean[] taken = new boolean[free.size()];
         for (int i = 0; i < free.size(); i++) {
             if (taken[i]) continue;
-            // grown from this one: the nearest of its side within NEAR of any already in, MAX at most
+            // grown from this one: the nearest of its side within NEAR of any already in (a base of fire within
+            // BASE_REACH times NEAR), MAX at most
             Squad s = new Squad();
             AiBot seed = free.get(i);
             taken[i] = true;
@@ -111,8 +112,9 @@ public final class AiSquads {
                 double bestD = NEAR * NEAR;
                 for (int j = 0; j < free.size(); j++) {
                     if (taken[j] || !team.equals(teams.get(j))) continue;
+                    boolean jBase = AiRole.of(free.get(j)) == AiRole.BASE;
                     for (AiBot in : s.bots) {
-                        double d = apart(in.mob.distanceToSqr(free.get(j).mob), AiRole.of(in) == AiRole.BASE || AiRole.of(free.get(j)) == AiRole.BASE);
+                        double d = apart(in.mob.distanceToSqr(free.get(j).mob), jBase || AiRole.of(in) == AiRole.BASE);
                         if (d <= bestD) {
                             bestD = d;
                             best = j;
