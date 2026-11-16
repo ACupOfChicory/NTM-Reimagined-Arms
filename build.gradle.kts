@@ -305,7 +305,13 @@ neoForge {
             systemProperty("ntmgunfeel.fireStand","true")
             systemProperty("ntmgunfeel.fireStandCases",providers.gradleProperty("fireStand").orElse("dns:32:fire").get())
             systemProperty("ntmgunfeel.fireStandFile",root.resolve("notes/perf/fire-stand/$label.tsv").path)
-            if(providers.gradleProperty("fireStandJfr").isPresent) jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/perf/fire-stand/$label.jfr").path},settings=profile,dumponexit=true")
+            // as the game runs for players: no GL validation of every pass (NeoForge's dev default), see FireStand.start
+            systemProperty("neoforge.disableGlValidation","true")
+            // -PfireStandJfc=<file.jfc>: the recording's settings instead of `profile`, stacks 256 deep
+            if(providers.gradleProperty("fireStandJfr").isPresent) {
+                jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/perf/fire-stand/$label.jfr").path},settings=${providers.gradleProperty("fireStandJfc").orElse("profile").get()},dumponexit=true")
+                jvmArgument("-XX:FlightRecorderOptions=stackdepth=256")
+            }
             systemProperty("MC_DEBUG_ENABLED","true")
             systemProperty("MC_DEBUG_PREFER_WAYLAND","true")
             programArguments.addAll("--width","1280","--height","800")

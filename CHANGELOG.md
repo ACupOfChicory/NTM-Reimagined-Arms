@@ -1,5 +1,10 @@
 # Changelog
 
+## X1236
+
+- Less CPU per frame with many AI soldiers on screen: a soldier's pose is
+  worked out once a frame instead of once for its body and each armour piece.
+
 ## X1231
 
 - AI soldiers looking round as sentries notice a foe in front of them again,
