@@ -1,5 +1,13 @@
 # Changelog
 
+## X1165
+
+- AI soldiers now also go into trenches two wide, and count a fire step as
+  part of its stretch.
+- An AI soldier running from a grenade now counts a place as behind cover
+  only if all of it is hidden from the blast, so it no longer stops just
+  round a trench's corner a block and a half from the grenade.
+
 ## X1163
 
 - AI squads sent by their side's commander go along its ways as soldiers

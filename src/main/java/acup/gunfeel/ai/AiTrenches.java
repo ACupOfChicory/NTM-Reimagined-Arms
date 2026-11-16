@@ -9,11 +9,12 @@ import net.minecraft.core.BlockPos;
 
 /**
  * A trench read off the cells as a building's rooms and ways (stage 6, T6), so that it is gone into and searched as a
- * building is (AiEntry, AiClearing): a run of cells one wide under the open sky with a wall at head height on both
- * sides. A straight stretch of it is a room; a turn (a cell gone into one way and out of another) is a way between the
- * two stretches it joins, and where three or more stretches meet, the cell they meet at is a room of its own with a
- * way at the mouth of each. From a stretch, beside its turn, the next one is round the corner behind the wall: they
- * stack up there, one steps out into the turn, throws a grenade down the next stretch and they go in, as at a doorway.
+ * building is (AiEntry, AiClearing): cells one or two wide under the open sky, sunk below the ground round them. A
+ * straight stretch of it is a room, with the fire steps along it; a turn (where the trench goes on both east-west and
+ * north-south: a cell in a trench one wide, a square of four in one two wide) is a way between the stretches it joins,
+ * each two of them where three or four meet. From a stretch, beside its turn, the next one is round the corner behind
+ * the wall: they stack up there, one steps out into the turn, throws a grenade down the next stretch and they go in,
+ * as at a doorway.
  * No block is read, only cells and voxel bytes, so it runs off the server thread as AiRooms does.
  */
 public final class AiTrenches {
@@ -48,23 +49,48 @@ public final class AiTrenches {
         }
     }
 
-    /** a wall at head height the way d from the cell: no mob walks through it at the head, none sees through it */
-    private static boolean wall(CellSource src, int x, int y, int z, int d) {
-        int v = src.voxel(x + Dirs.DX[d], y + 1, z + Dirs.DZ[d]);
-        return !Voxel.open(v) && Voxel.sight(v);
+    /** a wall at this column: at the cell's head height 2 (no mob walks through it at the head, none sees through it), at its feet only 1 (a fire step), none 0 */
+    private static int wall(CellSource src, int x, int y, int z) {
+        int v = src.voxel(x, y + 1, z);
+        if (!Voxel.open(v) && Voxel.sight(v)) return 2;
+        v = src.voxel(x, y, z);
+        return !Voxel.open(v) && Voxel.sight(v) ? 1 : 0;
     }
 
+    /** of the 24 columns round a cell (five by five), walls worth this much at least (a wall at head height 2, at the feet 1); next to such a cell, this much */
+    static final int WALLED = 22, EDGED = 14;
+
     /**
-     * a cell of a trench one wide: stood in, under the open sky, and at each of its four corners a wall at head height,
-     * at the corner or at one side of it (a stretch, a turn, where three or four meet, the cell past a turn: the trench
-     * goes on only straight out of it); on open ground, by one wall, at a house's corner, in a trench two wide a
-     * corner is open with both its sides
+     * a cell of a trench one or two wide: stood in, under the open sky, sunk below the ground round it (the columns round
+     * it walled at its head height, a fire step at its feet half: a stretch one wide about 40, two wide 30, two wide with
+     * a fire step 25, a turn or where three meet 22 to 34; open ground none, beside a wall 10, in an alley three wide 20,
+     * at the foot of a slope one up a block 15); or less sunk (the inside corner of a turn two wide, with a fire step
+     * by it 20) next to such a cell
      */
     static boolean sunk(PathSearch.Reader r, int x, int y, int z) {
-        if (!r.has(x, y, z) || (r.flags(x, y, z) & SectionCells.ROOF) != 0) return false;
-        for (int d = Dirs.NE; d < 8; d += 2)
-            if (!wall(r.src, x, y, z, d) && !wall(r.src, x, y, z, d - 1) && !wall(r.src, x, y, z, (d + 1) & 7)) return false;
-        return true;
+        int w = walls(r, x, y, z);
+        if (w >= WALLED) return true;
+        if (w < EDGED) return false;
+        for (int d : CARDINAL) if (walls(r, x + Dirs.DX[d], y, z + Dirs.DZ[d]) >= WALLED) return true;
+        return false;
+    }
+
+    /** the walls round a cell stood in under the open sky (as sunk counts them); -1 for no such cell */
+    private static int walls(PathSearch.Reader r, int x, int y, int z) {
+        if (!r.has(x, y, z) || (r.flags(x, y, z) & SectionCells.ROOF) != 0) return -1;
+        int walls = 0;
+        for (int dx = -2; dx <= 2; dx++)
+            for (int dz = -2; dz <= 2; dz++)
+                if (dx != 0 || dz != 0) walls += wall(r.src, x + dx, y, z + dz);
+        return walls;
+    }
+
+    /** a cell one up from the trench's floor the way d with a wall at its feet beyond it: a fire step, fired from over the wall */
+    private static boolean step(PathSearch.Reader r, long from, long next, int d) {
+        int nx = BlockPos.getX(next), ny = BlockPos.getY(next), nz = BlockPos.getZ(next);
+        if (ny != BlockPos.getY(from) + 1 || (r.flags(nx, ny, nz) & SectionCells.ROOF) != 0) return false;
+        int v = r.src.voxel(nx + Dirs.DX[d], ny, nz + Dirs.DZ[d]);
+        return !Voxel.open(v) && Voxel.sight(v);
     }
 
     /** the reading itself: what it throws goes to the caller (the tests) */
@@ -72,12 +98,14 @@ public final class AiTrenches {
         PathSearch.Reader r = new PathSearch.Reader(src);
         int sx = BlockPos.getX(seed), sy = BlockPos.getY(seed), sz = BlockPos.getZ(seed);
         if (!sunk(r, sx, sy, sz)) return null;
-        // the trench's cells joined to the seed
+        // the trench's cells joined to the seed; the fire steps beside them
         LongArrayList cells = new LongArrayList();
         Long2IntOpenHashMap index = new Long2IntOpenHashMap();
         index.defaultReturnValue(-1);
         cells.add(seed);
         index.put(seed, 0);
+        Long2IntOpenHashMap steps = new Long2IntOpenHashMap(); // a fire step: the trench's cell it is stepped up to from
+        steps.defaultReturnValue(-1);
         boolean cut = false;
         for (int head = 0; head < cells.size(); head++) {
             long c = cells.getLong(head);
@@ -86,7 +114,10 @@ public final class AiTrenches {
                 long next = PathSearch.step(r, x, y, z, d);
                 if (next == PathSearch.NONE || index.get(next) >= 0) continue;
                 int nx = BlockPos.getX(next), ny = BlockPos.getY(next), nz = BlockPos.getZ(next);
-                if (!sunk(r, nx, ny, nz)) continue;
+                if (!sunk(r, nx, ny, nz)) {
+                    if (step(r, c, next, d) && !steps.containsKey(next)) steps.put(next, head);
+                    continue;
+                }
                 if (Math.abs(nx - sx) > reach || Math.abs(nz - sz) > reach || cells.size() >= most) {
                     cut = true;
                     continue;
@@ -97,93 +128,75 @@ public final class AiTrenches {
         }
         int total = cells.size();
         if (total < LEAST) return null;
-        // each cell's neighbours in the trench, by CARDINAL; and no trench two wide (a square of four cells): that is read
-        // as none here (a stretch two wide has no turn to stack up beside)
+        // each cell's neighbours in the trench, by CARDINAL
         int[][] near = new int[total][4];
-        int[] deg = new int[total];
         for (int i = 0; i < total; i++) {
             long c = cells.getLong(i);
             int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
             for (int k = 0; k < 4; k++) {
                 long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
                 near[i][k] = next == PathSearch.NONE ? -1 : index.get(next);
-                if (near[i][k] >= 0) deg[i]++;
             }
         }
-        for (int i = 0; i < total; i++)
-            for (int k = 0; k < 4; k++) {
-                int a = near[i][k], b = near[i][(k + 1) & 3];
-                if (a >= 0 && b >= 0 && (near[a][(k + 1) & 3] >= 0 || near[b][k] >= 0)) return null;
-            }
-
-        // the ways: a turn (two neighbours, not across from each other); a cell straight on next to where three or more
-        // stretches meet (the mouth of a stretch there). A way's two sides: its two neighbours
-        boolean[] way = new boolean[total];
-        int[][] sides = new int[total][];
+        // three wide anywhere (a square of nine): no trench this reads
         for (int i = 0; i < total; i++) {
-            if (deg[i] != 2) continue;
-            int p = -1, q = -1, kp = -1, kq = -1;
-            for (int k = 0; k < 4; k++) {
-                if (near[i][k] < 0) continue;
-                if (p < 0) {
-                    p = near[i][k];
-                    kp = k;
-                } else {
-                    q = near[i][k];
-                    kq = k;
-                }
-            }
-            boolean turn = (kq - kp) != 2;
-            boolean mouth = !turn && (deg[p] >= 3 || deg[q] >= 3);
-            if (!turn && !mouth) continue;
-            way[i] = true;
-            sides[i] = new int[] {p, q};
+            long c = cells.getLong(i);
+            boolean nine = true;
+            for (int a = 0; a < 3 && nine; a++)
+                for (int b = 0; b < 3 && nine; b++) nine = index.get(BlockPos.asLong(BlockPos.getX(c) + a, BlockPos.getY(c), BlockPos.getZ(c) + b)) >= 0;
+            if (nine) return null;
         }
-        // a way with a way at a side (a zigzag of turns one after another, a mouth at a turn) is no way: all such cells go
-        // into the stretches at once, so the trench is cut the same whichever cell it was read from
-        boolean[] drop = new boolean[total];
-        for (int i = 0; i < total; i++) drop[i] = way[i] && (way[sides[i][0]] || way[sides[i][1]]);
-        for (int i = 0; i < total; i++) if (drop[i]) way[i] = false;
 
-        // the rooms: the cells in no way, joined
-        int[] room = new int[total];
-        java.util.Arrays.fill(room, AiRooms.OUTSIDE);
-        java.util.List<int[]> sum = new java.util.ArrayList<>(); // {count, sum x, sum y, sum z}
-        int[] stack = new int[total];
+        // a turn's cells: the trench goes on three cells at least through the cell both east-west and north-south (where
+        // one stretch turns into another, or three or four meet: one cell in a trench one wide, a square of four in one
+        // two wide); a stretch's cells go on so one way only (across a stretch two wide is two)
+        boolean[] turn = new boolean[total];
+        for (int i = 0; i < total; i++) turn[i] = run(near, i, 1) >= 3 && run(near, i, 0) >= 3;
+
+        // the rooms: the cells in no turn, joined; the turns: their cells joined
+        int[] room = new int[total], bend = new int[total];
+        int rooms = flood(near, turn, false, room), bends = flood(near, turn, true, bend);
+        // the stretches each turn joins, and from where: {room, the room's cell, the turn's cell, the direction from it into the room}
+        java.util.List<java.util.List<int[]>> joins = new java.util.ArrayList<>();
+        for (int t = 0; t < bends; t++) joins.add(new java.util.ArrayList<>());
         for (int i = 0; i < total; i++) {
-            if (way[i] || room[i] != AiRooms.OUTSIDE) continue;
-            int id = sum.size(), top = 0;
-            int[] s = new int[4];
-            stack[top++] = i;
-            room[i] = id;
-            while (top > 0) {
-                int c = stack[--top];
-                long at = cells.getLong(c);
-                s[0]++;
-                s[1] += BlockPos.getX(at);
-                s[2] += BlockPos.getY(at);
-                s[3] += BlockPos.getZ(at);
-                for (int k = 0; k < 4; k++) {
-                    int n = near[c][k];
-                    if (n < 0 || way[n] || room[n] != AiRooms.OUTSIDE) continue;
-                    room[n] = id;
-                    stack[top++] = n;
-                }
+            if (!turn[i]) continue;
+            for (int k = 0; k < 4; k++) {
+                int n = near[i][k];
+                if (n >= 0 && !turn[n]) joins.get(bend[i]).add(new int[] {room[n], n, i, CARDINAL[k]});
             }
-            sum.add(s);
         }
-        int rooms = sum.size();
+        // a turn that joins one stretch only (the end of a trench, round a loop): its cells are the stretch's
+        for (int i = 0; i < total; i++) {
+            if (!turn[i]) continue;
+            java.util.List<int[]> j = joins.get(bend[i]);
+            int only = j.isEmpty() ? AiRooms.OUTSIDE : j.get(0)[0];
+            boolean one = !j.isEmpty();
+            for (int[] e : j) one &= e[0] == only;
+            if (one) room[i] = only;
+        }
+        if (rooms == 0) return null;
+
         int[] size = new int[rooms];
+        long[] sumX = new long[rooms], sumY = new long[rooms], sumZ = new long[rooms];
+        for (int i = 0; i < total; i++) {
+            int id = room[i];
+            if (id < 0) continue;
+            long at = cells.getLong(i);
+            size[id]++;
+            sumX[id] += BlockPos.getX(at);
+            sumY[id] += BlockPos.getY(at);
+            sumZ[id] += BlockPos.getZ(at);
+        }
         long[] mid = new long[rooms];
         double[] best = new double[rooms];
         java.util.Arrays.fill(best, Double.MAX_VALUE);
         for (int i = 0; i < total; i++) {
             int id = room[i];
             if (id < 0) continue;
-            int[] s = sum.get(id);
-            size[id] = s[0];
             long at = cells.getLong(i);
-            double dx = BlockPos.getX(at) - (double) s[1] / s[0], dy = BlockPos.getY(at) - (double) s[2] / s[0], dz = BlockPos.getZ(at) - (double) s[3] / s[0];
+            double dx = BlockPos.getX(at) - (double) sumX[id] / size[id], dy = BlockPos.getY(at) - (double) sumY[id] / size[id],
+                    dz = BlockPos.getZ(at) - (double) sumZ[id] / size[id];
             double d = dx * dx + dy * dy * 4 + dz * dz;
             if (d < best[id]) {
                 best[id] = d;
@@ -192,27 +205,19 @@ public final class AiTrenches {
         }
 
         java.util.List<AiRooms.Way> ways = new java.util.ArrayList<>();
-        for (int i = 0; i < total; i++) {
-            if (!way[i]) continue;
-            int p = sides[i][0], q = sides[i][1], a = room[p], b = room[q];
-            if (a == b) {
-                // round a loop: it parts nothing, its cell is the stretch's
-                room[i] = a;
-                size[a]++;
-                continue;
-            }
-            long at = cells.getLong(i), pa = cells.getLong(p), qa = cells.getLong(q);
-            int dir = toward(pa, at), out = toward(at, qa);
-            // the cells to stack up at: each side's own cell next to the way, then on back along its stretch
-            long farA = back(near, cells, room, p, Dirs.opposite(dir)), farB = back(near, cells, room, q, out);
-            long far2A = back(near, cells, room, index.get(farA), Dirs.opposite(dir)), far2B = back(near, cells, room, index.get(farB), out);
-            AiRooms.Way w = new AiRooms.Way(new long[] {at}, dir, a, b, 1, false, new long[] {pa}, new long[] {qa});
-            w.farA = new long[] {farA};
-            w.farB = new long[] {farB};
-            w.far2A = new long[] {far2A};
-            w.far2B = new long[] {far2B};
-            if (out != dir) w.turn = out;
-            ways.add(w);
+        for (int t = 0; t < bends; t++) {
+            java.util.List<int[]> j = joins.get(t);
+            java.util.TreeSet<Integer> by = new java.util.TreeSet<>();
+            for (int[] e : j) by.add(e[0]);
+            if (by.size() < 2) continue;
+            LongArrayList at = new LongArrayList();
+            for (int i = 0; i < total; i++) if (turn[i] && bend[i] == t && room[i] < 0) at.add(cells.getLong(i));
+            Integer[] rs = by.toArray(new Integer[0]);
+            for (int x = 0; x < rs.length; x++)
+                for (int y = x + 1; y < rs.length; y++) {
+                    AiRooms.Way w = way(j, rs[x], rs[y], at.toLongArray(), near, cells, index, room);
+                    if (w != null) ways.add(w);
+                }
         }
         // a trench is gone into from above anywhere: each stretch has a way out, with no place beside it (no stacking up
         // at it), so the search reaches every stretch from outside
@@ -223,19 +228,129 @@ public final class AiTrenches {
         Long2IntOpenHashMap roomOf = new Long2IntOpenHashMap();
         roomOf.defaultReturnValue(AiRooms.OUTSIDE);
         for (int i = 0; i < total; i++) if (room[i] >= 0) roomOf.put(cells.getLong(i), room[i]);
+        // the fire steps: the stretch's of the trench's cells next to it, below (the least numbered of them, whichever
+        // cell it was found from)
+        for (long st : steps.keySet()) {
+            if (roomOf.containsKey(st)) continue;
+            int id = Integer.MAX_VALUE;
+            for (int d : CARDINAL) {
+                int i = index.get(BlockPos.asLong(BlockPos.getX(st) + Dirs.DX[d], BlockPos.getY(st) - 1, BlockPos.getZ(st) + Dirs.DZ[d]));
+                if (i >= 0 && room[i] >= 0) id = Math.min(id, room[i]);
+            }
+            if (id == Integer.MAX_VALUE) continue;
+            roomOf.put(st, id);
+            size[id]++;
+        }
         return new AiRooms.Plan(size, mid, ways.toArray(new AiRooms.Way[0]), cut, roomOf, kind, new long[0], new long[0], new AiRooms.Window[0]);
     }
 
-    /** the cardinal direction from a cell to the one next to it */
-    private static int toward(long from, long to) {
-        int dx = BlockPos.getX(to) - BlockPos.getX(from), dz = BlockPos.getZ(to) - BlockPos.getZ(from);
-        for (int d : CARDINAL) if (Dirs.DX[d] == dx && Dirs.DZ[d] == dz) return d;
-        throw new IllegalStateException("not next to each other: " + BlockPos.of(from) + " " + BlockPos.of(to));
+    /** the cells in a row through cell i along an axis (0 north-south, 1 east-west), it with them */
+    private static int run(int[][] near, int i, int axis) {
+        int n = 1;
+        for (int k = axis; k < 4; k += 2)
+            for (int c = near[i][k], guard = 0; c >= 0 && guard < near.length; c = near[c][k], guard++) n++;
+        return n;
     }
 
-    /** the cell after cell i the way d in the same room, or cell i itself where there is none */
-    private static long back(int[][] near, LongArrayList cells, int[] room, int i, int d) {
-        int k = d / 2, n = near[i][k];
-        return n >= 0 && room[n] == room[i] ? cells.getLong(n) : cells.getLong(i);
+    /** the cells that are (in) or are not turns, joined, numbered into id (-1 for the others); how many */
+    private static int flood(int[][] near, boolean[] turn, boolean in, int[] id) {
+        java.util.Arrays.fill(id, AiRooms.OUTSIDE);
+        int[] stack = new int[near.length];
+        int count = 0;
+        for (int i = 0; i < near.length; i++) {
+            if (turn[i] != in || id[i] != AiRooms.OUTSIDE) continue;
+            int top = 0;
+            stack[top++] = i;
+            id[i] = count;
+            while (top > 0) {
+                int c = stack[--top];
+                for (int k = 0; k < 4; k++) {
+                    int n = near[c][k];
+                    if (n < 0 || turn[n] != in || id[n] != AiRooms.OUTSIDE) continue;
+                    id[n] = count;
+                    stack[top++] = n;
+                }
+            }
+            count++;
+        }
+        return count;
+    }
+
+    /**
+     * The way through a turn from stretch a to stretch b: its cells (in order along it, from a); beside it at each end
+     * the stretch's cells next to the turn, then on back along the stretch; the direction into it from a, and out of it
+     * into b where that is another (a turn), with the cell of it one steps out to to throw into each.
+     */
+    private static AiRooms.@Nullable Way way(java.util.List<int[]> joins, int a, int b, long[] at, int[][] near, LongArrayList cells, Long2IntOpenHashMap index, int[] room) {
+        LongArrayList besideA = new LongArrayList(), besideB = new LongArrayList();
+        int dir = -1, out = -1;
+        for (int[] e : joins) {
+            if (e[0] == a && (dir < 0 || Dirs.opposite(e[3]) == dir)) {
+                dir = Dirs.opposite(e[3]);
+                if (!besideA.contains(cells.getLong(e[1]))) besideA.add(cells.getLong(e[1]));
+            } else if (e[0] == b && (out < 0 || e[3] == out)) {
+                out = e[3];
+                if (!besideB.contains(cells.getLong(e[1]))) besideB.add(cells.getLong(e[1]));
+            }
+        }
+        if (dir < 0 || out < 0 || at.length == 0) return null;
+        // its cells from a's end to b's
+        final int d0 = dir;
+        long[] order = java.util.Arrays.stream(at).boxed()
+                .sorted(java.util.Comparator.comparingInt(c -> BlockPos.getX(c) * Dirs.DX[d0] + BlockPos.getZ(c) * Dirs.DZ[d0])).mapToLong(Long::longValue).toArray();
+        AiRooms.Way w = new AiRooms.Way(order, dir, a, b, Math.max(besideA.size(), besideB.size()), false, besideA.toLongArray(), besideB.toLongArray());
+        w.farA = further(w.besideA, Dirs.opposite(dir), near, cells, index, room);
+        w.far2A = further(w.farA, Dirs.opposite(dir), near, cells, index, room);
+        w.farB = further(w.besideB, out, near, cells, index, room);
+        w.far2B = further(w.farB, out, near, cells, index, room);
+        if (out != dir) {
+            w.turn = out;
+            w.frontB = front(at, w.besideA, Dirs.opposite(dir), out, b, index, room);
+            w.frontA = front(at, w.besideB, out, Dirs.opposite(dir), a, index, room);
+        }
+        return w;
+    }
+
+    /**
+     * Of a turn's cells, the one to throw from into the room the way into: next to the other room's cells beside it
+     * (one steps out to it from there), with that room straight on from it the way in, the nearest of them to it; the
+     * first next to them where none is.
+     */
+    private static long front(long[] at, long[] stack, int back, int into, int target, Long2IntOpenHashMap index, int[] room) {
+        long first = at[0], best = AiRooms.Way.NONE;
+        boolean found = false;
+        int nearest = Integer.MAX_VALUE;
+        for (long c : at) {
+            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            long behind = BlockPos.asLong(x + Dirs.DX[back], y, z + Dirs.DZ[back]);
+            boolean next = false;
+            for (long s : stack) next |= s == behind;
+            if (!next) continue;
+            if (!found) {
+                first = c;
+                found = true;
+            }
+            for (int k = 1; k <= 3; k++) {
+                int i = index.get(BlockPos.asLong(x + Dirs.DX[into] * k, y, z + Dirs.DZ[into] * k));
+                if (i < 0) break;
+                if (room[i] == target && k < nearest) {
+                    nearest = k;
+                    best = c;
+                }
+            }
+        }
+        return best != AiRooms.Way.NONE ? best : first;
+    }
+
+    /** for each cell, the next one on the way d in the same room, or itself where there is none */
+    private static long[] further(long[] from, int d, int[][] near, LongArrayList cells, Long2IntOpenHashMap index, int[] room) {
+        long[] out = from.clone();
+        for (int i = 0; i < out.length; i++) {
+            int c = index.get(from[i]);
+            if (c < 0) continue;
+            int n = near[c][d / 2];
+            if (n >= 0 && room[n] == room[c]) out[i] = cells.getLong(n);
+        }
+        return out;
     }
 }
