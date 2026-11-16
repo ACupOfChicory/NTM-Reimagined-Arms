@@ -188,7 +188,9 @@ public final class AiCommander {
          * its last leg went
          */
         double coverX, coverZ, coverTo, legX = Double.NaN, legZ = Double.NaN;
-        long coverCell = Long.MIN_VALUE, coverSince = Long.MIN_VALUE, halfSince = Long.MIN_VALUE;
+        long coverCell = Long.MIN_VALUE, coverSince = Long.MIN_VALUE, halfSince = Long.MIN_VALUE, badCell = Long.MIN_VALUE;
+        /** its last walk was a leg of the bounds or rushes (one that fails is theirs to see to) */
+        boolean moveLeg;
         /** its half of the squad's bounds, for which of them (the mode's start) */
         int coverTurn, half;
         boolean covered;
@@ -892,6 +894,13 @@ public final class AiCommander {
             boolean moves = o.job != null && StaffMove.on();
             if (moves) StaffMove.update(level, o, tick);
             boolean stuck = bot.mover.failed();
+            // a leg of its squad's bounds or rushes that could not be walked (a cover cell out of reach): for those to
+            // see to (StaffMove), not counted against the order or the way
+            boolean coverStuck = stuck && o.moveLeg;
+            if (coverStuck) {
+                stuck = false;
+                o.moveLeg = false;
+            }
             // a leg that could not be walked (the map not built that far yet, or no way): counted only when it is no
             // nearer than at the last one
             if (stuck) {
@@ -923,7 +932,7 @@ public final class AiCommander {
                         o.walked = o.way;
                         o.way = null;
                     } else {
-                        StaffMove.Leg leg = moves ? StaffMove.leg(bot, level, o, way, tick) : null;
+                        StaffMove.Leg leg = moves ? StaffMove.leg(bot, level, o, way, tick, coverStuck) : null;
                         if (leg != null) {
                             leg(bot, level, o, leg, stuck, o.at != was, tick);
                             return true;
@@ -932,8 +941,9 @@ public final class AiCommander {
                             if (bot.mover.arrived()) o.fails = 0;
                             o.nextLeg = tick + LEG_AGAIN;
                             double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of > 1 ? 3 : 0;
-                            go(bot, level, way.x(o.at) + Math.cos(a) * spread, way.z(o.at) + Math.sin(a) * spread, AiSoldier.WALK);
+                            go(bot, level, way.x(o.at) + Math.cos(a) * spread, way.z(o.at) + Math.sin(a) * spread, moves ? StaffMove.speed(o) : AiSoldier.WALK);
                         }
+                        if (moves) StaffMove.pace(bot, o, tick);
                         return true;
                     }
                 }
@@ -949,10 +959,7 @@ public final class AiCommander {
                 go(bot, level, bot.mob.getX() + Math.cos(along) * step + Math.cos(a) * spread, bot.mob.getZ() + Math.sin(along) * step + Math.sin(a) * spread,
                         moves ? StaffMove.speed(o) : AiSoldier.WALK);
             }
-            if (moves) {
-                StaffMove.storm(bot, o, tick);
-                if (o.job.move.mode == StaffMove.Mode.CREEP && bot.brain instanceof AiSoldier s) s.crouch(true);
-            }
+            if (moves) StaffMove.pace(bot, o, tick);
             return true;
         }
         o.lastInside = tick;
@@ -1010,6 +1017,7 @@ public final class AiCommander {
             bot.mover.goTo(leg.cell(), 0.35, leg.speed());
             if (bot.mob.isAlive()) bot.gunner.aim(new net.minecraft.world.phys.Vec3(leg.x(), BlockPos.getY(leg.cell()) + 1.5, leg.z()));
         }
+        o.moveLeg = true;
     }
 
     /** a walk (a run, a creep) to the ground at x, z (where the chunk there is not loaded: at its own height) */
@@ -1018,6 +1026,7 @@ public final class AiCommander {
         int y = level.hasChunk(bx >> 4, bz >> 4) ? level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz) : bot.mob.getBlockY();
         bot.mover.costs(PathSearch.Cost.NONE);
         bot.mover.goTo(BlockPos.asLong(bx, y, bz), 2, speed);
+        if (bot.order != null) bot.order.moveLeg = false;
         if (bot.mob.isAlive()) bot.gunner.aim(new net.minecraft.world.phys.Vec3(x, y + 1.5, z));
     }
 

@@ -195,7 +195,8 @@ final class AiCheckWar {
                 if (b != null && m.isAlive() && b.order != null && b.order.job != null && AiCommander.has(b, now)) jobs.add(b.order.job);
             }
             for (AiCommander.Job j : jobs) {
-                if (j.move.mode == null) continue;
+                // a squad at its task's place stands there, its last mode left over
+                if (j.move.mode == null || j.there) continue;
                 modeTicks[j.move.mode.ordinal()]++;
                 // bounding out of a fight (in one the soldiers fight from cover of their own: C4, C5)
                 if (j.move.mode == StaffMove.Mode.BOUND && j.move.turn > 0 && StaffMove.quiet(j)) {

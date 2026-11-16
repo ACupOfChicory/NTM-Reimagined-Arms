@@ -1,6 +1,6 @@
 # Changelog
 
-## X1145
+## X1146
 
 - AI squads sent by their side's commander go along its ways as soldiers
   would. Far off and out of the enemy's sight they march in file at a run.

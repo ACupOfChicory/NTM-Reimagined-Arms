@@ -51,6 +51,8 @@ final class StaffMove {
     static final double COVER_R = 8, AT_COVER = 1.5;
     /** a place with no cover found (the open): there this near (a walk's end, AiCommander.go) */
     static final double AT_PLACE = 2.5;
+    /** held on the cover cell this near its middle */
+    static final double ON_CELL = 0.6;
     /** a bound's end with no cover round it: tried again this much nearer and farther along the way */
     static final double TRY = 6;
     /** a bound: the half going waits this long at most for the other to be in its cover, ticks */
@@ -193,7 +195,8 @@ final class StaffMove {
         HqGrid grid = AiHqMap.of(level, team);
         int i = grid == null ? -1 : grid.cellX(mx), k = grid == null ? -1 : grid.cellZ(mz);
         boolean seen = i >= 0 && k >= 0 && grid.seen(i, k) > 0.5;
-        Mode m = mode(foe, seen, j.kind == StaffPlan.Kind.ADVANCE, Math.hypot(o.x - mx, o.z - mz) - o.r * 0.5);
+        // falling back: at a run, never creeping
+        Mode m = j.kind == StaffPlan.Kind.BACK ? Mode.MARCH : mode(foe, seen, j.kind == StaffPlan.Kind.ADVANCE, Math.hypot(o.x - mx, o.z - mz) - o.r * 0.5);
         if (m == st.mode || st.mode != null && m != Mode.ASSAULT && tick - st.since < KEEP) return;
         st.mode = m;
         st.since = tick;
@@ -220,10 +223,23 @@ final class StaffMove {
         if (o.job != null && o.job.move.mode == Mode.ASSAULT) bot.confidence.storm = tick + STORM;
     }
 
-    /** a soldier's step along the way by its squad's mode; null: none set (as C2) */
-    static @Nullable Leg leg(AiBot bot, ServerLevel level, AiCommander.Order o, HqGrid.Route way, long tick) {
+    /** on a leg of its own (straight, or catching up on the way): the mode's assault, and crouched while creeping */
+    static void pace(AiBot bot, AiCommander.Order o, long tick) {
+        storm(bot, o, tick);
+        if (o.job != null && o.job.move.mode == Mode.CREEP && bot.brain instanceof AiSoldier s) s.crouch(true);
+    }
+
+    /**
+     * a soldier's step along the way by its squad's mode; null: none set (as C2). stuck: its last leg of the mode could
+     * not be walked (the cover cell out of reach): that cell is not picked again, it stays where it is for this turn
+     */
+    static @Nullable Leg leg(AiBot bot, ServerLevel level, AiCommander.Order o, HqGrid.Route way, long tick, boolean stuck) {
         AiCommander.Job j = o.job;
         if (j == null || j.move.mode == null) return null;
+        if (stuck) {
+            if (o.coverCell != Long.MIN_VALUE) o.badCell = o.coverCell;
+            place(o, bot.mob.getX(), bot.mob.getZ());
+        }
         State st = j.move;
         List<AiBot> of = squad(j);
         int me = of.indexOf(bot);
@@ -251,13 +267,17 @@ final class StaffMove {
                     st.moving = st.turn == 1 ? 1 : 1 - st.moving;
                 }
                 // the half going sets off once the other is in its cover (or has had SET_FOR to get there); the bound
-                // then ends BOUND past the foremost of the squad
+                // then ends BOUND past the foremost of the half covering (of the squad, if none of that half is left)
                 if (!st.set && (set(of, half, st) || tick - st.turnAt >= SET_FOR)) {
                     st.set = true;
                     st.turnAt = tick;
-                    double front = 0;
-                    for (int i = 0; i < of.size(); i++) if (half[i] != st.moving) front = Math.max(front, along(way, of.get(i).mob.getX(), of.get(i).mob.getZ()));
-                    st.to = Math.min(way.length(), front + BOUND);
+                    double front = -1, all = 0;
+                    for (int i = 0; i < of.size(); i++) {
+                        double s = along(way, of.get(i).mob.getX(), of.get(i).mob.getZ());
+                        all = Math.max(all, s);
+                        if (half[i] != st.moving) front = Math.max(front, s);
+                    }
+                    st.to = Math.min(way.length(), (front < 0 ? all : front) + BOUND);
                 }
                 if (half[me] != st.moving) return cover(bot, level, o, of, st, AiSoldier.RUN, false);
                 if (st.set) return goTo(bot, level, o, of, st, way, st.to, a, spread, AiSoldier.RUN, false);
@@ -293,9 +313,11 @@ final class StaffMove {
             if (o != null && o.halfSince == st.since) n[h[i] = o.half]++;
             else h[i] = -1;
         }
+        // the mode's start: by their roles; one new later: to the smaller half
+        boolean first = n[0] + n[1] == 0;
         for (int i = 0; i < of.size(); i++) {
             if (h[i] >= 0) continue;
-            h[i] = n[0] == n[1] ? base[i] : n[0] < n[1] ? 0 : 1;
+            h[i] = first || n[0] == n[1] ? base[i] : n[0] < n[1] ? 0 : 1;
             n[h[i]]++;
             AiCommander.Order o = of.get(i).order;
             if (o != null) {
@@ -321,7 +343,7 @@ final class StaffMove {
         int n = rushing(of.size());
         for (int i = 0; i < of.size(); i++) {
             boolean going = half != null ? half[i] == st.moving : (i - st.moving + of.size()) % of.size() < n;
-            if (!going) continue;
+            if (!going || !steps(of.get(i))) continue;
             AiCommander.Order o = of.get(i).order;
             if (o == null || o.coverSince != st.since || o.coverTurn != st.turn || !atCover(of.get(i), o)) return false;
         }
@@ -331,13 +353,27 @@ final class StaffMove {
     /** bounds: all of the half covering are in their cover (found for them in this mode) */
     private static boolean set(List<AiBot> of, int[] half, State st) {
         for (int i = 0; i < of.size(); i++) {
-            if (half[i] == st.moving) continue;
+            if (half[i] == st.moving || !steps(of.get(i))) continue;
             AiCommander.Order o = of.get(i).order;
             if (o == null || o.coverSince != st.since || !atCover(of.get(i), o)) return false;
         }
         return true;
     }
 
+    /**
+     * it goes by the squad's bounds now: awake, knowing of no foe, on the way (one fighting, asleep or past the way's
+     * end is not waited for)
+     */
+    private static boolean steps(AiBot b) {
+        return b.active && b.order != null && b.order.route != null && b.memory.focus(b.mob.getX(), b.mob.getZ()) == null;
+    }
+
+    /** on its cover cell (or at its place in the open) */
+    private static boolean inPlace(AiBot b, AiCommander.Order o) {
+        return Math.hypot(o.coverX - b.mob.getX(), o.coverZ - b.mob.getZ()) <= (o.coverCell == Long.MIN_VALUE ? AT_PLACE : ON_CELL);
+    }
+
+    /** come up to its cover (or place): a bound or rush counted done */
     static boolean atCover(AiBot b, AiCommander.Order o) {
         return Math.hypot(o.coverX - b.mob.getX(), o.coverZ - b.mob.getZ()) <= (o.coverCell == Long.MIN_VALUE ? AT_PLACE : AT_COVER);
     }
@@ -378,8 +414,9 @@ final class StaffMove {
             o.coverTurn = -1;
             pick(bot, level, o, of, st, bot.mob.getX(), bot.mob.getZ());
         }
-        // in it: down on a knee (its head behind low cover), facing the enemy
-        if (atCover(bot, o)) return new Leg(o.coverX, o.coverZ, o.coverCell, speed, true, true, false, AiCommander.LEG_AGAIN);
+        // in it (on the cover cell itself: a step aside is in sight): down on a knee (its head behind low cover),
+        // facing the enemy
+        if (inPlace(bot, o)) return new Leg(o.coverX, o.coverZ, o.coverCell, speed, true, true, false, AiCommander.LEG_AGAIN);
         return new Leg(o.coverX, o.coverZ, o.coverCell, speed, false, low, fresh, AiCommander.LEG_AGAIN);
     }
 
@@ -421,7 +458,7 @@ final class StaffMove {
         p.fightAt = Math.hypot(st.foeX - x, st.foeZ - z);
         var held = AiBots.heldByOthers(bot);
         java.util.function.LongPredicate taken = c -> {
-            if (held.test(c)) return true;
+            if (held.test(c) || c == o.badCell) return true;
             for (AiBot b : of) if (b != bot && b.order != null && b.order.coverCell == c) return true;
             return false;
         };
