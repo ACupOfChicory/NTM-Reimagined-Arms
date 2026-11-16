@@ -488,6 +488,12 @@ public final class AiSoldier implements AiBrain {
             hit(bot, level, n, tick);
             return;
         }
+        // its entry's grenade out, not burst yet: at its place beside the way in, whatever it sees (AiEntry)
+        Long shelter = AiEntry.on() ? AiEntry.sheltered(bot, level) : null;
+        if (shelter != null) {
+            shelter(bot, shelter, c, tick);
+            return;
+        }
         // in sight, sitting behind low cover (its legs hidden, still): a grenade over it
         if (c != null && c.state == TargetMemory.State.VISIBLE && sits(c) && grenade(bot, level, new Vec3(c.x, c.y, c.z), tick, false)) {
         }
@@ -1718,6 +1724,23 @@ public final class AiSoldier implements AiBrain {
         Vec3 up = m.position().add(0, m.getDimensions(Pose.STANDING).eyeHeight(), 0), down = m.position().add(0, AiPose.CROUCH_SIZE.eyeHeight(), 0);
         boolean seesUp = VoxelRay.clear(v, up.x, up.y, up.z, look.x, look.y, look.z, Voxel.SIGHT);
         return !seesUp || VoxelRay.clear(v, down.x, down.y, down.z, look.x, look.y, look.z, Voxel.SIGHT);
+    }
+
+    /** at its place beside the way in till its entry's grenade has burst: a foe in sight under fire from there, no step out */
+    private void shelter(AiBot bot, long cell, TargetMemory.@Nullable Contact c, long tick) {
+        if (spot != null) drop(bot);
+        if (!bot.mover.goalIs(cell)) {
+            bot.mover.costs(PathSearch.Cost.NONE);
+            bot.mover.goTo(cell, 0.35, RUN);
+        }
+        mode(bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
+        why = Why.SHELTER;
+        if (c != null && c.state == TargetMemory.State.VISIBLE) {
+            Vec3 at = new Vec3(c.x, c.y + 1.1, c.z);
+            watch = at;
+            bot.gunner.aim(at);
+            bot.gunner.fire(true);
+        } else bot.gunner.fire(false);
     }
 
     /** slowly through the cells round where they were lost that it cannot see, nearest first */

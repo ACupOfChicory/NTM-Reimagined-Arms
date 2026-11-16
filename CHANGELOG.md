@@ -9,6 +9,20 @@
   knows of no one looks slowly round as a sentry, its head turning at most
   1.5 degrees a tick, instead of staring one way.
 
+## X1212
+
+- Soldiers going into a room or round a trench's turn behind a grenade keep
+  to their places beside the way in until it has gone off, even with a foe in
+  sight, instead of stepping round into their own blast.
+
+## X1210
+
+- An AI machine gunner kept as its squad's base of fire no longer goes after
+  the foe itself when its riflemen get far off going round the side. Over 16
+  blocks from them it was put out of their squad, fought as a rifleman again
+  and went looking for the foe for some seconds. It now stays one of its squad
+  up to 32 blocks off (was 16).
+
 ## X1202
 
 - A squad crosses a river to a foe on the far bank by waves: the machine
