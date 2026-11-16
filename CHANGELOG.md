@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers going down a long ladder (such as the sixty-block shaft of NTM's
+  bunker) no longer stop and hang halfway down it; they climb on down to its
+  foot.
+- `/armsai bunker` now puts the squad in a row behind a low wall, out of the
+  slit's sight, so it takes the bunker by its drill (out of the slit's fire,
+  along the wall, a grenade in) instead of shooting the one inside through the
+  slit from where it stands.
+
 ## X1331
 
 - An AI soldier sent with its squad into a house through a narrow doorway no

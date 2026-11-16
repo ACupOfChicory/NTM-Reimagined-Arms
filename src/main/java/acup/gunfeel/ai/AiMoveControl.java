@@ -89,6 +89,15 @@ final class AiMoveControl extends MoveControl<Mob> {
             dy = next.getY() - mob.getY();
             column = next.getX() == mob.getBlockX() && next.getZ() == mob.getBlockZ();
         }
+        // down the same: at the rung it slid to with the next point under it, on to that one (a way found from halfway
+        // down a long shaft begins at its own rung: held there, it hung in the shaft for good)
+        else if (column && Math.abs(mob.getY() - next.getY()) < 0.5 && path.getNextNodeIndex() + 1 < path.getNodeCount()
+                && path.getNodePos(path.getNextNodeIndex() + 1).getY() < next.getY()) {
+            path.advance();
+            next = path.getNextNodePos();
+            dy = next.getY() - mob.getY();
+            column = next.getX() == mob.getBlockX() && next.getZ() == mob.getBlockZ();
+        }
         // the next point beside the ladder's top a little over its feet: it climbs on till its feet are up to it (off
         // the ground a step up is no step: it walked against the shaft's rim, slid back and climbed again, over and over)
         boolean off = dy > 0 && !column && !mob.onGround();

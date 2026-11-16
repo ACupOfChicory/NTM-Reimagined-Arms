@@ -220,13 +220,15 @@ public final class AiCommand {
 
     /** /armsai bunker: the box's middle this far ahead of the player, blocks */
     static final int BUNKER_AWAY = 20;
+    /** the low wall before the squad, blocks either side of the middle */
+    static final int BUNKER_WALL = 6;
 
     private static int bunker(CommandContext<CommandSourceStack> c, int size) throws CommandSyntaxException {
         ServerPlayer p = c.getSource().getPlayerOrException();
         var made = bunker(c.getSource().getLevel(), p.position(), p.getDirection(), size);
         int n = made[1].size();
         c.getSource().sendSuccess(() -> Component.literal("A bunker " + BUNKER_AWAY + " blocks ahead, its slit facing you, one inside at it (team bunker_in); " + n
-                + " AI dummies beside you with a grenade each (team bunker_out)" + (AiBunker.on() ? "" : "; aiBunker is off: they take it as any building")), true);
+                + " AI dummies beside you behind a low wall with a grenade each (team bunker_out)" + (AiBunker.on() ? "" : "; aiBunker is off: they take it as any building")), true);
         if (p.isCreative() || p.isSpectator()) c.getSource().sendSuccess(() -> Component.translatable("ntmgunfeel.armsai.unseen"), false);
         return n;
     }
@@ -257,6 +259,15 @@ public final class AiCommand {
                 level.setBlockAndUpdate(new net.minecraft.core.BlockPos(x, y + 3, z), brick);
                 level.setBlockAndUpdate(new net.minecraft.core.BlockPos(x, y + 4, z), air);
             }
+        // a low wall two ahead of the place, across: the squad starts out of the slit's sight, as in the stand, and has
+        // its drill to do (out of the wedge, at the slit along the wall, a grenade in), not a shot at a head from afar
+        int wx = net.minecraft.util.Mth.floor(at.x) + fx * 2, wz = net.minecraft.util.Mth.floor(at.z) + fz * 2;
+        int half = Math.max(BUNKER_WALL, size + 1);
+        for (int a = -half; a <= half; a++) {
+            int x = wx + rx * a, z = wz + rz * a;
+            int g = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+            for (int h = 0; h < 2; h++) level.setBlockAndUpdate(new net.minecraft.core.BlockPos(x, g + h, z), brick);
+        }
         float toPlace = f.getOpposite().toYRot();
         double ix = cx - fx + 0.5, iz = cz - fz + 0.5;
         var inside = AiSpawn.spawn(level, new net.minecraft.world.phys.Vec3(ix, y, iz), AiSpawn.Kind.DUMMY, 1, null);
@@ -268,6 +279,12 @@ public final class AiCommand {
             AiTeams.join(level, m, "bunker_in");
             var speed = m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
             if (speed != null) speed.setBaseValue(0);
+        }
+        // in a row behind the wall, two apart (spawned round the place, some stood before it in the slit's sight)
+        for (int i = 0; i < squad.size(); i++) {
+            double off = i * 2 - (squad.size() - 1), sx = at.x + rx * off, sz = at.z + rz * off;
+            int g = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, net.minecraft.util.Mth.floor(sx), net.minecraft.util.Mth.floor(sz));
+            squad.get(i).setPos(sx, g, sz);
         }
         for (var m : squad) {
             AiTeams.join(level, m, "bunker_out");

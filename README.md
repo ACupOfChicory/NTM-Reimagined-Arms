@@ -360,7 +360,7 @@ page. They are alphas: expect bugs and back up your world.
   fire, steps out before it and throws a grenade in, then back to the wall,
   and its own do not run from that grenade (server key `aiBunker`). `/armsai bunker
   [squad]` builds a bunker with a slit 20 blocks ahead of you, one inside at
-  it, and a squad with a grenade each beside you, to watch.
+  it, and a squad with a grenade each beside you behind a low wall, to watch.
 - They open trapdoors and climb ladders up and down, NTM's steel hatch
   included. A foe lost under the ground down a shaft is gone after by the
   drill: the squad gathers a few blocks off the hatch, one drops a grenade
