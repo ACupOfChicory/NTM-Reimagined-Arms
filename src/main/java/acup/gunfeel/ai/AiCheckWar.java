@@ -45,10 +45,10 @@ final class AiCheckWar {
     /** the river right across: from RIVER_Z, RIVER_W wide, RIVER_D deep; the ford, a block deep */
     static final int RIVER_Z = 128, RIVER_W = 6, RIVER_D = 3, FORD_X0 = 220, FORD_X1 = 227;
     /**
-     * the thicket by the ford: bushes along both banks (on A's side from the wood, on the far one westward), a bush
+     * the thicket by the ford: bushes along both banks (from the wood to past the ford; on the far one the ford's end only, out of the player's walk), a bush
      * every THICKET blocks, BANK blocks deep; the ford and its ends kept clear
      */
-    static final int THICKET_X0 = 200, THICKET_FAR_X0 = 130, THICKET_X1 = 236, BANK = 14, THICKET = 5;
+    static final int THICKET_X0 = 200, THICKET_FAR_X0 = 196, THICKET_X1 = 236, BANK = 14, THICKET = 5;
     /** side A's squads; the player's walk: its middle, how far to each side, how long there and back */
     static final double CAMP_Z = 24.5, WALK_X = 128.5, WALK_Z = 160.5, WALK_A = 40;
     static final int WALK_T = 1200;
