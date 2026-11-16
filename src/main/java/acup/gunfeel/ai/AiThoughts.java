@@ -21,6 +21,7 @@ public final class AiThoughts {
     /** why a soldier does what it does now: AiSoldier sets it where it decides; shown as it is */
     enum Why {
         IDLE("knows of nothing: stays"),
+        SENTRY("knows of nothing: looks slowly round"),
         HIT("hit from out of sight: turns there"),
         HIT_COVER("to cover: hit from out of sight"),
         NOISE_COVER("to cover: a loud noise"),
@@ -57,6 +58,7 @@ public final class AiThoughts {
         HOLD("watches where they went"),
         HOLD_RUN("to cover, watches where they went"),
         HOLD_RELOAD("reloads, watches where they went"),
+        HOLD_KNEEL("no cover: down on a knee, watches where they went"),
         SEARCH("searches round where they went"),
         SEARCH_NONE("nothing left to search: watches"),
         FLANK("its squad's flanker: round the side, to cover that sees where they went"),
