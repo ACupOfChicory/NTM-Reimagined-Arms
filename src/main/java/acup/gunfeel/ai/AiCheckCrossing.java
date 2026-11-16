@@ -84,6 +84,8 @@ final class AiCheckCrossing {
     private final int[] smokeWhy0 = AiCrossing.smokeWhy.clone();
     /** the drill: ticks one of the main body swam with one of the far side's security not over; one of the near side's with one of the main body not over; the most of the main body swimming at once; reports seen, places in them */
     private int mainEarly, nearEarly, mostMain, reports, spots;
+    /** ticks one of the far side's security swam, one of the near side's */
+    private int farSwam, nearSwam;
     private String lastReport = "none";
     /** per round: {on, held left, squad left, ticks, taken at, down in the water, over, most swimming, swim ticks, covered, smoked, begun, back} */
     private final List<int[]> results = new ArrayList<>();
@@ -175,6 +177,8 @@ final class AiCheckCrossing {
                     mainSwim++;
                 }
                 if (r == AiCrossing.Role.NEAR) nearSwims = true;
+                if (r == AiCrossing.Role.FAR) farSwam++;
+                if (r == AiCrossing.Role.NEAR) nearSwam++;
             }
             if (mainSwims && farOut) mainEarly++;
             if (nearSwims && mainOut) nearEarly++;
@@ -213,7 +217,7 @@ final class AiCheckCrossing {
         downs.clear();
         results.add(new int[] {arm(), foes, left, ticks, takenAt, inWaterDown, over, mostSwimming, swimTicks, coveredTicks, AiCrossing.smoked - smokedBefore,
                 AiCrossing.begun - begunBefore, AiCrossing.back - backBefore, shooterDown, hurt, firedOn ? 1 : 0, shooterShots(), mainEarly, nearEarly, mostMain, reports, spots,
-                AiCrossing.watches - watchesBefore, AiCrossing.scouted - scoutedBefore});
+                AiCrossing.watches - watchesBefore, AiCrossing.scouted - scoutedBefore, farSwam, nearSwam});
         for (Mob m : squad) m.discard();
         for (Mob m : held) m.discard();
         if (lateNear != null) lateNear.discard();
@@ -311,7 +315,7 @@ final class AiCheckCrossing {
         AiCrossing.on = arm() != OFF;
         AiCrossing.STAND_ORDERS.clear();
         if (arm() == ORDER) AiCrossing.STAND_ORDERS.put(SIDE, new AiCrossing.Task(CROSS_X, CROSS_Z, AiCrossing.Kind.SWIM, CROSS_X, FAR_Z));
-        mainEarly = nearEarly = mostMain = reports = spots = 0;
+        mainEarly = nearEarly = mostMain = reports = spots = farSwam = nearSwam = 0;
         lastReport = "none";
         AiSquads.on = true;
         AiSquads.offTeams.clear();
@@ -356,7 +360,7 @@ final class AiCheckCrossing {
         AiCrossing.STAND_ORDERS.clear();
         counting = null;
         String[] names = {"aiCrossing off (before)", "aiCrossing on, no order", "aiCrossing on, ordered over at the middle", "aiCrossing on, no order, a causeway over"};
-        double[][] sum = new double[4][24];
+        double[][] sum = new double[4][26];
         int[] n = new int[4], taken = new int[4];
         double[] takenTicks = new double[4];
         for (int i = 0; i < results.size(); i++) {
@@ -388,8 +392,16 @@ final class AiCheckCrossing {
                 sum[WATCH][22], sum[WATCH][23], sum[WATCH][20], sum[WATCH][21], n[WATCH]), sum[WATCH][22] >= n[WATCH] && sum[WATCH][23] > n[WATCH] && sum[WATCH][20] >= n[WATCH] && sum[WATCH][21] >= n[WATCH]);
         check.check(String.format(Locale.ROOT, "crossing: ordered, it crosses once in every round, and some get over (begun %.0f of %d rounds, over %.0f)", sum[ORDER][11], n[ORDER], sum[ORDER][6]),
                 n[ORDER] > 0 && sum[ORDER][11] == n[ORDER] && sum[ORDER][6] > 0);
-        check.check(String.format(Locale.ROOT, "crossing: ordered, the far side's security is over before the main body swims, and the near side's goes last (%.0f, %.0f ticks out of turn)",
-                sum[ORDER][17], sum[ORDER][18]), sum[ORDER][17] == 0 && sum[ORDER][18] == 0);
+        // (each of them swam in every round: none out of turn is no drill if the far side's or the near side's never went)
+        int farRounds = 0, nearRounds = 0;
+        for (int[] r : results)
+            if (r[0] == ORDER) {
+                if (r[24] > 0) farRounds++;
+                if (r[25] > 0) nearRounds++;
+            }
+        check.check(String.format(Locale.ROOT, "crossing: ordered, the far side's security is over before the main body swims, and the near side's goes last (%.0f, %.0f ticks out of turn; the far side's swam in %d, the near side's in %d of %d rounds)",
+                sum[ORDER][17], sum[ORDER][18], farRounds, nearRounds, n[ORDER]), sum[ORDER][17] == 0 && sum[ORDER][18] == 0 && n[ORDER] > 0 && farRounds == n[ORDER] && nearRounds == n[ORDER]);
+        check.check(String.format(Locale.ROOT, "crossing: ordered, each crossing begun under smoke (%.0f of %.0f)", sum[ORDER][10], sum[ORDER][11]), sum[ORDER][11] > 0 && sum[ORDER][10] >= sum[ORDER][11]);
         int mostMainAll = 0;
         for (int[] r : results) if (r[0] == ORDER) mostMainAll = Math.max(mostMainAll, r[19]);
         check.check(String.format(Locale.ROOT, "crossing: ordered, the main body goes by pairs (at most %d of it swimming at once in a round)", mostMainAll), mostMainAll <= 2);
