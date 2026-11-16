@@ -429,8 +429,12 @@ final class AiCheckTrench {
                 firsts[1] == n[1] && firstOn < firstOff);
         check.check(String.format(Locale.ROOT, "trench: a grenade thrown in round a turn hurts none of the squad (%.0f)", sum[1][10]), sum[1][10] == 0);
         check.check(String.format(Locale.ROOT, "trench: with trenches read a grenade round a turn downs one holding it (%.0f in %d rounds)", sum[1][9], n[1]), sum[1][9] > 0);
-        double moveOn = cleared[3] == 0 ? RUN : clearTicks[3] / cleared[3], moveOff = cleared[2] == 0 ? RUN : clearTicks[2] / cleared[2];
-        check.check(String.format(Locale.ROOT, "trench: with trenches read a trench whose holders move is cleared sooner (at tick %.0f, %.0f before)", moveOn, moveOff), moveOn < moveOff);
+        // over all the rounds, one not cleared counted at RUN (else one cleared by luck early, the others never, would make
+        // "before" look the sooner)
+        double moveOn = n[3] == 0 ? RUN : (clearTicks[3] + (n[3] - cleared[3]) * (double) RUN) / n[3],
+                moveOff = n[2] == 0 ? RUN : (clearTicks[2] + (n[2] - cleared[2]) * (double) RUN) / n[2];
+        check.check(String.format(Locale.ROOT, "trench: with trenches read a trench whose holders move is cleared sooner (at tick %.0f, %.0f before; one not cleared at %d)", moveOn, moveOff, RUN),
+                moveOn < moveOff);
         return true;
     }
 }

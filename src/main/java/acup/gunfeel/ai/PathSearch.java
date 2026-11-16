@@ -177,9 +177,15 @@ public final class PathSearch {
 
     /** the cell at or next to a mob's feet (it may stand on a slab or a block's edge), or Long.MIN_VALUE */
     public static long snap(CellSource src, double x, double y, double z) {
-        Reader r = new Reader(src);
+        return snap(new Reader(src), x, y, z);
+    }
+
+    private static final int[] SNAP_UP_DOWN = {0, 1, -1, -2};
+
+    /** as {@link #snap(CellSource, double, double, double)}, with a reader kept by the caller (many snaps in a row) */
+    static long snap(Reader r, double x, double y, double z) {
         int bx = (int) Math.floor(x), by = (int) Math.floor(y + 0.01), bz = (int) Math.floor(z);
-        for (int dy : new int[] {0, 1, -1, -2})
+        for (int dy : SNAP_UP_DOWN)
             if (r.has(bx, by + dy, bz)) return BlockPos.asLong(bx, by + dy, bz);
         // on the edge of a block: the nearest cell beside, at the same height
         double best = Double.MAX_VALUE;
