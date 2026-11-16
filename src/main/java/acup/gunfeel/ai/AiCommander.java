@@ -189,6 +189,9 @@ public final class AiCommander {
         List<AiBot> members;
         /** how it goes along its way (C3) */
         final StaffMove.State move = new StaffMove.State();
+        /** its own stretch on from where the staff's way ended to its area's middle, for its way of going; when it was last looked for in vain */
+        HqGrid.@Nullable Route tail;
+        long tailNot = Long.MIN_VALUE;
         /** the pair's other (C4: pinning and going round, of the same group), its time up at due, the one going round there (or in a fight) at ready */
         @Nullable Job partner;
         long due = Long.MAX_VALUE, ready = Long.MIN_VALUE, pairedAt;
@@ -253,6 +256,9 @@ public final class AiCommander {
         /** the way once taken up, the point of it it goes to next; null: straight (none yet, or none) */
         HqGrid.@Nullable Route route;
         int at;
+        /** the route is its squad's own stretch past the staff's way (Job.tail); that stretch walked to its end, or it could not be */
+        boolean onTail, noTail;
+        int tailFails;
         /** legs of the way that could not be walked, one after another; at ROUTE_FAILS it walks straight (as R5) for the rest of the order */
         int routeFails;
         boolean noRoute;
@@ -859,10 +865,15 @@ public final class AiCommander {
             if (o.way != way && (way == null || o.walked != way)) {
                 o.way = way;
                 o.route = null;
+                o.onTail = o.noTail = false;
+                o.tailFails = 0;
                 o.noRoute = false;
                 o.routeFails = 0;
                 takeUp(o, b);
-            } else if (o.noRoute) o.route = null;
+            } else if (o.noRoute) {
+                o.route = null;
+                o.onTail = false;
+            }
             else if (o.route != null && far(o.route, o.at, b)) o.at = ahead(o.route, b.mob.getX(), b.mob.getZ());
             b.order = o;
         }
@@ -936,10 +947,15 @@ public final class AiCommander {
             if (o.way != way && (way == null || o.walked != way)) {
                 o.way = way;
                 o.route = null;
+                o.onTail = o.noTail = false;
+                o.tailFails = 0;
                 o.noRoute = false;
                 o.routeFails = 0;
                 takeUp(o, b);
-            } else if (o.noRoute) o.route = null;
+            } else if (o.noRoute) {
+                o.route = null;
+                o.onTail = false;
+            }
             else if (o.route != null && far(o.route, o.at, b)) o.at = ahead(o.route, b.mob.getX(), b.mob.getZ());
             b.order = o;
         }
@@ -993,6 +1009,45 @@ public final class AiCommander {
     }
 
     /** the squad's way, once looked for: taken up from the point of it ahead of the soldier */
+    /** the stands: stretches of a squad's own made past the staff's way; looked for in vain (water, a cliff, off the map) */
+    static int tails, tailsNot;
+
+    /** a stretch looked for in vain is not looked for again within this many ticks */
+    static final int TAIL_AGAIN = 20;
+
+    /**
+     * the squad's own stretch on from where it is (its middle) to its area's middle, points LEG apart at most, when the
+     * staff's map has it dry and with no cliff (Job.tail, made again when the area moved on REROUTE); else null
+     */
+    private static HqGrid.@Nullable Route tail(ServerLevel level, Job j, Order o, long tick) {
+        if (j.tail != null && Math.hypot(j.tail.toX() - o.x, j.tail.toZ() - o.z) <= REROUTE) return j.tail;
+        j.tail = null;
+        if (j.tailNot != Long.MIN_VALUE && tick - j.tailNot < TAIL_AGAIN) return null;
+        List<AiBot> of = StaffMove.squad(j);
+        if (of.isEmpty()) return null;
+        double mx = 0, mz = 0;
+        for (AiBot b : of) {
+            mx += b.mob.getX() / of.size();
+            mz += b.mob.getZ() / of.size();
+        }
+        HqGrid grid = AiHqMap.of(level, AiSquads.team(of.get(0)));
+        double len = Math.hypot(o.x - mx, o.z - mz);
+        if (grid == null || len < 1 || !grid.dryStraight(mx, mz, o.x, o.z)) {
+            tailsNot++;
+            j.tailNot = tick;
+            return null;
+        }
+        int n = Math.max(1, (int) Math.ceil(len / HqGrid.LEG));
+        double[] points = new double[2 * n];
+        for (int k = 1; k <= n; k++) {
+            points[2 * k - 2] = mx + (o.x - mx) * k / n;
+            points[2 * k - 1] = mz + (o.z - mz) * k / n;
+        }
+        j.tail = new HqGrid.Route(mx, mz, o.x, o.z, points, len, len, 0, 0);
+        tails++;
+        return j.tail;
+    }
+
     private static void takeUp(Order o, AiBot b) {
         Way w = o.way;
         if (o.route != null || w == null || !w.done) return;
@@ -1258,12 +1313,29 @@ public final class AiCommander {
             // the staff's way: to its points one after another, each a short walk (C1); a leg that fails is walked
             // round as R5's are, and the way taken up again from where it is then
             if (o.route == null && !o.noRoute) takeUp(o, bot);
+            // the staff's way given up (its legs could not be walked) or walked to its end short of the area (it did not
+            // reach that far, or the area moved on): the squad's way of going (its bounds) kept on to the area, along a
+            // straight stretch with no water to swim and no cliff on the staff's map; a river is crossed only by the
+            // staff's order. Else straight legs, as before
+            if (o.route == null && moves && !o.noTail && (o.noRoute || o.way == null && o.walked != null) && o.job.move.mode != null && staff()) {
+                HqGrid.Route t = tail(level, o.job, o, tick);
+                if (t != null) {
+                    o.route = t;
+                    o.at = ahead(t, bot.mob.getX(), bot.mob.getZ());
+                    o.onTail = true;
+                }
+            }
             HqGrid.Route way = o.route;
             if (way != null && staff()) {
                 int was = o.at;
                 while (o.at < way.size() - 1 && Math.hypot(way.x(o.at) - bot.mob.getX(), way.z(o.at) - bot.mob.getZ()) <= REACHED) o.at++;
                 // a point that could not be walked to: the next one; again and again, the way is left for straight legs
-                if (stuck && ++o.routeFails >= ROUTE_FAILS) {
+                if (o.onTail && stuck && ++o.tailFails >= ROUTE_FAILS) {
+                    // its own stretch could not be walked: straight legs for the rest of it, the staff's ways untouched
+                    o.route = null;
+                    o.onTail = false;
+                    o.noTail = true;
+                } else if (!o.onTail && stuck && ++o.routeFails >= ROUTE_FAILS) {
                     o.route = null;
                     o.noRoute = true;
                     // the straight legs counted from here
@@ -1271,13 +1343,18 @@ public final class AiCommander {
                     o.failedAt = Double.MAX_VALUE;
                 } else {
                     if (stuck) o.at = Math.min(o.at + 1, way.size() - 1);
-                    if (bot.mover.arrived()) o.routeFails = 0;
+                    if (bot.mover.arrived()) o.routeFails = o.tailFails = 0;
                     // the end of the way (short of the area when that was off the staff's map, or the area moved on
                     // less than REROUTE): on from there in straight legs
                     if (o.at == way.size() - 1 && Math.hypot(way.x(o.at) - bot.mob.getX(), way.z(o.at) - bot.mob.getZ()) <= REACHED) {
                         o.route = null;
-                        o.walked = o.way;
-                        o.way = null;
+                        if (o.onTail) {
+                            o.onTail = false;
+                            o.noTail = true;
+                        } else {
+                            o.walked = o.way;
+                            o.way = null;
+                        }
                     } else {
                         StaffMove.Leg leg = moves ? StaffMove.leg(bot, level, o, way, tick, coverStuck) : null;
                         if (leg != null) {

@@ -185,6 +185,9 @@ final class AiCheckWar {
     private final long[] modeTicks = new long[StaffMove.Mode.values().length];
     private long bounding, covering, inCover;
     private final List<long[]> movesOf = new ArrayList<>();
+    /** per round (C3): while bounding with none of the half covering at its place, why, by soldier (the stands' reading) */
+    private final java.util.Map<String, Integer> offWhy = new java.util.HashMap<>();
+    private final List<String> offOf = new ArrayList<>();
     /**
      * per round (C4): the squads going round that saw the player, those of them at WIDE degrees or more from the
      * pinning one; pairs made, ready in time, out of time, the ticks to ready
@@ -439,6 +442,7 @@ final class AiCheckWar {
                     bounding++;
                     int c = StaffMove.covered(j);
                     if (c > 0) covering++;
+                    else StaffMove.offPlace(j, k -> offWhy.merge(k, 1, Integer::sum));
                     if (c > 1) inCover++;
                 }
             }
@@ -493,6 +497,8 @@ final class AiCheckWar {
         t[given0.length] = AiCommander.strays - strays0;
         tasksOf.add(t);
         movesOf.add(new long[] {modeTicks[0], modeTicks[1], modeTicks[2], modeTicks[3], bounding, covering, inCover});
+        offOf.add(offWhy.entrySet().stream().sorted((a, b2) -> b2.getValue() - a.getValue()).limit(8)
+                .map(e -> e.getKey() + " " + e.getValue()).collect(java.util.stream.Collectors.joining("; ")));
         pairsOf.add(new long[] {flankContacts, flankWide, AiCommander.paired - paired0, AiCommander.coupled - coupled0, AiCommander.expired - expired0, AiCommander.coupleTicks - coupleTicks0,
                 roundTicks, crossTicks, AiCommander.pressed - pressed0});
         approach.add(new double[] {mode(), looks, inReach, inSight, walked / Math.max(1, ours.size()), firstSeenFrom});
@@ -701,6 +707,7 @@ final class AiCheckWar {
         idleLate = idleStaffGap = 0;
         java.util.Arrays.fill(modeTicks, 0);
         bounding = covering = inCover = 0;
+        offWhy.clear();
         given0 = AiCommander.given.clone();
         if (joined0 < 0) joined0 = AiCommander.joinedCrossing;
         strays0 = AiCommander.strays;
@@ -882,6 +889,8 @@ final class AiCheckWar {
             if (on >= MOVES) {
                 check.out(String.format(Locale.ROOT, "     war, round %d: the squads' going (C3), looks: march %d, bounds %d, creeping %d, assault %d; bounding out of a fight %d, one of the half covering at its place %d, in cover there %d",
                         i + 1, mv[0], mv[1], mv[2], mv[3], mv[4], mv[5], mv[6]));
+                if (mv[4] > mv[5] && i < offOf.size())
+                    check.out(String.format(Locale.ROOT, "     war, round %d: bounding with none of the half covering at its place, the half covering by soldier (task | why | mode/why): %s", i + 1, offOf.get(i)));
                 bounds += mv[4];
                 covers += mv[5];
                 coversHard += mv[6];
@@ -928,6 +937,7 @@ final class AiCheckWar {
                 AiCrossing.whyNot[0] - crossWhy0[0], AiCrossing.whyNot[1] - crossWhy0[1], AiCrossing.whyNot[2] - crossWhy0[2], AiCrossing.whyNot[3] - crossWhy0[3])
                 + String.format(Locale.ROOT, "; with smoke %d (under fire %d, its own fire heard %d, a foe known at the far bank %d)", AiCrossing.smoked - crossSmoked0,
                 AiCrossing.smokeWhy[0] - smokeWhy0[0], AiCrossing.smokeWhy[1] - smokeWhy0[1], AiCrossing.smokeWhy[2] - smokeWhy0[2]));
+        check.out(String.format(Locale.ROOT, "     war, squads' own stretches past the staff's way: made %d, none (water, a cliff, off the map) %d", AiCommander.tails, AiCommander.tailsNot));
         check.check("war: all rounds ran", results.size() == rounds);
         check.check("war: the side's picture has the player at every report, always within its circle", reports > 0 && missing == 0 && outside == 0);
         check.check(String.format(Locale.ROOT, "war: seen lately (0-5 s), the picture is off by %.1f on average (at most the circle's least radius, %.0f)",

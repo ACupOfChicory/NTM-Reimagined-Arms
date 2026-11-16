@@ -1,5 +1,14 @@
 # Changelog
 
+## X1341
+
+- An AI squad sent by its commander keeps bounding by halves all the way to
+  its place, one half in cover while the other moves, also on the last
+  stretch past the end of the commander's route or after giving up a route it
+  could not walk. It takes that stretch straight only where the commander's
+  map shows no deep water or cliff on it: a river is still crossed only when
+  the commander orders it.
+
 ## X1331
 
 - An AI soldier sent with its squad into a house through a narrow doorway no
