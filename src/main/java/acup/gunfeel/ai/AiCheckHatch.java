@@ -132,7 +132,10 @@ final class AiCheckHatch {
         }
         boolean anyOut = squad.stream().anyMatch(Mob::isAlive);
         boolean allUp = round >= ROUNDS && downs >= squad.stream().filter(Mob::isAlive).count();
-        if (ticks < RUN && anyOut && below.isAlive() && !allUp) return false;
+        // (with the drill on, the one below put down by the grenade dropped first is no end: the squad is to go down
+        // after it, and is counted so)
+        boolean drillOn = round < ROUNDS && AiHatch.on && downs == 0;
+        if (ticks < RUN && anyOut && (below.isAlive() || drillOn) && !allUp) return false;
         end();
         if (round + 1 < ROUNDS + UP) {
             start(round + 1);
@@ -280,12 +283,12 @@ final class AiCheckHatch {
             s[2] += r[6];
             s[3]++;
         }
-        // rounds on with one of the squad down, by the hatch, or the one below down by the grenade dropped through it
-        // (a round is over once the one below is down)
+        // rounds on with one of the squad down by the hatch (the one below down by the grenade is no end of the round
+        // on: they go down after it; the grenade is checked by itself below)
         int steelDown = 0, oakDown = 0, hurt = 0;
         for (int[] r : results)
             if (r[0] == 1) {
-                boolean through = r[3] > 0 || r[5] == 1 && r[6] > 0;
+                boolean through = r[3] > 0;
                 if (through && r[1] == 1) steelDown++;
                 if (through && r[1] == 0) oakDown++;
                 hurt += r[7];

@@ -10,6 +10,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -23,8 +24,9 @@ import net.minecraft.world.phys.Vec3;
  * FOUGHT ticks; then a stone wall three high goes up between them, open at both ends. Counted, AFTER ticks: what each
  * does once its foe is gone behind the wall (its mode, why, pose, whether it moves), and where it looks: at an end of
  * the wall (where the foe may come out), at the wall, or elsewhere; the tick it first stands still with nothing to do;
- * the ticks a team has an end, both ends, watched. Then a sentry: one soldier alone, no one about, SENTRY_TICKS: how far
- * round its head looks, and how fast it turns.
+ * the ticks a team has an end, both ends, watched; checked too a share of it down on a knee. Then a sentry: one soldier
+ * alone, no one about, SENTRY_TICKS: how far round its head looks, and how fast it turns; then sent SENT blocks while it
+ * looks round (it gets there), and there a still foe put in front of it FOE_AWAY off (it notices it soon).
  */
 final class AiCheckAlert {
     static final int X0 = 4000, Z0 = 0, SIZE = 48, FOUGHT = 60, AFTER = 600, ROUNDS = 4, SIDE = 3, BUCKET = 60;
@@ -152,6 +154,9 @@ final class AiCheckAlert {
             double still = 100.0 * total[0][0] / per, any = 100.0 * teamAny / (2.0 * AFTER * ROUNDS), both = 100.0 * teamBoth / (2.0 * AFTER * ROUNDS);
             check.check(String.format(Locale.ROOT, "alert: in the first %d ticks after its foe went behind the wall a fighter stands still in the open"
                     + " (upright, not moving, not watching an end of the wall) at most %.0f%% of the time (%.0f%%)", BUCKET, STILL_MOST, still), still <= STILL_MOST);
+            double knee = 100.0 * total[1][0] / per;
+            check.check(String.format(Locale.ROOT, "alert: in the first %d ticks after its foe went behind the wall a fighter is down on a knee at least %.0f%% of the time (%.0f%%)",
+                    BUCKET, KNEEL_LEAST, knee), knee >= KNEEL_LEAST);
             check.out(String.format(Locale.ROOT, "     alert: a team has an end of the wall watched %.0f%% of its ticks, both ends %.0f%%", any, both));
             check.check(String.format(Locale.ROOT, "alert: a squad shares the ends of the wall: both watched at least %.0f%% of a team's ticks (%.0f%%)",
                     BOTH_LEAST, both), both >= BOTH_LEAST);
@@ -170,6 +175,8 @@ final class AiCheckAlert {
      * place got round the near end only), with the squad sharing the corners (ExitSpots.corner) 32 to 52
      */
     static final double STILL_MOST = 20, BOTH_LEAST = 27;
+    /** down on a knee in the first bucket at least, % (before X1223's knee 3; after it 22 to 41) */
+    static final double KNEEL_LEAST = 15;
     /** team ticks (after the wall, all rounds) with an end of the wall watched by one of the team, with both; at the last round's end */
     private int teamAny, teamBoth, roundAny, roundBoth;
     /** the tick after the wall the choices are read; what they chose, per round and in all */
@@ -187,6 +194,11 @@ final class AiCheckAlert {
 
     private void sentry() {
         AiSquads.forget(level);
+        // the last round's wall down: the sentry's walk is through it; the ground about loaded for the foe far off
+        for (int x = WALL_X0; x <= WALL_X1; x++)
+            for (int h = 0; h < 3; h++) set(x, y + h, WALL_Z, Blocks.AIR.defaultBlockState());
+        for (int cx = (X0 - 48) >> 4; cx <= (X0 + SIZE + 48) >> 4; cx++)
+            for (int cz = (Z0 - 48) >> 4; cz <= (Z0 + SIZE + 48) >> 4; cz++) level.setChunkForced(cx, cz, true);
         sentry = spawn(XS[1], RED_Z, RED, 0F);
         sentryLast = sentry.getYHeadRot();
         sentryMin = sentryMax = 0;
@@ -208,11 +220,63 @@ final class AiCheckAlert {
         if (sentryTicks < SENTRY_TICKS) return false;
         AiBot b = AiBots.get(sentry);
         String why = b != null && b.brain instanceof AiSoldier s ? String.valueOf(s.why) : "-";
-        check.out(String.format(Locale.ROOT, "     alert, a sentry alone %d ticks: head from %.0f to %.0f degrees of the way it faced, %.1f a tick at most; why at the end %s",
-                SENTRY_TICKS, sentryMin, sentryMax, sentryMost, why));
-        check.check(String.format(Locale.ROOT, "alert: a sentry with no one about looks round at least %.0f degrees across, its head %.0f degrees a tick at most",
-                SENTRY_SWEEP, SENTRY_TURN), sentryMax - sentryMin >= SENTRY_SWEEP && sentryMost <= SENTRY_TURN + 0.01);
+        if (sentryTicks == SENTRY_TICKS) {
+            check.out(String.format(Locale.ROOT, "     alert, a sentry alone %d ticks: head from %.0f to %.0f degrees of the way it faced, %.1f a tick at most; why at the end %s",
+                    SENTRY_TICKS, sentryMin, sentryMax, sentryMost, why));
+            check.check(String.format(Locale.ROOT, "alert: a sentry with no one about looks round at least %.0f degrees across, its head %.0f degrees a tick at most",
+                    SENTRY_SWEEP, SENTRY_TURN), sentryMax - sentryMin >= SENTRY_SWEEP && sentryMost <= SENTRY_TURN + 0.01);
+            // then sent somewhere while it looks round (X1223's look round stopped its walk every tick)
+            if (b != null) b.mover.goTo(BlockPos.asLong(Mth.floor(XS[1]), y, Mth.floor(RED_Z) + SENT), 0.8, AiSoldier.WALK);
+            return false;
+        }
+        int t = sentryTicks - SENTRY_TICKS;
+        if (sentryThere < 0) {
+            if (b != null && b.mover.arrived() && sentry.distanceToSqr(XS[1], y, RED_Z + SENT) < 2.0) sentryThere = t;
+            else if (t < SENT_MOST * 3) return false;
+            check.out(String.format(Locale.ROOT, "     alert, the sentry sent %d blocks: there at tick %d (at %.1f %.1f, why %s)", SENT, sentryThere, sentry.getX(), sentry.getZ(), why));
+            check.check(String.format(Locale.ROOT, "alert: a sentry looking round goes where it is sent, %d blocks in %d ticks at most (%d)", SENT, SENT_MOST, sentryThere),
+                    sentryThere >= 0 && sentryThere <= SENT_MOST);
+            if (sentryThere < 0) return done();
+            sentryThere = t;
+            return false;
+        }
+        // there, it looks round again; a foe still in front of it, FOE_AWAY off and FOE_OFF degrees aside: noticed soon
+        if (foe == null) {
+            if (t - sentryThere < SENTRY_WAIT) return false;
+            float toFoe = sentry.getYHeadRot() + FOE_OFF;
+            Vec3 at = sentry.position().add(Vec3.directionFromRotation(0F, toFoe).scale(FOE_AWAY));
+            foe = net.minecraft.world.entity.EntityTypes.PIG.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+            foe.setNoAi(true);
+            foe.addTag("armsai_target");
+            foe.setInvulnerable(true);
+            foe.setPos(at.x, y, at.z);
+            level.addFreshEntity(foe);
+            foeAt = t;
+            return false;
+        }
+        var k = b == null ? null : b.memory.contact(foe.getId());
+        boolean noticed = k != null && k.state != TargetMemory.State.GLIMPSED;
+        if (!noticed && t - foeAt < FOE_MOST * 3) return false;
+        int took = noticed ? t - foeAt : -1;
+        check.out(String.format(Locale.ROOT, "     alert, a foe still %.0f blocks off, %.0f degrees aside of where the sentry looked: noticed at tick %d (%s)", FOE_AWAY, FOE_OFF, took,
+                k == null ? "no contact" : String.valueOf(k.state)));
+        check.check(String.format(Locale.ROOT, "alert: a sentry looking round notices a foe still in front of it %.0f blocks off in %d ticks at most (%d)", FOE_AWAY, FOE_MOST, took),
+                took >= 0 && took <= FOE_MOST);
+        return done();
+    }
+
+    /** the sentry's walk, blocks south; its ticks there at most */
+    static final int SENT = 12, SENT_MOST = 150;
+    /** ticks it stands there looking round before the foe comes; the foe's way off and aside, its ticks to be noticed at most */
+    static final int SENTRY_WAIT = 100, FOE_MOST = 60;
+    static final double FOE_AWAY = 35;
+    static final float FOE_OFF = 20F;
+    private int sentryThere = -1, foeAt;
+    private net.minecraft.world.entity.Mob foe;
+
+    private boolean done() {
         sentry.discard();
+        if (foe != null) foe.discard();
         return true;
     }
 
