@@ -58,6 +58,12 @@ public final class AiMover {
     /** the map's count of changed blocks when it was so */
     private long noWayAt;
     private long searchStarted;
+    /** how near the goal across the nearest end of a part of a way it walked came, blocks (a wall round the goal: no nearer) */
+    private double partBest = Double.MAX_VALUE;
+    /** a part of a way walked to its end no nearer the goal than this past the nearest before: a try spent, blocks */
+    static final double CLOSER = 2;
+    /** off only for the stands' "before" (AiCheckWall): a part of a way never costs a try */
+    static boolean partTries = true;
     private PathSearch.@Nullable Result walking;
     /** the stamps of the walked path's sections ({@link PathSearch.Result#keys}) it was last found good at */
     private int[] walkStamps = new int[0];
@@ -99,6 +105,7 @@ public final class AiMover {
         offZ = oz;
         tries = waits = 0;
         noWay = false;
+        partBest = Double.MAX_VALUE;
         inCellSince = Long.MIN_VALUE;
         settled = false;
         walking = null;
@@ -326,6 +333,14 @@ public final class AiMover {
                 // down: no try spent, a search from here goes on)
                 if (walking.reached && !mob.onClimbable()) tries++;
                 else if (noWay && map.changes == noWayAt && atEnd(walking)) tries = TRIES;
+                // a part of a way (the search cut short at its cells' bound): the next part, while each brings it nearer;
+                // one that does not (the goal behind a wall, on a roof: the nearest cell to it the same one at its foot
+                // again and again) is a try spent. Not where the map was not built yet on the way (it is being built)
+                else if (partTries && walking.missing.length == 0) {
+                    double d = Math.hypot(BlockPos.getX(goal) + 0.5 - mob.getX(), BlockPos.getZ(goal) + 0.5 - mob.getZ());
+                    if (d > partBest - CLOSER) tries++;
+                    partBest = Math.min(partBest, d);
+                }
             }
             if (failed()) {
                 walking = null;
