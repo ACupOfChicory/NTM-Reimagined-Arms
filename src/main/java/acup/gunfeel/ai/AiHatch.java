@@ -180,8 +180,9 @@ final class AiHatch {
             if (BlockPos.getX(a) != BlockPos.getX(b) || BlockPos.getZ(a) != BlockPos.getZ(b) || BlockPos.getY(b) != BlockPos.getY(a) - 1) continue;
             int j = i + 1;
             while (j + 1 < cells.length && BlockPos.getX(cells[j + 1]) == BlockPos.getX(a) && BlockPos.getZ(cells[j + 1]) == BlockPos.getZ(a)
-                    && BlockPos.getY(cells[j + 1]) == BlockPos.getY(cells[j]) - 1) j++;
-            if (j - i + 1 < RUNGS) {
+                    && BlockPos.getY(cells[j + 1]) < BlockPos.getY(cells[j]) && BlockPos.getY(cells[j + 1]) >= BlockPos.getY(cells[j]) - PathSearch.MAX_DROP) j++;
+            // (a drop past rungs knocked out is still down the shaft: PathSearch.gapDown)
+            if (BlockPos.getY(a) - BlockPos.getY(cells[j]) + 1 < RUNGS) {
                 i = j;
                 continue;
             }

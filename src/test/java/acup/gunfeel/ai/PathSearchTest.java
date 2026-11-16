@@ -137,6 +137,27 @@ class PathSearchTest {
     }
 
     @Test
+    void downALadderPastRungsKnockedOut() {
+        // two rungs gone (y 4, 5): a drop of three onto the rung under them; three gone is a drop of four, no way
+        Grid g = shaft(true, true);
+        g.set(10, 4, 10, Voxel.AIR);
+        g.set(10, 5, 10, Voxel.AIR);
+        g.build();
+        PathSearch.Result down = PathSearch.find(g, at(20, 9, 20), at(13, 0, 13), 0, 4000, PathSearch.Cost.NONE);
+        assertTrue(down.reached, "down past the gap");
+        assertTrue(passes(down, 10, 6, 10) && passes(down, 10, 3, 10), "from the rung over the gap to the one under it");
+        for (int i = 1; i < down.cells.length; i++)
+            assertTrue(BlockPos.getY(down.cells[i - 1]) - BlockPos.getY(down.cells[i]) <= PathSearch.MAX_DROP, "no drop over " + PathSearch.MAX_DROP);
+        long[] run = AiHatch.run(down.cells);
+        assertTrue(run != null && BlockPos.getY(run[2]) <= 1, "one shaft, its foot by the floor");
+        PathSearch.Result up = PathSearch.find(g, at(13, 0, 13), at(20, 9, 20), 0, 4000, PathSearch.Cost.NONE);
+        assertFalse(up.reached, "no way up past the gap");
+        g.set(10, 3, 10, Voxel.AIR);
+        g.build();
+        assertFalse(PathSearch.find(g, at(20, 9, 20), at(13, 0, 13), 0, 4000, PathSearch.Cost.NONE).reached, "three gone: no way down");
+    }
+
+    @Test
     void noWayDownAShaftWithNoLadder() {
         // nine down with nothing to climb by: too far to drop, nothing to climb back up
         PathSearch.Result down = PathSearch.find(shaft(false, false), at(20, 9, 20), at(13, 0, 13), 0, 4000, PathSearch.Cost.NONE);

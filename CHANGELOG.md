@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers go down a ladder past one or two rungs knocked out of it (shot
+  out in a fight in the shaft, say), dropping onto the rung or floor under
+  the gap; before, such a gap closed the way down for good. A gap of
+  more than two is still no way down, and no gap is climbed up.
+
 ## X1347
 
 - AI soldiers going down a long ladder (such as the sixty-block shaft of NTM's
