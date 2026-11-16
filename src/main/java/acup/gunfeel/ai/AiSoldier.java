@@ -1497,6 +1497,23 @@ public final class AiSoldier implements AiBrain {
 
     /** the cover's fire in its squad's crossing (AiCrossing): where it stands, at the place, a burst of BURST ticks every BURST_EVERY */
     void coverFire(AiBot bot, Vec3 at, long tick) {
+        // its own swimming across the line to the foe: at a burst's start the aim goes aside along the far bank, a few
+        // blocks, till the line is clear (fire on the ground about it, not through them)
+        if ((tick + bot.mob.getId()) % COVER_EVERY == 0 && bot.mob.level() instanceof ServerLevel level) {
+            coverAside = 0;
+            Vec3 eye = AiLean.eye(bot.mob);
+            double dx = at.x - eye.x, dz = at.z - eye.z, d = Math.hypot(dx, dz);
+            if (d > 1e-3)
+                for (double k : COVER_ASIDE) {
+                    if (!AiBots.friendInLine(level, bot.mob, eye, at.add(-dz / d * k, 0, dx / d * k), AiGunner.CLEAR_CONE)) {
+                        coverAside = k;
+                        break;
+                    }
+                }
+            coverDx = d > 1e-3 ? -dz / d : 0;
+            coverDz = d > 1e-3 ? dx / d : 0;
+        }
+        at = at.add(coverDx * coverAside, 0, coverDz * coverAside);
         watch = at;
         bot.gunner.aim(at);
         why = Why.CROSS;
@@ -1511,6 +1528,9 @@ public final class AiSoldier implements AiBrain {
 
     /** the cover's bursts in a crossing: this long, ticks, every so many */
     static final int COVER_BURST = 12, COVER_EVERY = 40;
+    /** where along the far bank, blocks aside of the foe, the cover's aim may go to keep its own out of the line */
+    private static final double[] COVER_ASIDE = {0, 2, -2, 4, -4, 6, -6};
+    private double coverAside, coverDx, coverDz;
 
     private static boolean noSmoke(int why) {
         AiSmoke.skipped[why]++;

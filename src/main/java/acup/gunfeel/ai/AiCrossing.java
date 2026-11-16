@@ -54,6 +54,8 @@ public final class AiCrossing {
     static final int FAILS = 3, STALE = 200;
     /** one joins its side's crossing to the foe only this near its near bank, blocks */
     static final double JOIN = 32;
+    /** a squad that was under fire this long ago at most, ticks, goes after a foe out of its sight across water */
+    static final int FIRED = 600;
     /** the smoke's burst this far past the far bank, blocks */
     static final double SMOKE_PAST = 2;
 
@@ -79,6 +81,8 @@ public final class AiCrossing {
         Phase phase = Phase.GATHER;
         long made, phaseAt, last = Long.MIN_VALUE;
         boolean smoked;
+        /** begun after a foe out of sight (not on a way to one): let go as soon as the staff leads any of it */
+        boolean outOfSight;
         int holds;
 
         Op(String team, int target, long near, long far, double ux, double uz, long tick) {
@@ -97,6 +101,8 @@ public final class AiCrossing {
         final Int2ObjectOpenHashMap<Op> of = new Int2ObjectOpenHashMap<>();
         /** side:foe with a dry way over found, till when */
         final Map<String, Long> dryWay = new HashMap<>();
+        /** each soldier's last tick under fire */
+        final it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap fired = new it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap();
         long swept;
     }
 
@@ -199,6 +205,22 @@ public final class AiCrossing {
         l.swept = tick;
         for (Op op : new ArrayList<>(l.ops.values())) if (op.last != Long.MIN_VALUE && tick - op.last > STALE) end(l, op, false);
         l.dryWay.values().removeIf(until -> until < tick);
+        l.fired.values().removeIf(t -> tick - t > FIRED);
+    }
+
+    /** any of them under fire within FIRED ticks */
+    private static boolean fired(PerLevel l, List<AiBot> bots, long tick) {
+        for (AiBot b : bots) {
+            long t = l.fired.getOrDefault(b.mob.getId(), Long.MIN_VALUE);
+            if (t != Long.MIN_VALUE && tick - t <= FIRED) return true;
+        }
+        return false;
+    }
+
+    /** any of them goes by its staff's order (AiCommander) */
+    private static boolean led(List<AiBot> bots, long tick) {
+        for (AiBot b : bots) if (AiCommander.has(b, tick)) return true;
+        return false;
     }
 
     /** a way's end nearer the foe than the place it begins, by a few blocks */
@@ -229,6 +251,7 @@ public final class AiCrossing {
 
     /** a crossing for its squad, if it is to cross a river to a foe near; null if not */
     private static @Nullable Op begin(PerLevel l, AiBot bot, ServerLevel level, long tick) {
+        if (AiWater.underFire(bot, tick)) l.fired.put(bot.mob.getId(), tick);
         // looked into now and then (the way's cells, a line across the map)
         if (!on() || (tick + bot.mob.getId()) % LOOK != 0 || AiWater.swims(bot.mob)) return null;
         AiSquads.Squad sq = AiSquads.of(bot);
@@ -249,8 +272,10 @@ public final class AiCrossing {
         }
         String team = AiSquads.team(bot);
         // or a foe out of its sight a while across water, and no dry way over (a bridge, a ford): from this bank it cannot
-        // be fought, only gone after
-        if (banks == null && (tick + bot.mob.getId()) % LOOK_FAR == 0)
+        // be fought, only gone after; only by a squad under fire lately (a crossing under fire, not a march), none of it
+        // led by its staff (AiCommander: the staff's ways, its bounds)
+        boolean outOfSight = false;
+        if (banks == null && (tick + bot.mob.getId()) % LOOK_FAR == 0 && fired(l, sq.bots, tick) && !led(sq.bots, tick))
             for (TargetMemory.Contact o : bot.memory.contacts()) {
                 if (o.state == TargetMemory.State.VISIBLE || o.state == TargetMemory.State.GLIMPSED || tick - o.lostTick < OUT_OF_SIGHT) continue;
                 if (bot.mob.distanceToSqr(o.lostX, o.lostY, o.lostZ) > NEAR * NEAR || l.dryWay.containsKey(team + ":" + o.id)) continue;
@@ -264,6 +289,7 @@ public final class AiCrossing {
                 }
                 banks = b;
                 c = o;
+                outOfSight = true;
                 break;
             }
         if (banks == null || c == null) return null;
@@ -283,6 +309,7 @@ public final class AiCrossing {
         double dx = BlockPos.getX(far) - BlockPos.getX(near), dz = BlockPos.getZ(far) - BlockPos.getZ(near), d = Math.hypot(dx, dz);
         if (d < 1) return null;
         op = new Op(team, c.id, near, far, dx / d, dz / d, tick);
+        op.outOfSight = outOfSight;
         for (AiBot b : sq.bots) {
             if (!AiSquads.live(b) || l.of.containsKey(b.mob.getId())) continue;
             op.members.add(b);
@@ -354,7 +381,7 @@ public final class AiCrossing {
         for (AiBot b : op.members) known |= b.memory.contact(op.target) != null;
         boolean all = !op.members.isEmpty();
         for (AiBot b : op.members) all &= op.over.contains(b) || op.stuck.contains(b) || !AiWater.swims(b.mob) && side(op, b.mob.position()) > 0 && !op.going.containsKey(b);
-        if (op.members.isEmpty() || all || tick - op.made > MAX || !known && op.going.isEmpty()) {
+        if (op.members.isEmpty() || all || tick - op.made > MAX || !known && op.going.isEmpty() || op.outOfSight && op.going.isEmpty() && led(op.members, tick)) {
             end(l, op, all);
             return false;
         }
