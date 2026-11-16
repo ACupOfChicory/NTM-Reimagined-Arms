@@ -145,7 +145,10 @@ public final class ModelHitClient {
 
     private static boolean publishChecked(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
         if(MobBenchMetrics.ENABLED) MobBenchMetrics.published++;
-        var filtered=PlaneHitPolicy.filter(entity,AvatarHitPolicy.filter(entity,boxes)).stream().map(ModelBox::sent).toList();
+        var kept=PlaneHitPolicy.filter(entity,AvatarHitPolicy.filter(entity,boxes));
+        var sent=new ModelBox[kept.size()];
+        for(int i=0;i<sent.length;i++) sent[i]=kept.get(i).sent();
+        var filtered=List.of(sent);
         double radius=ModelHits.radius(entity);
         boolean invalid=false;
         for(int i=0;i<filtered.size() && !invalid;i++) invalid=!filtered.get(i).valid(radius);

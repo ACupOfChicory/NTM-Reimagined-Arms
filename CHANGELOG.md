@@ -1,6 +1,6 @@
 # Changelog
 
-## X1252
+## X1258
 
 - An AI squad pinning an enemy group and the squad sent round its side now
   work as a pair. The one going round signals when it gets to its place, runs
@@ -17,6 +17,11 @@
   as before.
 - A bounding AI squad no longer runs on with no one covering it when the
   soldiers of one of its halves leave it: it is halved again.
+
+## X1236
+
+- Less CPU per frame with many AI soldiers on screen: a soldier's pose is
+  worked out once a frame instead of once for its body and each armour piece.
 
 ## X1231
 

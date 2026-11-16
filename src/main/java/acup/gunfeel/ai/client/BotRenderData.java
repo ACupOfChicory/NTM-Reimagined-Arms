@@ -7,4 +7,9 @@ public interface BotRenderData {
     BotAnimator.@Nullable Frame gunfeel$bot();
 
     void gunfeel$setBot(BotAnimator.@Nullable Frame frame);
+
+    /** its pose this frame, for the next model posed from the state (BotPoseCache) */
+    @Nullable BotPoseCache gunfeel$pose();
+
+    void gunfeel$setPose(@Nullable BotPoseCache pose);
 }
