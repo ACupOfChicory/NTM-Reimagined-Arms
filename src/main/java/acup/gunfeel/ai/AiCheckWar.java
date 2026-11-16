@@ -107,6 +107,10 @@ final class AiCheckWar {
     private final double[] lastX = new double[SQUADS * EACH], lastZ = new double[SQUADS * EACH];
     /** per round: {on, looks, in reach, in sight, walked, first seen from} */
     private final List<double[]> approach = new ArrayList<>();
+    /** fewer of the staff's ways than this: the check of them tells nothing (a run has 2 to 4 under /tick sprint) */
+    static final int WAYS_MIN = 2;
+    /** the blocks of the ways in the enemy's sight up to the river against those of the shortest ways there, at most */
+    static final double WAY_SEEN = 0.85;
     /** the staff's ways in the rounds it was on */
     private final List<HqGrid.Route> ways = new ArrayList<>();
     private long routeNanos0, routes0;
@@ -520,14 +524,23 @@ final class AiCheckWar {
                     + " %.1f%% of the time within its reach, first in its sight %.0f blocks off, first seen at tick %.0f, %.0f blocks walked each", MODE_NAMES[on], roundsOf[on],
                     aliveOf[on] == 0 ? 0 : 100.0 * idleOf[on] / aliveOf[on],
                     reachedOf[on] == 0 ? 0 : 100 * sightOf[on] / reachedOf[on], fromN[on] == 0 ? -1 : fromOf[on] / fromN[on], firstOf[on] / roundsOf[on], walkOf[on] / roundsOf[on]));
-        double waySeen = 0, straightSeen = 0, longer = 0, wayAll = 0, shortestAll = 0;
+        double waySeen = 0, straightSeen = 0, longer = 0, wayAll = 0, shortestAll = 0, seenBlocks = 0, shortestBlocks = 0;
+        // each way against the shortest one there, up to the river (beyond its ford every way goes the same, over open
+        // ground): how many are less in the enemy's sight than it (strictly), and the blocks in sight of them all
+        // against those of the shortest (one round's few ways averaged swung); a way whose shortest is out of sight
+        // there has nothing to keep out of: not counted
+        int lessSeen = 0, open = 0;
         for (HqGrid.Route r : ways) {
-            // up to the river (beyond its ford every way goes the same, over open ground): where the staff has a choice
             waySeen += r.dryPart() / ways.size();
             straightSeen += r.shortestDryPart() / ways.size();
             wayAll += r.seenPart() / ways.size();
             shortestAll += r.shortestSeenPart() / ways.size();
             longer += r.length() / Math.max(1, r.shortest()) / ways.size();
+            seenBlocks += r.dryPart() * r.dry();
+            shortestBlocks += r.shortestDryPart() * r.shortestDry();
+            if (r.shortestDryPart() <= 0) continue;
+            open++;
+            if (r.dryPart() < r.shortestDryPart()) lessSeen++;
         }
         long routesAll = AiCommander.routes.get() - routes0;
         double msRoute = routesAll == 0 ? 0 : (AiCommander.routeNanos.get() - routeNanos0) / 1e6 / routesAll;
@@ -548,8 +561,13 @@ final class AiCheckWar {
                 errN[0] == 0 ? -1 : errSum[0] / errN[0], IntelBook.R_MIN), errN[0] > 0 && errSum[0] / errN[0] <= IntelBook.R_MIN);
         check.check(String.format(Locale.ROOT, "war: the picture costs %.2f us a tick a side (at most 20)", usTick), usTick <= 20);
         boolean staffRan = roundsOf[STAFF] > 0, tasksRan = roundsOf[TASKS] + roundsOf[MOVES] > 0;
-        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight up to the river: %.1f%% of them in it against %.1f%% on the shortest way (40%% less at least), %.2f times as long as the shortest (1.5 at most)",
-                100 * waySeen, 100 * straightSeen, longer), !staffRan || !ways.isEmpty() && waySeen <= straightSeen * 0.6 && longer <= 1.5);
+        boolean enoughWays = ways.size() >= WAYS_MIN;
+        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight up to the river: %d of %d less in it than the shortest ways there (2/3 at least),"
+                        + " %.0f blocks of them in it against %.0f of the shortest (%.0f%% of it, %.0f%% at most), %.2f times as long as the shortest (1.5 at most)%s", lessSeen, open,
+                seenBlocks, shortestBlocks, shortestBlocks == 0 ? 0 : 100 * seenBlocks / shortestBlocks, 100 * WAY_SEEN, longer,
+                enoughWays ? "" : String.format(Locale.ROOT, "; too few ways (%d of them needed): not checked", WAYS_MIN)),
+                // a staff that ran and made no way at all fails
+                !staffRan || !ways.isEmpty() && (!enoughWays || 3 * lessSeen >= 2 * open && seenBlocks <= WAY_SEEN * shortestBlocks && longer <= 1.5));
         check.check(String.format(Locale.ROOT, "war: a way takes %.2f ms off the server thread (5 at most)", msRoute), msRoute <= 5);
         // C2: with the staff's tasks no squad stands about with nothing to do, and the squads were sent at the player
         // (a reserve or a hold is an order too: not all of them)

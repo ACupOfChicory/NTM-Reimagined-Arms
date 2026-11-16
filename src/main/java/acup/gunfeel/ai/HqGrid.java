@@ -313,13 +313,15 @@ public final class HqGrid {
      * short of where it was asked when that was off the map), how long it is against the straight line, the part of
      * each in the enemy's sight short of its last END blocks (there it is at the enemy, seen or not); the shortest way
      * there over the map, the enemy's sight aside (the straight line where water to swim lies across it: a ford aside),
-     * and its part in the enemy's sight short of its last END blocks; the parts in sight of each up to the first water
-     * it crosses (a ford: beyond it every way goes the same; with none, as the whole)
+     * and its part in the enemy's sight short of its last END blocks; the blocks of each up to the first water it
+     * crosses (a ford: beyond it every way goes the same; with none, the whole short of its last END blocks) and the
+     * part of them in sight
      */
     public record Route(double fromX, double fromZ, double toX, double toZ, double[] points, double length, double straight, double seenPart,
-            double straightSeenPart, double shortest, double shortestSeenPart, double dryPart, double shortestDryPart) {
+            double straightSeenPart, double shortest, double shortestSeenPart, double dry, double dryPart, double shortestDry, double shortestDryPart) {
         public Route(double fromX, double fromZ, double toX, double toZ, double[] points, double length, double straight, double seenPart, double straightSeenPart) {
-            this(fromX, fromZ, toX, toZ, points, length, straight, seenPart, straightSeenPart, length, seenPart, seenPart, seenPart);
+            this(fromX, fromZ, toX, toZ, points, length, straight, seenPart, straightSeenPart, length, seenPart, Math.max(0, length - END), seenPart, Math.max(0, length - END),
+                    seenPart);
         }
 
         /** it ends short of where it was asked to go (that was off the map) */
@@ -365,12 +367,16 @@ public final class HqGrid {
         }
         double[] pts = thin(p, fx, fz, to[0], to[1]), least = p == shortest ? pts : thin(shortest, fx, fz, to[0], to[1]);
         double seen = seenPart(fx, fz, pts, END), leastSeen = p == shortest ? seen : seenPart(fx, fz, least, END);
+        double[] d = dry(fx, fz, pts, seen), e = dry(fx, fz, least, leastSeen);
         return new Route(fx, fz, tx, tz, pts, length(fx, fz, pts), straight, seen, seenPart(fx, fz, new double[] {to[0], to[1]}, END), length(fx, fz, least),
-                leastSeen, dry(fx, fz, pts, seen), dry(fx, fz, least, leastSeen));
+                leastSeen, d[0], d[1], e[0], e[1]);
     }
 
-    /** the part of a way in the enemy's sight up to the first water it crosses; with none, all of it as given */
-    private double dry(double fx, double fz, double[] pts, double all) {
+    /**
+     * a way's blocks up to the first water it crosses and their part in the enemy's sight; with none, the blocks short
+     * of its last END and the part as given
+     */
+    private double[] dry(double fx, double fz, double[] pts, double all) {
         double px = fx, pz = fz;
         for (int j = 0; j < pts.length; j += 2) {
             double len = Math.hypot(pts[j] - px, pts[j + 1] - pz);
@@ -382,12 +388,12 @@ public final class HqGrid {
                 double[] cut = java.util.Arrays.copyOf(pts, j + 2);
                 cut[j] = x;
                 cut[j + 1] = z;
-                return seenPart(fx, fz, cut, 0);
+                return new double[] {length(fx, fz, cut), seenPart(fx, fz, cut, 0)};
             }
             px = pts[j];
             pz = pts[j + 1];
         }
-        return all;
+        return new double[] {Math.max(0, length(fx, fz, pts) - END), all};
     }
 
     private static double length(double fx, double fz, double[] pts) {
