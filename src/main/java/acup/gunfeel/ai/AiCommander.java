@@ -116,6 +116,8 @@ public final class AiCommander {
     static final int PAIR_MORE = 600, PAIR_MOST = 1800;
     /** pinning or holding: after a foe lost no farther than this from its place, blocks */
     static final double LEASH = 24;
+    /** the one going round for a pair runs into its group within this (blocks to the group's middle): ready, there or not */
+    static final double RUN_INTO = 20;
     /** the stands: pairs made, those whose one going round got there (or into a fight) in time, the ticks that took in all, those whose time ran out */
     public static int paired, coupled, expired;
     public static long coupleTicks;
@@ -226,6 +228,8 @@ public final class AiCommander {
         int sector;
         /** the side's reports seen (a new one: its map made again) */
         long reports;
+        /** its last tasks given with no map yet (the pairs on: none to go round): all looked at afresh once it has one */
+        boolean blind;
     }
 
     private static final Map<ServerLevel, Map<String, Side>> LEVELS = new WeakHashMap<>();
@@ -432,6 +436,8 @@ public final class AiCommander {
         double sideX = 0, sideZ = 0;
         int all = 0;
         boolean supply = AiSupply.on() && ReaimTimes.flag(AiSupply.OUT_KEY, true);
+        HqGrid grid = AiHqMap.of(level, team);
+        boolean afresh = side.blind && grid != null;
         for (AiSquads.Squad s : squads) {
             double sx = 0, sz = 0, strength = 0;
             int alive = 0, out = 0;
@@ -460,12 +466,13 @@ public final class AiCommander {
                 expired++;
             }
             own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), out * 2 > alive, job == null ? null : job.kind,
-                    job == null ? 0 : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE));
+                    job == null ? 0 : afresh ? now - StaffPlan.KEEP : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE));
         }
         if (all == 0) return;
         sideX /= all;
         sideZ /= all;
-        StaffPlan.Task[] plan = StaffPlan.plan(own, foes, AiHqMap.of(level, team), sideX, sideZ, Math.min(REACH, AiBots.radius() * 2), PER, now, side.sector);
+        StaffPlan.Task[] plan = StaffPlan.plan(own, foes, grid, sideX, sideZ, Math.min(REACH, AiBots.radius() * 2), PER, now, side.sector);
+        side.blind = grid == null && pairs();
         for (int i = 0; i < squads.size(); i++) task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
         if (pairs()) pair(squads, now);
         strays(level, team, squads, now);
@@ -1123,7 +1130,7 @@ public final class AiCommander {
 
     /**
      * a pair's one going round in a fight with its group (its squad's target one of it) once round: within LEASH of
-     * its place or StaffPlan.FLANK_D of the group (seen from afar on the way, it goes on round): ready (C4)
+     * its place, or run into it within RUN_INTO (seen from afar on the way, it goes on round): ready (C4)
      */
     private static void couple(ServerLevel level, long now) {
         for (AiSquads.Squad s : AiSquads.squads(level)) {
@@ -1131,7 +1138,7 @@ public final class AiCommander {
             for (AiBot b : s.bots) {
                 Job j = b.order != null && now <= b.order.until ? b.order.job : null;
                 if (j != null && j.kind == StaffPlan.Kind.FLANK && j.partner != null && j.ready == Long.MIN_VALUE && contains(j.ids, s.target)
-                        && (Math.hypot(b.mob.getX() - b.order.x, b.mob.getZ() - b.order.z) <= LEASH || Math.hypot(b.mob.getX() - j.gx, b.mob.getZ() - j.gz) <= StaffPlan.FLANK_D)) {
+                        && (Math.hypot(b.mob.getX() - b.order.x, b.mob.getZ() - b.order.z) <= LEASH || Math.hypot(b.mob.getX() - j.gx, b.mob.getZ() - j.gz) <= RUN_INTO)) {
                     ready(level, j, now);
                     break;
                 }
@@ -1193,15 +1200,15 @@ public final class AiCommander {
     }
 
     /**
-     * going round for a pair not yet ready, in its time, the foe it knows of farther than StaffPlan.FLANK_D: it goes
-     * on round by the order rather than into a fight from where it is (C4; nearer, it fights: ready)
+     * going round for a pair not yet ready, in its time, the foe it knows of farther than RUN_INTO: it goes on round by
+     * the order rather than into a fight from where it is (C4; nearer, it fights: ready)
      */
     static boolean goesRound(AiBot bot, TargetMemory.Contact c, long tick) {
         Order o = bot.order;
         Job j = o == null || tick > o.until ? null : o.job;
         if (j == null || j.kind != StaffPlan.Kind.FLANK || j.partner == null || j.ready != Long.MIN_VALUE || tick >= j.due) return false;
         double x = c.state == TargetMemory.State.VISIBLE ? c.x : c.lostX, z = c.state == TargetMemory.State.VISIBLE ? c.z : c.lostZ;
-        return Math.hypot(x - bot.mob.getX(), z - bot.mob.getZ()) > StaffPlan.FLANK_D && pairs() && on();
+        return Math.hypot(x - bot.mob.getX(), z - bot.mob.getZ()) > RUN_INTO && pairs() && on();
     }
 
     /** /armsai info */

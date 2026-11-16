@@ -10,9 +10,11 @@
   squads go in. A squad pinning or holding a place no longer chases a lost
   enemy more than 24 blocks from it. Server key `aiCommanderPairs` (true);
   false: each squad goes about its task on its own, as before. The squad
-  going round keeps going round while the enemy is more than 40 blocks off,
+  going round keeps going round while the enemy is more than 20 blocks off,
   rather than stopping to fight from afar, and goes round on the side
-  nearer to get to (by a ford, where a river lies between).
+  nearer to get to (by a ford, where a river lies between). Where neither
+  side is got round to in the pair's time (a river between, its ford far
+  off), or before the commander has mapped the ground, both squads pin.
 - A bounding AI squad no longer runs on with no one covering it when the
   soldiers of one of its halves leave it: it is halved again.
 
