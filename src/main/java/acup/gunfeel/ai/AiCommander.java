@@ -1120,13 +1120,17 @@ public final class AiCommander {
         return false;
     }
 
-    /** a pair's one going round in a fight with its group (its squad's target one of it): ready (C4) */
+    /**
+     * a pair's one going round in a fight with its group (its squad's target one of it) once round: within LEASH of
+     * its place or StaffPlan.FLANK_D of the group (seen from afar on the way, it goes on round): ready (C4)
+     */
     private static void couple(ServerLevel level, long now) {
         for (AiSquads.Squad s : AiSquads.squads(level)) {
             if (s.target < 0) continue;
             for (AiBot b : s.bots) {
                 Job j = b.order != null && now <= b.order.until ? b.order.job : null;
-                if (j != null && j.kind == StaffPlan.Kind.FLANK && j.partner != null && j.ready == Long.MIN_VALUE && contains(j.ids, s.target)) {
+                if (j != null && j.kind == StaffPlan.Kind.FLANK && j.partner != null && j.ready == Long.MIN_VALUE && contains(j.ids, s.target)
+                        && (Math.hypot(b.mob.getX() - b.order.x, b.mob.getZ() - b.order.z) <= LEASH || Math.hypot(b.mob.getX() - j.gx, b.mob.getZ() - j.gz) <= StaffPlan.FLANK_D)) {
                     ready(level, j, now);
                     break;
                 }

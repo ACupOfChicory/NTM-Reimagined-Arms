@@ -497,6 +497,8 @@ neoForge {
             providers.gradleProperty("aiCheckWarDump").orNull?.let { systemProperty("ntmgunfeel.checkAiWarDump", it) }
             // -PaiCheckWarBare: the war's wood with no undergrowth (crowns over the head alone: a look standing goes under them)
             if (providers.gradleProperty("aiCheckWarBare").isPresent) systemProperty("ntmgunfeel.checkAiWarBare", "true")
+            // -PaiCheckWarStill: the war's player never hides (the squads going round meet it: the pairs, C4)
+            if (providers.gradleProperty("aiCheckWarStill").isPresent) systemProperty("ntmgunfeel.checkAiWarStill", "true")
             // -PaiWorld=<a world's folder> -PaiWorldAt=x,y,z,radius[,up]: that world (a copy) read as the AI reads it (AiCheckWorld)
             providers.gradleProperty("aiWorldAt").orNull?.let { systemProperty("ntmgunfeel.checkAiWorld", it) }
             // -PaiLegs=<file>: the fighters' moves, tick by tick, for the legs' replay (AiLegsLog, BotLegsReplayTest)

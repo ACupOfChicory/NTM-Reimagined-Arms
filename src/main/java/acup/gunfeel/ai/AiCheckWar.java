@@ -100,12 +100,16 @@ final class AiCheckWar {
      * pinning one; pairs made, ready in time, out of time, the ticks to ready
      */
     private final java.util.Set<AiCommander.Job> flanksSeen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-    private long flankContacts, flankWide;
+    private long flankContacts, flankWide, roundTicks, crossTicks;
+    /** the round's soldiers that went round (a FLANK task) */
+    private final java.util.Set<Integer> wentRound = new java.util.HashSet<>();
     private int paired0, coupled0, expired0;
     private long coupleTicks0;
     private final List<long[]> pairsOf = new ArrayList<>();
     /** a squad going round sees the player this many degrees or more off the line from the pinning one: round its side */
     static final double WIDE = 60;
+    /** a squad going round comes on the player: it sees it within this, blocks (seen from afar on the way it is not there yet) */
+    static final double CLOSE = 64;
     private double firstSeenFrom;
     /** the staff's ways made before the player was first seen this round */
     private int madeBefore;
@@ -165,14 +169,30 @@ final class AiCheckWar {
         StaffMove.on = mode() >= MOVES;
         AiCommander.pairs = mode() == PAIRS;
         long now = level.getGameTime();
-        // a squad going round (FLANK) first seeing the player: the angle at the player between it and the middle of the
+        // a squad going round (FLANK) first seeing the player within CLOSE: the angle at the player between it and the middle of the
         // squad pinning the same group (C4: the pair's; before it, any pinning that group)
+        // the player under fire from two sides: one of a squad pinning and one of a squad going round (or that went
+        // round this round and advances now) see it at once
+        if (mode() >= TASKS) {
+            boolean pinSees = false, roundSees = false;
+            for (Mob m : ours) {
+                AiBot b = AiBots.get(m);
+                AiCommander.Job j = b == null || !m.isAlive() || !AiCommander.has(b, now) ? null : b.order.job;
+                if (j != null && j.kind == StaffPlan.Kind.FLANK) wentRound.add(m.getId());
+                TargetMemory.Contact c = j == null ? null : b.memory.contact(player.getId());
+                if (c == null || c.state != TargetMemory.State.VISIBLE) continue;
+                if (j.kind == StaffPlan.Kind.PIN) pinSees = true;
+                else if (wentRound.contains(m.getId())) roundSees = true;
+            }
+            if (roundSees) roundTicks++;
+            if (pinSees && roundSees) crossTicks++;
+        }
         if (mode() >= TASKS) for (Mob m : ours) {
             AiBot b = AiBots.get(m);
             AiCommander.Job j = b == null || !m.isAlive() || !AiCommander.has(b, now) ? null : b.order.job;
             if (j == null || j.kind != StaffPlan.Kind.FLANK || flanksSeen.contains(j)) continue;
             TargetMemory.Contact c = b.memory.contact(player.getId());
-            if (c == null || c.state != TargetMemory.State.VISIBLE) continue;
+            if (c == null || c.state != TargetMemory.State.VISIBLE || m.distanceTo(player) > CLOSE) continue;
             double[] pin = pinMiddle(j, now);
             if (pin == null) continue;
             flanksSeen.add(j);
@@ -199,7 +219,7 @@ final class AiCheckWar {
         }
         // the player walks to and fro across the river's far side, kept whole; for a while it hides in a stone box
         // farther off (none of the side sees it: the picture grows old)
-        boolean hides = ticks >= HIDE_FROM && ticks < HIDE_TO;
+        boolean hides = ticks >= HIDE_FROM && ticks < HIDE_TO && !Boolean.getBoolean("ntmgunfeel.checkAiWarStill");
         double px = hides ? X0 + BOX_X + 0.5 : X0 + WALK_X + WALK_A * Math.sin(2 * Math.PI * ticks / WALK_T);
         player.snapTo(px, y, Z0 + (hides ? BOX_Z + 0.5 : WALK_Z), 180F, 0F);
         player.setHealth(player.getMaxHealth());
@@ -261,7 +281,8 @@ final class AiCheckWar {
         t[given0.length] = AiCommander.strays - strays0;
         tasksOf.add(t);
         movesOf.add(new long[] {modeTicks[0], modeTicks[1], modeTicks[2], modeTicks[3], bounding, covering, inCover});
-        pairsOf.add(new long[] {flankContacts, flankWide, AiCommander.paired - paired0, AiCommander.coupled - coupled0, AiCommander.expired - expired0, AiCommander.coupleTicks - coupleTicks0});
+        pairsOf.add(new long[] {flankContacts, flankWide, AiCommander.paired - paired0, AiCommander.coupled - coupled0, AiCommander.expired - expired0, AiCommander.coupleTicks - coupleTicks0,
+                roundTicks, crossTicks});
         approach.add(new double[] {mode(), looks, inReach, inSight, walked / Math.max(1, ours.size()), firstSeenFrom});
         if (mode() == STAFF) {
             // a copy first: a way may still come in off the server thread
@@ -469,7 +490,8 @@ final class AiCheckWar {
         AiCommander.pairs = mode() == PAIRS;
         AiCommander.on = true;
         flanksSeen.clear();
-        flankContacts = flankWide = 0;
+        wentRound.clear();
+        flankContacts = flankWide = roundTicks = crossTicks = 0;
         paired0 = AiCommander.paired;
         coupled0 = AiCommander.coupled;
         expired0 = AiCommander.expired;
@@ -536,7 +558,7 @@ final class AiCheckWar {
         int[] roundsOf = new int[MODES], reachedOf = new int[MODES];
         long[] aliveOf = new long[MODES], idleOf = new long[MODES];
         long bounds = 0, covers = 0, coversHard = 0, pairsMade = 0, pairsReady = 0, pairsLate = 0;
-        long[] flankOf = new long[MODES], wideOf = new long[MODES];
+        long[] flankOf = new long[MODES], wideOf = new long[MODES], roundOf = new long[MODES], crossOf = new long[MODES];
         for (int i = 0; i < results.size(); i++) {
             double[] a = approach.get(i);
             int on = (int) a[0];
@@ -565,9 +587,12 @@ final class AiCheckWar {
                     id[0] == 0 ? 0 : 100.0 * id[1] / id[0], kinds.length() == 0 ? "none" : kinds, strays > 0 ? "; " + strays + " sent after their squad" : ""));
             long[] mv = movesOf.get(i);
             long[] pr = pairsOf.get(i);
-            if (on >= TASKS) check.out(String.format(Locale.ROOT, "     war, round %d: squads going round that saw the player %d, of them %.0f degrees or more off the pinning one %d; pairs %d,"
-                    + " ready in time %d (%.0f s on average), out of time %d", i + 1, pr[0], WIDE, pr[1], pr[2], pr[3], pr[3] == 0 ? 0 : pr[5] / 20.0 / pr[3], pr[4]));
+            if (on >= TASKS) check.out(String.format(Locale.ROOT, "     war, round %d: squads going round that saw the player within 64 blocks %d, of them %.0f degrees or more off the pinning one %d; pairs %d,"
+                    + " ready in time %d (%.0f s on average), out of time %d; the player seen by one going round %d ticks, by it and one pinning at once %d", i + 1, pr[0], WIDE, pr[1], pr[2], pr[3],
+                    pr[3] == 0 ? 0 : pr[5] / 20.0 / pr[3], pr[4], pr[6], pr[7]));
             flankOf[on] += pr[0];
+            roundOf[on] += pr[6];
+            crossOf[on] += pr[7];
             wideOf[on] += pr[1];
             if (on == PAIRS) {
                 pairsMade += pr[2];
@@ -629,9 +654,13 @@ final class AiCheckWar {
         // C3: bounding, one half at least is in cover facing the enemy most of the time
         // C4: the squad going round comes on the group from its side; before it (C2, C3) as a share too
         if (roundsOf[PAIRS] > 0) {
-            check.out(String.format(Locale.ROOT, "     war, squads going round that saw the player %.0f degrees or more off the pinning one: C2 %d of %d, C3 %d of %d, C4 %d of %d;"
+            check.out(String.format(Locale.ROOT, "     war, squads going round that saw the player within 64 blocks %.0f degrees or more off the pinning one: C2 %d of %d, C3 %d of %d, C4 %d of %d;"
                     + " C4 pairs %d, ready in time %d, out of time %d", WIDE, wideOf[TASKS], flankOf[TASKS], wideOf[MOVES], flankOf[MOVES], wideOf[PAIRS], flankOf[PAIRS],
                     pairsMade, pairsReady, pairsLate));
+            check.out(String.format(Locale.ROOT, "     war, the player under fire from two sides (one going round and one pinning see it at once), ticks a round: C2 %.0f, C3 %.0f, C4 %.0f;"
+                    + " of the ticks one going round sees it: C2 %.0f%%, C3 %.0f%%, C4 %.0f%%", (double) crossOf[TASKS] / Math.max(1, roundsOf[TASKS]),
+                    (double) crossOf[MOVES] / Math.max(1, roundsOf[MOVES]), (double) crossOf[PAIRS] / Math.max(1, roundsOf[PAIRS]),
+                    100.0 * crossOf[TASKS] / Math.max(1, roundOf[TASKS]), 100.0 * crossOf[MOVES] / Math.max(1, roundOf[MOVES]), 100.0 * crossOf[PAIRS] / Math.max(1, roundOf[PAIRS])));
             check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round comes on the player %.0f degrees or more off the pinning one %d times of %d (half at least), %d pairs made",
                     WIDE, wideOf[PAIRS], flankOf[PAIRS], pairsMade), pairsMade > 0 && flankOf[PAIRS] > 0 && wideOf[PAIRS] * 2 >= flankOf[PAIRS]);
         }
