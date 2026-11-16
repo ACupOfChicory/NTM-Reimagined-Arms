@@ -1,5 +1,11 @@
 # Changelog
 
+## X1217
+
+- An AI soldier that answered a contact with a burst from where it stood no
+  longer keeps firing at the spot its target fell, standing calm with no one
+  in sight, for the rest of the fight.
+
 ## X1212
 
 - Soldiers going into a room or round a trench's turn behind a grenade keep

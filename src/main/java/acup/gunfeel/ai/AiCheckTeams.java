@@ -90,6 +90,11 @@ final class AiCheckTeams {
     int briefOut, peekRunOut, shiftsOut;
     long aliveTicksOut;
     private final long[] modeTicks = new long[AiSoldier.Mode.values().length];
+    // shots fired by one that knew of no one (no contact, nothing heard) this tick and the one before (a shot the
+    // tick its target fell and was forgotten is the trigger's last): at nothing
+    private int blindShots;
+    private final java.util.Map<AiBot, Integer> shotsBefore = new java.util.HashMap<>();
+    private final java.util.Set<AiBot> knewNoOne = new java.util.HashSet<>();
     private long seeTicks;
     private final it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap atOne = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
     private final long[] firingAtOne = new long[6];
@@ -139,6 +144,12 @@ final class AiCheckTeams {
         for (AiBot bot : bots) {
             if (!bot.mob.isAlive() || !(bot.brain instanceof AiSoldier so)) continue;
             modeTicks[so.mode().ordinal()]++;
+            int was = shotsBefore.getOrDefault(bot, bot.gunner.shots);
+            boolean noOne = bot.memory.contacts().isEmpty() && bot.memory.noise() == null;
+            if (bot.gunner.shots > was && noOne && knewNoOne.contains(bot)) blindShots += bot.gunner.shots - was;
+            shotsBefore.put(bot, bot.gunner.shots);
+            if (noOne) knewNoOne.add(bot);
+            else knewNoOne.remove(bot);
             TargetMemory.Contact f = bot.memory.focusId < 0 ? null : bot.memory.contact(bot.memory.focusId);
             if (f != null && f.state == TargetMemory.State.VISIBLE) {
                 seeTicks++;
@@ -590,6 +601,8 @@ final class AiCheckTeams {
             }
         } else check.check("two teams of AI mobs fight each other", fought);
         check.check("no AI mob hits one of its own team", ownHits == 0);
+        check.out("     shots by a fighter that knows of no one: " + blindShots);
+        check.check("no AI mob fires knowing of no one", blindShots == 0);
         check.check("no AI mob is hit by its own grenade", selfBlasts == 0);
         for (Mob m : red) m.discard();
         for (Mob m : blue) m.discard();
