@@ -89,6 +89,8 @@ public final class AiCommander {
     static final class Way {
         final double toX, toZ;
         volatile HqGrid.@Nullable Route route;
+        /** where it crosses water (the crossing's doctrine), null: it does not */
+        volatile StaffCross.@Nullable Site site;
         volatile boolean done;
 
         Way(double toX, double toZ) {
@@ -197,6 +199,12 @@ public final class AiCommander {
         int inside, fails;
         /** its place in the squad, for a spread of the legs' ends */
         int slot, of;
+        /**
+         * a crossing (the staff's task CROSS): the place on the near bank to go over from, how (null: not a crossing),
+         * where to gather on the far bank
+         */
+        double crossX, crossZ, farX, farZ;
+        AiCrossing.@Nullable Kind crossKind;
         /** the staff's way there as asked for (stage 7 C1, the squad's one); null: straight, as R5 */
         @Nullable Way way;
         /** a way walked to its end: not taken up again (on from there in straight legs) */
@@ -861,6 +869,7 @@ public final class AiCommander {
                         routes.incrementAndGet();
                         if (made.size() < 1000) made.add(r);
                     }
+                    w.site = r == null ? null : StaffCross.site(grid, r);
                     w.route = r;
                 } finally {
                     w.done = true;
@@ -878,6 +887,16 @@ public final class AiCommander {
         if (o.route != null || w == null || !w.done) return;
         o.route = w.route;
         o.at = o.route == null ? 0 : ahead(o.route, b.mob.getX(), b.mob.getZ());
+        // the staff's crossing on it (the squad goes over by the drill: AiCrossing), unless already past its water
+        StaffCross.Site c = o.route == null ? null : w.site;
+        o.crossKind = null;
+        if (c != null && !past(b.mob.getX(), b.mob.getZ(), c.x(), c.z(), c.farX(), c.farZ())) {
+            o.crossX = c.x();
+            o.crossZ = c.z();
+            o.farX = c.farX();
+            o.farZ = c.farZ();
+            o.crossKind = c.kind();
+        }
         // its first leg at once, not when the straight one walked meanwhile is due again
         if (o.route != null) o.nextLeg = Long.MIN_VALUE;
     }
@@ -919,6 +938,44 @@ public final class AiCommander {
     /** it has an order to go by now */
     static boolean has(AiBot bot, long tick) {
         return on() && bot.order != null && tick <= bot.order.until;
+    }
+
+    /**
+     * its order now if its way crosses water ahead of it (the staff's crossing: crossX/Z the near bank's point,
+     * crossKind how, farX/Z where to gather past the far bank), else null; once past the far bank, null for good
+     */
+    static @Nullable Order crossing(AiBot bot, long tick) {
+        Order o = bot.order;
+        if (o == null || o.crossKind == null || !has(bot, tick)) return null;
+        if (past(bot.mob.getX(), bot.mob.getZ(), o.crossX, o.crossZ, o.farX, o.farZ)) {
+            o.crossKind = null;
+            // on along its way from where it is now; the last of the squad over: its way of going begun afresh there
+            // (its bounds' halves and covers were of the near bank)
+            if (o.route != null) o.at = ahead(o.route, bot.mob.getX(), bot.mob.getZ());
+            Job j = o.job;
+            if (j != null) {
+                boolean all = true;
+                for (AiBot b : j.members) if (b.mob.isAlive() && b.order != null && b.order.job == j && b.order.crossKind != null) all = false;
+                if (all) StaffMove.afresh(j);
+            }
+            return null;
+        }
+        return o;
+    }
+
+    /** at x, z: as far along from the crossing's point toward the gathering place as it is, or farther */
+    static boolean past(double x, double z, double cx, double cz, double fx, double fz) {
+        double dx = fx - cx, dz = fz - cz, len2 = dx * dx + dz * dz;
+        return len2 < 1e-9 || ((x - cx) * dx + (z - cz) * dz) >= len2;
+    }
+
+    /**
+     * a squad of the side reported (AiCrossing: an enemy across water, places to cross found): its staff looks at its
+     * tasks again soon
+     */
+    public static void reported(ServerLevel level, String team) {
+        Side side = LEVELS.computeIfAbsent(level, l -> new HashMap<>()).get(team);
+        if (side != null) side.next = Math.min(side.next, level.getGameTime() + 1);
     }
 
     /**

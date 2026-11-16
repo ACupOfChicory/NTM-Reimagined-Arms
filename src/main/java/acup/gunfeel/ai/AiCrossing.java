@@ -61,6 +61,11 @@ public final class AiCrossing {
     /** the smoke's burst this far past the far bank, blocks */
     static final double SMOKE_PAST = 2;
 
+    /** how a crossing goes over: a bridge, a ford waded, or swum (the staff's task CROSS, a squad's report) */
+    public enum Kind {
+        BRIDGE, FORD, SWIM
+    }
+
     enum Phase {
         GATHER, SMOKE, FIRST, SECOND, LAST
     }
