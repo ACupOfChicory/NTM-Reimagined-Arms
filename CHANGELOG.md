@@ -8,6 +8,15 @@
   and went looking for the foe for some seconds. It now stays one of its squad
   up to 32 blocks off (was 16).
 
+## X1194
+
+- Being shot at by many AI soldiers costs much less frame time. NTM drew every
+  spent casing lying around (each lives 12 s: about 200 of them under the fire
+  of 32 soldiers) in every frame, wherever it lay. Now casings off screen or
+  over 48 blocks away are not drawn, and at most the nearest 96 on screen are.
+  The casings still fall, lie and smoke as before. New client setting
+  `casingMax` (96 by default; -1 for no limit, 0 for none).
+
 ## X1187
 
 - The AI commander's ways go by a ford rather than straight through deep
