@@ -1,5 +1,13 @@
 # Changelog
 
+## X1269
+
+- An AI squad sent to pin an enemy group now picks a place to fire from that
+  it can get to out of the enemy's sight, where there is one: of the places
+  50 to 80 blocks off the group on its side that see it, the one whose way
+  there is least in the enemy's sight short of its last 20 blocks. Where none
+  is clearly better, it goes to the place it went to before.
+
 ## X1265
 
 - Soldiers no longer swim a river on their own. With an enemy across the

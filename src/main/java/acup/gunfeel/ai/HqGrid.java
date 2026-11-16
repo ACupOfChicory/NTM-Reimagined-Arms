@@ -270,6 +270,47 @@ public final class HqGrid {
         return out;
     }
 
+    /**
+     * the cheapest ways from a cell to all the others at once (Dijkstra): each cell's one before it on its way, -1 the
+     * start, -2 none (C4b: the ways to several places compared in one search)
+     */
+    int[] tree(int ai, int ak, double seenWeight) {
+        int start = index(ai, ak);
+        Buffers buf = BUFFERS.get();
+        double[] g = buf.g;
+        Arrays.fill(g, Double.POSITIVE_INFINITY);
+        int[] from = new int[N * N];
+        Arrays.fill(from, -2);
+        boolean[] closed = buf.closed;
+        Arrays.fill(closed, false);
+        int[] heap = buf.heap;
+        double[] key = buf.key;
+        int size = 0;
+        g[start] = 0;
+        from[start] = -1;
+        heap[size] = start;
+        key[size++] = 0;
+        while (size > 0) {
+            int c = heap[0];
+            size = pop(heap, key, size);
+            if (closed[c]) continue;
+            closed[c] = true;
+            int ci = c % N, ck = c / N;
+            for (int d = 0; d < 8; d++) {
+                int i = ci + DI[d], k = ck + DK[d];
+                if (!inside(i, k)) continue;
+                int b = index(i, k);
+                if (closed[b]) continue;
+                double ng = g[c] + step(c, b, d < 4 ? 1 : Math.sqrt(2), seenWeight);
+                if (ng >= g[b]) continue;
+                g[b] = ng;
+                from[b] = c;
+                size = push(heap, key, size, b, ng);
+            }
+        }
+        return from;
+    }
+
     private static int push(int[] heap, double[] key, int size, int c, double k) {
         int j = size++;
         heap[j] = c;

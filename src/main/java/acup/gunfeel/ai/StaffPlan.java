@@ -40,6 +40,14 @@ final class StaffPlan {
     static final long STALE = 1200;
     /** the pinning squad's place this far off the group, blocks; the one going round's, and its angle off the line */
     static final double PIN = 60, FLANK_D = 40, FLANK_ANGLE = Math.toRadians(75);
+    /**
+     * the pinning place got to out of sight (C4b): looked for PIN_NEAR..PIN_FAR off the group by PIN_STEP, PIN_TURNS
+     * of PIN_TURN each way of the line to the squad; seeing the group (its cell seen PIN_SEES at least); the way's last
+     * PIN_LAST blocks not counted (it comes into sight to fire); taken for one at most PIN_BETTER of the blocks in sight
+     * and PIN_LESS fewer
+     */
+    static final double PIN_NEAR = 50, PIN_FAR = 80, PIN_STEP = 15, PIN_TURN = Math.toRadians(20), PIN_SEES = 0.5, PIN_LAST = 20, PIN_BETTER = 0.8, PIN_LESS = 8;
+    static final int PIN_TURNS = 2;
     /** going round: a side this many blocks farther to go by the map weighs as one wholly in the enemy's sight */
     static final double FAR_SIDE = 100;
     /**
@@ -283,7 +291,50 @@ final class StaffPlan {
         double dx = sx - g.x, dz = sz - g.z, d = Math.hypot(dx, dz);
         double x = d <= PIN ? sx : g.x + dx / d * PIN, z = d <= PIN ? sz : g.z + dz / d * PIN;
         double[] at = lookout(grid, x, z, HqGrid.CELL * 2, g, Double.MAX_VALUE);
+        if (d > PIN && grid != null) at = hidden(grid, g, sx, sz, at);
         return new Task(Kind.PIN, k, at[0], at[1], PLACE, g.x, g.z);
+    }
+
+    /**
+     * a place to pin from that the squad gets to less in the enemy's sight (C4b): of those about the group within
+     * PIN_NEAR..PIN_FAR on the squad's side that see it (seen PIN_SEES at least), the one whose way there (the enemy's
+     * sight weighing) is least in its sight short of its last PIN_LAST blocks; the place found by lookout unless one is
+     * clearly so (PIN_BETTER of its blocks in sight, PIN_LESS fewer at least)
+     */
+    static double[] hidden(HqGrid grid, Group g, double sx, double sz, double[] at) {
+        int si = grid.cellX(sx), sk = grid.cellZ(sz), ai = grid.cellX(at[0]), ak = grid.cellZ(at[1]);
+        if (si < 0 || sk < 0 || ai < 0 || ak < 0) return at;
+        int[] from = grid.tree(si, sk, HqGrid.SEEN);
+        double was = seenOnWay(grid, from, HqGrid.index(ai, ak)), best = was;
+        double[] out = at;
+        double base = Math.atan2(sz - g.z, sx - g.x);
+        for (double r = PIN_NEAR; r <= PIN_FAR + 1e-9; r += PIN_STEP)
+            for (int a = -PIN_TURNS; a <= PIN_TURNS; a++) {
+                double x = g.x + r * Math.cos(base + a * PIN_TURN), z = g.z + r * Math.sin(base + a * PIN_TURN);
+                int i = grid.cellX(x), c = grid.cellZ(z);
+                if (i < 0 || c < 0) continue;
+                int cell = HqGrid.index(i, c);
+                if (!grid.known[cell] || grid.deep[cell] >= 0.5 || grid.wet[cell] >= 0.5 || grid.seen[cell] < PIN_SEES) continue;
+                double s = seenOnWay(grid, from, cell);
+                if (s < best) {
+                    best = s;
+                    out = new double[] {grid.midX(i), grid.midZ(c)};
+                }
+            }
+        return best <= was * PIN_BETTER && best <= was - PIN_LESS ? out : at;
+    }
+
+    /** blocks of the way to a cell in the enemy's sight (each cell's part seen by its length), short of its last PIN_LAST blocks; infinite: no way */
+    static double seenOnWay(HqGrid grid, int[] from, int goal) {
+        if (from[goal] == -2) return Double.POSITIVE_INFINITY;
+        double sum = 0, back = 0;
+        for (int c = goal; from[c] >= 0; c = from[c]) {
+            int p = from[c];
+            double len = (p % HqGrid.N != c % HqGrid.N && p / HqGrid.N != c / HqGrid.N ? Math.sqrt(2) : 1) * HqGrid.CELL;
+            back += len;
+            if (back > PIN_LAST) sum += grid.seen[c] * len;
+        }
+        return sum;
     }
 
     /**

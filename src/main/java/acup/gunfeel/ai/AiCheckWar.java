@@ -71,6 +71,8 @@ final class AiCheckWar {
     static final double CAMP_NEAR = 20;
     /** fewer squads going round seen on the river's field than this: their angle not checked (few go round there now) */
     static final int FLANKS_MIN = 4;
+    /** C4 on the river's field: in the player's sight before it is seen this much (a share) more than C3 at most (C4b) */
+    static final double PAIRS_WORSE = 0.03;
     static final int FAR_RUN = 2400;
     static final String A = "war_a";
     /** the reports' ages: up to each, ticks (the last: never seen) */
@@ -823,8 +825,11 @@ final class AiCheckWar {
                 String line = String.format(Locale.ROOT, "war: with %s, less of the side in the player's sight within its reach before it is seen: %.1f%% against %.1f%%"
                         + " (rounds within its reach %d of %d, %d of %d)", MODE_NAMES[on], reachedOf[on] == 0 ? 0 : 100 * sightOf[on] / reachedOf[on],
                         reachedOf[OFF] == 0 ? 0 : 100 * sightOf[OFF] / reachedOf[OFF], reachedOf[on], roundsOf[on], reachedOf[OFF], roundsOf[OFF]);
-                // C4 on the river's field: the way round not made in time, no pair; its approach checked near (C4b: the pinning one's)
-                if (on == PAIRS && !nearOf.isEmpty()) check.out("     " + line + "; C4 checked near");
+                // C4 on the river's field: the way round not made in time, no pair; the pinning one gets to its place out of
+                // sight (C4b): no more in sight than C3's (PAIRS_WORSE at most)
+                if (on == PAIRS && roundsOf[MOVES] >= 2 && reachedOf[MOVES] > 0)
+                    check.check(line + String.format(Locale.ROOT, "; C3 %.1f%% (%.0f points more at most)", 100 * sightOf[MOVES] / reachedOf[MOVES], 100 * PAIRS_WORSE),
+                            reachedOf[on] * 2 > roundsOf[on] && sightOf[on] / reachedOf[on] <= sightOf[MOVES] / reachedOf[MOVES] + PAIRS_WORSE);
                 else check.check(line, reachedOf[on] * 2 > roundsOf[on] && reachedOf[OFF] * 2 > roundsOf[OFF] && sightOf[on] / reachedOf[on] < sightOf[OFF] / reachedOf[OFF]);
             }
         return true;
