@@ -116,6 +116,10 @@ public final class AiSoldier implements AiBrain {
 
     /** out at its peek: the way it leans round the corner (AiPose lean), 0: a step aside instead */
     private byte leanSide;
+    /** the peek it looked out from last (its cell; leaned: the one it leaned toward) */
+    private long peekPick = Long.MIN_VALUE;
+    /** the noise (its tick) it stepped out to its peek for after a lean saw nothing */
+    private long steppedFor = Long.MIN_VALUE;
     /** the tick it last put its own leaned boxes for shots at it (AiLean.boxes) */
     private long leanBoxes = Long.MIN_VALUE;
     // for the stands: looks out leaning, and stepping aside
@@ -127,6 +131,7 @@ public final class AiSoldier implements AiBrain {
      */
     private void peekOut(AiBot bot, Vec3 at) {
         long pick = choosePeek(bot);
+        peekPick = pick;
         long cell = spot.cell();
         leanSide = 0;
         int px = BlockPos.getX(pick) - BlockPos.getX(cell), pz = BlockPos.getZ(pick) - BlockPos.getZ(cell);
@@ -1729,9 +1734,21 @@ public final class AiSoldier implements AiBrain {
             boolean there = bot.mover.arrived();
             if (there && peekThere == 0) peekThere = tick;
             if (there && tick - peekThere > PEEK_BLIND || tick - peekSince > PEEK_BLIND + 60) {
+                TargetMemory.Noise n = bot.memory.noise();
+                // a lean saw nothing: the eye was a quarter block out, and the noise, heard blocks off where it was,
+                // may be round the corner still (the end of a wall). It steps out to the peek, its whole eye past the
+                // edge, before it gives the look up
+                if (n != null && leanSide != 0 && steppedFor != n.tick && peekPick != Long.MIN_VALUE) {
+                    steppedFor = n.tick;
+                    leanSide = 0;
+                    bot.mover.goTo(peekPick, PEEK_AT, WALK);
+                    peekSince = tick;
+                    peekThere = 0;
+                    event(bot, tick, "leaned out, nothing: steps out to look");
+                    return;
+                }
                 // one look a noise: nothing seen, it goes to see where it came from, carefully (a new noise is
                 // looked at in turn)
-                TargetMemory.Noise n = bot.memory.noise();
                 if (n != null) {
                     checkNoise = n.tick;
                     drop(bot);
@@ -1761,7 +1778,7 @@ public final class AiSoldier implements AiBrain {
             return;
         }
         if (bot.mover.goal() == Long.MIN_VALUE || bot.mover.arrived()) {
-            long cell = PathSearch.snap(TacticalMap.of(level), n.x, n.y, n.z);
+            long cell = PathSearch.ground(TacticalMap.of(level), n.x, n.y, n.z, bot.mob.getY());
             if (cell == Long.MIN_VALUE) {
                 bot.memory.quiet();
                 checkNoise = Long.MIN_VALUE;
