@@ -82,6 +82,9 @@ final class AiCheckWar {
 
     private final AiCheck check;
     private final ServerLevel level;
+    /** AiCrossing's counters when the stage began */
+    private final int crossBegun0 = AiCrossing.begun, crossOver0 = AiCrossing.over, crossNotOver0 = AiCrossing.notOver, crossWatches0 = AiCrossing.watches, crossFound0 = AiCrossing.found;
+    private final int[] crossWhy0 = AiCrossing.whyNot.clone();
     private final int y, rounds;
     private boolean started;
     private int round = -1, ticks;
@@ -287,14 +290,18 @@ final class AiCheckWar {
         }
         // the squads' ways of going (C3): each squad's mode, and bounding, whether one of the half covering is in cover
         if (ticks % LOOK == 0) {
-            java.util.Set<AiCommander.Job> jobs = new java.util.HashSet<>();
+            java.util.Set<AiCommander.Job> jobs = new java.util.HashSet<>(), crossing = new java.util.HashSet<>();
             for (Mob m : ours) {
                 AiBot b = AiBots.get(m);
-                if (b != null && m.isAlive() && b.order != null && b.order.job != null && AiCommander.has(b, now)) jobs.add(b.order.job);
+                if (b != null && m.isAlive() && b.order != null && b.order.job != null && AiCommander.has(b, now)) {
+                    jobs.add(b.order.job);
+                    if (AiCrossing.of(b) != null) crossing.add(b.order.job);
+                }
             }
             for (AiCommander.Job j : jobs) {
-                // a squad at its task's place stands there, its last mode left over
-                if (j.move.mode == null || j.there) continue;
+                // a squad at its task's place stands there, its last mode left over; one in a river crossing goes by its
+                // drill (AiCrossing), not by its way of going
+                if (j.move.mode == null || j.there || crossing.contains(j)) continue;
                 modeTicks[j.move.mode.ordinal()]++;
                 // bounding out of a fight (in one the soldiers fight from cover of their own: C4, C5)
                 if (j.move.mode == StaffMove.Mode.BOUND && j.move.turn > 0 && StaffMove.quiet(j)) {
@@ -726,6 +733,9 @@ final class AiCheckWar {
                 missing, outside, usReport, usTick));
         check.out(String.format(Locale.ROOT, "     war, orders: the player out of the picture's circle when the side gave its orders %d times of %d (the picture as of its last report)",
                 orderedOut, orderedAt));
+        check.out(String.format(Locale.ROOT, "     war, river crossings (AiCrossing, all rounds): begun %d, over %d, not over %d; watches at a bank %d, places found %d",
+                AiCrossing.begun - crossBegun0, AiCrossing.over - crossOver0, AiCrossing.notOver - crossNotOver0, AiCrossing.watches - crossWatches0, AiCrossing.found - crossFound0) + String.format(Locale.ROOT, "; not over: all down %d, too long %d, the order taken back %d, none came by %d",
+                AiCrossing.whyNot[0] - crossWhy0[0], AiCrossing.whyNot[1] - crossWhy0[1], AiCrossing.whyNot[2] - crossWhy0[2], AiCrossing.whyNot[3] - crossWhy0[3]));
         check.check("war: all rounds ran", results.size() == rounds);
         check.check("war: the side's picture has the player at every report, always within its circle", reports > 0 && missing == 0 && outside == 0);
         check.check(String.format(Locale.ROOT, "war: seen lately (0-5 s), the picture is off by %.1f on average (at most the circle's least radius, %.0f)",
