@@ -1,6 +1,6 @@
 # Changelog
 
-## XNEW
+## X1150
 
 - AI squads sent by their side's commander go along its ways as soldiers
   would. Far off and out of the enemy's sight they march in file at a run.
@@ -16,6 +16,11 @@
   (true); false: they walk, as before.
 - Soldiers far from any player, moved by their commander, wade a ford a
   block deep instead of stopping at it.
+- The commander's map of the land takes as hiding only leaves at the height
+  of a standing look (underwood, low crowns), as the soldiers' own eyes
+  do: a wood of high crowns over bare ground no longer hides a squad from
+  the enemy, and its ways go round it or behind a hill instead. A wood with
+  underwood hides a squad a few cells in.
 
 ## X1144
 

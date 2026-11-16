@@ -6,9 +6,10 @@ import java.util.List;
 
 /**
  * A side's staff's map (stage 7, C1), with nothing of the game in it: the land round the side in cells of
- * {@link #CELL} x {@link #CELL} blocks, {@link #N} a side. Each cell: its middle height, the part of it under the
- * crowns of trees, in water, in water to swim, how rough it is. From where the side thinks its enemies are, what they
- * see of each cell ({@link #sight}): a look over the heights cell by cell, thinned by the crowns. A way between two
+ * {@link #CELL} x {@link #CELL} blocks, {@link #N} a side. Each cell: its middle height, the part of it with leaves
+ * at a standing look's height (underwood, low crowns: "crowned" here), in water, in water to swim, how rough it is.
+ * From where the side thinks its enemies are, what they see of each cell ({@link #sight}): a look over the heights cell
+ * by cell, thinned by those leaves. A way between two
  * places ({@link #route}): A* over the cells, each costing its length and more where the enemy sees it, where it is
  * water or steep; the way then thinned to a few points, each at most {@link #LEG} blocks from the last.
  * Built off the server thread (AiHqMap), read anywhere after.
@@ -20,8 +21,13 @@ public final class HqGrid {
     static final double EYE = 1.6, SEEN_AT = 1.3;
     /** places round the edge of an enemy's circle it is looked from, besides its middle */
     static final int AROUND = 6;
-    /** a cell wholly under crowns lets this part of a look through; a look thinned under FADED ends */
-    static final double CROWNED_LETS = 0.65, FADED = 0.25;
+    /**
+     * leaves at a look's height in a cell (the part p of its columns): a look across it meets about CELL·p/CLUMP clumps
+     * of them (bushes, low crowns, CLUMP blocks across), any one of which stops it; it gets through e^(-CELL·p/CLUMP)
+     * of the time (underwood round every tree, p a fifth: about a half a cell; all leaves: hardly). A look thinned
+     * under FADED ends.
+     */
+    static final double CLUMP = 3, FADED = 0.25;
     /** the enemy sees this far, blocks */
     public static final double RANGE = 128;
     /** the cost of a cell on the enemy's sight (times its length, on top of the length); in water to swim, to wade */
@@ -59,7 +65,7 @@ public final class HqGrid {
         return k * N + i;
     }
 
-    /** a cell's lie: middle height (blocks, of the ground or the water), parts under crowns, in water, in water to swim */
+    /** a cell's lie: middle height (blocks, of the ground or the water), parts in leaves at a look's height, in water, in water to swim */
     public void set(int i, int k, double height, double crowned, double inWater, double toSwim) {
         int c = index(i, k);
         h[c] = (float) height;
@@ -161,15 +167,15 @@ public final class HqGrid {
             if (d > RANGE) return;
             // nothing known of it: neither seen nor in the way
             if (!known[c]) continue;
-            // what it sees of a soldier standing there: its chest over the highest look so far, thinned by the crowns
+            // what it sees of a soldier standing there: its chest over the highest look so far, thinned by the leaves
             // on the way and half of this cell's own
             double slope = (h[c] + SEEN_AT - eye) / d;
             if (slope >= most) {
-                float v = (float) (lets * (1 - (1 - CROWNED_LETS) * crown[c] * 0.5));
+                float v = (float) (lets * Math.exp(-CELL * crown[c] / CLUMP * 0.5));
                 if (v > seen[c]) seen[c] = v;
             }
             most = Math.max(most, (h[c] - eye) / d);
-            lets *= 1 - (1 - CROWNED_LETS) * crown[c];
+            lets *= Math.exp(-CELL * crown[c] / CLUMP);
             if (lets < FADED) return;
         }
     }

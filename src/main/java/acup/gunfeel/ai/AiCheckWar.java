@@ -619,8 +619,8 @@ final class AiCheckWar {
                             set(x + lx, y + h, z + lz, leaves);
                         }
                 // its undergrowth: a bush two high round the trunk (a wood of crowns over the head alone hides no one
-                // standing in it from one standing level with it, a look goes under them)
-                for (int lx = -1; lx <= 1; lx++)
+                // standing in it from one standing level with it, a look goes under them); none with -PaiCheckWarBare
+                if (!Boolean.getBoolean("ntmgunfeel.checkAiWarBare")) for (int lx = -1; lx <= 1; lx++)
                     for (int lz = -1; lz <= 1; lz++)
                         if (lx != 0 || lz != 0) for (int h = 0; h < 2; h++) set(x + lx, y + h, z + lz, leaves);
             }
