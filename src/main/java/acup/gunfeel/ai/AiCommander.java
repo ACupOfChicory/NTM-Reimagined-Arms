@@ -257,7 +257,9 @@ public final class AiCommander {
         /** asleep: a way round deep water over the blocks (x << 32 | z), the next of it, when it was looked for */
         long @Nullable [] detour;
         int detourAt;
-        long detourTick = Long.MIN_VALUE;
+        long detourTick = Long.MIN_VALUE, detourFrom;
+        /** the point the way round was for */
+        double detourTX, detourTZ;
         /**
          * a crossing (the staff's task CROSS): the place on the near bank to go over from, how (null: not a crossing),
          * where to gather on the far bank
@@ -690,11 +692,13 @@ public final class AiCommander {
 
     /**
      * The soldiers asleep with a task, moved by the staff (C2b): a step along the way (straight where there is none),
-     * each to its own side of the point as awake (step), onto the middle of the block on the ground as the heightmap
-     * has it, in loaded chunks only; not onto water or lava, nor into deep water on the staff's map (a ford a block deep it wades), nor up or down more
-     * than DRIFT_CLIMB: then a step turned aside, one way then the other, and FAILS such in a row give the task up as
-     * awake. None once at the task's place (got there, as awake), nor within DRIFT_STOP of a group of the enemy. Woken
-     * (a player near), it goes on from where it is by its order as any other (step).
+     * each to its own side of the point as awake (step; by water nearly on it), onto the middle of the block on the
+     * ground as the heightmap has it, in loaded chunks only; not into deep water or lava (a ford a block deep it wades),
+     * nor up or down more than DRIFT_CLIMB. Deep water ahead: a way round it over the blocks (detour), followed; else,
+     * or the ground, a step turned aside, one way then the other, and FAILS such in a row give the task up as awake.
+     * A point of the way in water, or before a stretch over it, is reached on it (DRIFT_AT_WATER), not at REACHED: it
+     * goes into the ford where the way does. None once at the task's place (got there, as awake), nor within
+     * DRIFT_STOP of a group of the enemy. Woken (a player near), it goes on from where it is by its order as any other.
      */
     private static void drift(ServerLevel level, long now) {
         Map<String, List<Group>> groupsOf = new HashMap<>();
@@ -726,19 +730,24 @@ public final class AiCommander {
                 }
             }
             // its own side of the point, not by water (a ford is narrow)
-            double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of > 1 && !nearWater(grid, tx, tz) ? 3 : 0;
+            double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of <= 1 ? 0 : nearWater(grid, tx, tz) ? 1 : 3;
             tx += Math.cos(a) * spread;
             tz += Math.sin(a) * spread;
             double l = Math.hypot(tx - x, tz - z);
             if (l < 1e-3) continue;
-            // on a way round deep water found before: along it
+            // on a way round deep water found before: along it, while it is where the last step left it and goes for
+            // the same point (woken and moved meanwhile, or its way changed: dropped)
+            if (o.detour != null) {
+                long last = o.detourAt == 0 ? o.detourFrom : o.detour[o.detourAt - 1];
+                if (Math.abs((int) (last >> 32) - Mth.floor(x)) + Math.abs((int) last - Mth.floor(z)) > 2 || Math.hypot(o.detourTX - tx, o.detourTZ - tz) > 2) o.detour = null;
+            }
             if (o.detour != null) {
                 int k = Math.min(o.detour.length - 1, o.detourAt + (int) DRIFT_STEP - 1);
                 long n = o.detour[k];
-                o.detourAt = k + 1;
-                if (o.detourAt >= o.detour.length) o.detour = null;
                 int dx = (int) (n >> 32), dz = (int) n;
                 if (level.hasChunk(dx >> 4, dz >> 4)) {
+                    o.detourAt = k + 1;
+                    if (o.detourAt >= o.detour.length) o.detour = null;
                     double turn = Math.atan2(dz + 0.5 - z, dx + 0.5 - x);
                     b.mob.snapTo(dx + 0.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, dx, dz), dz + 0.5, (float) Math.toDegrees(Math.atan2(-Math.cos(turn), Math.sin(turn))), 0F);
                     b.mob.setYHeadRot(b.mob.getYRot());
@@ -754,22 +763,30 @@ public final class AiCommander {
             // a chunk not loaded: it waits there
             if (!level.hasChunk(bx >> 4, bz >> 4)) continue;
             int ny = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
-            int ci = grid == null ? -1 : grid.cellX(bx + 0.5), ck = grid == null ? -1 : grid.cellZ(bz + 0.5);
-            boolean deep = ci >= 0 && ck >= 0 && grid.known[HqGrid.index(ci, ck)] && grid.deep[HqGrid.index(ci, ck)] >= 0.5;
             // into water a block deep (a ford) it wades; deeper water, or any other liquid, it does not go into
             var fluid = level.getFluidState(new BlockPos(bx, ny - 1, bz));
             boolean wet = !fluid.isEmpty() && (!fluid.is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(new BlockPos(bx, ny - 2, bz)).isEmpty());
-            if (deep || wet || Math.abs(ny - b.mob.getY()) > DRIFT_CLIMB) {
+            // (by the block itself, not the staff's map's cell: a ford in a cell mostly deep)
+            if (wet || Math.abs(ny - b.mob.getY()) > DRIFT_CLIMB) {
                 driftBlocked++;
-                if (deep || wet) driftWater++;
+                if (wet) driftWater++;
                 // deep water ahead: a way round it over the blocks (by the ford), now and then at most
-                if ((deep || wet) && (o.detourTick == Long.MIN_VALUE || now - o.detourTick >= DETOUR_AGAIN)) {
+                if (wet && (o.detourTick == Long.MIN_VALUE || now - o.detourTick >= DETOUR_AGAIN)) {
                     o.detourTick = now;
                     long[] path = detour(level, Mth.floor(x), Mth.floor(z), Mth.floor(b.mob.getY()), tx, tz);
                     if (path != null) {
                         detours++;
                         o.detour = path;
                         o.detourAt = 0;
+                        o.detourFrom = (long) Mth.floor(x) << 32 | Mth.floor(z) & 0xFFFFFFFFL;
+                        o.detourTX = tx;
+                        o.detourTZ = tz;
+                        continue;
+                    }
+                    // no nearer to it by the blocks, its point within REACHED (one in deep water it cannot stand on): on to the next
+                    if (way != null && o.at < way.size() - 1 && Math.hypot(way.x(o.at) - x, way.z(o.at) - z) <= REACHED) {
+                        o.at++;
+                        o.fails = 0;
                         continue;
                     }
                 }
@@ -807,7 +824,7 @@ public final class AiCommander {
 
     /**
      * asleep, deep water in its step: a way over the blocks within DETOUR of it (dry ground, or water a block deep: a
-     * ford; up a block, down DRIFT_CLIMB at most a step) to the one nearest to tx, tz; null: none nearer by 2 at least.
+     * ford; up or down DRIFT_CLIMB at most a step) to the one nearest to tx, tz; null: none nearer by 2 at least.
      * The blocks it goes by after its own, x << 32 | z.
      */
     static long @Nullable [] detour(ServerLevel level, int x0, int z0, int y0, double tx, double tz) {
@@ -834,7 +851,7 @@ public final class AiCommander {
                 from[n] = -3;
                 if (!level.hasChunk(bx >> 4, bz >> 4)) continue;
                 int ny = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
-                if (ny - ys[c] > 1 || ys[c] - ny > DRIFT_CLIMB) continue;
+                if (Math.abs(ny - ys[c]) > DRIFT_CLIMB) continue;
                 var fluid = level.getFluidState(new BlockPos(bx, ny - 1, bz));
                 if (!fluid.isEmpty() && (!fluid.is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(new BlockPos(bx, ny - 2, bz)).isEmpty())) continue;
                 from[n] = c;
