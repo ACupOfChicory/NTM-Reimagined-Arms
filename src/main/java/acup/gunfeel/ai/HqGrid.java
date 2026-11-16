@@ -311,10 +311,15 @@ public final class HqGrid {
     /**
      * a way: where from and where it was asked to go, its points (blocks, x and z by turns, the last where it ends:
      * short of where it was asked when that was off the map), how long it is against the straight line, the part of
-     * each in the enemy's sight short of its last END blocks (there it is at the enemy, seen or not)
+     * each in the enemy's sight short of its last END blocks (there it is at the enemy, seen or not); the shortest way
+     * there over the map, the enemy's sight aside (the straight line where water to swim lies across it: a ford aside)
      */
     public record Route(double fromX, double fromZ, double toX, double toZ, double[] points, double length, double straight, double seenPart,
-            double straightSeenPart) {
+            double straightSeenPart, double shortest) {
+        public Route(double fromX, double fromZ, double toX, double toZ, double[] points, double length, double straight, double seenPart, double straightSeenPart) {
+            this(fromX, fromZ, toX, toZ, points, length, straight, seenPart, straightSeenPart, length);
+        }
+
         /** it ends short of where it was asked to go (that was off the map) */
         public boolean partial() {
             return Math.hypot(x(size() - 1) - toX, z(size() - 1) - toZ) > 1;
@@ -336,24 +341,35 @@ public final class HqGrid {
     /**
      * The way from one place to another over the map: a place off the map is taken where the straight line to it
      * leaves the map. The enemy's sight weighs SEEN, half that if the way comes out more than DETOUR times the
-     * straight one, none at all if it still does. Null: no way (from or to a cell with none).
+     * shortest one (the enemy's sight aside: a river across, by its ford), none at all if it still does. Null: no way
+     * (from or to a cell with none).
      */
     public Route route(double fx, double fz, double tx, double tz) {
         double[] to = clampToMap(fx, fz, tx, tz);
         int ai = cellX(fx), ak = cellZ(fz), bi = cellX(to[0]), bk = cellZ(to[1]);
         if (ai < 0 || ak < 0 || bi < 0 || bk < 0) return null;
         double straight = Math.hypot(to[0] - fx, to[1] - fz);
-        int[] p = null;
-        for (double w : new double[] {SEEN, SEEN / 2, 0}) {
-            p = path(ai, ak, bi, bk, w);
-            if (p == null) return null;
-            if (cells(p) * CELL <= Math.max(straight * DETOUR, 2 * CELL)) break;
+        // the shortest first, the enemy's sight aside: the ways that keep out of it are measured against it
+        int[] shortest = path(ai, ak, bi, bk, 0);
+        if (shortest == null) return null;
+        double most = Math.max(Math.max(straight, cells(shortest) * CELL) * DETOUR, 2 * CELL);
+        int[] p = shortest;
+        for (double w : new double[] {SEEN, SEEN / 2}) {
+            int[] q = path(ai, ak, bi, bk, w);
+            if (q != null && cells(q) * CELL <= most) {
+                p = q;
+                break;
+            }
         }
         double[] pts = thin(p, fx, fz, to[0], to[1]);
-        double length = 0;
+        return new Route(fx, fz, tx, tz, pts, length(fx, fz, pts), straight, seenPart(fx, fz, pts, END), seenPart(fx, fz, new double[] {to[0], to[1]}, END),
+                p == shortest ? length(fx, fz, pts) : length(fx, fz, thin(shortest, fx, fz, to[0], to[1])));
+    }
+
+    private static double length(double fx, double fz, double[] pts) {
+        double length = Math.hypot(pts[0] - fx, pts[1] - fz);
         for (int j = 2; j < pts.length; j += 2) length += Math.hypot(pts[j] - pts[j - 2], pts[j + 1] - pts[j - 1]);
-        length += Math.hypot(pts[0] - fx, pts[1] - fz);
-        return new Route(fx, fz, tx, tz, pts, length, straight, seenPart(fx, fz, pts, END), seenPart(fx, fz, new double[] {to[0], to[1]}, END));
+        return length;
     }
 
     /** the length of a path over cells, in cells */

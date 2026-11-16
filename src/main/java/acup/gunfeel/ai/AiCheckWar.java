@@ -519,11 +519,11 @@ final class AiCheckWar {
         for (HqGrid.Route r : ways) {
             waySeen += r.seenPart() / ways.size();
             straightSeen += r.straightSeenPart() / ways.size();
-            longer += r.length() / Math.max(1, r.straight()) / ways.size();
+            longer += r.length() / Math.max(1, r.shortest()) / ways.size();
         }
         long routesAll = AiCommander.routes.get() - routes0;
         double msRoute = routesAll == 0 ? 0 : (AiCommander.routeNanos.get() - routeNanos0) / 1e6 / routesAll;
-        check.out(String.format(Locale.ROOT, "     war, the staff's ways (C1 rounds) before the player was seen: %d, in the enemy's sight (as the staff thinks, short of the last %.0f blocks) %.1f%% against %.1f%% straight, %.2f times as long;"
+        check.out(String.format(Locale.ROOT, "     war, the staff's ways (C1 rounds) before the player was seen: %d, in the enemy's sight (as the staff thinks, short of the last %.0f blocks) %.1f%% against %.1f%% straight, %.2f times as long as the shortest;"
                 + " %.2f ms a way (off the server thread); %s", ways.size(), HqGrid.END, 100 * waySeen, 100 * straightSeen, longer, msRoute, AiHqMap.info()));
         StringBuilder t = new StringBuilder("     war, the picture's error by how long the player was unseen:");
         for (int k = 0; k < AGE_NAMES.length; k++)
@@ -539,7 +539,7 @@ final class AiCheckWar {
                 errN[0] == 0 ? -1 : errSum[0] / errN[0], IntelBook.R_MIN), errN[0] > 0 && errSum[0] / errN[0] <= IntelBook.R_MIN);
         check.check(String.format(Locale.ROOT, "war: the picture costs %.2f us a tick a side (at most 20)", usTick), usTick <= 20);
         boolean staffRan = roundsOf[STAFF] > 0, tasksRan = roundsOf[TASKS] + roundsOf[MOVES] > 0;
-        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight: %.1f%% of them in it against %.1f%% straight (40%% less at least), %.2f times as long (1.5 at most)",
+        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight: %.1f%% of them in it against %.1f%% straight (40%% less at least), %.2f times as long as the shortest (1.5 at most)",
                 100 * waySeen, 100 * straightSeen, longer), !staffRan || !ways.isEmpty() && waySeen <= straightSeen * 0.6 && longer <= 1.5);
         check.check(String.format(Locale.ROOT, "war: a way takes %.2f ms off the server thread (5 at most)", msRoute), msRoute <= 5);
         // C2: with the staff's tasks no squad stands about with nothing to do, and the squads were sent at the player

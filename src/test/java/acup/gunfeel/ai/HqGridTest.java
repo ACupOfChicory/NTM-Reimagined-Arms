@@ -156,6 +156,26 @@ class HqGridTest {
     }
 
     @Test
+    void acrossARiverByAFordFarAsideItStillKeepsOutOfSight() {
+        HqGrid g = field();
+        // within the enemy's reach: a deep river across, its ford far west, the way by it much longer than the straight
+        // line; a wood north of the ford, off the shortest way from it: the way goes up through the wood, not the open
+        for (int i = 16; i <= 23; i++)
+            for (int k = 3; k <= 11; k++) g.set(i, k, 64, 1, 0, 0);
+        for (int i = 0; i < HqGrid.N; i++) g.set(i, 13, 63, 0, 1, i == 22 ? 0 : 1);
+        g.sight(mid(32), mid(2));
+        double fx = mid(36), fz = mid(16), tx = mid(32), tz = mid(5);
+        HqGrid.Route r = g.route(fx, fz, tx, tz);
+        assertNotNull(r);
+        assertTrue(through(g, r, fx, fz, 22, 13), "by the ford");
+        assertTrue(r.length() > r.straight() * HqGrid.DETOUR, r.length() + " against " + r.straight());
+        assertTrue(r.length() <= r.shortest() * HqGrid.DETOUR, r.length() + " against the shortest " + r.shortest());
+        double[] shortest = g.thin(g.path(g.cellX(fx), g.cellZ(fz), g.cellX(tx), g.cellZ(tz), 0), fx, fz, tx, tz);
+        double way = g.seenPart(fx, fz, r.points(), HqGrid.END), open = g.seenPart(fx, fz, shortest, HqGrid.END);
+        assertTrue(way < open - 0.15, way + " seen against " + open + " the shortest way");
+    }
+
+    @Test
     void noWayUpACliffButThroughItsGap() {
         HqGrid g = field();
         // a wall twenty high right across, a gap at cell 50
