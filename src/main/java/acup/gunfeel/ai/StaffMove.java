@@ -523,7 +523,11 @@ final class StaffMove {
             AiCommander.Order o = b.order;
             String why;
             if (o == null) why = "no order";
-            else if (o.coverSince != st.since) why = "no place this bound";
+            else if (o.coverSince != st.since) {
+                double d = Math.hypot(o.x - b.mob.getX(), o.z - b.mob.getZ());
+                boolean in = j.place() ? d <= o.r * 2 : d <= o.r;
+                why = "no place this bound, " + (in ? "in its task's area" : o.route == null ? "past the way's end" : "on the way");
+            }
             else if (!atCover(b, o)) {
                 double d = Math.hypot(o.coverX - b.mob.getX(), o.coverZ - b.mob.getZ());
                 why = d <= 16 ? "off its place 16 at most" : d <= 32 ? "off its place 16 to 32" : "off its place over 32";
