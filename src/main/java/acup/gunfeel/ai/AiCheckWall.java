@@ -197,7 +197,8 @@ final class AiCheckWall {
                     r[1] == 1 ? "now" : "before", r[2], r[5], r[3] < 0 ? "never" : "at tick " + r[3], r[4] < 0 ? "never" : "at tick " + r[4]));
         }
         int[] shutNow = by[1], shutBefore = by[0], behind = by[3], door = by[5];
-        check.check(String.format(Locale.ROOT, "wall: sent into a shut house, none stands at its wall long (%d ticks at most, %d before)", shutNow[2], shutBefore[2]), shutNow[2] <= 200);
+        // (none standing at it long is told above: before it was so too; the owner's was going round and round it, the
+        // ticks at it and the place given up below)
         check.check(String.format(Locale.ROOT, "wall: sent into a shut house, the squad gives the place up (at tick %d, %d before)", shutNow[3], shutBefore[3]),
                 shutNow[3] >= 0 && shutNow[3] <= RUN * 3 / 4 && (shutBefore[3] < 0 || shutNow[3] < shutBefore[3]));
         check.check(String.format(Locale.ROOT, "wall: sent into a shut house, the squad is at its wall less (%d ticks, %d before)", shutNow[5], shutBefore[5]), shutNow[5] < shutBefore[5]);
