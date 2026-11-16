@@ -314,6 +314,9 @@ page. They are alphas: expect bugs and back up your world.
   into it and throws a grenade down the next stretch, then they go in and
   search stretch after stretch, instead of walking along the edge above it
   (server key `aiTrenches`).
+- A soldier who sees a foe fall forgets it and tells its squad, so none of
+  them waits for it or goes after it where it fell (server key
+  `aiDownTold`).
 - They tell a cave from a building by what its walls, floor and roof are
   made of (server key `aiRoomsShell`; the block lists are settings too).
 - They move their bodies: breathing, flinching at hits, aiming, reloading,
