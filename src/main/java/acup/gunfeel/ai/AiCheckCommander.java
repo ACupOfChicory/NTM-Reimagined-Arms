@@ -41,10 +41,11 @@ final class AiCheckCommander {
     static final int X0 = 1300, Z0 = 200, W = 180, L = 200, RUN = 1600, HIDDEN = 3000, MAIN = 5, SQUADS = 3, EACH = 3;
     /**
      * the losses' rounds with aiCommanderHelp off, then on: in one round of twenty or so every squad has an order when
-     * ours are downed and there is no reserve to watch (not counted); with help on, the reserve was sent in two rounds
-     * of three
+     * ours are downed and there is no reserve to watch (not counted); with help on, the reserve was sent in 7 rounds of
+     * 10 (with none sent in three, 2 runs of 20 failed), and in one of 40 sent it did not see them before the round
+     * was over
      */
-    static final int HELPS_OFF = 2, HELPS_ON = 3, ROUNDS = MAIN + HELPS_OFF + HELPS_ON;
+    static final int HELPS_OFF = 2, HELPS_ON = 4, ROUNDS = MAIN + HELPS_OFF + HELPS_ON;
     /** the box's round; after the losses, the round goes on this long, ticks */
     static final int HIDDEN_ROUND = MAIN - 1, AFTER = 1200;
     static final double SQUAD_Z = 15.5, FAR_Z = 150.5, SQUAD_GAP = 40;
@@ -338,7 +339,7 @@ final class AiCheckCommander {
         // a round with no reserve when ours were downed tells nothing either way
         boolean helpOff = true, helpOn = true;
         double after = 0;
-        int offHelps = 0, onHelps = 0, onHelped = 0, noReserve = 0;
+        int offHelps = 0, onHelps = 0, onHelped = 0, onUnseen = 0, noReserve = 0;
         for (int i = 0; i < helps.size(); i++) {
             int[] h = helps.get(i);
             check.out(String.format(Locale.ROOT, "     commander, losses' round %d, %s: the mobs seen at tick %d, ours downed at %d, the reserve (%d) saw them at %d; the most squads at once"
@@ -349,10 +350,11 @@ final class AiCheckCommander {
                 if (h[2] < 0 || h[7] > 0 || h[4] > AiCommander.PER) helpOff = false;
             } else {
                 onHelps++;
-                // the reserve there each round; sent by the help in one at least (a squad there may leave before the
+                // the reserve there in each round but one at most; sent by the help in one at least (a squad there may leave before the
                 // next orders, and the reserve go as any squad would)
                 onHelped += h[7];
-                if (h[2] < 0 || h[3] < 0) helpOn = false;
+                if (h[2] < 0) helpOn = false;
+                else if (h[3] < 0) onUnseen++;
                 else after += h[3] - h[2];
             }
         }
@@ -361,7 +363,8 @@ final class AiCheckCommander {
         check.check(String.format(Locale.ROOT, "commander: aiCommanderHelp off, the reserve is not sent where the side loses soldiers, no more than %d squads at the group"
                 + " (%d rounds; %d of all with no reserve, not counted)", AiCommander.PER, offHelps, noReserve), offHelps > 0 && helpOff);
         check.check(String.format(Locale.ROOT, "commander: aiCommanderHelp on, the reserve goes where the side loses soldiers and sees them, %.0f ticks after the losses on average"
-                + " (sent %d times in %d rounds)", onHelps == 0 ? 0 : after / onHelps, onHelped, onHelps), onHelps > 0 && helpOn && onHelped > 0);
+                + " (sent %d times in %d rounds, not seen in %d: one at most)", onHelps - onUnseen == 0 ? 0 : after / (onHelps - onUnseen), onHelped, onHelps, onUnseen),
+                onHelps > 1 && helpOn && onHelped > 0 && onUnseen <= 1);
         check.check(String.format(Locale.ROOT, "commander: on, its squads find both groups out of their sight, the first in %.0f ticks on average", onRounds == 0 ? 0 : onFirst / onRounds),
                 onRounds > 0 && onBoth);
         check.check("commander: on, no more than " + AiCommander.PER + " squads sent to a group at once", onFew);
