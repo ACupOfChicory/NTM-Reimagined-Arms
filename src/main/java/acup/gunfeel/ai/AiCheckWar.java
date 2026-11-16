@@ -528,7 +528,7 @@ final class AiCheckWar {
         // each way against the shortest one there, up to the river (beyond its ford every way goes the same, over open
         // ground): how many are less in the enemy's sight than it (strictly), and the blocks in sight of them all
         // against those of the shortest (one round's few ways averaged swung); a way whose shortest is out of sight
-        // there has nothing to keep out of: not counted
+        // there has nothing to keep out of, and one that is the shortest had no better: neither counted way by way
         int lessSeen = 0, open = 0;
         for (HqGrid.Route r : ways) {
             waySeen += r.dryPart() / ways.size();
@@ -538,7 +538,7 @@ final class AiCheckWar {
             longer += r.length() / Math.max(1, r.shortest()) / ways.size();
             seenBlocks += r.dryPart() * r.dry();
             shortestBlocks += r.shortestDryPart() * r.shortestDry();
-            if (r.shortestDryPart() <= 0) continue;
+                if (r.shortestDryPart() <= 0 || r.length() == r.shortest()) continue;
             open++;
             if (r.dryPart() < r.shortestDryPart()) lessSeen++;
         }
@@ -562,7 +562,7 @@ final class AiCheckWar {
         check.check(String.format(Locale.ROOT, "war: the picture costs %.2f us a tick a side (at most 20)", usTick), usTick <= 20);
         boolean staffRan = roundsOf[STAFF] > 0, tasksRan = roundsOf[TASKS] + roundsOf[MOVES] > 0;
         boolean enoughWays = ways.size() >= WAYS_MIN;
-        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight up to the river: %d of %d less in it than the shortest ways there (2/3 at least),"
+        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight up to the river: %d of %d (the shortest aside) less in it than the shortest ways there (2/3 at least),"
                         + " %.0f blocks of them in it against %.0f of the shortest (%.0f%% of it, %.0f%% at most), %.2f times as long as the shortest (1.5 at most)%s", lessSeen, open,
                 seenBlocks, shortestBlocks, shortestBlocks == 0 ? 0 : 100 * seenBlocks / shortestBlocks, 100 * WAY_SEEN, longer,
                 enoughWays ? "" : String.format(Locale.ROOT, "; too few ways (%d of them needed): not checked", WAYS_MIN)),
