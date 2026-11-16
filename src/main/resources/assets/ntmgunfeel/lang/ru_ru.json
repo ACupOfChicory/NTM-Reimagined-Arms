@@ -36,6 +36,7 @@
   "ntmgunfeel.feature.casings": "Отрисовка гильз",
   "ntmgunfeel.feature.thermal_outlines": "Быстрые тепловые контуры",
   "ntmgunfeel.feature.shock": "Электрошоковый патрон 12 калибра",
+  "ntmgunfeel.feature.gunshot_range": "Дальность слышимости выстрела по оружию",
   "ntmgunfeel.feature.prone_fire": "Нет выстрела ползком",
   "ntmgunfeel.feature.mob_ai": "ИИ мобов",
   "ntmgunfeel.feature.balance": "Баланс брони",
