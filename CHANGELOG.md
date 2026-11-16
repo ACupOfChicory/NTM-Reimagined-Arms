@@ -1,5 +1,11 @@
 # Changelog
 
+## X1287
+
+- AI soldiers that watch a corner the foe could come round from fire bursts at
+  that corner while one of their squad is on the move, instead of holding
+  fire: a squad moves under covering fire again.
+
 ## X1284
 
 - AI squads report to their commander: contact, losses, being pinned down,
