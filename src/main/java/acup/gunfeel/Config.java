@@ -123,6 +123,8 @@ public final class Config {
     // suppression (Suppression): how much the screen darkens and the sounds go down for this player, 0 to 1, times the
     // server's
     public static float suppressionDarken = 1F, suppressionMuffle = 1F;
+    // NTM's spent casings drawn at most (the nearest in the frame), -1 no limit, 0 none (CasingCull)
+    public static int casingMax = 96;
     // the shock shell (ShockClient): how much the HUD glitches and shakes for this player, 0 to 1, times the server's
     // shockGlitch; never under the server's shockGlitchMin
     public static float shockGlitch = 1F;
@@ -328,6 +330,8 @@ public final class Config {
               times the server's (at most 40 % darker at the edges, 22 % in the middle)
             suppressionMuffle: how much the other sounds go down under fire, 0 to 1, times the server's (the world's down to
               40 %, shots, blasts and bullets down to 79 % at most)
+            casingMax: how many of NTM's spent casings are drawn at most, the nearest on screen (-1 = no limit, 0 = none);
+              casings off screen or over 48 blocks away are never drawn. They lie and smoke as before
             shockGlitch: how much the HUD glitches and shakes when a shock shell hits you, 0 to 1, times the server's
               (the server may not let it go under its shockGlitchMin)
             holeCache: bullet holes kept on the graphics card in batches, rebuilt only when a hole comes or goes, not
@@ -575,6 +579,7 @@ public final class Config {
         aiVoiceVolume = Math.max(0F, Math.min(1F, num(p, "aiVoiceVolume", aiVoiceVolume)));
         suppressionDarken = Math.max(0F, Math.min(1F, num(p, "suppressionDarken", suppressionDarken)));
         suppressionMuffle = Math.max(0F, Math.min(1F, num(p, "suppressionMuffle", suppressionMuffle)));
+        casingMax = Math.max(-1, Math.min(16384, Math.round(num(p, "casingMax", casingMax))));
         shockGlitch = Math.max(0F, Math.min(1F, num(p, "shockGlitch", shockGlitch)));
         holeCache = bool(p, "holeCache", holeCache);
         ntmRenderFixes = bool(p, "ntmRenderFixes", ntmRenderFixes);
@@ -716,6 +721,7 @@ public final class Config {
         p.setProperty("aiVoiceVolume", Float.toString(aiVoiceVolume));
         p.setProperty("suppressionDarken", Float.toString(suppressionDarken));
         p.setProperty("suppressionMuffle", Float.toString(suppressionMuffle));
+        p.setProperty("casingMax", Integer.toString(casingMax));
         p.setProperty("shockGlitch", Float.toString(shockGlitch));
         p.setProperty("holeCache", Boolean.toString(holeCache));
         p.setProperty("ntmRenderFixes", Boolean.toString(ntmRenderFixes));

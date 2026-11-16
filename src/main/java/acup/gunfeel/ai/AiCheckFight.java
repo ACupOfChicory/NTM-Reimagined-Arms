@@ -112,23 +112,35 @@ final class AiCheckFight {
         return !VoxelRay.clear(AiBots.voxels(level), eye.x, eye.y, eye.z, head.x, head.y, head.z, Voxel.SIGHT);
     }
 
-    private void setup() {
+    /**
+     * The fight's field: its chunks forced, stone ground, a wall two high and a block, the AI's map of it asked for.
+     * The teams fight on it too (AiCheckTeams), the fight run or not before them.
+     */
+    static void field(ServerLevel level, int y) {
         for (int cx = X0 >> 4; cx <= (X0 + SIZE) >> 4; cx++)
             for (int cz = Z0 >> 4; cz <= (Z0 + SIZE) >> 4; cz++) level.setChunkForced(cx, cz, true);
         BlockState stone = Blocks.STONE.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
         for (int x = X0; x < X0 + SIZE; x++)
             for (int z = Z0; z < Z0 + SIZE; z++) {
-                set(x, y - 1, z, stone);
-                for (int h = 0; h < 4; h++) set(x, y + h, z, air);
+                set(level, x, y - 1, z, stone);
+                for (int h = 0; h < 4; h++) set(level, x, y + h, z, air);
             }
         for (int x = 60; x <= 64; x++) {
-            set(x, y, 20, stone);
-            set(x, y + 1, 20, stone);
+            set(level, x, y, 20, stone);
+            set(level, x, y + 1, 20, stone);
         }
         for (int x = 66; x <= 68; x++)
             for (int z = 7; z <= 9; z++)
-                for (int h = 0; h < 3; h++) set(x, y + h, z, stone);
+                for (int h = 0; h < 3; h++) set(level, x, y + h, z, stone);
         TacticalMap.of(level).want(64, y, 22, 24, 6);
+    }
+
+    private static void set(ServerLevel level, int x, int yy, int z, BlockState st) {
+        level.setBlock(new BlockPos(x, yy, z), st, Block.UPDATE_CLIENTS);
+    }
+
+    private void setup() {
+        field(level, y);
 
         List<Mob> made = AiSpawn.spawn(level, new Vec3(56.5, y, 23.5), AiSpawn.Kind.DUMMY, 1, null);
         if (made.isEmpty()) {

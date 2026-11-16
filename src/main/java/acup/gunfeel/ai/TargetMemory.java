@@ -213,6 +213,12 @@ public final class TargetMemory {
         if (noise != null && tick - noise.tick > profile.search()) noise = null;
     }
 
+    /** the target is known to be down (seen to fall, or told so): nothing more to wait for or look for */
+    public void forget(int id) {
+        contacts.removeIf(c -> c.id == id);
+        if (focusId == id) focusId = -1;
+    }
+
     private void dropWeakest() {
         Contact worst = null;
         for (Contact c : contacts) {

@@ -8,10 +8,11 @@ import net.minecraft.server.level.ServerLevel;
  * The AI check's battle: AiCheckTeams' battle {@value #ROUNDS} times over, its marks (cover changes a fighter a minute,
  * shots from a crouch, lying down too briefly, looks out of one place) held to over them all. One battle is 10 to 180
  * seconds and 10 to 100 shots: its cover changes a fighter a minute came out 0.3 to 4.2 with nothing changed, and
- * none of its shots from a crouch one time in three. The cover changes are counted a minute of fighting, not of living.
+ * none of its shots from a crouch one time in three (19 of 60; three short battles with none failed 2 runs of 20, so
+ * four). The cover changes are counted a minute of fighting, not of living.
  */
 final class AiCheckBattle {
-    static final int ROUNDS = 3;
+    static final int ROUNDS = 4;
 
     private final AiCheck check;
     private final ServerLevel level;

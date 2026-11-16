@@ -30,13 +30,18 @@ import net.neoforged.neoforge.common.util.FakePlayer;
  * the end, as a share, and the tick each was treated;</li>
  * <li>fights: the same five, two of them hurt, with low walls 3.5 blocks before them, against THEIRS 50 blocks off
  * with such walls before them (not every one behind one, either side), all with LONGER times their health; AFTER
- * ticks more once one side is gone (the medic goes round the hurt after a fight). By turns:
- * aiMedic off, on with aiMedicCover off, on with it on (R4a+, care under fire). Counted: who is left, kits used (and
- * in the fight itself), runs, the hurt off to cover, whether the medic lived.</li>
+ * ticks more once one side is gone (the medic goes round the hurt after a fight). FIGHTS_OFF with aiMedic off,
+ * then by turns on with aiMedicCover off and on with it on (R4a+, care under fire), EACH of either. Counted: who is
+ * left, kits used (and in the fight itself), runs, the hurt off to cover, whether the medic lived.</li>
  * </ul>
  */
 final class AiCheckMedic {
-    static final int X0 = 1210, Z0 = 0, W = 40, L = 72, QUIET = 600, FIGHT = 1600, AFTER = 400, QUIETS = 4, FIGHTS = 9, ROUNDS = QUIETS + FIGHTS, THEIRS = 4;
+    static final int X0 = 1210, Z0 = 0, W = 40, L = 72, QUIET = 600, FIGHT = 1600, AFTER = 400, QUIETS = 4, THEIRS = 4;
+    /**
+     * fights with aiMedic off (it uses none), then on with aiMedicCover off and on by turns, EACH of either:
+     * in about half the fights the medic uses no kit, three of each failed one run in four
+     */
+    static final int FIGHTS_OFF = 1, EACH = 6, FIGHTS = FIGHTS_OFF + 2 * EACH, ROUNDS = QUIETS + FIGHTS;
     static final float HURT = 0.3F, LONGER = 3F;
     static final Identifier RIFLE = Identifier.fromNamespaceAndPath("hbm", "gun_carbine");
     static final double THEIR_Z = 10.5, OUR_Z = 60.5;
@@ -72,7 +77,7 @@ final class AiCheckMedic {
 
     /** 0: aiMedic off; 1: on, aiMedicCover off; 2: both on (quiet rounds: 0 and 2 by turns) */
     private int mode() {
-        return fight() ? (round - QUIETS) % 3 : round % 2 * 2;
+        return fight() ? round - QUIETS < FIGHTS_OFF ? 0 : (round - QUIETS - FIGHTS_OFF) % 2 + 1 : round % 2 * 2;
     }
 
     boolean tick() {

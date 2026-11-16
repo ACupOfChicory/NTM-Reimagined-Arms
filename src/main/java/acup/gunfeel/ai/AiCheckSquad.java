@@ -26,7 +26,11 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
  * first hit on the foe and where from (degrees off the line from the foe to where the squad began).
  */
 final class AiCheckSquad {
-    static final int X0 = 400, Z0 = 4, SIZE = 48, RUN = 1200, ROUNDS = 4, SQUAD = 4;
+    /**
+     * ROUNDS: three each way (the share of the moving covered by fire is 8.6 points more with squads on average, give
+     * or take 6.2 a pair of rounds: with two each way one run in some sixteen came out the other way)
+     */
+    static final int X0 = 400, Z0 = 4, SIZE = 48, RUN = 1200, ROUNDS = 6, SQUAD = 4;
     /** the foe and its wall */
     static final double FX = 424.5, FZ = 14.5;
     static final int WALL_X0 = 421, WALL_X1 = 427, WALL_Z = 17;

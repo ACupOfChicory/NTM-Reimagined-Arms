@@ -315,6 +315,14 @@ page. They are alphas: expect bugs and back up your world.
   into a room already checked (server key `aiClearing`). Into the next room
   inside they go as into the first: from beside the doorway, together (with
   `aiEntry` on).
+- They go into a trench one or two wide as into a building: each straight
+  stretch, with its fire step, is a room, each turn a doorway. They stack up
+  beside a turn, one steps into it and throws a grenade down the next
+  stretch, then they go in and search stretch after stretch, instead of
+  walking along the edge above it (server key `aiTrenches`).
+- A soldier who sees a foe fall forgets it and tells its squad, so none of
+  them waits for it or goes after it where it fell (server key
+  `aiDownTold`).
 - They tell a cave from a building by what its walls, floor and roof are
   made of (server key `aiRoomsShell`; the block lists are settings too).
 - They move their bodies: breathing, flinching at hits, aiming, reloading,
@@ -421,6 +429,7 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `gunWeightTooltip` | `true` | A gun's tooltip names its weight class and how much it slows |
 | `suppressionDarken`, `suppressionMuffle` | `1` | How much the screen darkens and the other sounds go down under fire, 0 to 1 (the server sets the most) |
 | `shockGlitch` | `1` | How much the HUD glitches and shakes when a shock shell hits you, 0 to 1 (the server sets the most and the least) |
+| `casingMax` | `96` | Most of NTM's spent casings drawn at once, the nearest on screen (`-1` = no limit, `0` = none); casings off screen or over 48 blocks away are never drawn |
 | `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
 | `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
 | `enabled` | `true` | The mod's client side as a whole |

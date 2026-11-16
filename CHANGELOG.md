@@ -1,6 +1,6 @@
 # Changelog
 
-## X1151
+## X1201
 
 - An AI squad pinning an enemy group and the squad sent round its side now
   work as a pair. The one going round signals when it gets to its place or
@@ -9,9 +9,39 @@
   a walk, half as long again, and 30 seconds more, at most 90 seconds), both
   squads go in. A squad pinning or holding a place no longer chases a lost
   enemy more than 24 blocks from it. Server key `aiCommanderPairs` (true);
-  false: each squad goes about its task on its own, as before.
+  false: each squad goes about its task on its own, as before. The squad
+  going round keeps going round while the enemy is more than 40 blocks off,
+  rather than stopping to fight from afar, and goes round on the side
+  nearer to get to (by a ford, where a river lies between).
+- A bounding AI squad no longer runs on with no one covering it when the
+  soldiers of one of its halves leave it: it is halved again.
 
-## X1150
+## X1194
+
+- Being shot at by many AI soldiers costs much less frame time. NTM drew every
+  spent casing lying around (each lives 12 s: about 200 of them under the fire
+  of 32 soldiers) in every frame, wherever it lay. Now casings off screen or
+  over 48 blocks away are not drawn, and at most the nearest 96 on screen are.
+  The casings still fall, lie and smoke as before. New client setting
+  `casingMax` (96 by default; -1 for no limit, 0 for none).
+
+## X1187
+
+- The AI commander's ways go by a ford rather than straight through deep
+  water: soldiers stop at a river too deep to wade, so a squad sent across
+  one no longer stands at its bank. A way round by a ford still keeps out of
+  the enemy's sight where it can: it is measured against the shortest way
+  there, not the straight line across the river.
+
+## X1165
+
+- AI soldiers now also go into trenches two wide, and count a fire step as
+  part of its stretch.
+- An AI soldier running from a grenade now counts a place as behind cover
+  only if all of it is hidden from the blast, so it no longer stops just
+  round a trench's corner a block and a half from the grenade.
+
+## X1163
 
 - AI squads sent by their side's commander go along its ways as soldiers
   would. Far off and out of the enemy's sight they march in file at a run.
@@ -32,6 +62,33 @@
   do: a wood of high crowns over bare ground no longer hides a squad from
   the enemy, and its ways go round it or behind a hill instead. A wood with
   underwood hides a squad a few cells in.
+
+## X1153
+
+- An AI soldier that sees a foe fall now forgets it and tells its squad, so
+  none of them waits for it, searches for it or throws a grenade where it
+  fell. New server setting `aiDownTold` (true by default).
+- In a trench, the grenade thrown round a turn now goes after the defender
+  still there, and downs or drives them out much more often.
+
+## X1151
+
+- AI soldiers now go into a trench one wide as into a building: each straight
+  stretch is a room and each turn a doorway. They stack up beside a turn, one
+  steps into it and throws a grenade down the next stretch, and they clear the
+  trench stretch after stretch instead of walking along its edge. New server
+  setting `aiTrenches` (true by default).
+
+## X1149
+
+- AI soldiers that only heard someone no longer give up after one empty look
+  from cover. At the end of a wall a lean round the corner put the eye a
+  fifth of a block out, aimed at where the noise seemed to come from, which
+  the ear puts blocks off; when that look shows nothing they now step out to
+  look with the whole eye past the edge. And when they then go to see where
+  the noise came from, a noise heard high over the floor (the ear errs up and
+  down too) no longer makes them forget it and stand idle for the rest of the
+  fight: they go to the floor under it.
 
 ## X1144
 

@@ -55,6 +55,14 @@ public final class AiRooms {
         public long[] far2A = {}, far2B = {};
         /** it goes over a sill: its cells stand a step higher than the cell before it at an end (a window climbed through) */
         public boolean sill;
+        /**
+         * the direction out of it into b where that is not dir: a trench's turn (AiTrenches), a cell or four, gone into from a
+         * one way and out of into b another; -1 for a way straight through
+         */
+        public int turn = -1;
+        /** at a turn two wide, of its cells the one to throw from into b, into a (stepped out to from beside it); NONE: its end */
+        public long frontA = NONE, frontB = NONE;
+        static final long NONE = Long.MIN_VALUE;
 
         Way(long[] cells, int dir, int a, int b, int width, boolean door, long[] besideA, long[] besideB) {
             this.cells = cells;
@@ -70,6 +78,25 @@ public final class AiRooms {
         /** the room at the other end from room r */
         public int other(int r) {
             return r == a ? b : a;
+        }
+
+        /** the direction out of it into room r */
+        public int in(int r) {
+            return r == b ? (turn >= 0 ? turn : dir) : Dirs.opposite(dir);
+        }
+
+        /**
+         * Where one of those going into room r steps out to to throw a grenade in: before the opening on the other side,
+         * where the room is seen through it; at a turn, the turn itself (from before it the room is round the corner).
+         */
+        public long front(int r) {
+            long end = r == b ? cells[0] : cells[cells.length - 1];
+            if (turn >= 0) {
+                long f = r == b ? frontB : frontA;
+                return f != NONE ? f : end;
+            }
+            int out = r == b ? Dirs.opposite(dir) : dir;
+            return BlockPos.asLong(BlockPos.getX(end) + Dirs.DX[out], BlockPos.getY(end), BlockPos.getZ(end) + Dirs.DZ[out]);
         }
 
         /** the cells beside the opening at room r's end */
