@@ -1944,9 +1944,9 @@ public final class AiSoldier implements AiBrain {
     }
 
     private void idle(AiBot bot, long tick) {
-        // after anything but standing (an answer to a contact fires with no move out of IDLE: its target shot dead and
-        // forgotten, the trigger was left down at that place for the rest of the fight)
-        if (mode != Mode.IDLE || why != Why.IDLE) {
+        // after anything but standing or a sentry's look round (an answer to a contact fires with no move out of IDLE: its
+        // target shot dead and forgotten, the trigger was left down at that place for the rest of the fight)
+        if (mode != Mode.IDLE || why != Why.IDLE && why != Why.SENTRY) {
             bot.gunner.fire(false);
             bot.gunner.aim(null);
             drop(bot);
