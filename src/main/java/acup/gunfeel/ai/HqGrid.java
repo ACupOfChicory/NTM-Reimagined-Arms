@@ -196,6 +196,23 @@ public final class HqGrid {
         return c * len;
     }
 
+    /**
+     * a straight stretch over the map with no water to swim and no cliff on it, every cell on it known (one off the map
+     * or not known yet: no)
+     */
+    public boolean dryStraight(double ax, double az, double bx, double bz) {
+        int n = Math.max(1, (int) Math.ceil(Math.hypot(bx - ax, bz - az) / (CELL / 2.0))), last = -1;
+        for (int s = 0; s <= n; s++) {
+            double t = (double) s / n;
+            int i = cellX(ax + (bx - ax) * t), k = cellZ(az + (bz - az) * t);
+            if (i < 0 || k < 0) return false;
+            int c = index(i, k);
+            if (!known[c] || deep[c] >= 0.5 || last >= 0 && last != c && cliff(last, c)) return false;
+            last = c;
+        }
+        return true;
+    }
+
     /** from one cell to the next a cliff: both known, their heights more than CLIFF apart */
     boolean cliff(int a, int b) {
         return known[a] && known[b] && Math.abs(h[b] - h[a]) > CLIFF;
