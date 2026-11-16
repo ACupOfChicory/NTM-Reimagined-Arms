@@ -1,5 +1,22 @@
 # Changelog
 
+## X1145
+
+- AI squads sent by their side's commander go along its ways as soldiers
+  would. Far off and out of the enemy's sight they march in file at a run.
+  Within 100 blocks of an enemy, or in its sight, they bound: half the squad
+  (its machine gunner and marksman first) kneels in cover facing the enemy
+  while the other half runs to cover a dozen blocks farther along the way,
+  then the other half goes. In the enemy's sight and within 60 blocks they
+  creep, crouched, one or two at a time from cover to cover. The last 25
+  blocks of an advance are an assault: at a run, and for 20 seconds they do
+  not hold back in the fight that follows. Cover is a place the commander's
+  map has out of the enemy's sight, or a block that hides from the whole
+  circle where it thinks the enemy is. Server key `aiCommanderMoves`
+  (true); false: they walk, as before.
+- Soldiers far from any player, moved by their commander, wade a ford a
+  block deep instead of stopping at it.
+
 ## X1140
 
 - AI side commanders move their soldiers far from any player too. Soldiers

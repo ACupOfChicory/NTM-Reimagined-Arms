@@ -188,8 +188,9 @@ public final class AiCommander {
          * its last leg went
          */
         double coverX, coverZ, coverTo, legX = Double.NaN, legZ = Double.NaN;
-        long coverCell = Long.MIN_VALUE, coverSince = Long.MIN_VALUE;
-        int coverTurn;
+        long coverCell = Long.MIN_VALUE, coverSince = Long.MIN_VALUE, halfSince = Long.MIN_VALUE;
+        /** its half of the squad's bounds, for which of them (the mode's start) */
+        int coverTurn, half;
         boolean covered;
     }
 
@@ -516,7 +517,7 @@ public final class AiCommander {
     /**
      * The soldiers asleep with a task, moved by the staff (C2b): a step along the way (straight where there is none),
      * each to its own side of the point as awake (step), onto the middle of the block on the ground as the heightmap
-     * has it, in loaded chunks only; not onto water or lava, nor into deep water on the staff's map, nor up or down more
+     * has it, in loaded chunks only; not onto water or lava, nor into deep water on the staff's map (a ford a block deep it wades), nor up or down more
      * than DRIFT_CLIMB: then a step turned aside, one way then the other, and FAILS such in a row give the task up as
      * awake. None once at the task's place (got there, as awake), nor within DRIFT_STOP of a group of the enemy. Woken
      * (a player near), it goes on from where it is by its order as any other (step).
@@ -564,7 +565,9 @@ public final class AiCommander {
             HqGrid grid = AiHqMap.of(level, team);
             int ci = grid == null ? -1 : grid.cellX(bx + 0.5), ck = grid == null ? -1 : grid.cellZ(bz + 0.5);
             boolean deep = ci >= 0 && ck >= 0 && grid.known[HqGrid.index(ci, ck)] && grid.deep[HqGrid.index(ci, ck)] >= 0.5;
-            boolean wet = !level.getFluidState(new BlockPos(bx, ny - 1, bz)).isEmpty();
+            // into water a block deep (a ford) it wades; deeper water, or any other liquid, it does not go into
+            var fluid = level.getFluidState(new BlockPos(bx, ny - 1, bz));
+            boolean wet = !fluid.isEmpty() && (!fluid.is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(new BlockPos(bx, ny - 2, bz)).isEmpty());
             if (deep || wet || Math.abs(ny - b.mob.getY()) > DRIFT_CLIMB) {
                 driftBlocked++;
                 if (++o.fails >= FAILS) giveUp(b, o, now);

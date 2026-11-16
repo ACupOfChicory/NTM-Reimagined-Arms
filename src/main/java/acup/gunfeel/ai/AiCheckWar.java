@@ -93,7 +93,7 @@ final class AiCheckWar {
     private final List<int[]> tasksOf = new ArrayList<>();
     /** per round (C3): the squads' looks (every LOOK) in each mode; bounding, and of those one of the half covering in cover */
     private final long[] modeTicks = new long[StaffMove.Mode.values().length];
-    private long bounding, covering;
+    private long bounding, covering, inCover;
     private final List<long[]> movesOf = new ArrayList<>();
     private double firstSeenFrom;
     /** the staff's ways made before the player was first seen this round */
@@ -197,9 +197,12 @@ final class AiCheckWar {
             for (AiCommander.Job j : jobs) {
                 if (j.move.mode == null) continue;
                 modeTicks[j.move.mode.ordinal()]++;
-                if (j.move.mode == StaffMove.Mode.BOUND && j.move.turn > 0) {
+                // bounding out of a fight (in one the soldiers fight from cover of their own: C4, C5)
+                if (j.move.mode == StaffMove.Mode.BOUND && j.move.turn > 0 && StaffMove.quiet(j)) {
                     bounding++;
-                    if (StaffMove.covered(j)) covering++;
+                    int c = StaffMove.covered(j);
+                    if (c > 0) covering++;
+                    if (c > 1) inCover++;
                 }
             }
         }
@@ -227,7 +230,7 @@ final class AiCheckWar {
         for (int k = 0; k < given0.length; k++) t[k] = AiCommander.given[k] - given0[k];
         t[given0.length] = AiCommander.strays - strays0;
         tasksOf.add(t);
-        movesOf.add(new long[] {modeTicks[0], modeTicks[1], modeTicks[2], modeTicks[3], bounding, covering});
+        movesOf.add(new long[] {modeTicks[0], modeTicks[1], modeTicks[2], modeTicks[3], bounding, covering, inCover});
         approach.add(new double[] {mode(), looks, inReach, inSight, walked / Math.max(1, ours.size()), firstSeenFrom});
         if (mode() == STAFF) {
             // a copy first: a way may still come in off the server thread
@@ -248,6 +251,8 @@ final class AiCheckWar {
     private void startFar() {
         far = true;
         ticks = 0;
+        round = rounds;
+        seenAt = -1;
         AiCommander.on = AiCommander.staff = AiCommander.tasks = StaffMove.on = true;
         AiCommander.forget(level);
         AiSquads.on = true;
@@ -286,6 +291,7 @@ final class AiCheckWar {
             if (awake > 0 && farWoke < 0) farWoke = ticks;
             farMost = Math.max(farMost, awake);
         }
+        if (dump != null) dump(level.getGameTime());
         if (ticks < FAR_RUN) return false;
         clear();
         AiCommander.made.clear();
@@ -326,9 +332,12 @@ final class AiCheckWar {
                 AiBot b = AiBots.get(m);
                 AiCommander.Order o = b == null ? null : b.order;
                 int kind = o == null ? -2 : o.job == null ? -1 : o.job.kind.ordinal();
-                dump.printf(Locale.ROOT, "P %d %d %d %.1f %.1f %d %d %.1f %.1f %d %d %d%n", round, ticks, i, m.getX(), m.getZ(), inSight(m) ? 1 : 0, kind,
+                // C3: the squad's mode (-1 none), its turn, whether it goes this turn (bounds: its half), its cover found and at it; awake
+                StaffMove.State st = o == null || o.job == null ? null : o.job.move;
+                dump.printf(Locale.ROOT, "P %d %d %d %.1f %.1f %d %d %.1f %.1f %d %d %d %d %d %d %d %d %d%n", round, ticks, i, m.getX(), m.getZ(), inSight(m) ? 1 : 0, kind,
                         o == null ? 0 : o.x, o == null ? 0 : o.z, o == null ? 0 : o.until - now, b != null && b.memory.focus(m.getX(), m.getZ()) != null ? 1 : 0,
-                        AiCommander.gaveUp);
+                        AiCommander.gaveUp, st == null || st.mode == null ? -1 : st.mode.ordinal(), st == null ? 0 : st.turn, o == null || st == null ? 0 : st.mode == StaffMove.Mode.BOUND ? (o.halfSince == st.since && o.half == st.moving ? 1 : 0) : o.coverSince == st.since && o.coverTurn == st.turn ? 1 : 0,
+                        o != null && o.covered ? 1 : 0, o != null && StaffMove.atCover(b, o) ? 1 : 0, b != null && b.active ? 1 : 0);
             }
         }
         if (ticks >= RUN) dump.flush();
@@ -393,7 +402,7 @@ final class AiCheckWar {
         looks = inReach = inSight = 0;
         alive = idle = 0;
         java.util.Arrays.fill(modeTicks, 0);
-        bounding = covering = 0;
+        bounding = covering = inCover = 0;
         given0 = AiCommander.given.clone();
         strays0 = AiCommander.strays;
         firstSeenFrom = -1;
@@ -464,7 +473,7 @@ final class AiCheckWar {
         // rounds of each, and of them those in which one of the side came within the player's reach
         int[] roundsOf = new int[MODES], reachedOf = new int[MODES];
         long[] aliveOf = new long[MODES], idleOf = new long[MODES];
-        long bounds = 0, covers = 0;
+        long bounds = 0, covers = 0, coversHard = 0;
         for (int i = 0; i < results.size(); i++) {
             double[] a = approach.get(i);
             int on = (int) a[0];
@@ -493,10 +502,11 @@ final class AiCheckWar {
                     id[0] == 0 ? 0 : 100.0 * id[1] / id[0], kinds.length() == 0 ? "none" : kinds, strays > 0 ? "; " + strays + " sent after their squad" : ""));
             long[] mv = movesOf.get(i);
             if (on == MOVES) {
-                check.out(String.format(Locale.ROOT, "     war, round %d: the squads' going (C3), looks: march %d, bounds %d, creeping %d, assault %d; bounding, one of the half covering in cover %d of %d",
-                        i + 1, mv[0], mv[1], mv[2], mv[3], mv[5], mv[4]));
+                check.out(String.format(Locale.ROOT, "     war, round %d: the squads' going (C3), looks: march %d, bounds %d, creeping %d, assault %d; bounding out of a fight %d, one of the half covering at its place %d, in cover there %d",
+                        i + 1, mv[0], mv[1], mv[2], mv[3], mv[4], mv[5], mv[6]));
                 bounds += mv[4];
                 covers += mv[5];
+                coversHard += mv[6];
             }
         }
         for (int on = 0; on < MODES; on++)
@@ -541,8 +551,9 @@ final class AiCheckWar {
                 tasksAlive == 0 ? 0 : 100.0 * tasksIdle / tasksAlive, sentAt), !tasksRan || tasksAlive > 0 && tasksIdle * 50 <= tasksAlive && sentAt > 0);
         // C3: bounding, one half at least is in cover facing the enemy most of the time
         if (roundsOf[MOVES] > 0)
-            check.check(String.format(Locale.ROOT, "war: the squads bound (C3), one half in cover facing the enemy while the other goes %.1f%% of the time (80%% at least; %d looks)",
-                    bounds == 0 ? 0 : 100.0 * covers / bounds, bounds), bounds > 0 && covers * 5 >= bounds * 4);
+            check.check(String.format(Locale.ROOT, "war: the squads bound (C3), out of a fight one half standing at its place facing the enemy (in cover where there was one) while the other goes"
+                    + " %.1f%% of the time (80%% at least; %d looks; in cover %.1f%%)", bounds == 0 ? 0 : 100.0 * covers / bounds, bounds, bounds == 0 ? 0 : 100.0 * coversHard / bounds),
+                    bounds > 0 && covers * 5 >= bounds * 4);
         // C3 against C2 (the cost of care: later seen, less in sight)
         if (roundsOf[TASKS] > 0 && roundsOf[MOVES] > 0)
             check.out(String.format(Locale.ROOT, "     war, C3 against C2: in the player's sight till first seen %.1f%% against %.1f%% of the time within its reach, first seen at tick %.0f against %.0f",
