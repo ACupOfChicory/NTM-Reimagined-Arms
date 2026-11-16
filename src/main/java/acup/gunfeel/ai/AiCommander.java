@@ -905,6 +905,15 @@ public final class AiCommander {
         if (o == null || o.crossKind == null || !has(bot, tick)) return null;
         if (past(bot.mob.getX(), bot.mob.getZ(), o.crossX, o.crossZ, o.farX, o.farZ)) {
             o.crossKind = null;
+            // on along its way from where it is now; the last of the squad over: its way of going begun afresh there
+            // (its bounds' halves and covers were of the near bank)
+            if (o.route != null) o.at = ahead(o.route, bot.mob.getX(), bot.mob.getZ());
+            Job j = o.job;
+            if (j != null) {
+                boolean all = true;
+                for (AiBot b : j.members) if (b.mob.isAlive() && b.order != null && b.order.job == j && b.order.crossKind != null) all = false;
+                if (all) StaffMove.afresh(j);
+            }
             return null;
         }
         return o;

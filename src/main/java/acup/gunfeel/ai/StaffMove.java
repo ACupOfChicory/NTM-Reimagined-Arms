@@ -206,6 +206,12 @@ final class StaffMove {
         st.set = false;
     }
 
+    /** its way of going begun again at its next look (a river crossed: AiCommander.crossing) */
+    static void afresh(AiCommander.Job j) {
+        j.move.mode = null;
+        j.move.next = Long.MIN_VALUE;
+    }
+
     /** its pace on a straight leg (no way): by the squad's mode */
     static double speed(AiCommander.Order o) {
         Mode m = o.job == null ? null : o.job.move.mode;
