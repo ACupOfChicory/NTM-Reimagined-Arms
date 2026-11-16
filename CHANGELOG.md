@@ -1,6 +1,6 @@
 # Changelog
 
-## X1146
+## XNEW
 
 - AI squads sent by their side's commander go along its ways as soldiers
   would. Far off and out of the enemy's sight they march in file at a run.
@@ -16,6 +16,15 @@
   (true); false: they walk, as before.
 - Soldiers far from any player, moved by their commander, wade a ford a
   block deep instead of stopping at it.
+
+## X1144
+
+- AI soldiers now see under high tree crowns: only leaves at eye height
+  (underwood, low crowns) block a look across a wood, so a wood with no
+  underwood is seen into far.
+- The terrain map now tells, for each coarse cell, how much of it has leaves
+  in the way of a standing look (brushed), for the staff's map to use instead
+  of crowns.
 
 ## X1140
 

@@ -42,7 +42,7 @@ public final class TerrainCore implements TerrainDerived.Tiles {
     /** copies a chunk's columns into the arrays (256 each, see {@link TerrainTile}); false: the chunk is not loaded */
     @FunctionalInterface
     public interface Columns {
-        boolean read(int cx, int cz, short[] ground, byte[] canopy, byte[] water);
+        boolean read(int cx, int cz, short[] ground, byte[] canopy, byte[] under, byte[] water);
     }
 
     private static final class Entry {
@@ -296,9 +296,9 @@ public final class TerrainCore implements TerrainDerived.Tiles {
     private void copy(long key, Entry e) {
         long t0 = System.nanoTime();
         short[] ground = new short[256];
-        byte[] canopy = new byte[256], water = new byte[256];
+        byte[] canopy = new byte[256], under = new byte[256], water = new byte[256];
         int cx = TerrainTile.x(key), cz = TerrainTile.z(key);
-        boolean loaded = columns.read(cx, cz, ground, canopy, water);
+        boolean loaded = columns.read(cx, cz, ground, canopy, under, water);
         e.rawDirty = false;
         if (loaded) copies++;
         else absentTries++;
@@ -312,7 +312,7 @@ public final class TerrainCore implements TerrainDerived.Tiles {
             // not loaded, or loading and not to be seen yet: no event may tell when it is
             if (e.rawUntil >= tick) absent.add(key);
         } else {
-            TerrainTile t = TerrainTile.of(key, e.version + 1, ground, canopy, water);
+            TerrainTile t = TerrainTile.of(key, e.version + 1, ground, canopy, under, water);
             TerrainTile old = e.tile;
             if (old == null || !old.same(t)) {
                 e.version++;

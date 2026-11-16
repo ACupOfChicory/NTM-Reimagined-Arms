@@ -8,6 +8,7 @@ import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -106,7 +107,7 @@ public final class AiTerrain {
      * fluid is not the top block that stops a mob (the sea bed's map; leaves stop a mob, so under a crown it is looked
      * for too), and its depth found by going down through it.
      */
-    private boolean read(int cx, int cz, short[] ground, byte[] canopy, byte[] water) {
+    private boolean read(int cx, int cz, short[] ground, byte[] canopy, byte[] under, byte[] water) {
         if (!(level.getChunkSource().getChunkNow(cx, cz) instanceof LevelChunk chunk)) return false;
         for (Heightmap.Types kind : KINDS) if (!chunk.hasPrimedHeightmap(kind)) Heightmap.primeHeightmaps(chunk, java.util.EnumSet.of(kind));
         Heightmap noLeaves = chunk.getOrCreateHeightmapUnprimed(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES);
@@ -128,8 +129,8 @@ public final class AiTerrain {
                         depth = 1;
                         while (depth < MAX_WATER && top - depth >= minY) {
                             at.setY(top - depth);
-                            FluidState under = chunk.getFluidState(at);
-                            if (under.isEmpty() || !under.is(FluidTags.WATER)) break;
+                            FluidState below = chunk.getFluidState(at);
+                            if (below.isEmpty() || !below.is(FluidTags.WATER)) break;
                             depth++;
                         }
                     }
@@ -137,6 +138,13 @@ public final class AiTerrain {
                 ground[i] = (short) (over - depth);
                 water[i] = (byte) depth;
                 canopy[i] = (byte) Math.max(0, Math.min(127, leaves - over));
+                // the lowest leaves over the ground: a crown one looks under, or underwood in the way
+                int u = 0;
+                if (canopy[i] > 0) {
+                    at.set(bx + x, over, bz + z);
+                    while (u < canopy[i] - 1 && !chunk.getBlockState(at).is(BlockTags.LEAVES)) at.setY(over + ++u);
+                }
+                under[i] = (byte) u;
             }
         return true;
     }
@@ -167,6 +175,21 @@ public final class AiTerrain {
     public int canopy(int x, int z) {
         TerrainTile t = core.tileAt(x, z);
         return t == null ? 0 : t.canopy(x, z);
+    }
+
+    /** blocks of air between the column's ground and the lowest leaves over it; 0 with none, or nothing kept */
+    public int under(int x, int z) {
+        TerrainTile t = core.tileAt(x, z);
+        return t == null ? 0 : t.under(x, z);
+    }
+
+    /**
+     * the part of the columns round there (a coarse cell) with leaves in the way of a look standing: underwood, low
+     * crowns (not those one sees under), 0..1
+     */
+    public float brushed(int x, int z) {
+        TerrainTile t = core.tileAt(x, z);
+        return t == null ? 0F : t.brushed(x, z);
     }
 
     /** the part of the columns round there (a coarse cell) under the crowns of trees, 0..1 */
