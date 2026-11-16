@@ -982,11 +982,13 @@ final class AiCheckWar {
         if (roundsOf[PAIRS] > 0 || nearOf.stream().anyMatch(r -> r[0] == PAIRS)) {
             // near, the camp 80 blocks off: one of the pair sees the player within CLOSE before they part; there the angle at its signal
             // measured where it is sure to be: near, at the pair's signal (the one going round at its place); and where it
-            // sees the player within CLOSE (seldom on the field: the river); too few of them all, nothing measured: a FAIL
-            long angles = readyAngles + flankOf[PAIRS] + nearFlank, wide = readyWide + wideOf[PAIRS] + nearWide;
+            // sees the player within CLOSE on the field (seldom: the river); too few of them all, nothing measured: a FAIL.
+            // Near, its first sight within CLOSE comes on the way, 80 blocks off at the start, before it is round: shown, not counted
+            long angles = readyAngles + flankOf[PAIRS], wide = readyWide + wideOf[PAIRS];
             check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round %.0f degrees or more off the pinning one: %d of %d (half at least, %d measured at least%s):"
-                    + " near at its signal %d of %d, coming on the player within %.0f near %d of %d, on the field %d of %d; %d pairs made", WIDE, wide, angles, ANGLES_MIN,
-                    angles < ANGLES_MIN ? ", NOT MEASURED" : "", readyWide, readyAngles, CLOSE, nearWide, nearFlank, wideOf[PAIRS], flankOf[PAIRS], pairsMade),
+                    + " near at its signal %d of %d, on the field coming on the player within %.0f %d of %d; %d pairs made (near, first seen within %.0f on the way, not counted: %d of %d)",
+                    WIDE, wide, angles, ANGLES_MIN, angles < ANGLES_MIN ? ", NOT MEASURED" : "", readyWide, readyAngles, CLOSE, wideOf[PAIRS], flankOf[PAIRS], pairsMade, CLOSE,
+                    nearWide, nearFlank),
                     angles >= ANGLES_MIN && wide * 2 >= angles);
         }
         if (roundsOf[PAIRS] > 0)

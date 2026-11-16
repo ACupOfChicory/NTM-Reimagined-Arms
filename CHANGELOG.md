@@ -7,6 +7,31 @@
   clearing: they hold fire while one of their own stands anywhere along
   the line until a block that stops bullets, behind glass or a door too.
 
+## X1360
+
+- An AI squad sent round the flank no longer gives its signal to attack when the
+  enemy it lost sight of has moved on: it now judges whether it is round to the
+  side by where its staff last placed the enemy, not by the spot where it last
+  saw them.
+
+## X1358
+
+- An AI soldier left on a ladder with nothing to do (its search or order over
+  while it climbed) no longer stays on the rung: it climbs on the way it went
+  to the ladder's end and steps off, or off at the nearer end when that is a
+  step or two away.
+- AI soldiers who lose a foe up a shaft over them (out of NTM's bunker, say)
+  now go up its ladder to the way out at the top and search from there; before,
+  a foe lost sixty blocks up was out of their search, and they stood at the
+  foot.
+
+## X1356
+
+- AI soldiers go down a ladder past one or two rungs knocked out of it (shot
+  out in a fight in the shaft, say), dropping onto the rung or floor under
+  the gap; before, such a gap closed the way down for good. A gap of
+  more than two is still no way down, and no gap is climbed up.
+
 ## X1347
 
 - AI soldiers going down a long ladder (such as the sixty-block shaft of NTM's

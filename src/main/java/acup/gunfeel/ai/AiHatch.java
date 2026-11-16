@@ -46,20 +46,91 @@ final class AiHatch {
      * to the ground), else, the way up shut, its foot. MIN_VALUE: none known (the map not read there yet)
      */
     static long offLadder(ServerLevel level, Mob mob) {
+        return offLadder(level, mob, 0, LADDER_REACH);
+    }
+
+    /**
+     * The same, the way given: up (1: its top only), down (-1: its foot only), or either (0: its top first), within
+     * reach blocks. The map asked for at the top when it has no cells there yet (a long shaft's top is out of the map
+     * its foot was read in)
+     */
+    static long offLadder(ServerLevel level, Mob mob, int way, int reach) {
         TacticalMap map = TacticalMap.of(level);
         int x = mob.getBlockX(), z = mob.getBlockZ(), y0 = mob.getBlockY();
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-        int top = y0;
-        while (top < y0 + LADDER_REACH && rung(level, p.set(x, top, z))) top++;
-        if (top > y0 || !rung(level, p.set(x, y0, z))) {
-            if (walkable(map, x, top, z)) return BlockPos.asLong(x, top, z);
-            int[][] side = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-            for (int[] d : side) if (walkable(map, x + d[0], top, z + d[1])) return BlockPos.asLong(x + d[0], top, z + d[1]);
+        if (way >= 0) {
+            int top = y0;
+            while (top < y0 + reach && rung(level, p.set(x, top, z))) top++;
+            // (the rungs' end within reach only: a rung reach up is no top, though a cell)
+            if ((top > y0 || !rung(level, p.set(x, y0, z))) && !rung(level, p.set(x, top, z))) {
+                long out = exit(map, x, top, z);
+                if (out != Long.MIN_VALUE) return out;
+                if (top - y0 > LADDER_REACH) map.want(x, top, z, 8, 4);
+            }
         }
-        for (int y = y0; y > y0 - LADDER_REACH && y > level.getMinY(); y--) {
-            if (!rung(level, p.set(x, y - 1, z)) && walkable(map, x, y, z)) return BlockPos.asLong(x, y, z);
-        }
+        if (way <= 0)
+            for (int y = y0; y > y0 - reach && y > level.getMinY(); y--) {
+                if (!rung(level, p.set(x, y - 1, z)) && walkable(map, x, y, z)) return BlockPos.asLong(x, y, z);
+            }
         return Long.MIN_VALUE;
+    }
+
+    /** a cell to stand in where a ladder's rungs end at y (its top), or beside it; MIN_VALUE: none */
+    private static long exit(TacticalMap map, int x, int y, int z) {
+        if (walkable(map, x, y, z)) return BlockPos.asLong(x, y, z);
+        int[][] side = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] d : side) if (walkable(map, x + d[0], y, z + d[1])) return BlockPos.asLong(x + d[0], y, z + d[1]);
+        return Long.MIN_VALUE;
+    }
+
+    /** a ladder up this long at most is looked for its top, blocks (NTM's bunker shaft is sixty) */
+    static final int UP_REACH = 96;
+
+    /**
+     * A foe lost up a shaft: the shaft's way out at its top, where one at its foot goes first (the search from there on,
+     * as on any ground; a ladder UP_NEAR off across: its foot first), or MIN_VALUE. Up a shaft: a ladder's column at its
+     * feet or a step beside, the bot DEEP under its
+     * top at least, the place it was lost at the top's height (a little under it to a few over) and this near the top
+     * across, FOE_NEAR: the way to that place is up this shaft
+     */
+    static long wayUp(ServerLevel level, AiBot bot, TargetMemory.Contact k) {
+        Mob m = bot.mob;
+        if (k.lostY < m.getY() + DEEP) return Long.MIN_VALUE;
+        int fx = m.getBlockX(), fy = m.getBlockY(), fz = m.getBlockZ();
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        // nearest first: at its feet or a step beside (up it), else UP_NEAR off across (to its foot first)
+        for (int d = 0; d <= UP_NEAR; d++)
+            for (int dx = -d; dx <= d; dx++)
+                for (int dz = -d; dz <= d; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != d) continue;
+                    long w = wayUp(level, k, fx + dx, fy, fz + dz, d <= 1, p);
+                    if (w != Long.MIN_VALUE) return w;
+                }
+        return Long.MIN_VALUE;
+    }
+
+    /** a ladder looked for this far across from one at the foot of a shaft a foe was lost up, blocks */
+    static final int UP_NEAR = 8;
+
+    /** the way up the ladder at x z (its foot about y): its way out at the top when at it, else its foot's cell */
+    private static long wayUp(ServerLevel level, TargetMemory.Contact k, int x, int fy, int z, boolean at, BlockPos.MutableBlockPos p) {
+        if (!rung(level, p.set(x, fy, z)) && !rung(level, p.set(x, fy + 1, z))) return Long.MIN_VALUE;
+        int top = fy;
+        while (top < fy + UP_REACH && (rung(level, p.set(x, top, z)) || top == fy)) top++;
+        // the rungs end at top (the hatch's block, shut or open, or the ground's air): up there by the lost place
+        if (top - fy < DEEP || k.lostY < top - 2 || k.lostY > top + 6) return Long.MIN_VALUE;
+        double ox = k.lostX - x - 0.5, oz = k.lostZ - z - 0.5;
+        if (ox * ox + oz * oz > FOE_NEAR * FOE_NEAR) return Long.MIN_VALUE;
+        TacticalMap map = TacticalMap.of(level);
+        // not at it yet: to its foot first, the rung's cell at the bot's height or a cell beside it
+        if (!at) return walkable(map, x, fy, z) ? BlockPos.asLong(x, fy, z) : exit(map, x, fy, z);
+        long out = exit(map, x, top, z);
+        if (out == Long.MIN_VALUE) {
+            // its top not read yet: the cell over the hatch, read now and gone for in a while
+            map.want(x, top, z, 8, 4);
+            out = exit(map, x, top + 1, z);
+        }
+        return out;
     }
 
     private static boolean walkable(TacticalMap map, int x, int y, int z) {
@@ -180,8 +251,9 @@ final class AiHatch {
             if (BlockPos.getX(a) != BlockPos.getX(b) || BlockPos.getZ(a) != BlockPos.getZ(b) || BlockPos.getY(b) != BlockPos.getY(a) - 1) continue;
             int j = i + 1;
             while (j + 1 < cells.length && BlockPos.getX(cells[j + 1]) == BlockPos.getX(a) && BlockPos.getZ(cells[j + 1]) == BlockPos.getZ(a)
-                    && BlockPos.getY(cells[j + 1]) == BlockPos.getY(cells[j]) - 1) j++;
-            if (j - i + 1 < RUNGS) {
+                    && BlockPos.getY(cells[j + 1]) < BlockPos.getY(cells[j]) && BlockPos.getY(cells[j + 1]) >= BlockPos.getY(cells[j]) - PathSearch.MAX_DROP) j++;
+            // (a drop past rungs knocked out is still down the shaft: PathSearch.gapDown)
+            if (BlockPos.getY(a) - BlockPos.getY(cells[j]) + 1 < RUNGS) {
                 i = j;
                 continue;
             }
