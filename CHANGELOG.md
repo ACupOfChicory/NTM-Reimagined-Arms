@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers that only heard someone no longer give up after one empty look
+  from cover. At the end of a wall a lean round the corner put the eye a
+  fifth of a block out, aimed at where the noise seemed to come from, which
+  the ear puts blocks off; when that look shows nothing they now step out to
+  look with the whole eye past the edge. And when they then go to see where
+  the noise came from, a noise heard high over the floor (the ear errs up and
+  down too) no longer makes them forget it and stand idle for the rest of the
+  fight: they go to the floor under it.
+
 ## X1140
 
 - AI side commanders move their soldiers far from any player too. Soldiers
