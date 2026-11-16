@@ -12,6 +12,44 @@
   crossing is watched: under fire, after its own shots have given it away, or
   knowing of a foe at the far bank. Before, only under fire.
 
+## X1297
+
+- AI squads sent by their commander no longer go round and round the wall of
+  a house with no way in when the place they were sent to is inside it or on
+  its roof: they head for ground at about their own height, give the place up
+  after a few legs that get them no nearer, and do not pick a place they could
+  not reach again.
+
+## X1293
+
+- A 12 gauge electroshock shell that hits someone already shocked, or in the
+  immunity after a shock, now does 90 % of a slug from the same gun, against
+  the same armour and at the same range (with the mod's balance;
+  `balance = ntm` keeps the light hit). It still does not shock again.
+- A shocked player sees discharges jag in from the screen's edges and a light
+  bluish vignette round it, both as strong as the HUD's glitch and fading
+  with the shock (`shockGlitch`); the HUD still shakes.
+
+## X1291
+
+- AI squads march to a fight at a jog instead of a sprint; they still storm
+  and fall back at a run.
+- AI soldiers' legs no longer swing between the jog and the sprint while they
+  run at an even pace.
+- New client setting `botRunGait` (`/gunfeel botrungait`): AI soldiers' legs
+  on the run as before (`vanilla`), with fewer steps (`tempo`) or with longer
+  steps (`stride`).
+
+## X1289
+
+- AI soldiers open trapdoors (NTM's steel hatch too) and climb ladders up and
+  down; a ladder is never taken for cover. A foe lost under the ground down a
+  shaft is gone after by the drill: the squad gathers off the hatch, a grenade
+  goes down first when it reaches the foot before its fuse is out, then they
+  go down one after another, the first at the foot holding the way out, one
+  staying up by the hatch till the others are down. Server key `aiHatches`
+  (true).
+
 ## X1287
 
 - AI soldiers that watch a corner the foe could come round from fire bursts at

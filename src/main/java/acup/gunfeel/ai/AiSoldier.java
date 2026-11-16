@@ -39,7 +39,11 @@ public final class AiSoldier implements AiBrain {
     static final int QUERY_EVERY = 20, EXPOSED_EVERY = 10, HIDE_MIN = 10, HIDE_MAX = 80, BURST_MIN = 10, BURST_MAX = 25, PEEK_BLIND = 20;
     /** heard only, in cover: ticks between two looks out the way the noise came from */
     static final int LOOK_AGAIN_MIN = 60, LOOK_AGAIN_MAX = 120;
-    static final double RUN = 1.3, WALK = 1.0, CREEP = 0.7;
+    /**
+     * the paces, as the move's speed modifier: it goes twice into the game's push, so over the ground a walk is 0.19
+     * blocks a tick, a march (the staff's way to a fight, StaffMove) 0.27, a jog, and a run 0.32, a sprint
+     */
+    static final double RUN = 1.3, MARCH = 1.2, WALK = 1.0, CREEP = 0.7;
     /** how near a peek's middle it must stand: a peek a block aside from cover sees round it only about there */
     static final double PEEK_AT = 0.1;
     /** where it aims, as parts of the target's height (chest, head, legs), and half a part's height */
@@ -483,6 +487,8 @@ public final class AiSoldier implements AiBrain {
         if (AiCrossing.step(this, bot, level, tick)) return;
         // its side's thrower at a bunker's slit: beside it, out to throw, back (AiBunker)
         if (AiBunker.step(this, bot, level, tick)) return;
+        // on its side's way down a shaft, on the ladder: on down whatever it sees, firing (no cover on a ladder) (AiHatch)
+        if (AiHatch.onLadder(this, bot, level, tick)) return;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again
@@ -1856,6 +1862,15 @@ public final class AiSoldier implements AiBrain {
 
     /** slowly through the cells round where they were lost that it cannot see, nearest first */
     private void search(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
+        // (before the search's own start, which stops its legs: the way down keeps them going)
+        // lost under the ground down a shaft: to its hatch, a grenade down, down one at a time (AiHatch)
+        Vec3 shaft = AiHatch.on() ? AiHatch.step(this, bot, level, c, tick) : null;
+        if (shaft != null) {
+            searchCell = Long.MIN_VALUE;
+            watch = shaft;
+            bot.gunner.aim(shaft);
+            return;
+        }
         if (mode != Mode.SEARCH) {
             drop(bot);
             bot.mover.stop();

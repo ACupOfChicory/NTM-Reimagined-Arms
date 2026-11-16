@@ -48,7 +48,9 @@ import net.minecraft.world.level.block.Blocks;
 //    the fade, not after; the speed on the server and on the client down by ShockServer.SLOW at full, by half that
 //    halfway, as before after; the client's view narrowed by ShockServer.FOV at full, by half that halfway, and back; the client told (its
 //    shock, the view turned on its own);
-//  - immunity: a shell during the shock and one after it (within shockImmunity) do nothing, one after that shocks again;
+//  - immunity: a shell during the shock and one after it (within shockImmunity) shock no more, one after that shocks again;
+//    the mannequin holding a Maresleg, the two in between do ShockServer.REPEAT of its slug (the final scheme's click on
+//    the player), the first one little (the shells made with NTM's damage of the Maresleg times the shell's);
 //  - the agent: the same spread through NTM's calcSpread with it as the shooter, its speed and its step on a path (its
 //    move control's speed) down by SLOW, immunity, and the shooter's marks (one that shocked, one that did not).
 // Lines "[shock-stand] ..." in the log, PASS/FAIL in the report, frames shock-*.png in the run dir.
@@ -120,6 +122,10 @@ final class ShockStand {
                 mob.setNoAi(true);
                 mob.setPersistenceRequired();
                 mob.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.GUN_MARESLEG.get()));
+                // the player's shells in its shock are most of a slug now (ShockServer.REPEAT): health to take them
+                var hp = mob.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH);
+                if (hp != null) hp.setBaseValue(200.0);
+                mob.setHealth(mob.getMaxHealth());
                 level.addFreshEntity(mob);
             }
         }).join();
@@ -256,28 +262,39 @@ final class ShockStand {
         wait(5, 10);
     }
 
-    // the HUD's rows changed by the glitch, the sky above not; after the shock all as at first. A share of the pixels
-    // changed by more than 12 of 255 (the sky's own light drifts by a level or two, a speck may cross it)
+    // the HUD's rows changed by the glitch, the sky above not (away from the edges: ShockArcs' vignette and discharges
+    // are there), the top edge lighter by the vignette; after the shock all as at first. A share of the pixels changed by
+    // more than 12 of 255 (the sky's own light drifts by a level or two, a speck may cross it)
     private static void compare(com.mojang.blaze3d.platform.NativeImage now, String what, boolean glitched) {
         int w = Math.min(base.getWidth(), now.getWidth()), h = Math.min(base.getHeight(), now.getHeight());
-        int hud = 0, sky = 0, nh = 0, ns = 0;
+        int hud = 0, sky = 0, edge = 0, nh = 0, ns = 0, ne = 0;
         for (int y = 0; y < h; y += 2) for (int x = 0; x < w; x += 2) {
-            boolean changed = diff(base.getPixel(x, y), now.getPixel(x, y)) > 12.0;
-            // the middle of the hotbar (the gun in the hand is to the right of it), the sky over the middle
+            int was = base.getPixel(x, y), is = now.getPixel(x, y);
+            boolean changed = diff(was, is) > 12.0;
+            // the middle of the hotbar (the gun in the hand is to the right of it), the sky over the crosshair, the top edge
             if (y > h * 22 / 25 && Math.abs(x - w / 2) < w / 8) {
                 if (changed) hud++;
                 nh++;
-            } else if (y < h / 5 && Math.abs(x - w / 2) < w / 4) {
+            } else if (y > h * 7 / 25 && y < h * 2 / 5 && Math.abs(x - w / 2) < w / 8) {
                 if (changed) sky++;
                 ns++;
+            } else if (y < h / 40 && Math.abs(x - w / 2) < w / 4) {
+                if (light(is) > light(was) + 6.0) edge++;
+                ne++;
             }
         }
-        double sh = (double) hud / Math.max(1, nh), ss = (double) sky / Math.max(1, ns);
-        log("{}: изменилось в рядах HUD {} точек, в небе {}", what, f(sh), f(ss));
+        double sh = (double) hud / Math.max(1, nh), ss = (double) sky / Math.max(1, ns), se = (double) edge / Math.max(1, ne);
+        log("{}: изменилось в рядах HUD {} точек, в небе {}; светлее у верхнего края {}", what, f(sh), f(ss), f(se));
         if (glitched) {
             check(sh > 0.05, what + ": HUD изменился (" + f(sh) + ")");
             check(ss < 0.003, what + ": небо над HUD то же (" + f(ss) + ")");
-        } else check(sh < 0.003 && ss < 0.003, what + ": как до шока (" + f(sh) + ", " + f(ss) + ")");
+            check(se > 0.5, what + ": у края светлая виньетка (" + f(se) + ")");
+        // the top edge: the sky's own light there drifts a little lighter now and then (0.4 % of it after a shock)
+        } else check(sh < 0.003 && ss < 0.003 && se < 0.05, what + ": как до шока (" + f(sh) + ", " + f(ss) + ", " + f(se) + ")");
+    }
+
+    private static double light(int c) {
+        return ((c & 0xFF) + (c >> 8 & 0xFF) + (c >> 16 & 0xFF)) / 3.0;
     }
 
     private static double diff(int a, int b) {
@@ -374,20 +391,25 @@ final class ShockStand {
     private static void immunity() throws Exception {
         onServer(p -> {
             ShockServer.clear();
+            // the shooter's gun: a repeated hit is a part of its slug
+            shooter.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(ModItems.GUN_MARESLEG.get()));
             return null;
         });
         fire(false);
         waitTicks(5);
         boolean first = onServer(p -> ShockServer.shocked(p));
         long[] s0 = onServer(p -> ShockServer.state(p));
+        float lost0 = onServer(ShockStand::lost);
         waitTicks(15);
         fire(false);
         waitTicks(5);
         long[] s1 = onServer(p -> ShockServer.state(p));
+        float lost1 = onServer(ShockStand::lost);
         waitTicks(85);
         fire(false);
         waitTicks(5);
         boolean afterEnd = onServer(p -> ShockServer.shocked(p));
+        float lost2 = onServer(ShockStand::lost);
         waitTicks(55);
         fire(false);
         waitTicks(5);
@@ -398,11 +420,23 @@ final class ShockStand {
         check(s0 != null && s1 != null && s0[0] == s1[0], "иммунитет: патрон в шоке его не продлевает");
         check(!afterEnd, "иммунитет: патрон сразу после шока не шокирует");
         check(again, "иммунитет: после иммунитета шокирует снова");
+        // the Maresleg's slug on the player as the final scheme has it (its armour: none), the range at 19 blocks none
+        float slug = onServer(p -> BalanceFinal.clickOn(p, "maresleg.g12_slug")), low = ShockServer.REPEAT * slug - 0.3F, high = ShockServer.REPEAT * slug + 0.3F;
+        log("повтор: урон первого {}, в шоке {}, в иммунитете {} (слаг {}, ждём {}–{})", lost0, lost1, lost2, slug, low, high);
+        check(lost0 > 0F && lost0 < 3.5F, "повтор: первый патрон бьёт слабо");
+        check(lost1 >= low && lost1 <= high, "повтор: патрон в шоке бьёт как почти слаг");
+        check(lost2 >= low && lost2 <= high, "повтор: патрон в иммунитете бьёт как почти слаг");
         onServer(p -> {
             ShockServer.clear();
+            shooter.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
             return null;
         });
         wait(10, 50);
+    }
+
+    // what the player lost of its health since the last shell (fire heals it first)
+    private static float lost(ServerPlayer p) {
+        return p.getMaxHealth() - p.getHealth();
     }
 
     // the agent: shocked by the player's shells, its shots' spread through calcSpread, the immunity and the marks. In
@@ -479,8 +513,8 @@ final class ShockStand {
             EntityBulletBaseMK4 b;
             if (byPlayer) {
                 double dx = agent.getX() - EX, dz = agent.getZ() - EZ;
-                b = new EntityBulletBaseMK4(level, p, c, 16F, -c.spread, EX, O.getY() + 1.62, EZ, dx, agent.getY() + 1.0 - (O.getY() + 1.62), dz);
-            } else b = new EntityBulletBaseMK4(level, shooter, c, 16F, -c.spread, EX, O.getY() + 1.0, EZ - 19, 0, 0, 1);
+                b = new EntityBulletBaseMK4(level, p, c, 16F * c.damageMult, -c.spread, EX, O.getY() + 1.62, EZ, dx, agent.getY() + 1.0 - (O.getY() + 1.62), dz);
+            } else b = new EntityBulletBaseMK4(level, shooter, c, 16F * c.damageMult, -c.spread, EX, O.getY() + 1.0, EZ - 19, 0, 0, 1);
             level.addFreshEntity(b);
             return null;
         });

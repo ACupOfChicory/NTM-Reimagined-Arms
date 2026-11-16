@@ -217,6 +217,16 @@ public final class TargetMemory {
         if (noise != null && tick - noise.tick > profile.search()) noise = null;
     }
 
+    /**
+     * A target out of sight kept looked for, not forgotten, while its side goes after it a long way (down a shaft,
+     * AiHatch): its search goes on, held in the middle of its time
+     */
+    public void keep(Contact c, long tick) {
+        if (c.state == State.VISIBLE || c.state == State.GLIMPSED) return;
+        long half = profile.hold() + profile.search() / 2;
+        if (tick - c.lostTick > half) c.lostTick = tick - half;
+    }
+
     /** the target is known to be down (seen to fall, or told so): nothing more to wait for or look for */
     public void forget(int id) {
         contacts.removeIf(c -> c.id == id);

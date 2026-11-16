@@ -1,5 +1,7 @@
 package acup.gunfeel.ai;
 
+import net.minecraft.core.BlockPos;
+
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.control.MoveControl;
@@ -58,6 +60,46 @@ final class AiMoveControl extends MoveControl<Mob> {
         boolean walks = operation == Operation.MOVE_TO, jumps = operation == Operation.JUMPING;
         legs();
         if (walks || jumps) inWater();
+        if (walks || jumps) ladder();
+    }
+
+    /** off a ladder's way up or down this far at least the next point is, blocks: it climbs, not walks */
+    static final double LADDER_DY = 0.5;
+    /** the same, the next point straight over or under it on the ladder, blocks */
+    static final double LADDER_NEAR = 0.05;
+
+    /**
+     * On a ladder with the next point of its way well over or under it: no step on (the path's next point may be the
+     * cell beside the shaft's foot, and a mob pushing into the shaft's wall on a ladder is lifted up it, as a player
+     * holding a key against it), kept to the middle of the shaft; down it slides, up it climbs as a player jumping on it.
+     */
+    private void ladder() {
+        if (!mob.onClimbable()) return;
+        double dy = wantedY - mob.getY();
+        // the next point a rung straight over or under it: on to it all the way (let go short of it, it slid back)
+        var path = mob.getNavigation().getPath();
+        BlockPos next = path == null || path.isDone() ? null : path.getNextNodePos();
+        boolean column = next != null && next.getX() == mob.getBlockX() && next.getZ() == mob.getBlockZ();
+        // up at the rung it went for: on to the next point (the game's walk takes the next point only on the ground, or
+        // falling past one: up a ladder it kept to the same rung)
+        if (column && mob.getY() >= next.getY() - LADDER_NEAR && mob.getY() < next.getY() + 0.5 && path.getNextNodeIndex() + 1 < path.getNodeCount()
+                && path.getNodePos(path.getNextNodeIndex() + 1).getY() > next.getY()) {
+            path.advance();
+            next = path.getNextNodePos();
+            dy = next.getY() - mob.getY();
+            column = next.getX() == mob.getBlockX() && next.getZ() == mob.getBlockZ();
+        }
+        if (Math.abs(dy) < (column ? LADDER_NEAR : LADDER_DY)) return;
+        // on its feet on a ladder's foot, the way on off it and down (a step down beside it): it walks
+        if (dy < 0 && !column && mob.onGround()) return;
+        mob.setXxa(0F);
+        mob.setZza(0F);
+        mob.setSpeed(0F);
+        double cx = mob.getBlockX() + 0.5 - mob.getX(), cz = mob.getBlockZ() + 0.5 - mob.getZ();
+        var v = mob.getDeltaMovement();
+        mob.setDeltaMovement(Math.clamp(cx * 0.3, -0.05, 0.05), v.y, Math.clamp(cz * 0.3, -0.05, 0.05));
+        // (the jump control ticks after the legs and sets the jump it was asked for: set straight, it was undone)
+        if (dy > 0) mob.getJumpControl().jump();
     }
 
     private void legs() {

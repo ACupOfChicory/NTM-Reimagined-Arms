@@ -218,6 +218,21 @@ public final class BalanceGuns {
         return m.get(ammo);
     }
 
+    /**
+     * a shot of {@code gunItem}'s with {@code from} as heavy as one with {@code as}: the share of its damage that makes
+     * it so (the ammo's own and the table's), 1 when the balance is off
+     */
+    static float as(Item gunItem, BulletConfig from, BulletConfig as) {
+        if (!on() || gunItem == null || from == null || as == null) return 1F;
+        return share(from.damageMult, pair(gunItem, from), as.damageMult, pair(gunItem, as));
+    }
+
+    /** an ammo of NTM's damage {@code fromMult} and the table's line {@code a} made as heavy as one of {@code asMult} and {@code b} */
+    static float share(float fromMult, BalanceGunsRule.Shot a, float asMult, BalanceGunsRule.Shot b) {
+        float own = fromMult * (a.none() ? 1F : a.mult());
+        return own > 0F ? asMult * (b.none() ? 1F : b.mult()) / own : 1F;
+    }
+
     /** where a gun's ammo got its numbers (BalanceGunsRule.Resolved.from), after a shot or pair() */
     static synchronized Map<String, BalanceGunsRule.Resolved> from(Item gunItem) {
         BulletConfig first = firstAmmo(gunItem);

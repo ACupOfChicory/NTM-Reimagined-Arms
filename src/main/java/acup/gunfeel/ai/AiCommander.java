@@ -198,6 +198,8 @@ public final class AiCommander {
         boolean saidContact, saidAmmo, saidThere, saidBlocked;
         /** falling back pinned down (C5): it breaks contact, smoke first (AiSoldier) */
         boolean breaking;
+        /** given to help a squad of its side pinned down by the same group (C5: going round it or pinning it too) */
+        boolean helps;
         int saidLosses, aliveAtPin;
         long pinFrom = Long.MIN_VALUE, pinnedAt = Long.MIN_VALUE, quietFrom = Long.MIN_VALUE, noFoeFrom = Long.MIN_VALUE;
 
@@ -252,6 +254,13 @@ public final class AiCommander {
         /** legs of the way that could not be walked, one after another; at ROUTE_FAILS it walks straight (as R5) for the rest of the order */
         int routeFails;
         boolean noRoute;
+        /** places in its area it could not get to (behind a wall, on a roof), x and z by twos: none looked for near them again */
+        final List<double[]> badPlaces = new ArrayList<>(4);
+        /** its last leg's end (not a bound's) and how far off it it was when the leg was set */
+        double legTX, legTZ, legD = Double.MAX_VALUE;
+        /** the nearest it got to the area; legs since with no PROGRESS on that */
+        double bestD = Double.MAX_VALUE;
+        int idleLegs;
         /** at its task's place, stopped there (C2) */
         boolean stood;
         /**
@@ -545,6 +554,11 @@ public final class AiCommander {
                 continue;
             }
             task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
+            // sent round or to pin for one of the side pinned down by that group (C5's help, not a change of mind)
+            if (helps(own, plan, i)) {
+                Job nj = job(squads.get(i), now);
+                if (nj != null && nj.kind == plan[i].kind()) nj.helps = true;
+            }
             // pinned down and sent back (C5): it breaks contact
             if (plan[i].kind() == StaffPlan.Kind.BACK && own.get(i).pinned() != Long.MIN_VALUE) {
                 Job nj = job(squads.get(i), now);
@@ -556,6 +570,14 @@ public final class AiCommander {
         }
         if (pairs()) pair(squads, grid, now);
         strays(level, team, squads, now);
+    }
+
+    /** squad {@code i}, not pinned down itself, given a way round or a pin at a group a squad of its side is pinned down by */
+    static boolean helps(List<StaffPlan.Squad> own, StaffPlan.Task[] plan, int i) {
+        StaffPlan.Task t = plan[i];
+        if (t == null || t.group() < 0 || t.kind() != StaffPlan.Kind.FLANK && t.kind() != StaffPlan.Kind.PIN || own.get(i).pinned() != Long.MIN_VALUE) return false;
+        for (int k = 0; k < own.size(); k++) if (k != i && own.get(k).pinned() != Long.MIN_VALUE && own.get(k).group() == t.group()) return true;
+        return false;
     }
 
     /**
@@ -1171,6 +1193,12 @@ public final class AiCommander {
                 stuck = false;
                 o.moveLeg = false;
             }
+            // a leg's time out, it not there and no PROGRESS nearer the area than when the leg began (round and round
+            // a house with no way in, its point on the roof: the leg's cell a block off each time, no try ever spent):
+            // as a leg that could not be walked
+            // (a leg of 2 PROGRESS or more: a short one's end is as near as its goal's radius and the place snapped to)
+            if (!stuck && unstuck && !o.moveLeg && tick >= o.nextLeg && o.legD >= 2 * PROGRESS && o.legD != Double.MAX_VALUE && !bot.mover.arrived()
+                    && Math.hypot(o.legTX - bot.mob.getX(), o.legTZ - bot.mob.getZ()) > o.legD - PROGRESS) stuck = true;
             // a leg that could not be walked (the map not built that far yet, or no way): counted only when it is no
             // nearer than at the last one
             if (stuck) {
@@ -1211,7 +1239,12 @@ public final class AiCommander {
                             if (bot.mover.arrived()) o.fails = 0;
                             o.nextLeg = tick + LEG_AGAIN;
                             double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of > 1 ? 3 : 0;
-                            go(bot, level, way.x(o.at) + Math.cos(a) * spread, way.z(o.at) + Math.sin(a) * spread, moves ? StaffMove.speed(o) : AiSoldier.WALK);
+                            leg(o, bot, way.x(o.at) + Math.cos(a) * spread, way.z(o.at) + Math.sin(a) * spread);
+                            // no place to stand round the way's point (in a wall, in water too deep): the next point
+                            if (!go(bot, level, way.x(o.at) + Math.cos(a) * spread, way.z(o.at) + Math.sin(a) * spread, moves ? StaffMove.speed(o) : AiSoldier.WALK)) {
+                                o.at = Math.min(o.at + 1, way.size() - 1);
+                                o.nextLeg = tick + 1;
+                            }
                         }
                         if (moves) StaffMove.pace(bot, o, tick);
                         return true;
@@ -1220,20 +1253,35 @@ public final class AiCommander {
             }
             if (tick >= o.nextLeg || bot.mover.arrived() || stuck) {
                 if (bot.mover.arrived()) o.fails = 0;
+                // legs not walked to their ends (failed, or out of time), none of those since it got nearest the area
+                // bringing it PROGRESS nearer (round and round a house with no way in; the legs turned aside it walks
+                // to their ends in between count neither way): given up at IDLE_LEGS
+                if (unstuck) {
+                    if (d <= o.bestD - PROGRESS) {
+                        o.bestD = d;
+                        o.idleLegs = 0;
+                    } else if (!bot.mover.arrived() && ++o.idleLegs >= IDLE_LEGS) return giveUp(bot, o, tick);
+                }
                 o.nextLeg = tick + LEG_AGAIN;
                 // a leg that could not be walked: the next one shorter and turned aside, one way then the other
                 double turn = o.fails == 0 ? 0 : (o.fails % 2 == 1 ? 1 : -1) * Math.PI / 4 * ((o.fails + 1) / 2);
                 double step = Math.min(d, o.fails == 0 ? LEG : LEG / 2), along = Math.atan2(dz, dx) + turn;
                 // the squad spread a little at the leg's end, each its own side
                 double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of > 1 ? 3 : 0;
-                go(bot, level, bot.mob.getX() + Math.cos(along) * step + Math.cos(a) * spread, bot.mob.getZ() + Math.sin(along) * step + Math.sin(a) * spread,
-                        moves ? StaffMove.speed(o) : AiSoldier.WALK);
+                leg(o, bot, bot.mob.getX() + Math.cos(along) * step + Math.cos(a) * spread, bot.mob.getZ() + Math.sin(along) * step + Math.sin(a) * spread);
+                // no place to stand at the leg's end: counted as a leg not walked (the next one turned aside), soon
+                if (!go(bot, level, bot.mob.getX() + Math.cos(along) * step + Math.cos(a) * spread, bot.mob.getZ() + Math.sin(along) * step + Math.sin(a) * spread,
+                        moves ? StaffMove.speed(o) : AiSoldier.WALK)) {
+                    o.fails++;
+                    o.nextLeg = tick + 1;
+                }
             }
             if (moves) StaffMove.pace(bot, o, tick);
             return true;
         }
         o.lastInside = tick;
         o.fails = 0;
+        o.idleLegs = 0;
         // at its place: it stands there facing the group (not looking through an area, not giving it up)
         if (place) {
             o.job.there = true;
@@ -1248,10 +1296,22 @@ public final class AiCommander {
         }
         if (++o.inside > GIVE_UP) return giveUp(bot, o, tick);
         if (tick >= o.nextLeg || bot.mover.arrived() || bot.mover.failed()) {
+            // a place it could not get to: none looked for near it again for the rest of the order
+            if (bot.mover.failed() && bot.mover.goal() != Long.MIN_VALUE) {
+                if (o.badPlaces.size() >= BAD_PLACES) o.badPlaces.remove(0);
+                o.badPlaces.add(new double[] {BlockPos.getX(bot.mover.goal()) + 0.5, BlockPos.getZ(bot.mover.goal()) + 0.5});
+            }
             o.nextLeg = tick + LOOK_AGAIN;
             var rng = bot.mob.getRandom();
-            double a = rng.nextDouble() * Math.PI * 2, r = Math.sqrt(rng.nextDouble()) * o.r;
-            go(bot, level, o.x + Math.cos(a) * r, o.z + Math.sin(a) * r, AiSoldier.WALK);
+            double px = o.x, pz = o.z;
+            for (int k = 0; k < PLACE_TRIES; k++) {
+                double a = rng.nextDouble() * Math.PI * 2, r = Math.sqrt(rng.nextDouble()) * o.r;
+                px = o.x + Math.cos(a) * r;
+                pz = o.z + Math.sin(a) * r;
+                if (!bad(o, px, pz)) break;
+            }
+            // no place to stand there: another soon
+            if (!go(bot, level, px, pz, AiSoldier.WALK)) o.nextLeg = tick + 1;
         }
         return true;
     }
@@ -1276,6 +1336,9 @@ public final class AiCommander {
      * again when that is new (or moved on), when it could not be walked, or when due and not there yet
      */
     private static void leg(AiBot bot, ServerLevel level, Order o, StaffMove.Leg leg, boolean stuck, boolean on, long tick) {
+        // the mode's legs (a bound, a file on the march) are none of the staff's straight legs: their time out with no way
+        // made is the mode's (one waits for the others), not a leg failed
+        o.legD = Double.MAX_VALUE;
         if (leg.low() && bot.brain instanceof AiSoldier s) s.crouch(true);
         if (leg.hold()) {
             if (bot.mover.goal() != Long.MIN_VALUE) bot.mover.stop();
@@ -1288,7 +1351,9 @@ public final class AiCommander {
         o.nextLeg = tick + leg.again();
         o.legX = leg.x();
         o.legZ = leg.z();
-        if (leg.cell() == Long.MIN_VALUE) go(bot, level, leg.x(), leg.z(), leg.speed());
+        if (leg.cell() == Long.MIN_VALUE) {
+            if (!go(bot, level, leg.x(), leg.z(), leg.speed())) o.nextLeg = tick + 1;
+        }
         else {
             bot.mover.costs(PathSearch.Cost.NONE);
             bot.mover.goTo(leg.cell(), 0.35, leg.speed());
@@ -1297,14 +1362,97 @@ public final class AiCommander {
         o.moveLeg = true;
     }
 
-    /** a walk (a run, a creep) to the ground at x, z (where the chunk there is not loaded: at its own height) */
-    private static void go(AiBot bot, ServerLevel level, double x, double z, double speed) {
+    /**
+     * A walk (a run, a creep) to the ground at x, z (where the chunk there is not loaded: at its own height): to a cell
+     * one stands in there (the top the sky sees may be a wall's or a fence's top, with none), down the column a few
+     * blocks, else the nearest beside it within SNAP. Whether it goes: false where the map has those blocks and none of
+     * them is one to stand in (the caller takes another place). Whether it gets there is the path's to tell.
+     */
+    private static boolean go(AiBot bot, ServerLevel level, double x, double z, double speed) {
         int bx = Mth.floor(x), bz = Mth.floor(z);
-        int y = level.hasChunk(bx >> 4, bz >> 4) ? level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz) : bot.mob.getBlockY();
+        long cell;
+        if (!level.hasChunk(bx >> 4, bz >> 4)) cell = BlockPos.asLong(bx, bot.mob.getBlockY(), bz);
+        else if (!snap) cell = BlockPos.asLong(bx, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz), bz);
+        else {
+            cell = stand(level, bx, bz, bot.mob.getBlockY());
+            if (cell == Long.MIN_VALUE) return false;
+        }
         bot.mover.costs(PathSearch.Cost.NONE);
-        bot.mover.goTo(BlockPos.asLong(bx, y, bz), 2, speed);
+        bot.mover.goTo(cell, 2, speed);
         if (bot.order != null) bot.order.moveLeg = false;
-        if (bot.mob.isAlive()) bot.gunner.aim(new net.minecraft.world.phys.Vec3(x, y + 1.5, z));
+        if (bot.mob.isAlive()) bot.gunner.aim(new net.minecraft.world.phys.Vec3(x, BlockPos.getY(cell) + 1.5, z));
+        return true;
+    }
+
+    /** a place to stand looked for this far round x, z, blocks; this far down from the top the sky sees */
+    static final int SNAP = 2, DOWN = 4;
+    /** a place this much over or under the soldier is at about its height, blocks */
+    static final int LEVEL = 2;
+    /** off only for the stands' "before" (AiCheckWall): the top the sky sees taken as it is */
+    static boolean snap = true;
+    /** off only for the stands' "before" (AiCheckWall): a leg's time out with no way made is no leg failed */
+    static boolean unstuck = true;
+    /** straight legs one after another with no PROGRESS on the nearest it got to its area: the area given up */
+    static final int IDLE_LEGS = 8;
+    /** places it could not get to kept, and a place this near one is not taken; random places tried before one is taken anyway */
+    static final int BAD_PLACES = 8, PLACE_TRIES = 4;
+    static final double BAD_NEAR = 6;
+
+    /**
+     * The cell to stand in nearest x, z: in its column from the top the sky sees down to DOWN under the soldier's own
+     * height, the one nearest that height (a house's floor, not its roof), else in the nearest column round it within
+     * SNAP that has one; the top of x, z itself where the map has not been built there yet (the walk has it built);
+     * Long.MIN_VALUE where it has and there is none.
+     */
+    static long stand(ServerLevel level, int bx, int bz, int ownY) {
+        TacticalMap map = TacticalMap.of(level);
+        int top0 = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+        boolean unknown = false;
+        // at about its own height (a step up or down: a house's floor, the ground round a wall) the nearest across;
+        // else the nearest across at any height (a hill's top), nearest its own height
+        long near = Long.MIN_VALUE, any = Long.MIN_VALUE;
+        double nearD = Double.MAX_VALUE, anyD = Double.MAX_VALUE;
+        for (int dx = -SNAP; dx <= SNAP; dx++)
+            for (int dz = -SNAP; dz <= SNAP; dz++) {
+                int x = bx + dx, z = bz + dz;
+                if (!level.hasChunk(x >> 4, z >> 4)) continue;
+                int top = dx == 0 && dz == 0 ? top0 : level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                double across = dx * dx + dz * dz;
+                for (int y = top, low = Math.max(level.getMinY(), Math.min(top, ownY) - DOWN); y >= low; y--) {
+                    SectionCells c = map.cellsAt(x, y, z);
+                    if (c == null) {
+                        unknown = true;
+                        break;
+                    }
+                    if (c.find(x & 15, y & 15, z & 15) < 0) continue;
+                    int dy = Math.abs(y - ownY);
+                    if (dy <= LEVEL && across < nearD) {
+                        nearD = across;
+                        near = BlockPos.asLong(x, y, z);
+                    }
+                    double d = across * 1000 + dy;
+                    if (d < anyD) {
+                        anyD = d;
+                        any = BlockPos.asLong(x, y, z);
+                    }
+                }
+            }
+        if (near != Long.MIN_VALUE) return near;
+        if (any != Long.MIN_VALUE) return any;
+        return unknown ? BlockPos.asLong(bx, top0, bz) : Long.MIN_VALUE;
+    }
+
+    /** a leg (not a bound's) set to x, z: its end and how far off it, for the next leg to tell whether it made way */
+    private static void leg(Order o, AiBot bot, double x, double z) {
+        o.legTX = x;
+        o.legTZ = z;
+        o.legD = Math.hypot(x - bot.mob.getX(), z - bot.mob.getZ());
+    }
+
+    /** a place near one it could not get to */
+    private static boolean bad(Order o, double x, double z) {
+        for (double[] p : o.badPlaces) if (Math.hypot(p[0] - x, p[1] - z) < BAD_NEAR) return true;
+        return false;
     }
 
     /**

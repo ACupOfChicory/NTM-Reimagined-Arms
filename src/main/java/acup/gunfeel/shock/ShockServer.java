@@ -34,7 +34,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * AI bot's steps on their path slow as well, and a player's view narrows by FOV at full, not as far as the game would narrow it for such a slowness). A
  * player is told (ShockPayloads.Shock): its client glitches and shakes the HUD, shakes the view a little and turns it
  * about on its own. After a shock ends the one shocked takes none for shockImmunity seconds: a stream of shells does
- * not keep anyone shocked for good. The discharge is heard where it hit, and the shooter (a player) is told it hit with
+ * not keep anyone shocked for good, but such a hit is no longer a light one: with the balance (balance = arms) it does
+ * REPEAT of a slug of the same gun (BalanceFinal.hitAs). The discharge is heard where it hit, and the shooter (a player) is told it hit with
  * shock (a mark at the crosshair).
  */
 public final class ShockServer {
@@ -50,6 +51,8 @@ public final class ShockServer {
      * x0.6 at SLOW 0.8, a tunnel; the shock's own narrowing is this instead, fading with the shock
      */
     public static final float FOV = 0.2F;
+    /** a hit in a shock or in its immunity does this share of a slug of the same gun (with the balance) */
+    public static final float REPEAT = 0.9F;
     public static final Identifier SLOW_ID = Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_slow");
 
     /**
@@ -117,6 +120,13 @@ public final class ShockServer {
         if (e == null || e.level().isClientSide()) return false;
         State s = STATE.get(e);
         return s != null && e.level().getGameTime() < s.until;
+    }
+
+    /** whether a hit on {@code e} now finds it shocked or immune (and shocks it no more): a repeated hit */
+    public static synchronized boolean repeat(LivingEntity e) {
+        if (!on() || e == null || e.level().isClientSide()) return false;
+        State s = STATE.get(e);
+        return s != null && e.level().getGameTime() < s.immuneUntil;
     }
 
     /** the shock's strength on {@code e} now (on the server), 0 to 1: envelope */
