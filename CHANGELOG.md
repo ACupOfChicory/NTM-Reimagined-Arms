@@ -1,5 +1,11 @@
 # Changelog
 
+## X1164
+
+- The AI commander's ways go by a ford rather than straight through deep
+  water: soldiers stop at a river too deep to wade, so a squad sent across
+  one no longer stands at its bank.
+
 ## X1163
 
 - AI squads sent by their side's commander go along its ways as soldiers

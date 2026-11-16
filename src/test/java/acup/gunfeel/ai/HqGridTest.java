@@ -146,6 +146,16 @@ class HqGridTest {
     }
 
     @Test
+    void aFordFarAsideRatherThanSwimming() {
+        HqGrid g = field();
+        // the war's river: a ford thirteen cells aside, the way there and back near thirty cells longer
+        for (int i = 0; i < HqGrid.N; i++) g.set(i, 30, 63, 0, 1, i == 33 ? 0 : 1);
+        HqGrid.Route r = g.route(mid(20), mid(45), mid(20), mid(15));
+        assertNotNull(r);
+        assertTrue(through(g, r, mid(20), mid(45), 33, 30), "by the ford");
+    }
+
+    @Test
     void noWayUpACliffButThroughItsGap() {
         HqGrid g = field();
         // a wall twenty high right across, a gap at cell 50
