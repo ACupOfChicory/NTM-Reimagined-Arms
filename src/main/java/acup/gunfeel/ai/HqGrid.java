@@ -312,12 +312,13 @@ public final class HqGrid {
      * a way: where from and where it was asked to go, its points (blocks, x and z by turns, the last where it ends:
      * short of where it was asked when that was off the map), how long it is against the straight line, the part of
      * each in the enemy's sight short of its last END blocks (there it is at the enemy, seen or not); the shortest way
-     * there over the map, the enemy's sight aside (the straight line where water to swim lies across it: a ford aside)
+     * there over the map, the enemy's sight aside (the straight line where water to swim lies across it: a ford aside),
+     * and its part in the enemy's sight short of its last END blocks
      */
     public record Route(double fromX, double fromZ, double toX, double toZ, double[] points, double length, double straight, double seenPart,
-            double straightSeenPart, double shortest) {
+            double straightSeenPart, double shortest, double shortestSeenPart) {
         public Route(double fromX, double fromZ, double toX, double toZ, double[] points, double length, double straight, double seenPart, double straightSeenPart) {
-            this(fromX, fromZ, toX, toZ, points, length, straight, seenPart, straightSeenPart, length);
+            this(fromX, fromZ, toX, toZ, points, length, straight, seenPart, straightSeenPart, length, seenPart);
         }
 
         /** it ends short of where it was asked to go (that was off the map) */
@@ -361,9 +362,10 @@ public final class HqGrid {
                 break;
             }
         }
-        double[] pts = thin(p, fx, fz, to[0], to[1]);
-        return new Route(fx, fz, tx, tz, pts, length(fx, fz, pts), straight, seenPart(fx, fz, pts, END), seenPart(fx, fz, new double[] {to[0], to[1]}, END),
-                p == shortest ? length(fx, fz, pts) : length(fx, fz, thin(shortest, fx, fz, to[0], to[1])));
+        double[] pts = thin(p, fx, fz, to[0], to[1]), least = p == shortest ? pts : thin(shortest, fx, fz, to[0], to[1]);
+        double seen = seenPart(fx, fz, pts, END);
+        return new Route(fx, fz, tx, tz, pts, length(fx, fz, pts), straight, seen, seenPart(fx, fz, new double[] {to[0], to[1]}, END), length(fx, fz, least),
+                p == shortest ? seen : seenPart(fx, fz, least, END));
     }
 
     private static double length(double fx, double fz, double[] pts) {

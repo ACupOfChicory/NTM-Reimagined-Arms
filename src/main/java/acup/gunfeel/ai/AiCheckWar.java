@@ -24,7 +24,7 @@ import net.neoforged.neoforge.common.util.FakePlayer;
 
 /**
  * The AI check's war (stage 7, the staff): a field FIELD blocks across with a hill, a wood, a river right across with
- * one ford, and open ground. Side A, two squads of three (both sent: two to a group at most), at one edge, one by the hill, one by the wood; at the other, across the river, a player (a
+ * one ford, a thicket by it, and open ground. Side A, two squads of three (both sent: two to a group at most), at one edge, one by the hill, one by the wood; at the other, across the river, a player (a
  * fake one, in survival, kept whole) walking to and fro, for a while hidden in a stone box farther off. The hill's
  * crest and the wood lie well within the player's sight (128 blocks; A sees 96), the camp just out of it: whether the
  * side comes on behind them tells in how near it gets before the player first sees one of it. ROUNDS rounds of RUN ticks (-PaiCheckWarRounds, 4 by default: the full
@@ -33,8 +33,8 @@ import net.neoforged.neoforge.common.util.FakePlayer;
  * (AiIntel): how far its picture's middle is from the player by how long ago one of the side saw it, whether the
  * player was within the circle; the tick one of A first saw it; till then, how often each of A stood where the
  * player's eyes reached it (a look from its eyes to A's head or chest, blocks and leaves in the way), how far each
- * walked; the staff's ways (C1): how much of each lies where the staff thinks the enemy sees it, against the straight
- * line, how long it is against the straight; the time the reports, maps and ways took.
+ * walked; the staff's ways (C1): how much of each lies where the staff thinks the enemy sees it, against the shortest way
+ * there (a river across: by its ford), how long it is against that; the time the reports, maps and ways took.
  */
 final class AiCheckWar {
     static final int X0 = 3200, Z0 = 0, FIELD = 256, RUN = 2400, SQUADS = 2, EACH = 3;
@@ -44,6 +44,11 @@ final class AiCheckWar {
     static final int WOOD_X0 = 150, WOOD_X1 = 210, WOOD_Z0 = 56, WOOD_Z1 = 124, TREE = 6;
     /** the river right across: from RIVER_Z, RIVER_W wide, RIVER_D deep; the ford, a block deep */
     static final int RIVER_Z = 128, RIVER_W = 6, RIVER_D = 3, FORD_X0 = 220, FORD_X1 = 227;
+    /**
+     * the thicket by the ford: bushes along both banks (on A's side from the wood, on the far one westward), a bush
+     * every THICKET blocks, BANK blocks deep; the ford and its ends kept clear
+     */
+    static final int THICKET_X0 = 200, THICKET_FAR_X0 = 130, THICKET_X1 = 236, BANK = 14, THICKET = 5;
     /** side A's squads; the player's walk: its middle, how far to each side, how long there and back */
     static final double CAMP_Z = 24.5, WALK_X = 128.5, WALK_Z = 160.5, WALK_A = 40;
     static final int WALK_T = 1200;
@@ -518,12 +523,12 @@ final class AiCheckWar {
         double waySeen = 0, straightSeen = 0, longer = 0;
         for (HqGrid.Route r : ways) {
             waySeen += r.seenPart() / ways.size();
-            straightSeen += r.straightSeenPart() / ways.size();
+            straightSeen += r.shortestSeenPart() / ways.size();
             longer += r.length() / Math.max(1, r.shortest()) / ways.size();
         }
         long routesAll = AiCommander.routes.get() - routes0;
         double msRoute = routesAll == 0 ? 0 : (AiCommander.routeNanos.get() - routeNanos0) / 1e6 / routesAll;
-        check.out(String.format(Locale.ROOT, "     war, the staff's ways (C1 rounds) before the player was seen: %d, in the enemy's sight (as the staff thinks, short of the last %.0f blocks) %.1f%% against %.1f%% straight, %.2f times as long as the shortest;"
+        check.out(String.format(Locale.ROOT, "     war, the staff's ways (C1 rounds) before the player was seen: %d, in the enemy's sight (as the staff thinks, short of the last %.0f blocks) %.1f%% against %.1f%% on the shortest way, %.2f times as long as the shortest;"
                 + " %.2f ms a way (off the server thread); %s", ways.size(), HqGrid.END, 100 * waySeen, 100 * straightSeen, longer, msRoute, AiHqMap.info()));
         StringBuilder t = new StringBuilder("     war, the picture's error by how long the player was unseen:");
         for (int k = 0; k < AGE_NAMES.length; k++)
@@ -539,7 +544,7 @@ final class AiCheckWar {
                 errN[0] == 0 ? -1 : errSum[0] / errN[0], IntelBook.R_MIN), errN[0] > 0 && errSum[0] / errN[0] <= IntelBook.R_MIN);
         check.check(String.format(Locale.ROOT, "war: the picture costs %.2f us a tick a side (at most 20)", usTick), usTick <= 20);
         boolean staffRan = roundsOf[STAFF] > 0, tasksRan = roundsOf[TASKS] + roundsOf[MOVES] > 0;
-        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight: %.1f%% of them in it against %.1f%% straight (40%% less at least), %.2f times as long as the shortest (1.5 at most)",
+        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight: %.1f%% of them in it against %.1f%% on the shortest way (40%% less at least), %.2f times as long as the shortest (1.5 at most)",
                 100 * waySeen, 100 * straightSeen, longer), !staffRan || !ways.isEmpty() && waySeen <= straightSeen * 0.6 && longer <= 1.5);
         check.check(String.format(Locale.ROOT, "war: a way takes %.2f ms off the server thread (5 at most)", msRoute), msRoute <= 5);
         // C2: with the staff's tasks no squad stands about with nothing to do, and the squads were sent at the player
@@ -624,5 +629,16 @@ final class AiCheckWar {
                     for (int lz = -1; lz <= 1; lz++)
                         if (lx != 0 || lz != 0) for (int h = 0; h < 2; h++) set(x + lx, y + h, z + lz, leaves);
             }
+        // the thicket by the ford: a bush two high, three across, on both banks (a way to the ford out of sight)
+        if (!Boolean.getBoolean("ntmgunfeel.checkAiWarBare"))
+            for (int tx = THICKET_FAR_X0; tx <= THICKET_X1; tx += THICKET)
+                for (int tz = RIVER_Z - BANK; tz <= RIVER_Z + RIVER_W + BANK; tz += THICKET) {
+                    boolean near = tz < RIVER_Z;
+                    if (near && tx < THICKET_X0 || tz >= RIVER_Z - 2 && tz <= RIVER_Z + RIVER_W + 1) continue;
+                    if (tx >= FORD_X0 - 3 && tx <= FORD_X1 + 3 && Math.abs(tz - (near ? RIVER_Z : RIVER_Z + RIVER_W)) <= 6) continue;
+                    for (int lx = -1; lx <= 1; lx++)
+                        for (int lz = -1; lz <= 1; lz++)
+                            for (int h = 0; h < 2; h++) set(X0 + tx + lx, y + h, Z0 + tz + lz, leaves);
+                }
     }
 }
