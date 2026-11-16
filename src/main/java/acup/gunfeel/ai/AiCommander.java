@@ -198,6 +198,8 @@ public final class AiCommander {
         boolean saidContact, saidAmmo, saidThere, saidBlocked;
         /** falling back pinned down (C5): it breaks contact, smoke first (AiSoldier) */
         boolean breaking;
+        /** given to help a squad of its side pinned down by the same group (C5: going round it or pinning it too) */
+        boolean helps;
         int saidLosses, aliveAtPin;
         long pinFrom = Long.MIN_VALUE, pinnedAt = Long.MIN_VALUE, quietFrom = Long.MIN_VALUE, noFoeFrom = Long.MIN_VALUE;
 
@@ -545,6 +547,11 @@ public final class AiCommander {
                 continue;
             }
             task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
+            // sent round or to pin for one of the side pinned down by that group (C5's help, not a change of mind)
+            if (helps(own, plan, i)) {
+                Job nj = job(squads.get(i), now);
+                if (nj != null && nj.kind == plan[i].kind()) nj.helps = true;
+            }
             // pinned down and sent back (C5): it breaks contact
             if (plan[i].kind() == StaffPlan.Kind.BACK && own.get(i).pinned() != Long.MIN_VALUE) {
                 Job nj = job(squads.get(i), now);
@@ -556,6 +563,14 @@ public final class AiCommander {
         }
         if (pairs()) pair(squads, grid, now);
         strays(level, team, squads, now);
+    }
+
+    /** squad {@code i}, not pinned down itself, given a way round or a pin at a group a squad of its side is pinned down by */
+    static boolean helps(List<StaffPlan.Squad> own, StaffPlan.Task[] plan, int i) {
+        StaffPlan.Task t = plan[i];
+        if (t == null || t.group() < 0 || t.kind() != StaffPlan.Kind.FLANK && t.kind() != StaffPlan.Kind.PIN || own.get(i).pinned() != Long.MIN_VALUE) return false;
+        for (int k = 0; k < own.size(); k++) if (k != i && own.get(k).pinned() != Long.MIN_VALUE && own.get(k).group() == t.group()) return true;
+        return false;
     }
 
     /**

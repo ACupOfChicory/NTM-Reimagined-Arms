@@ -73,8 +73,33 @@ final class AiCheckWar {
     static final int PIN_AT = 300, HELP_IN = 200;
     /** a squad's task changed again within this: a flap (C5: the staff answering reports at once), ticks */
     static final int FLAP = 200;
-    /** the share of changes that were flaps before C5 (C4b, war of 60 rounds) */
+    /**
+     * the share of changes that were flaps before C5: C4b's war of 60 rounds, 110 of 1032 changes (10.7 %). The check's
+     * flaps as a binomial of it: more than flapsAllowed of n changes happen by chance under FLAP_LEVEL, more is a rise
+     */
     static final double FLAPS_BEFORE = 110.0 / 1032;
+    /** the chance of failing the flaps' check with no rise at all (the coordinator's 1 %, 2026-11-16) */
+    static final double FLAP_LEVEL = 0.01;
+    /**
+     * the most flaps of {@code n} squads' changes the check lets pass: the largest k with P(X >= k) >= FLAP_LEVEL, X of
+     * Binomial(n, FLAPS_BEFORE) (n 30: 8; n 90: 17)
+     */
+    static int flapsAllowed(long n) {
+        // P(X >= k) from the top down: the tail grows as k falls
+        double p = FLAPS_BEFORE, tail = 0;
+        for (long k = n; k >= 0; k--) {
+            tail += Math.exp(logChoose(n, k) + k * Math.log(p) + (n - k) * Math.log1p(-p));
+            if (tail >= FLAP_LEVEL) return (int) k;
+        }
+        return 0;
+    }
+
+    private static double logChoose(long n, long k) {
+        double s = 0;
+        for (long i = 1; i <= k; i++) s += Math.log((double) (n - k + i) / i);
+        return s;
+    }
+
     /** a squad going round at its place: one of it within this of it */
     static final double AT_PLACE = 8;
     /** a squad within this north of the camp's line is still at the camp */
@@ -171,7 +196,9 @@ final class AiCheckWar {
     private long pinReport, pinHeld, pinHelp, pinHelpKind, pinMade0;
     /** each soldier's task and when it changed; changes, of them within FLAP of the one before */
     private final java.util.Map<Integer, Object[]> lastJob = new java.util.HashMap<>();
-    private long jobChanges, flaps, flapsAnswered;
+    private long jobChanges, flaps, flapsAnswered, flapsHelp;
+    /** the staff's tasks counted already: a squad's change once, not once for each of it */
+    private final java.util.Set<AiCommander.Job> changeCounted = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     private final long[] changesOf = new long[MODES], flapsOf = new long[MODES];
     private final java.util.Map<String, Integer> flapKinds = new java.util.TreeMap<>();
     /** the pinned round's fire begun (the side knows of the player: a task for its group) */
@@ -248,15 +275,23 @@ final class AiCheckWar {
             // a flap: a change within FLAP of its last change (its first task given is none)
             if (was == null) lastJob.put(m.getId(), new Object[] {j, Long.MIN_VALUE});
             else if (j != null && was[0] != j) {
-                if (was[0] != null) {
+                // a squad's change once (the task is the squad's: each of it changes with it), by the first of it seen
+                if (was[0] != null && changeCounted.add(jb)) {
                     jobChanges++;
                     changesOf[mode()]++;
                     if ((Long) was[1] != Long.MIN_VALUE && now - (Long) was[1] < FLAP) {
-                        flaps++;
-                        flapsOf[mode()]++;
-                        // its new task given in answer to a report (C5), not on the staff's own time
-                        if (now - AiCommander.answeredAt <= LOOK) flapsAnswered++;
-                        flapKinds.merge(was[0] + ">" + j + (pinRound ? " (pinned)" : near ? " (near)" : ""), 1, Integer::sum);
+                        String kind = was[0] + ">" + j + (pinRound ? " (pinned)" : near ? " (near)" : "");
+                        // sent to help a squad pinned down (C5's drill, at once by design): no flap
+                        if (jb.helps) {
+                            flapsHelp++;
+                            flapKinds.merge(kind + " help", 1, Integer::sum);
+                        } else {
+                            flaps++;
+                            flapsOf[mode()]++;
+                            // its new task given in answer to a report (C5), not on the staff's own time
+                            if (now - AiCommander.answeredAt <= LOOK) flapsAnswered++;
+                            flapKinds.merge(kind, 1, Integer::sum);
+                        }
                     }
                 }
                 lastJob.put(m.getId(), new Object[] {j, now});
@@ -918,9 +953,11 @@ final class AiCheckWar {
         check.out("     war, task changes within " + FLAP + " ticks by mode:" + fl + " by kind " + flapKinds);
         // flaps were there before C5 (C4b's war, 60 rounds: 110 of 1032 changes, FLAPS_BEFORE: scouting to advancing,
         // falling back out of rounds and back); the reports' answers (most orders now) add none to speak of
-        if (jobChanges > 0) check.check(String.format(Locale.ROOT, "war: a soldier's task changed again within %d ticks of the last %d times of %d (%.1f%%; before C5 %.1f%%, 2 points more"
-                + " at most; %d of them given in answer to a report)", FLAP, flaps, jobChanges, 100.0 * flaps / jobChanges, 100 * FLAPS_BEFORE, flapsAnswered),
-                (double) flaps / jobChanges <= FLAPS_BEFORE + 0.02);
+        // by squads' tasks (each of a squad changes with it), not by soldiers; a help to a squad pinned down no flap; at
+        // most what chance gives at the rate before C5 (flapsAllowed: n changes, k flaps, the most allowed)
+        if (jobChanges > 0) check.check(String.format(Locale.ROOT, "war: a squad's task changed again within %d ticks of the last: n %d, k %d (%.1f%%), %d allowed (%.1f%% before C5,"
+                + " %.0f%% by chance at most); %d of them given in answer to a report; %d sent to help one pinned down, not counted", FLAP, jobChanges, flaps, 100.0 * flaps / jobChanges,
+                flapsAllowed(jobChanges), 100 * FLAPS_BEFORE, 100 * FLAP_LEVEL, flapsAnswered, flapsHelp), flaps <= flapsAllowed(jobChanges));
         if (AiCommander.askedN > 0) check.check(String.format(Locale.ROOT, "war: the staff gives its orders again at most %d ticks after a report (%d most)", AiCommander.ASKED_GAP + AiCommander.LOOK,
                 AiCommander.askedMost), AiCommander.askedMost <= AiCommander.ASKED_GAP + AiCommander.LOOK);
         if (!pinOf.isEmpty()) {
