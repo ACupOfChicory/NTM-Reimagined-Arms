@@ -291,11 +291,14 @@ page. They are alphas: expect bugs and back up your world.
   creep crouched when close, and storm the last stretch of an advance. A
   squad pinning an enemy and one going round it work together: the pinning
   one keeps the enemy's places under fire once the other is round and goes
-  in, and does not chase a lost enemy far from its place.
+  in, and does not chase a lost enemy far from its place. Squads report
+  contact, losses and being pinned down; a pinned squad holds and fires back
+  while another goes round the enemy, and breaks contact under smoke if it
+  keeps losing men.
   Soldiers far from any player are moved by their commander too, till a
   player comes near (server keys `aiCommander`, `aiCommanderHelp`,
   `aiCommanderStaff`, `aiCommanderTasks`, `aiCommanderMoves`,
-  `aiCommanderPairs`).
+  `aiCommanderPairs`, `aiCommanderReports`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
