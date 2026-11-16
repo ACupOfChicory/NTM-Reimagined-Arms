@@ -37,7 +37,8 @@ public enum Feature {
     MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy", "MixinAiSmoke", "MixinAiLeanShot", "MixinBotModel", "MixinBotSuitFit"), List.of("SuitBend", "AiGunner", "AiCommand", "AiKitCommand", "AiCheckKit", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil", "FightLook")),
     SUPPRESSION("suppression", List.of("MixinSuppressionBlast"), List.of("Suppression", "SuppressionServer", "SuppressionStand")),
     SHOCK("shock", List.of("MixinShockSpread"), List.of("ShockAmmo", "ShockServer", "ShockStand")),
-    CASINGS("casings", List.of("CasingInstanceAccess", "MixinCasingDraw"), List.of("CasingCull"));
+    CASINGS("casings", List.of("CasingInstanceAccess", "MixinCasingDraw"), List.of("CasingCull", "CasingInstances")),
+    THERMAL_OUTLINES("thermal_outlines", List.of("MixinThermalEdges"), List.of("BoxEdges"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel

@@ -1,5 +1,17 @@
 # Changelog
 
+## X1277
+
+- NTM's spent casings are drawn by the graphics card, all of a kind at once:
+  the same look, less time a frame with many casings around (`casingInstances`,
+  on by default; NTM's own way under an Iris shader pack).
+- The thermal outlines of NTM's armour and thermal sights take less time to
+  draw, the same lines.
+- A new sound no longer holds the frame while the sound thread is busy (heavy
+  fire, Sound Physics Remastered): fewer stutters; in heavy fire a sound may
+  start a few milliseconds later (`soundNoWait`, on by default; false = the
+  game's way).
+
 ## X1274
 
 - AI soldiers that lose a foe behind a long wall share its ends: each looks
