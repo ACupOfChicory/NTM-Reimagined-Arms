@@ -1,5 +1,16 @@
 # Changelog
 
+## X1358
+
+- An AI soldier left on a ladder with nothing to do (its search or order over
+  while it climbed) no longer stays on the rung: it climbs on the way it went
+  to the ladder's end and steps off, or off at the nearer end when that is a
+  step or two away.
+- AI soldiers who lose a foe up a shaft over them (out of NTM's bunker, say)
+  now go up its ladder to the way out at the top and search from there; before,
+  a foe lost sixty blocks up was out of their search, and they stood at the
+  foot.
+
 ## X1356
 
 - AI soldiers go down a ladder past one or two rungs knocked out of it (shot
