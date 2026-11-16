@@ -95,6 +95,9 @@ final class AiHatch {
     public static int begun, frags, noFrag, deepNoFrag, down;
     /** the stands: looks for a way down that found none: the foe not under it, no cell, no way there, no shaft on it */
     public static final int[] none = new int[4];
+    /** the stands: each look for a way down that found no way there, as words (trace on) */
+    public static boolean trace;
+    public static final List<String> noWay = new ArrayList<>();
     /** the stands: ticks the thrower waited at the rim for its own side out of the grenade's reach, ticks it was not at the rim */
     public static int unsafe, notAtRim;
 
@@ -316,6 +319,14 @@ final class AiHatch {
         PathSearch.Result r = PathSearch.find(map, start, goal, 1.5, AiMover.MAX_NODES, PathSearch.Cost.NONE, true);
         if (!r.reached) {
             none[2]++;
+            if (trace) {
+                long end = r.cells.length == 0 ? start : r.cells[r.cells.length - 1];
+                StringBuilder col = new StringBuilder();
+                int gx = BlockPos.getX(goal), gz = BlockPos.getZ(goal);
+                noWay.add(String.format(java.util.Locale.ROOT, "from %s to %s: got to %s (%d cells, %d expanded, exhausted %s, missing %d, nodes out %s)",
+                        BlockPos.of(start).toShortString(), BlockPos.of(goal).toShortString(), BlockPos.of(end).toShortString(), r.cells.length, r.expanded, r.exhausted, r.missing.length,
+                        r.expanded >= AiMover.MAX_NODES));
+            }
             // the map not built yet on the way (a long shaft section after section): soon again; else not for a while
             if (r.missing.length > 0) AiMover.wantMissing(map, r);
             else l.next.put(team, tick + AGAIN);
