@@ -9,8 +9,8 @@ import org.jspecify.annotations.Nullable;
  * <li>how high the cell stands over the land about it, near ({@link #NEAR} blocks around) and far ({@link #FAR}):
  * its middle surface less the mean of theirs. A hill is well over the far mean, a hollow well under;
  * <li>how far one sees from it, standing, level, each of {@link #DIRS} ways: to where the ground rises over the eye
- * or the crowns have thinned the look out, {@link #REACH} at most. Coarse: a look goes cell by cell over the middle
- * heights, not block by block. An open field reads near {@link #REACH}, a wood a dozen or two.
+ * or the leaves at the eye's height have thinned the look out (crowns over it let it by), {@link #REACH} at most.
+ * Coarse: a look goes cell by cell over the middle heights, not block by block. An open field reads near {@link #REACH}, a wood a dozen or two.
  * </ul>
  * A tile that is not kept (its chunk not loaded, or too far from any mob) ends a look there and is left out of a mean.
  */
@@ -18,7 +18,10 @@ public final class TerrainDerived {
     public static final int NEAR = 16, FAR = 48, REACH = 96, DIRS = 16;
     /** the eye over the block the feet are in */
     static final double EYE = 1.6;
-    /** a coarse cell wholly under crowns lets this part of a look through; a look thinned to under FADED ends */
+    /**
+     * a coarse cell with leaves at the eye's height in all its columns lets this part of a look through (a crown one
+     * looks under lets it all through); a look thinned to under FADED ends
+     */
     static final double CROWNED_LETS = 0.65, FADED = 0.25;
     /** well over or under the land about: a height, a hollow */
     public static final int HIGH = 4, HOLLOW = -4;
@@ -127,7 +130,8 @@ public final class TerrainDerived {
             double over = eye < lo ? 1 : eye >= hi ? 0 : (hi - eye) / (hi - lo + 1.0);
             if (over >= 1) return s - TerrainTile.CELL / 2;
             lets *= 1 - over;
-            lets *= 1 - (1 - CROWNED_LETS) * t.crownedAt(c) / (double) (TerrainTile.CELL * TerrainTile.CELL);
+            if (t.crownedAt(c) > 0)
+                lets *= 1 - (1 - CROWNED_LETS) * t.leavesAt(c, eye) / (double) (TerrainTile.CELL * TerrainTile.CELL);
             if (lets < FADED) return s;
         }
         return REACH;
