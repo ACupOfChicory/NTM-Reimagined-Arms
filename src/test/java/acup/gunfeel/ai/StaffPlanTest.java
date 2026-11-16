@@ -303,4 +303,75 @@ class StaffPlanTest {
         Task o = StaffPlan.pin(open, grp, 0, gx, HqGridTest.mid(10));
         assertEquals(gx, o.x(), HqGrid.CELL * 2);
     }
+
+    /** advancing on group 0, pinned down since, losing more or not; paired (C4) till due, or not (Long.MAX_VALUE) */
+    static Squad pinnedSquad(double x, double z, long since, boolean worse, Kind kind, long due) {
+        return new Squad(x, z, 3, 3, 3, false, kind, NOW - 50, 0, false, -1, false, false, due, since, worse, due != Long.MAX_VALUE);
+    }
+
+    @Test
+    void aPinnedSquadHoldsAndTheNearestFreeOneGoesRound() {
+        // pinned 40 blocks short of the group: it pins from where it is; the other, free, goes round as its pair
+        Task[] t = plan(List.of(pinnedSquad(0, 60, NOW - 100, false, Kind.ADVANCE, Long.MAX_VALUE), squad(40, 0, 3)), List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(0, t[0].x(), 1e-9);
+        assertEquals(60, t[0].z(), 1e-9);
+        assertEquals(Kind.FLANK, t[1].kind());
+    }
+
+    @Test
+    void pinnedLongItBreaksContactOnlyLosingMore() {
+        Task[] t = plan(List.of(pinnedSquad(0, 60, NOW - StaffPlan.BREAK_AFTER, false, Kind.ADVANCE, Long.MAX_VALUE)), List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        t = plan(List.of(pinnedSquad(0, 60, NOW - StaffPlan.BREAK_AFTER, true, Kind.ADVANCE, Long.MAX_VALUE)), List.of(group(0, 100, 3)));
+        assertEquals(Kind.BACK, t[0].kind());
+    }
+
+    @Test
+    void pinnedLongButHelpedItHoldsTillItLosesMore() {
+        long due = NOW + 600;
+        Squad round = new Squad(60, 100, 3, 3, 3, false, Kind.FLANK, NOW - 50, 0, false, -1, false, false, due);
+        Task[] t = plan(List.of(pinnedSquad(0, 60, NOW - StaffPlan.BREAK_AFTER, false, Kind.PIN, due), round), List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.FLANK, t[1].kind());
+        t = plan(List.of(pinnedSquad(0, 60, NOW - StaffPlan.BREAK_AFTER, true, Kind.PIN, due), round), List.of(group(0, 100, 3)));
+        assertEquals(Kind.BACK, t[0].kind());
+    }
+
+    @Test
+    void theOneGoingRoundPinnedTheTwoChangeOver() {
+        long due = NOW + 600;
+        Squad round = new Squad(40, 90, 3, 3, 3, false, Kind.FLANK, NOW - 50, 0, false, -1, false, false, due, NOW - 100, false, true);
+        Squad pins = new Squad(0, 50, 3, 3, 3, false, Kind.PIN, NOW - 50, 0, false, -1, false, false, due);
+        Task[] t = plan(List.of(round, pins), List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.FLANK, t[1].kind());
+    }
+
+    @Test
+    void noneFreeTheOnePinningGoesRound() {
+        // the one going round got there and went in (ADVANCE), pinned there; the other pinning goes round now
+        Squad in = new Squad(10, 85, 3, 3, 3, false, Kind.ADVANCE, NOW - 50, 0, false, -1, false, false, Long.MAX_VALUE, NOW - 100, false, false);
+        Squad pins = new Squad(60, 100, 3, 3, 3, false, Kind.PIN, NOW - 50, 0, false, -1, false, false, Long.MAX_VALUE);
+        Task[] t = plan(List.of(in, pins), List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.FLANK, t[1].kind());
+    }
+
+    @Test
+    void brokeContactItStaysBack() {
+        // fallen back pinned down (BACK, no group): not sent on again till its pin is over
+        Squad back = new Squad(0, 20, 3, 3, 3, false, Kind.BACK, NOW - 50, -1, false, -1, false, false, Long.MAX_VALUE, NOW - 600, false, false);
+        assertEquals(Kind.BACK, plan(List.of(back), List.of(group(0, 100, 3)))[0].kind());
+    }
+
+    @Test
+    void aPairWhoseOtherIsGoneIsNoHelpAnotherIsSent() {
+        // its pair's other gone: a squad holding nearby goes round; one advancing is not taken off its advance
+        Squad pinned = new Squad(0, 60, 3, 3, 3, false, Kind.PIN, NOW - 50, 0, false, -1, false, false, NOW + 600, NOW - 100, false, false);
+        Squad holding = new Squad(40, 40, 3, 3, 3, false, Kind.HOLD, NOW - 50, 0, false, -1, false, false, Long.MAX_VALUE);
+        assertEquals(Kind.FLANK, plan(List.of(pinned, holding), List.of(group(0, 100, 3)))[1].kind());
+        Squad advancing = new Squad(40, 40, 3, 3, 3, false, Kind.ADVANCE, NOW - 50, 0, false, -1, false, false, Long.MAX_VALUE);
+        assertEquals(Kind.ADVANCE, plan(List.of(pinned, advancing), List.of(group(0, 100, 3)))[1].kind());
+    }
 }

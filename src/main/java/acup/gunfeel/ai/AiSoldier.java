@@ -503,6 +503,9 @@ public final class AiSoldier implements AiBrain {
         // going round for its side's pair, the foe still far: on round by the order, not into a fight from here (C4)
         if (c != null && AiCommander.goesRound(bot, c, tick) && ordered(bot, level, tick)) {
         }
+        // pinned down and sent back by its staff (C5, Break contact): a smoke between it and the foe, then back by the order
+        else if (c != null && AiCommander.breaksContact(bot, tick) && breakContact(bot, level, c, tick)) {
+        }
         // in sight, sitting behind low cover (its legs hidden, still): a grenade over it
         else if (c != null && c.state == TargetMemory.State.VISIBLE && sits(c) && grenade(bot, level, new Vec3(c.x, c.y, c.z), tick, false)) {
         }
@@ -1496,6 +1499,12 @@ public final class AiSoldier implements AiBrain {
         event(bot, tick, "hurt: to cover for the medic");
         why = Why.WOUNDED;
         return true;
+    }
+
+    /** breaking contact (C5): its smoke at the foe in sight (as on a fall back), then on by its order */
+    private boolean breakContact(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
+        if (c.state == TargetMemory.State.VISIBLE) smoke(bot, level, new Vec3(c.x, c.y, c.z), tick);
+        return ordered(bot, level, tick);
     }
 
     /**

@@ -40,6 +40,8 @@ final class StaffPlan {
     static final long STALE = 1200;
     /** the pinning squad's place this far off the group, blocks; the one going round's, and its angle off the line */
     static final double PIN = 60, FLANK_D = 40, FLANK_ANGLE = Math.toRadians(75);
+    /** pinned down this long with no one come round, or losing more: it breaks contact (C5), ticks */
+    static final long BREAK_AFTER = 400;
     /**
      * the pinning place got to out of sight (C4b): looked for PIN_NEAR..PIN_FAR off the group by PIN_STEP, PIN_TURNS
      * of PIN_TURN each way of the line to the squad; seeing the group (its cell seen PIN_SEES at least); the way's last
@@ -74,10 +76,16 @@ final class StaffPlan {
      * of rounds; its task now (null: none), since when, the group it is for (an index into the groups, -1: none), got
      * to its place; the group it gave up lately (-1: none); asleep, far from any player (C2b: sent as far as the staff
      * knows, FAR, the staff moving it); in a fight now; a pair's (C4: pinning and going round) time up at this tick
-     * (Long.MAX_VALUE: none).
+     * (Long.MAX_VALUE: none); pinned down since (C5: its report; Long.MIN_VALUE: not), losing more since, its pair's
+     * other alive and in time (help on its way).
      */
     record Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
-            boolean far, boolean contact, long due) {
+            boolean far, boolean contact, long due, long pinned, boolean worse, boolean helped) {
+        Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
+                boolean far, boolean contact, long due) {
+            this(x, z, strength, alive, was, out, kind, since, group, there, avoid, far, contact, due, Long.MIN_VALUE, false, false);
+        }
+
         Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there) {
             this(x, z, strength, alive, was, out, kind, since, group, there, -1, false);
         }
@@ -128,6 +136,7 @@ final class StaffPlan {
             if (!breaks(s)) continue;
             out[i] = back(squads, groups, i);
         }
+        pinned(squads, groups, grid, reach, now, out, sent);
         // those keeping their tasks
         for (int i = 0; i < squads.size(); i++) {
             Squad s = squads.get(i);
@@ -254,6 +263,79 @@ final class StaffPlan {
         if (grid == null || t == null) return 0;
         double len = Math.hypot(t.x() - s.x, t.z() - s.z);
         return len <= HqGrid.END ? 0 : grid.seenPart(s.x, s.z, new double[] {t.x(), t.z()}, HqGrid.END) * (len - HqGrid.END);
+    }
+
+    /**
+     * C5, by the field manual's drills: a squad pinned down by its group (its report) is the base of fire, holding where
+     * it is and firing back (React to contact: PIN at its own place); the free squad nearest goes round the group as its
+     * pair (Squad attack: one holds, one moves; C4's signal and time), or pins as well where the way round is not made
+     * in time. Pinned BREAK_AFTER ticks and losing more: it breaks contact (BACK, smoke first: AiSoldier).
+     */
+    static void pinned(List<Squad> squads, List<Group> groups, @Nullable HqGrid grid, double reach, long now, Task[] out, int[] sent) {
+        for (int i = 0; i < squads.size(); i++) {
+            Squad s = squads.get(i);
+            if (out[i] != null || s.pinned == Long.MIN_VALUE) continue;
+            // broken contact: back till it is over (its report's REST), not sent on again meanwhile
+            if (s.kind == Kind.BACK) {
+                out[i] = back(squads, groups, i);
+                continue;
+            }
+            if (s.group < 0 || s.group >= groups.size()) continue;
+            Group g = groups.get(s.group);
+            boolean helped = s.paired() && s.helped && !s.late(now);
+            // pinned BREAK_AFTER and losing more, helped or not: it breaks contact (held fire with no losses is no reason)
+            if (now - s.pinned >= BREAK_AFTER && s.worse) {
+                out[i] = back(squads, groups, i);
+                continue;
+            }
+            out[i] = new Task(Kind.PIN, s.group, s.x, s.z, PLACE, g.x, g.z);
+            sent[s.group]++;
+            // the one going round pinned: the two change over, its pair's pinning one goes round
+            if (helped && s.kind == Kind.FLANK) {
+                for (int j = 0; j < squads.size(); j++) {
+                    Squad o = squads.get(j);
+                    if (j == i || out[j] != null || o.group != s.group || o.kind != Kind.PIN || !o.paired() || o.pinned != Long.MIN_VALUE) continue;
+                    Task f = flank(grid, g, s.group, s.x, s.z, o.x, o.z);
+                    if (f != null) {
+                        out[j] = f;
+                        sent[s.group]++;
+                    }
+                    break;
+                }
+                continue;
+            }
+            if (helped) continue;
+            // the free squad nearest, not one of a pair (C4) nor one to fall back
+            int h = -1;
+            double best = Double.MAX_VALUE;
+            for (int j = 0; j < squads.size(); j++) {
+                Squad o = squads.get(j);
+                if (j == i || out[j] != null || o.avoid == s.group || o.paired() || breaks(o) || o.far || o.pinned != Long.MIN_VALUE || !idle(o)) continue;
+                double d = d2(g, o.x, o.z), r = o.reach(reach);
+                if (d < best && d <= r * r) {
+                    best = d;
+                    h = j;
+                }
+            }
+            // none free: one pinning the same group (not pinned itself) goes round, the pinned one its base of fire now
+            if (h < 0) for (int j = 0; j < squads.size(); j++) {
+                Squad o = squads.get(j);
+                if (j != i && out[j] == null && o.group == s.group && o.kind == Kind.PIN && o.pinned == Long.MIN_VALUE && !breaks(o)) {
+                    h = j;
+                    break;
+                }
+            }
+            if (h < 0) continue;
+            Squad sh = squads.get(h);
+            Task f = flank(grid, g, s.group, s.x, s.z, sh.x, sh.z);
+            out[h] = f != null ? f : pin(grid, g, s.group, sh.x, sh.z);
+            sent[s.group]++;
+        }
+    }
+
+    /** not at a group already (C5's help is not taken off an advance, a pin, a way round): none, holding, scouting, in reserve */
+    private static boolean idle(Squad o) {
+        return o.kind == null || o.group < 0 || o.kind == Kind.HOLD || o.kind == Kind.RESERVE || o.kind == Kind.SCOUT;
     }
 
     /** lost more than half of it, or most of it out of rounds */

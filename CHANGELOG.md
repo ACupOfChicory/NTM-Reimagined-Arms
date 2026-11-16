@@ -1,5 +1,16 @@
 # Changelog
 
+## X1284
+
+- AI squads report to their commander: contact, losses, being pinned down,
+  out of rounds, at their place, unable to get through. The commander gives
+  its orders again at once instead of at its next round of orders.
+- A squad pinned down by enemy fire holds where it is and fires back while
+  the nearest free squad goes round the enemy; when the squad going round is
+  the one pinned, the two change over. Pinned for 20 seconds and still losing
+  men, it throws smoke and falls back. Server key `aiCommanderReports`
+  (true); false: the commander answers no report, as before.
+
 ## X1277
 
 - NTM's spent casings are drawn by the graphics card, all of a kind at once:
