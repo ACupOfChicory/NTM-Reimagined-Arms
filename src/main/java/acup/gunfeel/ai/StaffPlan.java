@@ -42,8 +42,11 @@ final class StaffPlan {
     static final double PIN = 60, FLANK_D = 40, FLANK_ANGLE = Math.toRadians(75);
     /** going round: a side this many blocks farther to go by the map weighs as one wholly in the enemy's sight */
     static final double FAR_SIDE = 100;
-    /** going round: a side farther than this to go by the map is not got round in a pair's time (AiCommander.PAIR_MOST at a walk, by bounds): the other, if it is nearer */
-    static final double FAR_MOST = 160;
+    /**
+     * going round: a side farther than this to go by the map is not got round in a pair's time (AiCommander.PAIR_MOST
+     * by bounds, half the squad going at a time: some 0.085 blocks a tick on the war's stand): not gone round to
+     */
+    static final double FAR_MOST = AiCommander.PAIR_MOST * 0.085;
     /** a squad holding looks for its place this far round it at most, blocks */
     static final double HOLD_NEAR = 24;
     /** a squad falling back with no squad of its own to fall back on goes this far from the group, blocks */
@@ -185,7 +188,9 @@ final class StaffPlan {
                         f = f2;
                     }
                     out[a] = p;
-                    out[b] = f != null ? f : area(g, k);
+                    // no side to go round to in time (a river between, its ford far: C4): it pins too, rather than be
+                    // gone minutes on the way round
+                    out[b] = f != null ? f : pin(grid, g, k, squads.get(b).x, squads.get(b).z);
                     sent[k] += 2;
                     continue;
                 }
@@ -280,7 +285,7 @@ final class StaffPlan {
     /**
      * go round the group: a place FLANK_D off it, FLANK_ANGLE off the line from the pinning place, on the side the
      * enemy sees less of and the nearer to go to over the map (FAR_SIDE blocks farther weigh as all in its sight;
-     * farther than FAR_MOST, only if the other is too); null: neither on the map nor known
+     * farther than FAR_MOST, not got round in time: none); null: neither side on the map, known and near enough
      */
     static @Nullable Task flank(@Nullable HqGrid grid, Group g, int k, double px, double pz, double sx, double sz) {
         double base = Math.atan2(pz - g.z, px - g.x);
@@ -297,8 +302,12 @@ final class StaffPlan {
                 // much farther to go round loses its pair's time
                 int si = grid.cellX(sx), sk = grid.cellZ(sz);
                 int[] p = si < 0 || sk < 0 ? null : grid.path(si, sk, i, c, 0);
+                // no way there at all (the squad off the map aside), one through water to swim (the soldiers stop at
+                // it), or too far: not gone round to
+                if (si >= 0 && sk >= 0 && (p == null || swims(grid, p))) continue;
                 double way = p == null ? 0 : HqGrid.cells(p) * HqGrid.CELL;
-                score += way / FAR_SIDE + (way > FAR_MOST ? 10 : 0);
+                if (way > FAR_MOST) continue;
+                score += way / FAR_SIDE;
             }
             if (score < bestScore) {
                 bestScore = score;
@@ -306,6 +315,11 @@ final class StaffPlan {
             }
         }
         return best == null ? null : new Task(Kind.FLANK, k, best[0], best[1], PLACE, g.x, g.z);
+    }
+
+    private static boolean swims(HqGrid grid, int[] p) {
+        for (int c : p) if (grid.deep[c] >= 0.5) return true;
+        return false;
     }
 
     /** hold: the best place about the squad within HOLD_NEAR, no farther from the group than it is */

@@ -245,22 +245,27 @@ class StaffPlanTest {
     void goesRoundOnTheSideOfTheFord() {
         HqGrid g = HqGridTest.field();
         // a deep river between the squad and the group, its ford east: the place to go round to east of the group
-        for (int i = 0; i < HqGrid.N; i++) g.set(i, 16, 63, 0, 1, i == 28 ? 0 : 1);
+        for (int i = 0; i < HqGrid.N; i++) g.set(i, 16, 63, 0, 1, i == 24 ? 0 : 1);
         double gx = HqGridTest.mid(16), gz = HqGridTest.mid(22);
         Group grp = new Group(gx, gz, 16, 3, 0, AiCommander.PER);
-        Task f = StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(4));
-        assertTrue(f.x() > gx, "east of the group, by the ford: " + f.x() + " against " + gx);
+        Task f = StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(10));
+        assertTrue(f != null && f.x() > gx, "east of the group, by the ford: " + f);
+        // the enemy sees the east side, not the west: still east, the west too far to go round to in time
+        g.sight(gx + 40, gz);
+        f = StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(10));
+        assertTrue(f != null && f.x() > gx, "east of the group, by the ford: " + f);
     }
 
     @Test
-    void goesRoundOnTheSideItCanGetToInTimeThoughSeen() {
+    void noGoingRoundWhereTheFordIsTooFarAwayButPinningBoth() {
         HqGrid g = HqGridTest.field();
-        // the river, its ford far east; the enemy sees the east side, not the west: still east, the west too far to go
-        for (int i = 0; i < HqGrid.N; i++) g.set(i, 16, 63, 0, 1, i == 40 ? 0 : 1);
+        // the ford far east: neither side got round to in a pair's time
+        for (int i = 0; i < HqGrid.N; i++) g.set(i, 16, 63, 0, 1, i == 60 ? 0 : 1);
         double gx = HqGridTest.mid(16), gz = HqGridTest.mid(22);
-        g.sight(gx + 40, gz);
         Group grp = new Group(gx, gz, 16, 3, 0, AiCommander.PER);
-        Task f = StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(4));
-        assertTrue(f.x() > gx, "east of the group, by the ford: " + f.x() + " against " + gx);
+        assertEquals(null, StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(4)));
+        Task[] t = StaffPlan.plan(List.of(squad(gx - 8, HqGridTest.mid(4), 2), squad(gx + 8, HqGridTest.mid(4), 2)), List.of(grp), g, gx, HqGridTest.mid(4), 400, AiCommander.PER, NOW, 0);
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.PIN, t[1].kind());
     }
 }
