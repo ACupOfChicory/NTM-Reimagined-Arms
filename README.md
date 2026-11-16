@@ -67,7 +67,11 @@ page. They are alphas: expect bugs and back up your world.
   (other mods' too, not the chat or menus) glitches and shakes, the view
   shakes and drifts on its own, and whoever was hit, an AI soldier or any mob
   too, walks 80 % slower (a player's view narrows by a fifth) and
-  spreads their shots wide. Then 3 seconds of immunity. The shooter sees a
+  spreads their shots wide. A shocked player also sees discharges jag in from
+  the screen's edges and a light bluish vignette, as strong as the glitch.
+  Then 3 seconds of immunity: a shell that hits during the shock or the
+  immunity does not shock again but does 90 % of a slug from the same gun
+  (with the mod's balance; about 2 under `balance = ntm`). The shooter sees a
   spark at the crosshair.
 
 ### Hits
@@ -470,7 +474,7 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `waterSplash` | `true` | Splashes, rings, foam and bubbles on water |
 | `gunWeightTooltip` | `true` | A gun's tooltip names its weight class and how much it slows |
 | `suppressionDarken`, `suppressionMuffle` | `1` | How much the screen darkens and the other sounds go down under fire, 0 to 1 (the server sets the most) |
-| `shockGlitch` | `1` | How much the HUD glitches and shakes when a shock shell hits you, 0 to 1 (the server sets the most and the least) |
+| `shockGlitch` | `1` | How much the HUD glitches and shakes, and how bright the discharges and the vignette at the screen's edges are, when a shock shell hits you, 0 to 1 (the server sets the most and the least) |
 | `casingMax` | `96` | Most of NTM's spent casings drawn at once, the nearest on screen (`-1` = no limit, `0` = none); casings off screen or over 48 blocks away are never drawn |
 | `casingInstances` | `true` | NTM's spent casings drawn by the graphics card, all of a kind in one draw (`false` = NTM's way); off by itself under an Iris shader pack |
 | `soundNoWait` | `true` | A new sound no longer makes the frame wait while the sound thread is busy (many shots, Sound Physics); it starts in the sound thread's turn as before (`false` = the game's way) |
@@ -508,7 +512,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `suppressionDarken`, `suppressionMuffle` | `1` | The most darkening (40 % at the edges) and muffling (the world's sounds to 40 %) players get |
 | `suppressionFlinch`, `suppressionFlinchDeg` | `false`, `0.22` | A jolt of the view at each event, 0.11 to 0.66 degrees at the default |
 | `shock` | `true` | A shock shell's hit shocks (`false`: it only does its damage) |
-| `shockSeconds`, `shockImmunity` | `2`, `3` | How long a shock lasts at full (it then wears off over 3 more seconds), and the seconds after it when another shell does not shock |
+| `shockSeconds`, `shockImmunity` | `2`, `3` | How long a shock lasts at full (it then wears off over 3 more seconds), and the seconds after it when another shell does not shock (it does 90 % of a slug instead, with the balance) |
 | `shockSpread` | `0.12` | The spread added to a shocked one's shots (NTM's units: buckshot's is 0.035; about 7 degrees) |
 | `shockGlitch`, `shockGlitchMin` | `1`, `0.5` | The most the HUD glitches, and the least share of it a player may turn their own down to |
 | `shockCamera`, `shockShake` | `45`, `0.6` | How fast the view drifts on its own at most (degrees a second), and how much it shakes (degrees) |
