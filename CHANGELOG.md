@@ -1,5 +1,15 @@
 # Changelog
 
+## X1289
+
+- AI soldiers open trapdoors (NTM's steel hatch too) and climb ladders up and
+  down; a ladder is never taken for cover. A foe lost under the ground down a
+  shaft is gone after by the drill: the squad gathers off the hatch, a grenade
+  goes down first when it reaches the foot before its fuse is out, then they
+  go down one after another, the first at the foot holding the way out, one
+  staying up by the hatch till the others are down. Server key `aiHatches`
+  (true).
+
 ## X1287
 
 - AI soldiers that watch a corner the foe could come round from fire bursts at

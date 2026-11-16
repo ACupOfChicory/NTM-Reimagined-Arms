@@ -27,6 +27,8 @@ public final class PathSearch {
      */
     static final int NO_WAY_BACK = 2, BACK_NODES = 200, BACK_CHECKS = 3;
     static final float UP = 0.6F, DOWN = 0.3F, DIAGONAL = 1.4142135F;
+    /** a rung climbed up or down a ladder: slow, and the mob on it can do nothing else */
+    static final float CLIMB = 1F;
     /** a step wading, swimming costs this many times its length; what the caller adds counts this many times swimming */
     public static final float WADE = 2F, SWIM = 8F, SWIM_SEEN = 3F;
     static final long NONE = Long.MIN_VALUE;
@@ -239,9 +241,9 @@ public final class PathSearch {
         boolean refused = false;
 
         Nodes n = new Nodes(Math.min(maxNodes * 9 + 16, 1 << 20));
-        int first = n.add(start, 0F, heuristic(sx, sz, gx, gz), -1);
+        int first = n.add(start, 0F, heuristic(sx, sy, sz, gx, gy, gz), -1);
         int nearest = first;
-        float nearestH = n.f[first];
+        float nearestH = heuristic(sx, sz, gx, gz);
         int expanded = 0, reachedNode = -1;
         boolean cut = false;
         while (n.size() > 0) {
@@ -257,7 +259,8 @@ public final class PathSearch {
                 cut = true;
                 break;
             }
-            float h = n.f[cur] - n.g[cur];
+            // the nearest across as before (a goal it cannot get to: the end nearest it on the map, not nearest its height)
+            float h = heuristic(x, z, gx, gz);
             if (h < nearestH) {
                 nearestH = h;
                 nearest = cur;
@@ -281,7 +284,20 @@ public final class PathSearch {
                 else if (((here | there) & SectionCells.WATER) != 0) c *= WADE;
                 float extra = cost.extra(nx, ny, nz);
                 c += (there & SectionCells.SWIM) != 0 ? extra * SWIM_SEEN : extra;
-                n.relax(next, n.g[cur] + c, heuristic(nx, nz, gx, gz), cur);
+                n.relax(next, n.g[cur] + c, heuristic(nx, ny, nz, gx, gy, gz), cur);
+            }
+            // up and down a ladder: a rung to the next one over or under it
+            if ((here & SectionCells.CLIMB) != 0) for (int dy = -1; dy <= 1; dy += 2) {
+                long next = climb(r, x, y, z, dy);
+                if (next == NONE) continue;
+                n.relax(next, n.g[cur] + CLIMB + cost.extra(x, y + dy, z), heuristic(x, y + dy, z, gx, gy, gz), cur);
+            }
+            // up off a ladder's top rung through a shut hatch over it, onto the floor beside it
+            if ((here & SectionCells.CLIMB) != 0) for (int d = 0; d < 8; d += 2) {
+                long next = hatchUp(r, x, y, z, d);
+                if (next == NONE) continue;
+                int nx = BlockPos.getX(next), nz = BlockPos.getZ(next);
+                n.relax(next, n.g[cur] + 2 * CLIMB + 1F + cost.extra(nx, y + 2, nz), heuristic(nx, y + 2, nz, gx, gy, gz), cur);
             }
         }
         int end = reachedNode >= 0 ? reachedNode : nearest;
@@ -292,11 +308,56 @@ public final class PathSearch {
         return res;
     }
 
+    /**
+     * The same with the height to go, never more than the way costs (the goal is reached a block over or under it: that
+     * one is free). Down: every block down costs DOWN whatever the step, and a step (length 1 at least, a rung 1) goes
+     * MAX_DROP down at most, so the steps are as many as the blocks across or a MAX_DROP-th of those down; up: a block
+     * up costs UP_LEAST at least (a rung; a step up 1 + UP, through a hatch 3 for 2), and it may be along the way across.
+     * A search for a cell far under (a cellar, a bunker down a shaft) does not first go over all the ground round about.
+     */
+    static float heuristic(int x, int y, int z, int gx, int gy, int gz) {
+        int dy = Math.abs(y - gy) - 1;
+        float across = heuristic(x, z, gx, gz);
+        if (dy <= 0) return across;
+        return y > gy ? DOWN * dy + Math.max(across, dy / (float) MAX_DROP) : Math.max(across, dy * UP_LEAST);
+    }
+
+    /** what a block up costs at the least */
+    static final float UP_LEAST = Math.min(1F + UP, CLIMB);
+
     /** octile distance across: no step costs less than its length */
     static float heuristic(int x, int z, int gx, int gz) {
         int dx = Math.abs(x - gx), dz = Math.abs(z - gz);
         int lo = Math.min(dx, dz), hi = Math.max(dx, dz);
         return hi - lo + lo * DIAGONAL;
+    }
+
+    /** the rung over (dy 1) or under (dy -1) a cell on a ladder, both of them on it, or NONE */
+    static long climb(Reader r, int x, int y, int z, int dy) {
+        if ((r.flags(x, y, z) & SectionCells.CLIMB) == 0 || (r.flags(x, y + dy, z) & SectionCells.CLIMB) == 0) return NONE;
+        return r.has(x, y + dy, z) ? BlockPos.asLong(x, y + dy, z) : NONE;
+    }
+
+    /**
+     * Up out of a shaft: from a rung with a hatch over its head, shut (AiDoors lifts it climbing up) or lifted, to the cell two up
+     * beside it in direction d (straight only), the hatch's own cell and the one over it open but for the hatch
+     * (the way down is a step off that cell and a drop through the hatch: step)
+     */
+    static long hatchUp(Reader r, int x, int y, int z, int d) {
+        if ((r.flags(x, y, z) & SectionCells.CLIMB) == 0 || !hatch(r, x, y + 1, z) && !lifted(r, x, y + 1, z) || !r.open(x, y + 2, z)) return NONE;
+        int tx = x + Dirs.DX[d], tz = z + Dirs.DZ[d];
+        return r.has(tx, y + 2, tz) && r.open(tx, y + 3, tz) ? BlockPos.asLong(tx, y + 2, tz) : NONE;
+    }
+
+    /** a hatch lifted already: a door's block open to go through */
+    private static boolean lifted(Reader r, int x, int y, int z) {
+        int v = r.src.voxel(x, y, z);
+        return (v & Voxel.DOOR) != 0 && Voxel.move(v) == Voxel.OPEN;
+    }
+
+    /** a shut hatch a hand opens (a trapdoor: AiDoors lifts it) on the way down */
+    private static boolean hatch(Reader r, int x, int y, int z) {
+        return AiDoors.pass && Voxel.shutDoor(r.src.voxel(x, y, z));
     }
 
     /** the cell one step in direction d from a cell, or NONE */
@@ -312,11 +373,12 @@ public final class PathSearch {
         // up a block: room to jump over the head, or a slab that is stepped onto
         if (r.has(tx, y + 1, tz) && (r.open(x, y + 2, z) || Voxel.move(r.src.voxel(tx, y, tz)) == Voxel.LOW))
             return BlockPos.asLong(tx, y + 1, tz);
-        // down: the column walked into is open down to the cell's head
-        if (!r.open(tx, y, tz) || !r.open(tx, y + 1, tz)) return NONE;
+        // down: the column walked into is open down to the cell's head (at the feet a shut hatch a hand opens is open:
+        // AiDoors lifts it, the way goes down the ladder under it)
+        if (!r.open(tx, y, tz) && !hatch(r, tx, y, tz) || !r.open(tx, y + 1, tz)) return NONE;
         for (int k = 1; k <= MAX_DROP; k++) {
             if (r.has(tx, y - k, tz)) return BlockPos.asLong(tx, y - k, tz);
-            if (!r.open(tx, y - k, tz)) return NONE;
+            if (!r.open(tx, y - k, tz) && !hatch(r, tx, y - k, tz)) return NONE;
         }
         return NONE;
     }
@@ -371,6 +433,18 @@ public final class PathSearch {
             long a = cells[i], b = cells[i + 1];
             int x = BlockPos.getX(a), y = BlockPos.getY(a), z = BlockPos.getZ(a);
             int dx = BlockPos.getX(b) - x, dz = BlockPos.getZ(b) - z;
+            if (dx == 0 && dz == 0) {
+                // a rung up or down
+                if (!r.has(x, y, z) || climb(r, x, y, z, BlockPos.getY(b) - y) != b) return false;
+                continue;
+            }
+            if (BlockPos.getY(b) - y == 2) {
+                // up off a ladder through a hatch
+                boolean ok = false;
+                for (int k = 0; k < 8; k += 2) if (Dirs.DX[k] == dx && Dirs.DZ[k] == dz && hatchUp(r, x, y, z, k) == b) ok = true;
+                if (!ok) return false;
+                continue;
+            }
             int d = -1;
             for (int k = 0; k < 8; k++) if (Dirs.DX[k] == dx && Dirs.DZ[k] == dz) d = k;
             if (d < 0 || !r.has(x, y, z) || step(r, x, y, z, d) != b) return false;

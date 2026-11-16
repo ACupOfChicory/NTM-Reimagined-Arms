@@ -193,6 +193,7 @@ public final class AiBots {
             AiCommander.forget(level);
             AiCrossing.forget(level);
             AiBunker.forget(level);
+            AiHatch.forget(level);
             return;
         }
         AiDoors.tick();

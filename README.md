@@ -353,6 +353,15 @@ page. They are alphas: expect bugs and back up your world.
   and its own do not run from that grenade (server key `aiBunker`). `/armsai bunker
   [squad]` builds a bunker with a slit 20 blocks ahead of you, one inside at
   it, and a squad with a grenade each beside you, to watch.
+- They open trapdoors and climb ladders up and down, NTM's steel hatch
+  included. A foe lost under the ground down a shaft is gone after by the
+  drill: the squad gathers a few blocks off the hatch, one drops a grenade
+  down if it gets to the foot of the shaft before its fuse is out (a shaft as
+  deep as NTM's bunker's is too deep for one) and none of its own is in its
+  reach, then they go down one after another; the first at the foot holds the
+  way out of the shaft till the next is down, and one stays up by the hatch
+  till the others are down, then goes last (server key `aiHatches`). A ladder
+  is never taken for cover.
 - A soldier who sees a foe fall forgets it and tells its squad, so none of
   them waits for it or goes after it where it fell (server key
   `aiDownTold`).

@@ -483,6 +483,8 @@ public final class AiSoldier implements AiBrain {
         if (AiCrossing.step(this, bot, level, tick)) return;
         // its side's thrower at a bunker's slit: beside it, out to throw, back (AiBunker)
         if (AiBunker.step(this, bot, level, tick)) return;
+        // on its side's way down a shaft, on the ladder: on down whatever it sees, firing (no cover on a ladder) (AiHatch)
+        if (AiHatch.onLadder(this, bot, level, tick)) return;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again
@@ -1856,6 +1858,15 @@ public final class AiSoldier implements AiBrain {
 
     /** slowly through the cells round where they were lost that it cannot see, nearest first */
     private void search(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
+        // (before the search's own start, which stops its legs: the way down keeps them going)
+        // lost under the ground down a shaft: to its hatch, a grenade down, down one at a time (AiHatch)
+        Vec3 shaft = AiHatch.on() ? AiHatch.step(this, bot, level, c, tick) : null;
+        if (shaft != null) {
+            searchCell = Long.MIN_VALUE;
+            watch = shaft;
+            bot.gunner.aim(shaft);
+            return;
+        }
         if (mode != Mode.SEARCH) {
             drop(bot);
             bot.mover.stop();

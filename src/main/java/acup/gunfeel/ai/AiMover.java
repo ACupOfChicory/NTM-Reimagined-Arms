@@ -36,6 +36,9 @@ public final class AiMover {
     /** a share of the speed it walks at (lying: a third) */
     private double slow = 1.0;
     private int tries;
+    /** searches that came short for want of the map, no try spent on them; this many at most at a goal */
+    private int waits;
+    static final int MAP_WAITS = 12;
     /** keep still this tick (lying, to fire), the goal kept */
     private boolean hold;
     /** in the goal's cell since (the last steps, straight to its middle), and there long enough to count as arrived */
@@ -94,7 +97,7 @@ public final class AiMover {
         this.radius = radius;
         offX = ox;
         offZ = oz;
-        tries = 0;
+        tries = waits = 0;
         noWay = false;
         inCellSince = Long.MIN_VALUE;
         settled = false;
@@ -147,7 +150,7 @@ public final class AiMover {
         dry = on;
         if (!on && refused && (failed() || noWay)) {
             refused = false;
-            tries = 0;
+            tries = waits = 0;
             noWay = false;
         }
     }
@@ -290,7 +293,9 @@ public final class AiMover {
             noWayAt = map.changes;
             wantMissing(map, r);
             if (r.found() && r.cells.length > 1) walk(r);
-            else {
+            else if (!r.reached && r.missing.length > 0 && waits++ < MAP_WAITS) {
+                // the map not built yet where the way may go (down a long shaft section after section): no try spent
+            } else {
                 // nowhere to go from here, and every cell in reach was looked at: no other search will find a way
                 tries = noWay ? TRIES : tries + 1;
                 failures++;
@@ -317,7 +322,9 @@ public final class AiMover {
             // (and the part that was all there is: as near as it gets, no other search will do better)
             // (a path dropped for the blocks changed on it is neither: the map is another now)
             if (walking != null && walked) {
-                if (walking.reached) tries++;
+                // (on a ladder: the game's walk, falling, takes every point under it at once and is done half way
+                // down: no try spent, a search from here goes on)
+                if (walking.reached && !mob.onClimbable()) tries++;
                 else if (noWay && map.changes == noWayAt && atEnd(walking)) tries = TRIES;
             }
             if (failed()) {
@@ -408,7 +415,7 @@ public final class AiMover {
         return true;
     }
 
-    private static void wantMissing(TacticalMap map, PathSearch.Result r) {
+    static void wantMissing(TacticalMap map, PathSearch.Result r) {
         int n = 0;
         for (long key : r.missing) {
             if (n++ >= 8) break;
