@@ -29,6 +29,9 @@ import net.minecraft.world.phys.Vec3;
  * taken and when, who of the squad is left, who went down in the water, who got over, the most swimming at once, the
  * share of the ticks one swam with one on the bank firing, smoke, the drill's order kept, reports and places found.
  * Last a round with no order and a causeway over the river at one end: a dry way over, walked; no watch, no crossing.
+ * Ordered, one of the side comes up as the crossing goes on (a squad made since): one at the near bank as the near
+ * side's security goes over last, and one on the far bank as the main body begins; each is to join the crossing (the
+ * first goes over with the last, swimming only then; the second holds the far bank and never goes back into the water).
  */
 final class AiCheckCrossing {
     static final int X0 = 3700, Z0 = 0, SX = 64, SZ = 64, RUN = 2400, WATCH_RUN = 1200, ROUNDS = 7, SQUAD = 6;
@@ -84,6 +87,14 @@ final class AiCheckCrossing {
     private String lastReport = "none";
     /** per round: {on, held left, squad left, ticks, taken at, down in the water, over, most swimming, swim ticks, covered, smoked, begun, back} */
     private final List<int[]> results = new ArrayList<>();
+    /** the ordered rounds' latecomers: at the near bank (made as the last go over) and on the far bank (as the main body begins) */
+    private Mob lateNear, lateFar;
+    /** latecomers: made, joined the crossing, ticks one swam out of the drill (not joined), ticks the far one was in the water or back south of it */
+    private int lateMade, lateJoined, lateAlone, lateFarBack;
+    private final java.util.Set<Integer> lateIn = new java.util.HashSet<>();
+    private final int joined0 = AiCrossing.joined;
+    /** the latecomers' near bank start, the far bank's */
+    static final double LATE_NEAR_Z = 40.5, LATE_FAR_Z = 21.5, LATE_X = 3729.5;
 
     AiCheckCrossing(AiCheck check, ServerLevel level, int y) {
         this.check = check;
@@ -179,6 +190,7 @@ final class AiCheckCrossing {
                 }
             }
         }
+        if (arm() == ORDER) late();
         if (bankFires) lastBankShot = ticks;
         if (swimming > 0) {
             swimTicks++;
@@ -204,11 +216,35 @@ final class AiCheckCrossing {
                 AiCrossing.watches - watchesBefore, AiCrossing.scouted - scoutedBefore});
         for (Mob m : squad) m.discard();
         for (Mob m : held) m.discard();
+        if (lateNear != null) lateNear.discard();
+        if (lateFar != null) lateFar.discard();
+        lateNear = lateFar = null;
         squad.clear();
         held.clear();
         if (round + 1 >= ROUNDS) return finish();
         start(round + 1);
         return false;
+    }
+
+    /** the latecomers: made when the crossing comes to their time, and watched */
+    private void late() {
+        AiCrossing.Op op = null;
+        for (Mob m : squad) if (m.isAlive() && AiBots.get(m) instanceof AiBot b && AiCrossing.of(b) != null) op = AiCrossing.of(b);
+        if (op != null && lateFar == null && op.phase.ordinal() >= AiCrossing.Phase.MAIN.ordinal()) {
+            lateFar = spawn(LATE_X, LATE_FAR_Z, SIDE, 0F, RIFLE);
+            lateMade++;
+        }
+        if (op != null && lateNear == null && op.phase == AiCrossing.Phase.LAST) {
+            lateNear = spawn(LATE_X, LATE_NEAR_Z, SIDE, 180F, RIFLE);
+            lateMade++;
+        }
+        for (Mob m : new Mob[] {lateNear, lateFar}) {
+            if (m == null || !m.isAlive() || !(AiBots.get(m) instanceof AiBot b)) continue;
+            boolean in = AiCrossing.of(b) != null;
+            if (in && lateIn.add(m.getId())) lateJoined++;
+            if (AiWater.swims(m) && !in) lateAlone++;
+            if (m == lateFar && (m.isInWater() || m.getZ() > RZ0 - 0.5)) lateFarBack++;
+        }
     }
 
     private boolean causeway() {
@@ -359,6 +395,10 @@ final class AiCheckCrossing {
         check.check(String.format(Locale.ROOT, "crossing: ordered, the main body goes by pairs (at most %d of it swimming at once in a round)", mostMainAll), mostMainAll <= 2);
         check.check(String.format(Locale.ROOT, "crossing: ordered, most of the swimming is covered, from the bank or by those over (%.0f%%)", sum[ORDER][8] == 0 ? 0 : 100 * sum[ORDER][9] / sum[ORDER][8]),
                 sum[ORDER][9] * 2 > sum[ORDER][8]);
+        check.out(String.format(Locale.ROOT, "     crossing, ordered, latecomers: made %d, joined the crossing %d (AiCrossing's count of joins %d), ticks swum out of the drill %d, ticks the far bank's one was back in the water or south of it %d",
+                lateMade, lateJoined, AiCrossing.joined - joined0, lateAlone, lateFarBack));
+        check.check(String.format(Locale.ROOT, "crossing: ordered, one come up as it goes on joins it: at the near bank over with the last, on the far bank holding it (made %d, joined %d, swum alone %d ticks, the far one back %d ticks)",
+                lateMade, lateJoined, lateAlone, lateFarBack), lateMade > 0 && lateJoined == lateMade && lateAlone == 0 && lateFarBack == 0);
         check.check(String.format(Locale.ROOT, "crossing: with a dry way over (a causeway) no watch and no crossing is begun (%.0f, %.0f)", sum[CAUSEWAY][22], sum[CAUSEWAY][11]),
                 n[CAUSEWAY] == 1 && sum[CAUSEWAY][11] == 0 && sum[CAUSEWAY][22] == 0);
         return true;
