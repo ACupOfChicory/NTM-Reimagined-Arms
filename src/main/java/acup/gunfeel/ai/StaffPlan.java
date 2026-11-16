@@ -191,8 +191,10 @@ final class StaffPlan {
                     // no side to go round to in time (a river between, its ford far: C4), or no map yet to tell (it comes
                     // soon, the pairs on): it holds the best place about it, rather than be gone minutes on the way round
                     // or go up in the open to pin beside the other
-                    boolean blind = grid == null && AiCommander.mapped();
-                    out[b] = f != null && !blind ? f : grid == null && !blind ? pin(grid, g, k, squads.get(b).x, squads.get(b).z) : hold(grid, g, k, squads.get(b));
+                    // (asleep, C2b: no pair for it, moved on to the fight as before)
+                    Squad sq = squads.get(b);
+                    boolean blind = grid == null && AiCommander.mapped() && !sq.far;
+                    out[b] = sq.far ? f != null ? f : area(g, k) : f != null && !blind ? f : grid == null && !blind ? pin(grid, g, k, sq.x, sq.z) : hold(grid, g, k, sq);
                     sent[k] += 2;
                     continue;
                 }
