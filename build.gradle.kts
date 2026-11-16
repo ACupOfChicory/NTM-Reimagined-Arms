@@ -516,6 +516,8 @@ neoForge {
             if (providers.gradleProperty("aiCheckWarBare").isPresent) systemProperty("ntmgunfeel.checkAiWarBare", "true")
             // -PaiCheckWarStill: the war's player never hides (the squads going round meet it: the pairs, C4)
             if (providers.gradleProperty("aiCheckWarStill").isPresent) systemProperty("ntmgunfeel.checkAiWarStill", "true")
+            // -PaiCheckWarNear=N: the near rounds after the far one, C3 and C4 by turns (2 by default)
+            providers.gradleProperty("aiCheckWarNear").orNull?.let { systemProperty("ntmgunfeel.checkAiWarNear", it) }
             // -PaiWorld=<a world's folder> -PaiWorldAt=x,y,z,radius[,up]: that world (a copy) read as the AI reads it (AiCheckWorld)
             providers.gradleProperty("aiWorldAt").orNull?.let { systemProperty("ntmgunfeel.checkAiWorld", it) }
             // -PaiLegs=<file>: the fighters' moves, tick by tick, for the legs' replay (AiLegsLog, BotLegsReplayTest)

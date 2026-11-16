@@ -25,7 +25,24 @@ class StaffPlanTest {
     }
 
     static Task[] plan(List<Squad> squads, List<Group> groups) {
-        return StaffPlan.plan(squads, groups, null, 0, 0, 160, AiCommander.PER, NOW, 0);
+        return StaffPlan.plan(squads, groups, OPEN, 0, 0, 160, AiCommander.PER, NOW, 0);
+    }
+
+    /** the staff's map: open ground all known about (0, 0), none of it seen (no map: no squad sent round) */
+    static final HqGrid OPEN = open();
+
+    static HqGrid open() {
+        HqGrid g = new HqGrid(-HqGrid.N * HqGrid.CELL / 2, -HqGrid.N * HqGrid.CELL / 2);
+        for (int i = 0; i < HqGrid.N; i++)
+            for (int k = 0; k < HqGrid.N; k++) g.set(i, k, 64, 0, 0, 0);
+        return g;
+    }
+
+    @Test
+    void noMapNoGoingRound() {
+        Task[] t = StaffPlan.plan(List.of(squad(0, 0, 3), squad(30, 0, 3)), List.of(group(0, 100, 3)), null, 0, 0, 160, AiCommander.PER, NOW, 0);
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.PIN, t[1].kind());
     }
 
     @Test

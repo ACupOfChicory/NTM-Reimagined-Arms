@@ -60,6 +60,13 @@ final class AiCheckWar {
      * than aiRadius but within what the staff knows; the staff is to move its squads till they wake, within FAR_RUN
      */
     static final double FAR_X = 128.5, FAR_Z = 240.5;
+    /**
+     * the near rounds after the far one (C4): the side's camp on the player's bank this far north of its walk, no river
+     * between (the way round is made in a pair's time); C3 and C4 by turns, ntmgunfeel.checkAiWarNear of them
+     */
+    static final double NEAR_Z = 240.5;
+    /** a squad going round at its place: one of it within this of it */
+    static final double AT_PLACE = 8;
     static final int FAR_RUN = 2400;
     static final String A = "war_a";
     /** the reports' ages: up to each, ticks (the last: never seen) */
@@ -136,6 +143,14 @@ final class AiCheckWar {
     private java.io.PrintWriter dump;
     /** the far round: on; the tick the first of the side woke (-1: none), the most awake at once, the nearest any came */
     private boolean far;
+    /** the near rounds: on, how many run, how many to run; each: its mode, pairs made, ready, late, ticks one going round sees the player, of them with one pinning, squads going round, at their place */
+    private boolean near;
+    private int nearDone;
+    private final int nears;
+    private final List<long[]> nearOf = new ArrayList<>();
+    private final java.util.Set<AiCommander.Job> flankJobs = new java.util.HashSet<>(), flankThere = new java.util.HashSet<>();
+    /** the pairs (C4, not near) whose squad going round was sent across the river from the camp's bank */
+    private int pairsAcross;
     private int farWoke = -1, farMost;
     private double farNearest = Double.MAX_VALUE;
     private long drifted0, driftBlocked0;
@@ -149,6 +164,7 @@ final class AiCheckWar {
         this.level = level;
         this.y = y;
         this.rounds = Math.max(1, Integer.getInteger("ntmgunfeel.checkAiWarRounds", MODES));
+        this.nears = Math.max(0, Integer.getInteger("ntmgunfeel.checkAiWarNear", 2));
     }
 
     boolean tick() {
@@ -189,7 +205,11 @@ final class AiCheckWar {
             for (Mob m : ours) {
                 AiBot b = AiBots.get(m);
                 AiCommander.Job j = b == null || !m.isAlive() || !AiCommander.has(b, now) ? null : b.order.job;
-                if (j != null && j.kind == StaffPlan.Kind.FLANK) wentRound.add(m.getId());
+                if (j != null && j.kind == StaffPlan.Kind.FLANK) {
+                    wentRound.add(m.getId());
+                    if (flankJobs.add(j) && !near && j.partner != null && m.getZ() < Z0 + RIVER_Z && b.order.z > Z0 + RIVER_Z + RIVER_W) pairsAcross++;
+                    if (Math.hypot(m.getX() - b.order.x, m.getZ() - b.order.z) <= AT_PLACE) flankThere.add(j);
+                }
                 TargetMemory.Contact c = j == null ? null : b.memory.contact(player.getId());
                 if (c == null || c.state != TargetMemory.State.VISIBLE) continue;
                 if (j.kind == StaffPlan.Kind.PIN) pinSees = true;
@@ -284,6 +304,18 @@ final class AiCheckWar {
         if (dump != null) dump(now);
         if (ticks < RUN) return false;
         madeSeen = 0;
+        if (near) {
+            nearOf.add(new long[] {mode(), AiCommander.paired - paired0, AiCommander.coupled - coupled0, AiCommander.expired - expired0, roundTicks, crossTicks, flankJobs.size(),
+                    flankThere.size(), flankContacts, flankWide});
+            AiCommander.made.clear();
+            clear();
+            if (++nearDone >= nears) {
+                near = false;
+                return finish();
+            }
+            start(round + 1);
+            return false;
+        }
         results.add(new int[] {seenAt, down()});
         idles.add(new long[] {alive, idle});
         // the tasks given, then the stragglers sent after a squad
@@ -360,7 +392,11 @@ final class AiCheckWar {
         AiCommander.made.clear();
         AiBots.awake = true;
         far = false;
-        return finish();
+        if (nears == 0) return finish();
+        near = true;
+        nearDone = 0;
+        start(round + 1);
+        return false;
     }
 
     private void dump(long now) {
@@ -432,6 +468,7 @@ final class AiCheckWar {
             "the staff's pairs working together too (C4)"};
 
     private int mode() {
+        if (near) return nearDone % 2 == 0 ? MOVES : PAIRS;
         return round % MODES;
     }
 
@@ -502,6 +539,8 @@ final class AiCheckWar {
         AiCommander.on = true;
         flanksSeen.clear();
         wentRound.clear();
+        flankJobs.clear();
+        flankThere.clear();
         flankContacts = flankWide = roundTicks = crossTicks = 0;
         paired0 = AiCommander.paired;
         coupled0 = AiCommander.coupled;
@@ -513,7 +552,7 @@ final class AiCheckWar {
         AiSquads.offTeams.clear();
         AiSquads.forget(level);
         for (int s = 0; s < SQUADS; s++)
-            for (int i = 0; i < EACH; i++) ours.add(spawn(X0 + SQUAD_X[s] + (i - 1) * 2, Z0 + CAMP_Z, A, 0F));
+            for (int i = 0; i < EACH; i++) ours.add(spawn(X0 + SQUAD_X[s] + (i - 1) * 2, Z0 + (near ? NEAR_Z : CAMP_Z), A, near ? 180F : 0F));
         for (int i = 0; i < ours.size(); i++) {
             lastX[i] = ours.get(i).getX();
             lastZ[i] = ours.get(i).getZ();
@@ -545,6 +584,12 @@ final class AiCheckWar {
         AiBot b = AiBots.get(m);
         if (b != null) b.gunner.ammo.set(b.gunner.capacity() * 4);
         return m;
+    }
+
+    private long nearPairs() {
+        long n = 0;
+        for (long[] r : nearOf) n += r[1];
+        return n;
     }
 
     private boolean finish() {
@@ -683,6 +728,12 @@ final class AiCheckWar {
                 tasksAlive == 0 ? 0 : 100.0 * tasksIdle / tasksAlive, sentAt), !tasksRan || tasksAlive > 0 && tasksIdle * 50 <= tasksAlive && sentAt > 0);
         // C3: bounding, one half at least is in cover facing the enemy most of the time
         // C4: the squad going round comes on the group from its side; before it (C2, C3) as a share too
+        long nearFlank = 0, nearWide = 0;
+        for (long[] r : nearOf)
+            if (r[0] == PAIRS) {
+                nearFlank += r[8];
+                nearWide += r[9];
+            }
         if (roundsOf[PAIRS] > 0) {
             check.out(String.format(Locale.ROOT, "     war, squads going round that saw the player within 64 blocks %.0f degrees or more off the pinning one: C2 %d of %d, C3 %d of %d, C4 %d of %d;"
                     + " C4 pairs %d, ready in time %d, out of time %d", WIDE, wideOf[TASKS], flankOf[TASKS], wideOf[MOVES], flankOf[MOVES], wideOf[PAIRS], flankOf[PAIRS],
@@ -691,8 +742,29 @@ final class AiCheckWar {
                     + " of the ticks one going round sees it: C2 %.0f%%, C3 %.0f%%, C4 %.0f%%", (double) crossOf[TASKS] / Math.max(1, roundsOf[TASKS]),
                     (double) crossOf[MOVES] / Math.max(1, roundsOf[MOVES]), (double) crossOf[PAIRS] / Math.max(1, roundsOf[PAIRS]),
                     100.0 * crossOf[TASKS] / Math.max(1, roundOf[TASKS]), 100.0 * crossOf[MOVES] / Math.max(1, roundOf[MOVES]), 100.0 * crossOf[PAIRS] / Math.max(1, roundOf[PAIRS])));
-            check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round comes on the player %.0f degrees or more off the pinning one %d times of %d (half at least), %d pairs made",
-                    WIDE, wideOf[PAIRS], flankOf[PAIRS], pairsMade), pairsMade > 0 && flankOf[PAIRS] > 0 && wideOf[PAIRS] * 2 >= flankOf[PAIRS]);
+            // with the near rounds' (on the river's field few go round now: its ford too far)
+            long flanks = flankOf[PAIRS] + nearFlank, wide = wideOf[PAIRS] + nearWide;
+            check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round comes on the player %.0f degrees or more off the pinning one %d times of %d (half at least;"
+                    + " near %d of %d), %d pairs made", WIDE, wide, flanks, nearWide, nearFlank, pairsMade), pairsMade + nearPairs() > 0 && flanks > 0 && wide * 2 >= flanks);
+        }
+        if (roundsOf[PAIRS] > 0)
+            check.check(String.format(Locale.ROOT, "war: the pairs (C4), no squad going round for a pair sent across the river from the camp (its ford too far for the pair's time):"
+                    + " %d", pairsAcross), pairsAcross == 0);
+        // the near rounds (C4): the way round made in time, the pair works as one
+        if (!nearOf.isEmpty()) {
+            long[][] n = new long[MODES][10];
+            for (long[] r : nearOf) {
+                int on = (int) r[0];
+                n[on][0]++;
+                for (int k = 1; k < r.length; k++) n[on][k] += r[k];
+            }
+            long[] c3 = n[MOVES], c4 = n[PAIRS];
+            check.out(String.format(Locale.ROOT, "     war, near (the camp %.0f blocks off the player's walk, no river between): rounds C3 %d, C4 %d; squads going round at their place (within %.0f)"
+                    + " C3 %d of %d, C4 %d of %d; C4 pairs %d, ready in time %d, out of time %d; the player under fire from two sides, ticks a round: C3 %.0f, C4 %.0f;"
+                    + " of the ticks one going round sees it: C3 %.0f%%, C4 %.0f%%", NEAR_Z - WALK_Z, c3[0], c4[0], AT_PLACE, c3[7], c3[6], c4[7], c4[6], c4[1], c4[2], c4[3],
+                    (double) c3[5] / Math.max(1, c3[0]), (double) c4[5] / Math.max(1, c4[0]), 100.0 * c3[5] / Math.max(1, c3[4]), 100.0 * c4[5] / Math.max(1, c4[4])));
+            if (c4[0] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the staff pairs its squads and the one going round is ready in time: %d pairs, %d ready in time"
+                    + " (half at least), %d out of time", c4[1], c4[2], c4[3]), c4[1] > 0 && c4[2] * 2 >= c4[1]);
         }
         if (roundsOf[MOVES] + roundsOf[PAIRS] > 0)
             check.check(String.format(Locale.ROOT, "war: the squads bound (C3), out of a fight one half standing at its place facing the enemy (in cover where there was one) while the other goes"
