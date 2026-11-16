@@ -43,6 +43,7 @@ final class AiCheckHatch {
     private final int y;
     private boolean started;
     private int round = -1, ticks, downs, ownBlast, frags0, begun0, deep0, down0, noFrag0, unsafe0, rim0;
+    private int[] none0 = new int[4];
     private String belowBy = "-";
     private int belowAt = -1;
     private Mob below;
@@ -121,8 +122,12 @@ final class AiCheckHatch {
         if (ticks % 200 == 0) {
             StringBuilder w = new StringBuilder();
             for (Mob m : squad)
-                w.append(String.format(Locale.ROOT, " %s %.1f %.1f %.1f %s;", m.isAlive() ? "up" : "down", m.getX(), m.getY(), m.getZ(),
-                        AiBots.get(m) instanceof AiBot b && b.brain instanceof AiSoldier so ? so.mode() + "/" + so.why : ""));
+            {
+                AiBot ab = AiBots.get(m);
+                var k = ab == null ? null : ab.memory.contact(below.getId());
+                w.append(String.format(Locale.ROOT, " %s %.1f %.1f %.1f %s lost %s;", m.isAlive() ? "up" : "down", m.getX(), m.getY(), m.getZ(),
+                        ab != null && ab.brain instanceof AiSoldier so ? so.mode() + "/" + so.why : "", k == null ? "none" : String.format(Locale.ROOT, "%.1f %.1f %.1f %s", k.lostX, k.lostY, k.lostZ, k.state)));
+            }
             check.out(String.format(Locale.ROOT, "     hatch, round %d, tick %d:%s", round + 1, ticks, w));
         }
         boolean anyOut = squad.stream().anyMatch(Mob::isAlive);
@@ -186,6 +191,9 @@ final class AiCheckHatch {
         noFrag0 = AiHatch.noFrag;
         unsafe0 = AiHatch.unsafe;
         rim0 = AiHatch.notAtRim;
+        none0 = AiHatch.none.clone();
+        AiHatch.trace = true;
+        AiHatch.noWay.clear();
         double fy = floor() + 1;
         Vec3 foe = up ? new Vec3(SX + 6.5, y, SZ + 8.5) : new Vec3(SX + RX - 0.5, fy, SZ + RZ - 0.5);
         if (up) {
@@ -232,6 +240,22 @@ final class AiCheckHatch {
         check.out(String.format(Locale.ROOT, "     hatch, round %d (%s, %s): %d ticks; of the squad %d of %d left, %d got " + (round >= ROUNDS ? "up" : "down") + "; the one below %s; ways down begun %d, grenades down %d (too deep %d, none %d, waited for its own %d, off the rim %d), down the ladder %d; bursts %s; the squad hurt by a blast %d",
                 round + 1, AiHatch.on ? "on" : "off", steel ? "steel" : "oak", ticks, left, SQUAD, downs, belowAt < 0 ? "up" : "down at " + belowAt + " by " + belowBy, AiHatch.begun - begun0,
                 AiHatch.frags - frags0, AiHatch.deepNoFrag - deep0, AiHatch.noFrag - noFrag0, AiHatch.unsafe - unsafe0, AiHatch.notAtRim - rim0, AiHatch.down - down0, bursts, ownBlast));
+        for (String n : AiHatch.noWay) check.out(String.format(Locale.ROOT, "     hatch, round %d: no way down: %s", round + 1, n));
+        if (!AiHatch.noWay.isEmpty()) {
+            TacticalMap map = TacticalMap.of(level);
+            int[][] cols = {{SX, SZ}, {SX, SZ + 1}, {SX + 1, SZ}};
+            for (int[] c : cols)
+                for (int yy = floor(); yy <= y + 1; yy++) {
+                    SectionCells sc = map.cellsAt(c[0], yy, c[1]);
+                    long key = net.minecraft.core.SectionPos.asLong(c[0] >> 4, yy >> 4, c[1] >> 4);
+                    check.out(String.format(Locale.ROOT, "     hatch, round %d: the map at %d %d %d: %s; voxel %s; cell %s; cells stamp %s, now %d", round + 1, c[0], yy, c[1],
+                            level.getBlockState(new BlockPos(c[0], yy, c[1])), BlockClasses.describe(map.voxel(c[0], yy, c[1]) & 0xFF),
+                            sc == null ? "no cells" : sc.find(c[0] & 15, yy & 15, c[1] & 15) >= 0 ? "yes" : "no", sc == null ? "-" : String.valueOf(sc.stamp), map.stamp(key)));
+                }
+        }
+        AiHatch.noWay.clear();
+        check.out(String.format(Locale.ROOT, "     hatch, round %d: looks for a way down that found none: the foe not under it %d, no cell %d, no way there %d, no shaft on it %d",
+                round + 1, AiHatch.none[0] - none0[0], AiHatch.none[1] - none0[1], AiHatch.none[2] - none0[2], AiHatch.none[3] - none0[3]));
         for (Mob m : squad) m.discard();
         below.discard();
         for (var e : level.getEntitiesOfClass(Entity.class, new AABB(X0 - 8, floor() - 2, Z0 - 24, X0 + 40, y + 30, Z0 + 24),
@@ -240,6 +264,7 @@ final class AiCheckHatch {
 
     private boolean finish() {
         AiHatch.on = hatchOn;
+        AiHatch.trace = false;
         int[] off = new int[4], on = new int[4];
         int upOak = 0, upSteel = 0;
         for (int[] r : results)

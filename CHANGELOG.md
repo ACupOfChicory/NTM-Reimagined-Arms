@@ -1,12 +1,17 @@
 # Changelog
 
-## X1313
+## X1328
 
 - An AI soldier who joins a squad while it is crossing a river now goes over
   with it by the crossing drill: on the near bank they wait their turn (or go
   with the last if the rest are over), on the far bank they take a place with
   those holding it. Before, such a soldier could stand idle until the crossing
   was over, or start a crossing of their own.
+
+## X1323
+
+- With Sodium installed, bots' hands no longer show a patch of the armour's
+  sleeve (or the agent's suit) where the palm should be.
 
 ## X1311
 

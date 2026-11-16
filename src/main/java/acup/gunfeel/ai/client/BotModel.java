@@ -164,7 +164,35 @@ public final class BotModel {
      * smallest y (its top), UP the one at its largest (the hand's, the foot's end)
      */
     private static ModelPart.Cube cube(int u, int v, float x, float y, float z, float h, float grow, boolean mirror, Set<Direction> faces) {
-        return new ModelPart.Cube(u, v, x, y, z, 4F, h, 4F, grow, grow, grow, mirror, TEX_W, TEX_H, faces);
+        return new Cube(u, v, x, y, z, 4F, h, 4F, grow, grow, grow, mirror, TEX_W, TEX_H, faces);
+    }
+
+    /**
+     * A limb's box drawn from its own faces, as vanilla's is. Sodium draws a box from what it was made with (its
+     * CubeMixin at the head of {@link ModelPart.Cube#compile}), and the faces moved here (the hand's end, the
+     * overlap's row, the halves' ends at the joint) were lost under it: the hand's end took the sleeve's rows 22 to 24
+     * for the palm.
+     */
+    static final class Cube extends ModelPart.Cube {
+        Cube(int u, int v, float x, float y, float z, float w, float h, float d, float growX, float growY, float growZ,
+                boolean mirror, float texW, float texH, Set<Direction> faces) {
+            super(u, v, x, y, z, w, h, d, growX, growY, growZ, mirror, texW, texH, faces);
+        }
+
+        @Override
+        public void compile(com.mojang.blaze3d.vertex.PoseStack.Pose pose, com.mojang.blaze3d.vertex.VertexConsumer out,
+                int light, int overlay, int color) {
+            org.joml.Matrix4f matrix = pose.pose();
+            org.joml.Vector3f scratch = new org.joml.Vector3f();
+            for (ModelPart.Polygon polygon : polygons) {
+                org.joml.Vector3f normal = pose.transformNormal(polygon.normal(), scratch);
+                float nx = normal.x(), ny = normal.y(), nz = normal.z();
+                for (ModelPart.Vertex vertex : polygon.vertices()) {
+                    org.joml.Vector3f at = matrix.transformPosition(vertex.worldX(), vertex.worldY(), vertex.worldZ(), scratch);
+                    out.addVertex(at.x(), at.y(), at.z(), color, vertex.u(), vertex.v(), overlay, light, nx, ny, nz);
+                }
+            }
+        }
     }
 
     private static Set<Direction> without(Direction... faces) {

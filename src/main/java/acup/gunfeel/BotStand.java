@@ -147,6 +147,10 @@ final class BotStand {
         caseIndex = yawIndex = 0;
         until = now() + 40;
         if (SUITS) startSuits();
+        if (BotHandStand.ENABLED) {
+            step = 7;
+            BotHandStand.start(one);
+        }
     }
 
     private static Mob spawn(ServerLevel level, double x, double z, float yaw) {
@@ -173,6 +177,7 @@ final class BotStand {
                 case 4 -> clips();
                 case 5 -> armourPoses();
                 case 6 -> suits();
+                case 7 -> BotHandStand.frame();
                 default -> {
                 }
             }
