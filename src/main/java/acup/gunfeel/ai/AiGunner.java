@@ -25,6 +25,27 @@ public final class AiGunner {
     static final double LEAVES = 0.5;
     /** the cone kept clear of other AI mobs before a shot (the gun's spread and the aim's error), degrees */
     static final double CLEAR_CONE = 3.0;
+    /** the same for an automatic (AUTO_DELAY ticks between shots at most): its burst's kick strays further (the stands: 4 to 9 degrees) */
+    static final double AUTO_CONE = 10.0;
+    static final int AUTO_DELAY = 3;
+    private net.minecraft.world.item.@Nullable Item coneOf;
+    private double cone = CLEAR_CONE;
+
+    /** the cone kept clear for the gun it holds */
+    double clearCone() {
+        ItemStack stack = mob.getMainHandItem();
+        if (stack.getItem() == coneOf) return cone;
+        coneOf = stack.getItem();
+        cone = CLEAR_CONE;
+        ItemGunBaseNT gun = gun();
+        try {
+            if (gun != null && gun.getConfig(stack, 0).getReceivers(stack)[0].getDelayAfterFire(stack) <= AUTO_DELAY) cone = AUTO_CONE;
+        } catch (RuntimeException e) {
+            cone = CLEAR_CONE;
+        }
+        return cone;
+    }
+
     /** whether it holds fire with another AI mob in the line (off only for the stands' "before") */
     static boolean checkLine = true;
 
@@ -336,7 +357,20 @@ public final class AiGunner {
                 && !AiWater.swims(mob);
         // a grenadier's shells go only as lobs worked out to burst clear of its own (AiGrenadier), never straight
         if (shoot && exact == null && AiGrenadier.lobsOnly(mob, stack)) shoot = false;
-        boolean friend = shoot && checkLine && AiBots.friendInLine(level, mob, AiLean.eye(mob), aim, CLEAR_CONE);
+        // the line to the aim, the line it looks along now (a burst's kick, a turn not done) and the one its body faces
+        // (the bullet's), each in a cone as wide as the gun strays: an automatic's wider
+        boolean friend = false;
+        if (shoot && checkLine) {
+            Vec3 eye = AiLean.eye(mob);
+            double cone = clearCone();
+            double far = Math.max(2, aim.distanceTo(eye));
+            // NTM sends the bullet along the body's turn (getYRot), not the head's
+            double yaw = Math.toRadians(mob.getYRot()), pitch = Math.toRadians(mob.getXRot());
+            Vec3 body = new Vec3(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+            friend = AiBots.friendInLine(level, mob, eye, aim, cone)
+                    || AiBots.friendInLine(level, mob, eye, eye.add(mob.getViewVector(1F).scale(far)), cone)
+                    || AiBots.friendInLine(level, mob, eye, eye.add(body.scale(far)), cone);
+        }
         if (friend) {
             // one of its own between it and the target: it holds fire
             shoot = false;
