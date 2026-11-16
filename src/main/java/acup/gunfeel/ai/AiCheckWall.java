@@ -203,6 +203,8 @@ final class AiCheckWall {
         check.check(String.format(Locale.ROOT, "wall: sent into a shut house, the squad is at its wall less (%d ticks, %d before)", shutNow[5], shutBefore[5]), shutNow[5] < shutBefore[5]);
         check.check(String.format(Locale.ROOT, "wall: sent behind a house, it gets there round it (at tick %d, %d before)", behind[4], by[2][4]), behind[4] >= 0);
         check.check(String.format(Locale.ROOT, "wall: sent into a house with a doorway, it gets in (at tick %d, %d before)", door[4], by[4][4]), door[4] >= 0);
+        // (one held up by its own in the doorway, or going round to it, makes way: it does not give the place up)
+        check.check(String.format(Locale.ROOT, "wall: sent into a house with a doorway, none gives the place up (%s)", door[3] < 0 ? "none" : "at tick " + door[3]), door[3] < 0);
         return true;
     }
 }

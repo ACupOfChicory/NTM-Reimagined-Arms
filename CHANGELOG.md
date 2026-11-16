@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- An AI soldier sent with its squad into a house through a narrow doorway no
+  longer gives the place up while it waits its turn behind its own in the
+  doorway.
+
 ## X1329
 
 - An AI soldier who joins a squad while it is crossing a river now goes over
