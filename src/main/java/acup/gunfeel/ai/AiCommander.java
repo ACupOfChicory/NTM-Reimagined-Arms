@@ -146,6 +146,8 @@ public final class AiCommander {
     static final int PAIR_MORE = 600, PAIR_MOST = 1800;
     /** pinning or holding: after a foe lost no farther than this from its place, blocks */
     static final double LEASH = 24;
+    /** there (within LEASH), the one going round at its group this far off the pinning one at least: round, ready */
+    static final double READY_ANGLE = Math.toRadians(60);
     /** the one going round for a pair runs into its group within this (blocks to the group's middle): ready, there or not */
     static final double RUN_INTO = 20;
     /** the one going round shot at within this many ticks: it fights back */
@@ -1597,7 +1599,8 @@ public final class AiCommander {
             for (AiBot b : s.bots) {
                 Job j = b.order != null && now <= b.order.until ? b.order.job : null;
                 if (j != null && j.kind == StaffPlan.Kind.FLANK && j.partner != null && j.ready == Long.MIN_VALUE && contains(j.ids, s.target)
-                        && (Math.hypot(b.mob.getX() - b.order.x, b.mob.getZ() - b.order.z) <= LEASH || ranInto(b, b.memory.contact(s.target)) || shotAt(b, now))) {
+                        && (Math.hypot(b.mob.getX() - b.order.x, b.mob.getZ() - b.order.z) <= LEASH && round(b, j.partner, b.memory.contact(s.target))
+                                || ranInto(b, b.memory.contact(s.target)) || shotAt(b, now))) {
                     ready(level, j, now);
                     break;
                 }
@@ -1677,6 +1680,28 @@ public final class AiCommander {
         if (c == null) return false;
         double x = c.state == TargetMemory.State.VISIBLE ? c.x : c.lostX, z = c.state == TargetMemory.State.VISIBLE ? c.z : c.lostZ;
         return Math.hypot(x - bot.mob.getX(), z - bot.mob.getZ()) <= RUN_INTO;
+    }
+
+    /**
+     * near its place, the one going round round in fact: at its group (as it last knew of it) READY_ANGLE or more off
+     * the pinning one's middle (its place made from an older picture, the group moved on: it goes on to it); its group
+     * not known, or the pinning one all down: as before, its place enough
+     */
+    private static boolean round(AiBot bot, Job pin, TargetMemory.@Nullable Contact c) {
+        if (c == null) return true;
+        double gx = c.state == TargetMemory.State.VISIBLE ? c.x : c.lostX, gz = c.state == TargetMemory.State.VISIBLE ? c.z : c.lostZ;
+        double px = 0, pz = 0;
+        int n = 0;
+        for (AiBot m : pin.members)
+            if (m.mob.isAlive()) {
+                px += m.mob.getX();
+                pz += m.mob.getZ();
+                n++;
+            }
+        if (n == 0) return true;
+        double ax = px / n - gx, az = pz / n - gz, bx = bot.mob.getX() - gx, bz = bot.mob.getZ() - gz;
+        double cos = (ax * bx + az * bz) / Math.max(1e-6, Math.hypot(ax, az) * Math.hypot(bx, bz));
+        return cos <= Math.cos(READY_ANGLE);
     }
 
     private static boolean shotAt(AiBot bot, long now) {

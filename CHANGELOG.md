@@ -1,5 +1,12 @@
 # Changelog
 
+## X1334
+
+- An AI squad sent round the flank for a pinning squad now gives its signal to
+  attack only once it is truly round to the side of the enemy. Before, it could
+  signal while still on the way, near the front, and the two squads came on
+  from almost the same side.
+
 ## X1331
 
 - An AI soldier sent with its squad into a house through a narrow doorway no
