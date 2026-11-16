@@ -192,17 +192,6 @@ final class FireStand {
                 return;
             }
         }
-        // the casings' parts by their vertices (STRIDE floats a vertex)
-        try {
-            var model = com.hbm.main.ResourceManager.casings;
-            var quads = com.hbm.render.loader.GroupObject.class.getDeclaredField("quads");
-            quads.setAccessible(true);
-            for (var g : model.groups) GunFeel.LOGGER.info("[fire-stand] гильзы: часть {} вершин {}", g.name,
-                    ((float[]) quads.get(g)).length / com.hbm.render.loader.GroupObject.STRIDE);
-            for (var t : com.hbm.particle.SpentCasing.CasingType.values()) GunFeel.LOGGER.info("[fire-stand] гильзы: тип {} части {}", t, String.join(",", t.partNames));
-        } catch (Throwable e) {
-            GunFeel.LOGGER.warn("[fire-stand] гильзы: части не прочитаны", e);
-        }
         index = 0;
         prepare();
     }
