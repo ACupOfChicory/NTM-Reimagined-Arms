@@ -85,14 +85,23 @@ class HqGridTest {
     }
 
     @Test
-    void crownsHideAFewCellsIn() {
+    void underwoodHidesAFewCellsIn() {
+        // a wood with underwood round its trees (a fifth of the columns in leaves at a look's height): its edge seen,
+        // a few cells in not
         HqGrid g = field();
         for (int i = 0; i < HqGrid.N; i++)
-            for (int k = 20; k <= 30; k++) g.set(i, k, 64, 1, 0, 0);
+            for (int k = 20; k <= 30; k++) g.set(i, k, 64, 0.22, 0, 0);
         g.sight(mid(32), mid(12));
         assertTrue(g.seen(32, 19) > 0.9);
         assertTrue(g.seen(32, 20) > 0.5 && g.seen(32, 20) < 0.95, "the wood's edge " + g.seen(32, 20));
+        assertTrue(g.seen(32, 21) < g.seen(32, 20), "a cell in " + g.seen(32, 21));
         assertTrue(g.seen(32, 24) == 0, "deep in the wood " + g.seen(32, 24));
+        // leaves all through at a look's height: hardly past the edge
+        HqGrid w = field();
+        for (int i = 0; i < HqGrid.N; i++)
+            for (int k = 20; k <= 30; k++) w.set(i, k, 64, 1, 0, 0);
+        w.sight(mid(32), mid(12));
+        assertTrue(w.seen(32, 20) < 0.5 && w.seen(32, 21) == 0, "a wall of leaves " + w.seen(32, 20) + ", " + w.seen(32, 21));
     }
 
     @Test

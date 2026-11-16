@@ -103,9 +103,12 @@ public final class AiConfidence {
         return value(tick) >= HIGH;
     }
 
-    /** holding back this tick */
+    /** its squad's assault (stage 7 C3, StaffMove): no holding back till this tick */
+    long storm = Long.MIN_VALUE;
+
+    /** holding back this tick (not in its squad's assault) */
     public boolean holdsBack(long tick) {
-        return value(tick) <= LOW;
+        return tick > storm && value(tick) <= LOW;
     }
 
     /** falling back this tick (AiSoldier: to cover farther off, a squad in waves): from BREAK down, until back at LOW */
