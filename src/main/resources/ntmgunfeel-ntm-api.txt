@@ -284,6 +284,12 @@ BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraf
 BULLETS method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
 BULLETS method com/hbm/sound/EntitySounds play (Lnet/minecraft/world/entity/Entity;DDDLnet/minecraft/core/Holder;Lnet/minecraft/sounds/SoundSource;FF)V
 BULLETS method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
+CASINGS class com/hbm/particle/SpentCasing
+CASINGS field com/hbm/main/ResourceManager casings Lcom/hbm/render/loader/HFRWavefrontObject;
+CASINGS method com/hbm/particle/SpentCasing getColors ()[I
+CASINGS method com/hbm/particle/SpentCasing getType ()Lcom/hbm/particle/SpentCasing$CasingType;
+CASINGS method com/hbm/particle/SpentCasing$CasingType partIds ()[I
+CASINGS method com/hbm/render/loader/HFRWavefrontObject renderPart (Lcom/mojang/blaze3d/vertex/PoseStack$Pose;Lcom/mojang/blaze3d/vertex/VertexConsumer;III)V
 CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 CLICK_AIM method com/hbm/client/Keybinds isGunHeld ()Z
@@ -323,6 +329,8 @@ CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
 CORE class com/hbm/items/weapon/sedna/Receiver
 CORE class com/hbm/items/weapon/sedna/mags/IMagazine
 CORE class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
+CORE class com/hbm/particle/ParticleSpentCasing
+CORE class com/hbm/particle/SpentCasing
 CORE class com/hbm/registration/RegistryHandle
 CORE class com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase
 CORE field com/hbm/blocks/generic/BlockWoodStructure kind Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
@@ -478,6 +486,11 @@ CORE field com/hbm/lib/ModDamageTypes DIGAMMA Lnet/minecraft/resources/ResourceK
 CORE field com/hbm/lib/ModDamageTypes EXPLOSIVE Lnet/minecraft/resources/ResourceKey;
 CORE field com/hbm/lib/ModDamageTypes NUCLEAR_BLAST Lnet/minecraft/resources/ResourceKey;
 CORE field com/hbm/lib/ModDamageTypes RADIATION Lnet/minecraft/resources/ResourceKey;
+CORE field com/hbm/particle/ParticleSpentCasing prevRotationPitch F
+CORE field com/hbm/particle/ParticleSpentCasing prevRotationYaw F
+CORE field com/hbm/particle/ParticleSpentCasing rotationPitch F
+CORE field com/hbm/particle/ParticleSpentCasing rotationYaw F
+CORE field com/hbm/particle/SpentCasing casingMap Ljava/util/HashMap;
 CORE field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 CORE field com/hbm/util/DamageClass PHYSICAL Lcom/hbm/util/DamageClass;
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
@@ -617,6 +630,8 @@ CORE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getCapacity (
 CORE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 CORE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
 CORE method com/hbm/lib/ModDamageTypes forClass (Lcom/hbm/util/DamageClass;)Lnet/minecraft/resources/ResourceKey;
+CORE method com/hbm/particle/ParticleSpentCasing <init> (Lnet/minecraft/client/multiplayer/ClientLevel;DDDDDDFFLcom/hbm/particle/SpentCasing;ZIDI)V
+CORE method com/hbm/particle/SpentCasing getName ()Ljava/lang/String;
 CORE method com/hbm/particle/SpentCasing getScaleX ()F
 CORE method com/hbm/particle/SpentCasing getScaleY ()F
 CORE method com/hbm/particle/SpentCasing getScaleZ ()F

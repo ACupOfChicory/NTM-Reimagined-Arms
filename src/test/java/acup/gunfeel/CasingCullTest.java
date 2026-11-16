@@ -61,6 +61,8 @@ class CasingCullTest {
         public double gunfeel$relZ() { return relZ; }
         public float gunfeel$heightQuarter() { return heightQuarter; }
         public float gunfeel$scaleLift() { return scaleLift; }
+        public com.hbm.particle.SpentCasing gunfeel$config() { return null; }
+        public int gunfeel$light() { return 0; }
 
         // the pose NTM's State.submit gives the body: translate, scale, the two turns, the casing's scale
         PoseStack pose() {
