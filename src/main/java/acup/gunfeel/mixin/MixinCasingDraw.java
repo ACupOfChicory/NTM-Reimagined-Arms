@@ -18,7 +18,7 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 
-// NTM's spent casings: their bodies in the frame and near only, at most Config.casingMax (CasingCull);
+// NTM's spent casings: their bodies in the frame and near only, at most Config.casingMax, in one call (CasingCull);
 // their smoke as NTM draws it. Should NTM change, nothing here applies and the casings are NTM's.
 @Mixin(targets = "com.hbm.particle.CasingParticleGroup$State", remap = false)
 public abstract class MixinCasingDraw {
@@ -36,6 +36,11 @@ public abstract class MixinCasingDraw {
             target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitCustomGeometry(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;Lnet/minecraft/client/renderer/SubmitNodeCollector$CustomGeometryRenderer;)V"))
     private void gunfeel$body(SubmitNodeCollector collector, PoseStack stack, RenderType type, SubmitNodeCollector.CustomGeometryRenderer renderer,
             Operation<Void> original) {
-        if (CasingCull.body(stack)) original.call(collector, stack, type, renderer);
+        if (!CasingCull.body(stack, type, renderer)) original.call(collector, stack, type, renderer);
+    }
+
+    @Inject(method = "submit", at = @At("RETURN"))
+    private void gunfeel$end(SubmitNodeCollector collector, CameraRenderState camera, CallbackInfo ci) {
+        CasingCull.end(collector);
     }
 }
