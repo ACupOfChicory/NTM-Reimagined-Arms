@@ -31,7 +31,6 @@ import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.decoration.Mannequin;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
@@ -80,6 +79,11 @@ final class FireStand {
     private static int altMode;
     private static long lastFrame, tickStart, windowStart, partsAt, holesAt, tracersAt, hudAt;
     private static double serverMs;
+    // the frame's parts (render thread): GameRenderer.render (RenderFrameEvent Pre→Post), the GUI in it, the rest
+    // (present, packets, ticks, extract); the render thread's CPU time; the JVM's GC and allocation over the window
+    private static double gpuNs;
+    private static long renderAt, renderNs, guiAt, guiNs, cpuAt, cpuNs, gcCount0, gcMs0, alloc0, allocMain0;
+    private static final java.lang.management.ThreadMXBean THREADS = java.lang.management.ManagementFactory.getThreadMXBean();
     private static int serverSamples;
     private static final Map<String, Object> CLIENT_DEFAULTS = new TreeMap<>();
     private static String fileBefore;
@@ -90,6 +94,12 @@ final class FireStand {
     }
 
     static void start() {
+        // the frame as players have it: the game's dev-only checks off (the GL passes' validation is off by
+        // neoforge.disableGlValidation, build.gradle.kts)
+        net.minecraft.SharedConstants.IS_RUNNING_IN_IDE = false;
+        // the GPU's time a frame: the game's own timer query, on while its F3 line is (one line of text, always shown)
+        Minecraft.getInstance().debugEntries.setStatus(net.minecraft.client.gui.components.debug.DebugScreenEntries.GPU_UTILIZATION,
+                net.minecraft.client.gui.components.debug.DebugScreenEntryStatus.ALWAYS_ON);
         Minecraft mc = Minecraft.getInstance();
         mc.options.framerateLimit().set(260);
         mc.options.enableVsync().set(false);
@@ -98,7 +108,8 @@ final class FireStand {
         mc.options.fov().set(70);
         cases = Arrays.stream(CASES_PROP.split(";")).map(String::strip).filter(s -> !s.isEmpty()).map(Case::of).toList();
         ROWS.add("случай\tброня\tботов\tрежим\tключи\tначало_мс\tконец_мс\tкадров\tFPS\tсредний_мс\tp50_мс\tp95_мс\tp99_мс\tmax_мс"
-                + "\t1%low_FPS\tтик_клиента_мс\tтик_клиента_p99_мс\tтик_сервера_мс\tпопаданий\tурон_входящий\tсмертей_отменено\tпакетов_в_с\tчастиц\tдыр\tтрасс\tботов_живо\tгильз_сред\tгильз_макс\tнарисовано_сред");
+                + "\t1%low_FPS\tтик_клиента_мс\tтик_клиента_p99_мс\tтик_сервера_мс\tпопаданий\tурон_входящий\tсмертей_отменено\tпакетов_в_с\tчастиц\tдыр\tтрасс\tботов_живо\tгильз_сред\tгильз_макс\tнарисовано_сред"
+                + "\tрендер_мс\tgui_мс\tвне_рендера_мс\tтиков_на_кадр_мс\tcpu_рендера_мс\tgc_в_с\tgc_мс_в_с\tаллок_МБ_с\tаллок_рендера_МБ_с\tgpu_мс");
         PACKET_ROWS.add("случай\tпакет\tв_секунду");
         try {
             Path f = settingsFile();
@@ -108,7 +119,20 @@ final class FireStand {
             fail("подготовка: " + e);
             return;
         }
+        // every sound the client plays (the server's and its own), by id: in packets.tsv as "звук <id>"
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.sound.PlaySoundEvent.class, e -> {
+            if (step == 2 && e.getOriginalSound() != null)
+                PACKETS.computeIfAbsent("звук " + e.getOriginalSound().getIdentifier(), k -> new LongAdder()).increment();
+        });
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Pre.class, e -> tickStart = System.nanoTime());
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderFrameEvent.Post.class, e -> {
+            if (step == 2 && renderAt > 0) renderNs += System.nanoTime() - renderAt;
+        });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGHEST, net.neoforged.neoforge.client.event.RenderGuiEvent.Pre.class,
+                e -> guiAt = System.nanoTime());
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, net.neoforged.neoforge.client.event.RenderGuiEvent.Post.class, e -> {
+            if (step == 2 && guiAt > 0) guiNs += System.nanoTime() - guiAt;
+        });
         NeoForge.EVENT_BUS.addListener(ClientTickEvent.Post.class, e -> {
             if (step == 2 && tickStart > 0 && ticks < TICKS.length) TICKS[ticks++] = System.nanoTime() - tickStart;
         });
@@ -167,6 +191,17 @@ final class FireStand {
                 fail("ключ клиента " + k + ": " + e);
                 return;
             }
+        }
+        // the casings' parts by their vertices (STRIDE floats a vertex)
+        try {
+            var model = com.hbm.main.ResourceManager.casings;
+            var quads = com.hbm.render.loader.GroupObject.class.getDeclaredField("quads");
+            quads.setAccessible(true);
+            for (var g : model.groups) GunFeel.LOGGER.info("[fire-stand] гильзы: часть {} вершин {}", g.name,
+                    ((float[]) quads.get(g)).length / com.hbm.render.loader.GroupObject.STRIDE);
+            for (var t : com.hbm.particle.SpentCasing.CasingType.values()) GunFeel.LOGGER.info("[fire-stand] гильзы: тип {} части {}", t, String.join(",", t.partNames));
+        } catch (Throwable e) {
+            GunFeel.LOGGER.warn("[fire-stand] гильзы: части не прочитаны", e);
         }
         index = 0;
         prepare();
@@ -249,7 +284,8 @@ final class FireStand {
             p.setItemSlot(slots[i], s);
         }
         if (c.mode.equals("miss")) {
-            Mannequin target = EntityTypes.MANNEQUIN.create(level, EntitySpawnReason.COMMAND);
+            // an armour stand, not a mannequin: TACZ's player animations (the owner's mods) throw on a mannequin's making
+            var target = EntityTypes.ARMOR_STAND.create(level, EntitySpawnReason.COMMAND);
             target.snapTo(O.getX() + 3.5, O.getY(), O.getZ() + 0.5, 0F, 0F);
             target.setInvulnerable(true);
             target.addTag(acup.gunfeel.ai.AiBots.TARGET_TAG);
@@ -271,15 +307,18 @@ final class FireStand {
     static void frame() {
         try {
             long t = System.nanoTime();
+            long cpu = THREADS.getCurrentThreadCpuTime();
             Minecraft mc = Minecraft.getInstance();
             if (step == 2) {
+                if (cpuAt > 0) cpuNs += cpu - cpuAt;
+                if (lastFrame > 0) gpuNs += Math.min(1000, mc.getGpuUtilization()) / 100 * (t - lastFrame);
                 if (lastFrame > 0 && frames < FRAMES.length) {
                     if (alt != null && ALT_N[altMode] < ALT_FRAMES[altMode].length) ALT_FRAMES[altMode][ALT_N[altMode]++] = t - lastFrame;
                     FRAMES[frames++] = t - lastFrame;
                 }
                 if (alt != null) {
                     altMode = (frames / 32) % 2;
-                    CasingCull.on = !alt[altMode].equals("ntm");
+                    altApply(alt[altMode]);
                 }
                 if (mc.player.hurtTime > lastHurt) hurts++;
                 if ((frames & 15) == 0) {
@@ -292,6 +331,7 @@ final class FireStand {
                 lastHurt = mc.player.hurtTime;
             }
             lastFrame = t;
+            cpuAt = cpu;
             if (step == 1 && now() >= until) {
                 step = 2;
                 until = now() + MEASURE;
@@ -302,11 +342,21 @@ final class FireStand {
                 PACKETS.clear();
                 ALT_N[0] = ALT_N[1] = 0;
                 windowStart = System.currentTimeMillis();
+                renderNs = guiNs = cpuNs = 0;
+                gpuNs = 0;
+                gcCount0 = gcCount();
+                gcMs0 = gcMs();
+                alloc0 = allocated();
+                allocMain0 = ((com.sun.management.ThreadMXBean) THREADS).getCurrentThreadAllocatedBytes();
                 partsAt = ClientSmoke.particlesSeen();
                 holesAt = ClientSmoke.holesSeen();
                 tracersAt = ClientSmoke.tracesSeen();
             } else if (step == 2 && now() >= until) {
                 step = 3;
+                gcCount0 = gcCount() - gcCount0;
+                gcMs0 = gcMs() - gcMs0;
+                alloc0 = allocated() - alloc0;
+                allocMain0 = ((com.sun.management.ThreadMXBean) THREADS).getCurrentThreadAllocatedBytes() - allocMain0;
                 measure(cases.get(index), windowStart, System.currentTimeMillis());
                 write();
                 if (++index >= cases.size()) {
@@ -315,6 +365,7 @@ final class FireStand {
                     step = 999;
                 } else prepare();
             }
+            renderAt = System.nanoTime();
         } catch (Throwable e) {
             GunFeel.LOGGER.error("[fire-stand]", e);
             fail("исключение: " + e);
@@ -336,7 +387,7 @@ final class FireStand {
         double ksum = 0;
         for (long v : k) ksum += v;
         long packets = 0;
-        for (var e : PACKETS.values()) packets += e.sum();
+        for (var e : PACKETS.entrySet()) if (!e.getKey().startsWith("звук ")) packets += e.getValue().sum();
         int bots = Minecraft.getInstance().getSingleplayerServer().submit(() -> {
             int n = 0;
             for (Entity e : Minecraft.getInstance().getSingleplayerServer().overworld().getAllEntities())
@@ -348,11 +399,20 @@ final class FireStand {
                 ms(f.length == 0 ? 0 : f[f.length - 1]), d(worstSum == 0 ? 0 : worst / (worstSum / 1e9)), ms(ksum / Math.max(1, k.length)),
                 ms(pct(k, 99)), d(serverSamples == 0 ? 0 : serverMs / serverSamples), Integer.toString(hurts), Integer.toString(incoming), Integer.toString(deaths), d(packets / sec),
                 Long.toString(ClientSmoke.particlesSeen() - partsAt), Long.toString(ClientSmoke.holesSeen() - holesAt),
-                Long.toString(ClientSmoke.tracesSeen() - tracersAt), Integer.toString(bots), Long.toString(casingSamples == 0 ? 0 : casingSum / casingSamples), Long.toString(casingPeak), Long.toString(casingSamples == 0 ? 0 : drawnSum / casingSamples)));
+                Long.toString(ClientSmoke.tracesSeen() - tracersAt), Integer.toString(bots), Long.toString(casingSamples == 0 ? 0 : casingSum / casingSamples), Long.toString(casingPeak), Long.toString(casingSamples == 0 ? 0 : drawnSum / casingSamples),
+                ms(renderNs / (double) Math.max(1, f.length)), ms(guiNs / (double) Math.max(1, f.length)), ms((sum - renderNs) / Math.max(1, f.length)),
+                ms(ksum / Math.max(1, f.length)), ms(cpuNs / (double) Math.max(1, f.length)), d(gcCount0 / sec), d(gcMs0 / sec),
+                d(alloc0 / sec / 1048576), d(allocMain0 / sec / 1048576), ms(gpuNs / Math.max(1, f.length))));
         var byRate = new ArrayList<>(PACKETS.entrySet());
         byRate.sort((a, b) -> Long.compare(b.getValue().sum(), a.getValue().sum()));
         for (var e : byRate) PACKET_ROWS.add(c.text + "\t" + e.getKey() + "\t" + d(e.getValue().sum() / sec));
         GunFeel.LOGGER.info("[fire-stand] {}", ROWS.getLast());
+        if (acup.gunfeel.ai.client.BotPoseCache.verify) {
+            GunFeel.LOGGER.info("[fire-stand] позы: посчитано {}, скопировано {}, копий не совпало {}",
+                    acup.gunfeel.ai.client.BotPoseCache.WORKED.get(), acup.gunfeel.ai.client.BotPoseCache.COPIES.get(),
+                    acup.gunfeel.ai.client.BotPoseCache.DIFFER.get());
+            acup.gunfeel.ai.client.BotPoseCache.verify = false;
+        }
         if (alt != null) for (int m = 0; m < 2; m++) {
             long[] a = Arrays.copyOf(ALT_FRAMES[m], ALT_N[m]);
             Arrays.sort(a);
@@ -361,6 +421,46 @@ final class FireStand {
             ROWS.add(String.join("\t", c.text + " → " + alt[m], c.armour, Integer.toString(c.n), c.mode, alt[m], "", "", Integer.toString(a.length),
                     "", ms(s / Math.max(1, a.length)), ms(pct(a, 50)), ms(pct(a, 95)), ms(pct(a, 99))));
         }
+    }
+
+    /**
+     * alt's way: "ntm" / "cull" (the casings), or switches by name, &-separated, each with + (on) or - (off):
+     * "pose-&hit-" / "pose+&hit+"
+     */
+    static final java.util.Map<String, java.util.function.Consumer<Boolean>> SWITCHES = java.util.Map.of(
+            "pose", on -> acup.gunfeel.ai.client.BotPoseCache.on = on);
+
+    private static void altApply(String way) {
+        if (way.equals("ntm") || way.equals("cull")) {
+            CasingCull.on = way.equals("cull");
+            return;
+        }
+        for (String s : way.split("&")) {
+            var sw = SWITCHES.get(s.substring(0, s.length() - 1));
+            if (sw == null) throw new IllegalArgumentException("no stand switch " + s);
+            sw.accept(s.endsWith("+"));
+        }
+    }
+
+    private static void altReset() {
+        for (var sw : SWITCHES.values()) sw.accept(true);
+    }
+
+    private static long gcCount() {
+        long n = 0;
+        for (var b : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) n += Math.max(0, b.getCollectionCount());
+        return n;
+    }
+
+    private static long gcMs() {
+        long n = 0;
+        for (var b : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans())
+            if (!b.getName().contains("Concurrent")) n += Math.max(0, b.getCollectionTime());
+        return n;
+    }
+
+    private static long allocated() {
+        return ((com.sun.management.ThreadMXBean) THREADS).getTotalThreadAllocatedBytes();
     }
 
     private static List<Entity> toList(ServerLevel level) {
@@ -381,10 +481,18 @@ final class FireStand {
         DROP = Set.of();
         CasingCull.on = true;
         alt = null;
+        altReset();
         for (String kv : c.keys) {
             String[] p = kv.split("=", 2);
             if (p[0].equals("alt")) {
                 alt = p[1].split("/");
+                continue;
+            }
+            if (p[0].equals("poseverify")) {
+                acup.gunfeel.ai.client.BotPoseCache.verify = true;
+                acup.gunfeel.ai.client.BotPoseCache.COPIES.set(0);
+                acup.gunfeel.ai.client.BotPoseCache.WORKED.set(0);
+                acup.gunfeel.ai.client.BotPoseCache.DIFFER.set(0);
                 continue;
             }
             if (p[0].equals("casing")) {
