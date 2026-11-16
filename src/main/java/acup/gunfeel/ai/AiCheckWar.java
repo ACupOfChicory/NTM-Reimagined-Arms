@@ -150,7 +150,9 @@ final class AiCheckWar {
     private int nearDone;
     private final int nears;
     private final List<long[]> nearOf = new ArrayList<>();
-    private final java.util.Set<AiCommander.Job> flankJobs = new java.util.HashSet<>(), flankThere = new java.util.HashSet<>();
+    private final java.util.Set<AiCommander.Job> flankJobs = new java.util.HashSet<>(), flankThere = new java.util.HashSet<>(), flankReady = new java.util.HashSet<>();
+    /** the near rounds: the one going round at its signal (ready), the angle at the player between it and the pinning one's middle: counted, WIDE or more */
+    private long readyAngles, readyWide;
     /**
      * the pairs (C4, not near) whose squad going round was sent across the river: from the camp (its way by the ford too
      * long for the pair's time), from anywhere on the camp's bank
@@ -217,6 +219,13 @@ final class AiCheckWar {
                         if (m.getZ() < Z0 + CAMP_Z + CAMP_NEAR) pairsAcross++;
                     }
                     if (Math.hypot(m.getX() - b.order.x, m.getZ() - b.order.z) <= AT_PLACE) flankThere.add(j);
+                    if (near && j.ready != Long.MIN_VALUE && flankReady.add(j)) {
+                        double[] pin = pinMiddle(j, now);
+                        if (pin != null) {
+                            readyAngles++;
+                            if (angle(pin, m) >= WIDE) readyWide++;
+                        }
+                    }
                 }
                 TargetMemory.Contact c = j == null ? null : b.memory.contact(player.getId());
                 if (c == null || c.state != TargetMemory.State.VISIBLE) continue;
@@ -235,11 +244,8 @@ final class AiCheckWar {
             double[] pin = pinMiddle(j, now);
             if (pin == null) continue;
             flanksSeen.add(j);
-            double ax = pin[0] - player.getX(), az = pin[1] - player.getZ(), bx = m.getX() - player.getX(), bz = m.getZ() - player.getZ();
-            double cos = (ax * bx + az * bz) / Math.max(1e-6, Math.hypot(ax, az) * Math.hypot(bx, bz));
-            double deg = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, cos))));
             flankContacts++;
-            if (deg >= WIDE) flankWide++;
+            if (angle(pin, m) >= WIDE) flankWide++;
         }
         // the picture as of this tick's report, against where the player was when it was made (before it moves on)
         long sideReports = AiIntel.reports(level, A);
@@ -549,6 +555,7 @@ final class AiCheckWar {
         wentRound.clear();
         flankJobs.clear();
         flankThere.clear();
+        flankReady.clear();
         flankContacts = flankWide = roundTicks = crossTicks = 0;
         paired0 = AiCommander.paired;
         coupled0 = AiCommander.coupled;
@@ -592,6 +599,13 @@ final class AiCheckWar {
         AiBot b = AiBots.get(m);
         if (b != null) b.gunner.ammo.set(b.gunner.capacity() * 4);
         return m;
+    }
+
+    /** the angle at the player between a place and a mob, degrees */
+    private double angle(double[] at, Mob m) {
+        double ax = at[0] - player.getX(), az = at[1] - player.getZ(), bx = m.getX() - player.getX(), bz = m.getZ() - player.getZ();
+        double cos = (ax * bx + az * bz) / Math.max(1e-6, Math.hypot(ax, az) * Math.hypot(bx, bz));
+        return Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, cos))));
     }
 
     private long nearPairs() {
@@ -750,10 +764,10 @@ final class AiCheckWar {
                     + " of the ticks one going round sees it: C2 %.0f%%, C3 %.0f%%, C4 %.0f%%", (double) crossOf[TASKS] / Math.max(1, roundsOf[TASKS]),
                     (double) crossOf[MOVES] / Math.max(1, roundsOf[MOVES]), (double) crossOf[PAIRS] / Math.max(1, roundsOf[PAIRS]),
                     100.0 * crossOf[TASKS] / Math.max(1, roundOf[TASKS]), 100.0 * crossOf[MOVES] / Math.max(1, roundOf[MOVES]), 100.0 * crossOf[PAIRS] / Math.max(1, roundOf[PAIRS])));
-            // with the near rounds' (on the river's field few go round now: its ford too far)
-            long flanks = flankOf[PAIRS] + nearFlank, wide = wideOf[PAIRS] + nearWide;
+            // near, the camp 80 blocks off: one of the pair sees the player within CLOSE before they part; there the angle at its signal
             check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round comes on the player %.0f degrees or more off the pinning one %d times of %d (half at least;"
-                    + " near %d of %d), %d pairs made", WIDE, wide, flanks, nearWide, nearFlank, pairsMade), pairsMade + nearPairs() > 0 && flanks > 0 && wide * 2 >= flanks);
+                    + " near, first seen within %.0f: %d of %d), %d pairs made", WIDE, wideOf[PAIRS], flankOf[PAIRS], CLOSE, nearWide, nearFlank, pairsMade),
+                    pairsMade > 0 && flankOf[PAIRS] > 0 && wideOf[PAIRS] * 2 >= flankOf[PAIRS]);
         }
         if (roundsOf[PAIRS] > 0)
             check.check(String.format(Locale.ROOT, "war: the pairs (C4), no squad going round for a pair sent across the river from the camp (its ford too far for the pair's time):"
@@ -771,6 +785,8 @@ final class AiCheckWar {
                     + " C3 %d of %d, C4 %d of %d; C4 pairs %d, ready in time %d, out of time %d; the player under fire from two sides, ticks a round: C3 %.0f, C4 %.0f;"
                     + " of the ticks one going round sees it: C3 %.0f%%, C4 %.0f%%", NEAR_Z - WALK_Z, c3[0], c4[0], AT_PLACE, c3[7], c3[6], c4[7], c4[6], c4[1], c4[2], c4[3],
                     (double) c3[5] / Math.max(1, c3[0]), (double) c4[5] / Math.max(1, c4[0]), 100.0 * c3[5] / Math.max(1, c3[4]), 100.0 * c4[5] / Math.max(1, c4[4])));
+            if (c4[0] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the squad going round is %.0f degrees or more off the pinning one at its signal %d times of %d (half at least)",
+                    WIDE, readyWide, readyAngles), readyAngles > 0 && readyWide * 2 >= readyAngles);
             if (c4[0] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the staff pairs its squads and the one going round is ready in time: %d pairs, %d ready in time"
                     + " (half at least), %d out of time", c4[1], c4[2], c4[3]), c4[1] > 0 && c4[2] * 2 >= c4[1]);
         }

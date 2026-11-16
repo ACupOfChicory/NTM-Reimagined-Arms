@@ -188,9 +188,9 @@ final class StaffPlan {
                         f = f2;
                     }
                     out[a] = p;
-                    // no side to go round to in time (a river between, its ford far: C4), or no map yet to tell: it pins
-                    // too, rather than be gone minutes on the way round
-                    out[b] = f != null && grid != null ? f : pin(grid, g, k, squads.get(b).x, squads.get(b).z);
+                    // no side to go round to in time (a river between, its ford far: C4), or no map yet to tell (the pairs
+                    // on): it pins too, rather than be gone minutes on the way round
+                    out[b] = f != null && (grid != null || !AiCommander.pairs()) ? f : pin(grid, g, k, squads.get(b).x, squads.get(b).z);
                     sent[k] += 2;
                     continue;
                 }
