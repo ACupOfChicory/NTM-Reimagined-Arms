@@ -309,6 +309,11 @@ page. They are alphas: expect bugs and back up your world.
   into a room already checked (server key `aiClearing`). Into the next room
   inside they go as into the first: from beside the doorway, together (with
   `aiEntry` on).
+- They go into a trench one wide as into a building: each straight stretch
+  is a room, each turn a doorway. They stack up beside a turn, one steps
+  into it and throws a grenade down the next stretch, then they go in and
+  search stretch after stretch, instead of walking along the edge above it
+  (server key `aiTrenches`).
 - They tell a cave from a building by what its walls, floor and roof are
   made of (server key `aiRoomsShell`; the block lists are settings too).
 - They move their bodies: breathing, flinching at hits, aiming, reloading,
