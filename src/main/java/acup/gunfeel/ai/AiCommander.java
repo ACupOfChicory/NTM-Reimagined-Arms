@@ -1016,7 +1016,7 @@ public final class AiCommander {
     private static HqGrid.@Nullable Route tail(ServerLevel level, Job j, Order o, long tick) {
         if (j.tail != null && Math.hypot(j.tail.toX() - o.x, j.tail.toZ() - o.z) <= REROUTE) return j.tail;
         j.tail = null;
-        if (tick - j.tailNot < TAIL_AGAIN) return null;
+        if (j.tailNot != Long.MIN_VALUE && tick - j.tailNot < TAIL_AGAIN) return null;
         List<AiBot> of = StaffMove.squad(j);
         if (of.isEmpty()) return null;
         double mx = 0, mz = 0;
