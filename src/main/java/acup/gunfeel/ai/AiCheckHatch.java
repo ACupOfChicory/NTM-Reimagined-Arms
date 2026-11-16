@@ -42,6 +42,34 @@ final class AiCheckHatch {
     private final ServerLevel level;
     private final int y;
     private boolean started;
+    /** the last round down (on, steel) with rungs knocked out of its ladder at the start, GAP of them, blocks over the floor */
+    static final int GAP_AT = 4, GAP = 2;
+    /** the squad's falls hurting it, in all; rungs found gone (not knocked out by the stand), in all */
+    private int falls, rungsLost;
+    /** the rungs gone this round already told */
+    private final java.util.Set<Integer> rungsGone = new java.util.HashSet<>();
+
+    private boolean gapRound() {
+        return round == ROUNDS - 1;
+    }
+
+    /**
+     * Each tick the shaft's ladder looked over: a rung gone told once, with what is about it then (a full check's round
+     * with no grenade had one gone: bullets break a ladder by the mod's rules, the fight on it knocks rungs out)
+     */
+    private void rungs() {
+        for (int yy = floor() + 1; yy < top(); yy++) {
+            if (gapRound() && yy >= floor() + GAP_AT && yy < floor() + GAP_AT + GAP) continue;
+            BlockPos p = new BlockPos(SX, yy, SZ);
+            if (level.getBlockState(p).getBlock() instanceof LadderBlock || !rungsGone.add(yy)) continue;
+            rungsLost++;
+            StringBuilder about = new StringBuilder();
+            for (Entity e : level.getEntities((Entity) null, new AABB(p).inflate(6)))
+                about.append(String.format(Locale.ROOT, " %s %.1f %.1f %.1f age %d;", e.getType().toShortString(), e.getX(), e.getY(), e.getZ(), e.tickCount));
+            check.out(String.format(Locale.ROOT, "     hatch, round %d, tick %d: a rung gone at y %d (%s); bursts %s; about it:%s", round + 1, ticks, yy, level.getBlockState(p), bursts, about));
+        }
+    }
+
     private int round = -1, ticks, downs, ownBlast, frags0, begun0, deep0, down0, noFrag0, unsafe0, rim0;
     private int[] none0 = new int[4];
     private String belowBy = "-";
@@ -83,6 +111,7 @@ final class AiCheckHatch {
             return false;
         }
         ticks++;
+        rungs();
         for (var e : level.getEntities((Entity) null, new AABB(X0 - 8, floor() - 2, Z0 - 24, X0 + 40, y + 30, Z0 + 24),
                 e -> e.getClass().getSimpleName().toLowerCase(Locale.ROOT).contains("grenade"))) nades.put(e.getId(), e.position());
         for (var it = nades.entrySet().iterator(); it.hasNext();) {
@@ -99,7 +128,8 @@ final class AiCheckHatch {
             float h = m.isAlive() ? m.getHealth() : 0;
             if (h < health[i]) {
                 var by = m.getLastDamageSource();
-                if (by == null || by.getDirectEntity() == null || !by.getDirectEntity().getType().toShortString().contains("bullet")) ownBlast++;
+                if (by != null && by.is(net.minecraft.tags.DamageTypeTags.IS_FALL)) falls++;
+                else if (by == null || by.getDirectEntity() == null || !by.getDirectEntity().getType().toShortString().contains("bullet")) ownBlast++;
             }
             if (health[i] > 0 && (round >= ROUNDS ? m.getY() >= y - 0.1 : m.getY() < top() - 1) && !wasDown[i]) {
                 wasDown[i] = true;
@@ -182,7 +212,14 @@ final class AiCheckHatch {
         for (int i = 0; i < SQUAD; i++) wasDown[i] = false;
         boolean up = r >= ROUNDS;
         // built again: the grenade down the shaft before broke its foot's rungs
+        // (shots of the round before still flying at its end break the rungs built again: a bullet breaks a ladder, the
+        // mod's bullet rules)
+        AiCheck.clearShots(level);
         if (r > 0) build();
+        rungsGone.clear();
+        // (the last round down: two rungs knocked out halfway, as a grenade does, the way down past them a drop)
+        if (r == ROUNDS - 1)
+            for (int k = 0; k < GAP; k++) level.setBlock(new BlockPos(SX, floor() + GAP_AT + k, SZ), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
         // (up: off, else the one on the ground drops its grenade down on the squad: the ladder alone is counted)
         AiHatch.on = hatchOn && !up && r % 2 == 1;
         AiHatch.forget(level);
@@ -300,6 +337,9 @@ final class AiCheckHatch {
                     oakDown == on[3] / 2 && steelDown == on[3] / 2);
             check.check(String.format(Locale.ROOT, "hatch: a grenade down the shaft first (%d in %d rounds)", on[2], on[3]), on[2] * 2 >= on[3]);
             check.check("hatch: none of the squad hurt by its own grenade down the shaft (" + hurt + ")", hurt == 0);
+            // (its last round down has two rungs knocked out halfway: the steel rounds down are checked above)
+            check.check("hatch: down a ladder past two rungs knocked out, none of the squad hurt by the drop (" + falls + " falls hurt)", falls == 0);
+            check.out("     hatch: rungs found gone in all (not knocked out by the stand): " + rungsLost);
             // all of them: one hanging on the ladder's top rung under the open hatch is not up
             check.check(String.format(Locale.ROOT, "hatch: the squad comes up the shaft through an oak and a steel hatch, all of it (oak %d, steel %d of %d each)", upOak, upSteel, SQUAD),
                     upOak == SQUAD && upSteel == SQUAD);

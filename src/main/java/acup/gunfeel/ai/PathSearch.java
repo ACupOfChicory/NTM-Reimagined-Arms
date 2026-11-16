@@ -292,6 +292,14 @@ public final class PathSearch {
                 if (next == NONE) continue;
                 n.relax(next, n.g[cur] + CLIMB + cost.extra(x, y + dy, z), heuristic(x, y + dy, z, gx, gy, gz), cur);
             }
+            // down a ladder past rungs knocked out (a grenade down the shaft): a drop straight down through the gap
+            if ((here & SectionCells.CLIMB) != 0) {
+                long next = gapDown(r, x, y, z);
+                if (next != NONE) {
+                    int fall = y - BlockPos.getY(next);
+                    n.relax(next, n.g[cur] + (CLIMB + DOWN) * fall + cost.extra(x, y - fall, z), heuristic(x, y - fall, z, gx, gy, gz), cur);
+                }
+            }
             // up off a ladder's top rung through a shut hatch over it, onto the floor beside it
             if ((here & SectionCells.CLIMB) != 0) for (int d = 0; d < 8; d += 2) {
                 long next = hatchUp(r, x, y, z, d);
@@ -336,6 +344,22 @@ public final class PathSearch {
     static long climb(Reader r, int x, int y, int z, int dy) {
         if ((r.flags(x, y, z) & SectionCells.CLIMB) == 0 || (r.flags(x, y + dy, z) & SectionCells.CLIMB) == 0) return NONE;
         return r.has(x, y + dy, z) ? BlockPos.asLong(x, y + dy, z) : NONE;
+    }
+
+    /** rungs knocked out of a ladder gone down past at most, blocks (the drop onto what is under them no more than MAX_DROP) */
+    static final int GAP_MOST = MAX_DROP - 1;
+
+    /**
+     * Down a ladder from a rung over a gap in it (1 to GAP_MOST blocks open, no rung): the rung or the floor's cell under
+     * the gap, straight down, or NONE (a drop of more is no way: past MAX_DROP it hurts, and up again there is none)
+     */
+    static long gapDown(Reader r, int x, int y, int z) {
+        if ((r.flags(x, y, z) & SectionCells.CLIMB) == 0 || (r.flags(x, y - 1, z) & SectionCells.CLIMB) != 0) return NONE;
+        for (int g = 1; g <= GAP_MOST; g++) {
+            if (!r.open(x, y - g, z) || r.has(x, y - g, z)) return NONE;
+            if (r.has(x, y - g - 1, z)) return BlockPos.asLong(x, y - g - 1, z);
+        }
+        return NONE;
     }
 
     /**
