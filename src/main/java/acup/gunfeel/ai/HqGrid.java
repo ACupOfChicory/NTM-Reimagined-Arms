@@ -30,8 +30,11 @@ public final class HqGrid {
     static final double CLUMP = 3, FADED = 0.25;
     /** the enemy sees this far, blocks */
     public static final double RANGE = 128;
-    /** the cost of a cell on the enemy's sight (times its length, on top of the length); in water to swim, to wade */
-    public static final double SEEN = 3, SWIM = 8, WADE = 1;
+    /**
+     * the cost of a cell on the enemy's sight (times its length, on top of the length); in water to swim (the soldiers
+     * stop at deep water: a ford a dozen cells aside is the way, the war stand), to wade
+     */
+    public static final double SEEN = 3, SWIM = 60, WADE = 1;
     /** cells whose height differs by more than this from the last are steep, costing more; by more than CLIFF, no way */
     static final double STEEP = 2, CLIFF = 6;
     /** a cell nothing is known of costs this */
@@ -308,10 +311,19 @@ public final class HqGrid {
     /**
      * a way: where from and where it was asked to go, its points (blocks, x and z by turns, the last where it ends:
      * short of where it was asked when that was off the map), how long it is against the straight line, the part of
-     * each in the enemy's sight short of its last END blocks (there it is at the enemy, seen or not)
+     * each in the enemy's sight short of its last END blocks (there it is at the enemy, seen or not); the shortest way
+     * there over the map, the enemy's sight aside (the straight line where water to swim lies across it: a ford aside),
+     * and its part in the enemy's sight short of its last END blocks; the blocks of each up to the first water it
+     * crosses (a ford: beyond it every way goes the same; with none, the whole short of its last END blocks) and the
+     * part of them in sight
      */
     public record Route(double fromX, double fromZ, double toX, double toZ, double[] points, double length, double straight, double seenPart,
-            double straightSeenPart) {
+            double straightSeenPart, double shortest, double shortestSeenPart, double dry, double dryPart, double shortestDry, double shortestDryPart) {
+        public Route(double fromX, double fromZ, double toX, double toZ, double[] points, double length, double straight, double seenPart, double straightSeenPart) {
+            this(fromX, fromZ, toX, toZ, points, length, straight, seenPart, straightSeenPart, length, seenPart, Math.max(0, length - END), seenPart, Math.max(0, length - END),
+                    seenPart);
+        }
+
         /** it ends short of where it was asked to go (that was off the map) */
         public boolean partial() {
             return Math.hypot(x(size() - 1) - toX, z(size() - 1) - toZ) > 1;
@@ -333,24 +345,61 @@ public final class HqGrid {
     /**
      * The way from one place to another over the map: a place off the map is taken where the straight line to it
      * leaves the map. The enemy's sight weighs SEEN, half that if the way comes out more than DETOUR times the
-     * straight one, none at all if it still does. Null: no way (from or to a cell with none).
+     * shortest one (the enemy's sight aside: a river across, by its ford), none at all if it still does. Null: no way
+     * (from or to a cell with none).
      */
     public Route route(double fx, double fz, double tx, double tz) {
         double[] to = clampToMap(fx, fz, tx, tz);
         int ai = cellX(fx), ak = cellZ(fz), bi = cellX(to[0]), bk = cellZ(to[1]);
         if (ai < 0 || ak < 0 || bi < 0 || bk < 0) return null;
         double straight = Math.hypot(to[0] - fx, to[1] - fz);
-        int[] p = null;
-        for (double w : new double[] {SEEN, SEEN / 2, 0}) {
-            p = path(ai, ak, bi, bk, w);
-            if (p == null) return null;
-            if (cells(p) * CELL <= Math.max(straight * DETOUR, 2 * CELL)) break;
+        // the shortest first, the enemy's sight aside: the ways that keep out of it are measured against it
+        int[] shortest = path(ai, ak, bi, bk, 0);
+        if (shortest == null) return null;
+        double most = Math.max(Math.max(straight, cells(shortest) * CELL) * DETOUR, 2 * CELL);
+        int[] p = shortest;
+        for (double w : new double[] {SEEN, SEEN / 2}) {
+            int[] q = path(ai, ak, bi, bk, w);
+            if (q != null && cells(q) * CELL <= most) {
+                p = q;
+                break;
+            }
         }
-        double[] pts = thin(p, fx, fz, to[0], to[1]);
-        double length = 0;
+        double[] pts = thin(p, fx, fz, to[0], to[1]), least = p == shortest ? pts : thin(shortest, fx, fz, to[0], to[1]);
+        double seen = seenPart(fx, fz, pts, END), leastSeen = p == shortest ? seen : seenPart(fx, fz, least, END);
+        double[] d = dry(fx, fz, pts, seen), e = dry(fx, fz, least, leastSeen);
+        return new Route(fx, fz, tx, tz, pts, length(fx, fz, pts), straight, seen, seenPart(fx, fz, new double[] {to[0], to[1]}, END), length(fx, fz, least),
+                leastSeen, d[0], d[1], e[0], e[1]);
+    }
+
+    /**
+     * a way's blocks up to the first water it crosses and their part in the enemy's sight; with none, the blocks short
+     * of its last END and the part as given
+     */
+    private double[] dry(double fx, double fz, double[] pts, double all) {
+        double px = fx, pz = fz;
+        for (int j = 0; j < pts.length; j += 2) {
+            double len = Math.hypot(pts[j] - px, pts[j + 1] - pz);
+            int steps = Math.max(1, (int) Math.ceil(len));
+            for (int s = 0; s < steps; s++) {
+                double t = (s + 0.5) / steps, x = px + (pts[j] - px) * t, z = pz + (pts[j + 1] - pz) * t;
+                int i = cellX(x), k = cellZ(z);
+                if (i < 0 || k < 0 || !known[index(i, k)] || wet[index(i, k)] < 0.5 && deep[index(i, k)] < 0.5) continue;
+                double[] cut = java.util.Arrays.copyOf(pts, j + 2);
+                cut[j] = x;
+                cut[j + 1] = z;
+                return new double[] {length(fx, fz, cut), seenPart(fx, fz, cut, 0)};
+            }
+            px = pts[j];
+            pz = pts[j + 1];
+        }
+        return new double[] {Math.max(0, length(fx, fz, pts) - END), all};
+    }
+
+    private static double length(double fx, double fz, double[] pts) {
+        double length = Math.hypot(pts[0] - fx, pts[1] - fz);
         for (int j = 2; j < pts.length; j += 2) length += Math.hypot(pts[j] - pts[j - 2], pts[j + 1] - pts[j - 1]);
-        length += Math.hypot(pts[0] - fx, pts[1] - fz);
-        return new Route(fx, fz, tx, tz, pts, length, straight, seenPart(fx, fz, pts, END), seenPart(fx, fz, new double[] {to[0], to[1]}, END));
+        return length;
     }
 
     /** the length of a path over cells, in cells */

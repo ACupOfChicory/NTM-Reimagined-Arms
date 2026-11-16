@@ -1,5 +1,13 @@
 # Changelog
 
+## X1187
+
+- The AI commander's ways go by a ford rather than straight through deep
+  water: soldiers stop at a river too deep to wade, so a squad sent across
+  one no longer stands at its bank. A way round by a ford still keeps out of
+  the enemy's sight where it can: it is measured against the shortest way
+  there, not the straight line across the river.
+
 ## X1165
 
 - AI soldiers now also go into trenches two wide, and count a fire step as
