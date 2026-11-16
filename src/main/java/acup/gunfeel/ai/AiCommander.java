@@ -1077,6 +1077,13 @@ public final class AiCommander {
                 flankers.add(s);
             }
         }
+        // a pair whose other is gone (its squad dead, its task another now) before it was ready: undone, to pair again
+        for (List<Job> l : List.of(pins, flanks))
+            for (Job j : l)
+                if (j.partner != null && j.ready == Long.MIN_VALUE && (j.partner.partner != j || !pins.contains(j.partner) && !flanks.contains(j.partner))) {
+                    j.partner = null;
+                    j.due = Long.MAX_VALUE;
+                }
         for (int i = 0; i < flanks.size(); i++) {
             Job f = flanks.get(i);
             if (f.partner == null) for (Job p : pins) {
@@ -1103,18 +1110,23 @@ public final class AiCommander {
         }
     }
 
+    private static boolean contains(int[] a, int x) {
+        for (int y : a) if (y == x) return true;
+        return false;
+    }
+
     private static boolean shares(int[] a, int[] b) {
         for (int x : a) for (int y : b) if (x == y) return true;
         return false;
     }
 
-    /** a pair's one going round in a fight (its squad has a target): ready (C4) */
+    /** a pair's one going round in a fight with its group (its squad's target one of it): ready (C4) */
     private static void couple(ServerLevel level, long now) {
         for (AiSquads.Squad s : AiSquads.squads(level)) {
             if (s.target < 0) continue;
             for (AiBot b : s.bots) {
-                Job j = has(b, now) ? b.order.job : null;
-                if (j != null && j.kind == StaffPlan.Kind.FLANK && j.partner != null) {
+                Job j = b.order != null && now <= b.order.until ? b.order.job : null;
+                if (j != null && j.kind == StaffPlan.Kind.FLANK && j.partner != null && j.ready == Long.MIN_VALUE && contains(j.ids, s.target)) {
                     ready(level, j, now);
                     break;
                 }
@@ -1152,18 +1164,22 @@ public final class AiCommander {
      * (AiSquads.suppresses)
      */
     static boolean presses(AiBot bot, long tick) {
-        if (!pairs() || !has(bot, tick)) return false;
-        Job j = bot.order.job;
-        return j != null && j.kind == StaffPlan.Kind.PIN && j.ready != Long.MIN_VALUE && tick < j.due;
+        Order o = bot.order;
+        Job j = o == null || tick > o.until ? null : o.job;
+        return j != null && j.kind == StaffPlan.Kind.PIN && j.ready != Long.MIN_VALUE && tick < j.due && pairs() && on();
     }
 
-    /** pinning or holding (C4): a foe lost farther than LEASH from its place is not gone after, nor gone round */
+    /**
+     * pinning or holding (C4), once within LEASH of its place (on the way there it is free): a foe lost farther than
+     * LEASH from the place is not gone after, nor gone round
+     */
     static boolean leashed(AiBot bot, int target, long tick) {
-        if (!pairs() || !has(bot, tick)) return false;
-        Job j = bot.order.job;
+        Order o = bot.order;
+        Job j = o == null || tick > o.until ? null : o.job;
         if (j == null || j.kind != StaffPlan.Kind.PIN && j.kind != StaffPlan.Kind.HOLD) return false;
+        if (Math.hypot(bot.mob.getX() - o.x, bot.mob.getZ() - o.z) > LEASH) return false;
         TargetMemory.Contact c = bot.memory.contact(target);
-        return c != null && Math.hypot(c.lostX - bot.order.x, c.lostZ - bot.order.z) > LEASH;
+        return c != null && Math.hypot(c.lostX - o.x, c.lostZ - o.z) > LEASH && pairs() && on();
     }
 
     /** /armsai info */

@@ -173,9 +173,9 @@ final class AiCheckWar {
             if (j == null || j.kind != StaffPlan.Kind.FLANK || flanksSeen.contains(j)) continue;
             TargetMemory.Contact c = b.memory.contact(player.getId());
             if (c == null || c.state != TargetMemory.State.VISIBLE) continue;
-            flanksSeen.add(j);
             double[] pin = pinMiddle(j, now);
             if (pin == null) continue;
+            flanksSeen.add(j);
             double ax = pin[0] - player.getX(), az = pin[1] - player.getZ(), bx = m.getX() - player.getX(), bz = m.getZ() - player.getZ();
             double cos = (ax * bx + az * bz) / Math.max(1e-6, Math.hypot(ax, az) * Math.hypot(bx, bz));
             double deg = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, cos))));
