@@ -178,6 +178,8 @@ public final class AiCrossing {
     /** the stands: why a crossing went under smoke: under fire, its own fire heard, a foe known at the far bank */
     public static final int[] smokeWhy = new int[3];
     public static int begun, smoked, securitySent, pairsSent, lastSent, back, onward, over, notOver, watches, scouted, found;
+    /** ones come into a crossing under way (a squad made since): at the near bank, or over already */
+    public static int joined;
 
     private AiCrossing() {
     }
@@ -500,24 +502,35 @@ public final class AiCrossing {
     /** an ordered crossing for its squad (its staff's task), or the one its side has here; null if none */
     private static @Nullable Op ordered(PerLevel l, AiBot bot, ServerLevel level, long tick) {
         Task t = task(bot, tick);
-        if (t == null || AiWater.swims(bot.mob) || past(t, bot.mob.position())) return null;
+        if (t == null || AiWater.swims(bot.mob)) return null;
         String team = AiSquads.team(bot);
         String key = team + ":" + Math.round(t.crossX()) + ":" + Math.round(t.crossZ());
         Op op = l.ops.get(key);
         TacticalMap map = TacticalMap.of(level);
         if (op != null) {
-            // its side's crossing here under way: one of a squad made since joins it, with the main body
-            if (bot.mob.distanceToSqr(centre(op.near)) > JOIN * JOIN || op.phase == Phase.LAST) return null;
-            if (!op.members.contains(bot)) {
+            if (op.members.contains(bot)) return op;
+            // its side's crossing here under way: one of a squad made since joins it. At the near bank it waits its
+            // turn, with the main body (with the last, the near side's security, once that is going); over already,
+            // it goes to a place at the far bank and holds it with its own
+            // (the near side: short of the river's middle, the strip between the staff's place and the water too)
+            if (side(op, bot.mob.position()) <= 0) {
+                if (bot.mob.distanceToSqr(centre(op.near)) > JOIN * JOIN) return null;
                 op.members.add(bot);
-                op.main.add(bot);
+                (op.phase == Phase.LAST ? op.cover : op.main).add(bot);
                 bankPlace(op, map, bot, op.members.size());
-                l.of.put(bot.mob.getId(), op);
-                Watch w = l.watching.remove(bot.mob.getId());
-                if (w != null) w.members.remove(bot);
+            } else {
+                // not before its far side's security goes (the gathering at the near bank does not wait for it)
+                if (op.phase.ordinal() < Phase.SECURITY.ordinal() || bot.mob.distanceToSqr(centre(op.far)) > JOIN * JOIN) return null;
+                op.members.add(bot);
+                send(op, map, bot, tick);
             }
+            joined++;
+            l.of.put(bot.mob.getId(), op);
+            Watch w = l.watching.remove(bot.mob.getId());
+            if (w != null) w.members.remove(bot);
             return op;
         }
+        if (past(t, bot.mob.position())) return null;
         if ((tick + bot.mob.getId()) % LOOK != 0) return null;
         AiSquads.Squad sq = AiSquads.of(bot);
         if (sq == null || sq.bots.size() < SQUAD) return null;
