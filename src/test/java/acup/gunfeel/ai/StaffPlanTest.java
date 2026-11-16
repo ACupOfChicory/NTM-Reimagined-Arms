@@ -42,7 +42,7 @@ class StaffPlanTest {
     void noMapNoGoingRound() {
         Task[] t = StaffPlan.plan(List.of(squad(0, 0, 3), squad(30, 0, 3)), List.of(group(0, 100, 3)), null, 0, 0, 160, AiCommander.PER, NOW, 0);
         assertEquals(Kind.PIN, t[0].kind());
-        assertEquals(Kind.PIN, t[1].kind());
+        assertEquals(Kind.HOLD, t[1].kind());
     }
 
     @Test

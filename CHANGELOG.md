@@ -10,8 +10,8 @@
   (its way's length over the ground at a walk, half as long again, and 30
   seconds more, at most 90 seconds), both squads go in. It goes round on the
   side nearer to get to (by a ford, where a river lies between); where neither
-  side is got round to in the pair's time, or before the commander has mapped
-  the ground, both squads pin. A squad pinning or holding a place no longer
+  side is got round to in the pair's time, both squads pin, and before the
+  commander has mapped the ground, the other holds where it is. A squad pinning or holding a place no longer
   chases a lost enemy more than 24 blocks from it. Server key
   `aiCommanderPairs` (true); false: each squad goes about its task on its own,
   as before.
