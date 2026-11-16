@@ -155,7 +155,7 @@ final class AiCheckAlert {
     private final Map<String, Integer> notBoth = new TreeMap<>();
     /** the sentry: one soldier, no one about, this long; its head's sweep at least, degrees; its turn a tick at most */
     static final int SENTRY_TICKS = 600;
-    static final double SENTRY_SWEEP = 90, SENTRY_TURN = 2;
+    static final double SENTRY_SWEEP = 50, SENTRY_TURN = 2;
     private Mob sentry;
     private float sentryLast, sentryMin, sentryMax, sentryMost, sentryAt;
     private int sentryTicks;
