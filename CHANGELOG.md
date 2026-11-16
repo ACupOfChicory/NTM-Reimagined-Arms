@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- When the AI soldier who was to throw a grenade into a room or round a
+  trench's turn is shot, cannot get to the opening or runs out of time,
+  another of the entry who has a grenade throws it instead; only when none
+  can do they go in without one.
+
 ## X1297
 
 - AI squads sent by their commander no longer go round and round the wall of

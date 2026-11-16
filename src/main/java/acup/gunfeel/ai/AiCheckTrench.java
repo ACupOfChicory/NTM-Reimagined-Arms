@@ -19,13 +19,14 @@ import net.minecraft.world.phys.Vec3;
  * turns, two of one team holding its far stretches, four of another on the ground before it who know where they are.
  * Rounds by twos, aiTrenches off (before: the trench is no building, they go after the two as on open ground) and on
  * (stretch after stretch, as a building's rooms): one wide, those holding it not walking; the same, walking as they
- * will; two wide with a fire step, not walking; last, one holding it alone with a grenade set down by it. Counted: who is left, when the trench was cleared,
+ * will; two wide with a fire step, not walking; one holding it alone with a grenade set down by it; last, one wide,
+ * still, aiTrenches on, each entry's first thrower downed by the stand as it steps out (the grenade handed on). Counted: who is left, when the trench was cleared,
  * the squad's ticks on the ground at the trench's edge (seen from in it) and in it, entries begun, grenades thrown
  * round a turn, those in the trench down by a blast, the squad hurt by its own side's blast; for those walking, of the grenades
  * that went off near one of them, how often it got away first.
  */
 final class AiCheckTrench {
-    static final int X0 = 3600, Z0 = 0, SIZE = 48, RUN = 1200, ROUNDS = 40, STILL = 12, WIDE = 24, DODGE = 32, DODGE_WIDE = 36, SQUAD = 4, HELD = 2;
+    static final int X0 = 3600, Z0 = 0, SIZE = 48, RUN = 1200, ROUNDS = 44, STILL = 12, WIDE = 24, DODGE = 32, DODGE_WIDE = 36, HANDOFF = 40, SQUAD = 4, HELD = 2;
     /** the trench, cell by cell: stretches and the turns between them; the same two wide (each cell with those east, south and south-east of it) */
     static final int[][] NARROW = trench(), BROAD = broad(NARROW);
     /** the fire step two wide is dug for: along the fifth stretch's south side, one up from its floor */
@@ -81,6 +82,9 @@ final class AiCheckTrench {
     private final java.util.Set<Integer> noted = new java.util.HashSet<>();
     /** per round: {on, held left, squad left, ticks, first down at, ticks at the edge, ticks in it, entries, grenades in, blast kills, own hurt by a blast} */
     private final List<int[]> results = new ArrayList<>();
+    /** the rounds whose first thrower the stand downs: {downed, handed on, grenades in, the squad hurt by its own blast, downed with none else armed, thrown by one handed it, throwers lost with what came of it told (one downed as the round ends has none)} */
+    private final List<int[]> handoff = new ArrayList<>();
+    private int downed, handedBefore;
 
     AiCheckTrench(AiCheck check, ServerLevel level, int y) {
         this.check = check;
@@ -169,7 +173,7 @@ final class AiCheckTrench {
             // one holding it, moving, near where it went off when it was thrown: gone away from it, or down by it
             Vec3[] then = heldAt.remove(e.getKey());
             int a = arm(round);
-            if (then != null && a != 0 && a != 1 && a != 4 && a != 5)
+            if (then != null && (a == 2 || a == 3))
                 for (int i = 0; i < then.length && i < held.size(); i++) {
                     if (then[i] == null || then[i].distanceTo(b) > NEAR_THROW) continue;
                     Mob m = held.get(i);
@@ -244,7 +248,25 @@ final class AiCheckTrench {
             }
         for (Mob m : held) if (m.isAlive()) where.append(String.format(Locale.ROOT, " held at %.1f %.1f;", m.getX(), m.getZ()));
         check.out(String.format(Locale.ROOT, "     trench, round %d, at the end:%s", round + 1, where));
+        check.out(String.format(Locale.ROOT, "     trench, round %d, its entries' grenades: %s", round + 1, AiEntry.fates.isEmpty() ? "none" : String.join("; ", AiEntry.fates)));
+        List<String> fates = new ArrayList<>(AiEntry.fates);
+        AiEntry.fates.clear();
         results.add(new int[] {arm(round), foes, left, ticks, firstDown, edge, inside, AiEntry.entries - entriesBefore, AiEntry.frags - fragsBefore, blastKills, ownBlast, heldBlast, heldOut});
+        if (arm(round) == 7) {
+            // of the throwers downed, those with none else of the entry left with a grenade; throws by one it was handed to
+            int none = 0, after = 0, lost = 0;
+            boolean handed = false;
+            for (String f : fates) {
+                if (f.startsWith("thrower ")) lost++;
+                if (f.contains("none else with a grenade")) none++;
+                if (f.endsWith("handed on")) handed = true;
+                else if (f.equals("thrown") && handed) {
+                    after++;
+                    handed = false;
+                }
+            }
+            handoff.add(new int[] {downed, AiEntry.handedOn - handedBefore, AiEntry.frags - fragsBefore, ownBlast, none, after, lost});
+        }
         for (Mob m : squad) m.discard();
         for (Mob m : held) m.discard();
         squad.clear();
@@ -348,7 +370,7 @@ final class AiCheckTrench {
         AiBot bot = AiBots.get(m);
         if (bot != null) bot.gunner.ammo.setInfinite();
         // those in the trench hold it: in the first rounds they turn, crouch and fire where they stand; after, they move as they will
-        if (team.equals("trench_in") && (round < STILL || round >= WIDE && round < DODGE)) {
+        if (team.equals("trench_in") && (round < STILL || round >= WIDE && round < DODGE || round >= HANDOFF)) {
             var speed = m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
             if (speed != null) speed.setBaseValue(0);
         }
@@ -360,8 +382,18 @@ final class AiCheckTrench {
         ticks = 0;
         firstDown = -1;
         edge = inside = heldOut = 0;
-        AiTrenches.on = r % 2 == 1;
-        cells = r >= DODGE_WIDE || r >= WIDE && r < DODGE ? BROAD : NARROW;
+        AiTrenches.on = r % 2 == 1 || r >= HANDOFF;
+        cells = r >= DODGE_WIDE && r < HANDOFF || r >= WIDE && r < DODGE ? BROAD : NARROW;
+        // the last rounds: each entry's first thrower down as it steps out (none of the squad's doing)
+        downed = 0;
+        handedBefore = AiEntry.handedOn;
+        AiEntry.firstThrower = r >= HANDOFF ? b -> {
+            if (squad.contains(b.mob) && b.mob.isAlive()) {
+                downed++;
+                check.out(String.format(Locale.ROOT, "     trench, round %d, tick %d: the entry's first thrower downed by the stand at %.1f %.1f %.1f", round + 1, ticks, b.mob.getX(), b.mob.getY() - y, b.mob.getZ()));
+                b.mob.kill(level);
+            }
+        } : null;
         heldAt.clear();
         AiEntry.on = AiEntry.frag = true;
         AiSquads.on = true;
@@ -375,11 +407,12 @@ final class AiCheckTrench {
             set = null;
             return;
         }
-        for (double[] p : r >= WIDE ? HOLDERS_WIDE : HOLDERS) held.add(spawn(p[0], y + p[1], p[2], "trench_in", 180F));
+        for (double[] p : r >= WIDE && r < HANDOFF ? HOLDERS_WIDE : HOLDERS) held.add(spawn(p[0], y + p[1], p[2], "trench_in", 180F));
         for (int i = 0; i < SQUAD; i++) squad.add(spawn(START_X[i], y + 2, START_Z, "trench_out", 180F));
         AiBots.refreshTargets(level);
         entriesBefore = AiEntry.entries;
         fragsBefore = AiEntry.frags;
+        AiEntry.fates.clear();
         ownBlast = blastKills = heldBlast = 0;
         lastBlast = null;
         lastBlastTick = -1;
@@ -400,16 +433,18 @@ final class AiCheckTrench {
 
     /** the round's arm: aiTrenches off and on, those holding it still; the same, moving; the same, two wide with a fire step, still */
     private static int arm(int r) {
-        return r >= DODGE ? 6 : r % 2 + (r >= WIDE ? 4 : r >= STILL ? 2 : 0);
+        return r >= HANDOFF ? 7 : r >= DODGE ? 6 : r % 2 + (r >= WIDE ? 4 : r >= STILL ? 2 : 0);
     }
 
     private boolean finish() {
         AiTrenches.on = true;
+        AiEntry.firstThrower = null;
         String[] names = {"aiTrenches off (before)", "aiTrenches on", "aiTrenches off, those holding it moving", "aiTrenches on, those holding it moving",
-                "two wide with a fire step, aiTrenches off", "two wide with a fire step, aiTrenches on", "one holding it alone, a grenade by it"};
-        double[][] sum = new double[7][13];
-        int[] n = new int[7], cleared = new int[7], firsts = new int[7];
-        double[] clearTicks = new double[7], firstTicks = new double[7];
+                "two wide with a fire step, aiTrenches off", "two wide with a fire step, aiTrenches on", "one holding it alone, a grenade by it",
+                "aiTrenches on, the first thrower downed as it steps out"};
+        double[][] sum = new double[8][13];
+        int[] n = new int[8], cleared = new int[8], firsts = new int[8];
+        double[] clearTicks = new double[8], firstTicks = new double[8];
         for (int i = 0; i < results.size(); i++) {
             int[] r = results.get(i);
             n[r[0]]++;
@@ -444,6 +479,19 @@ final class AiCheckTrench {
             check.out(String.format(Locale.ROOT, "     trench, %s, one holding it alone, a grenade set down a block and a half off, %d rounds: unhurt %d, behind a block from it at the burst %d, hurt %d, down %d; %.1f off it on average",
                     w == 0 ? "one wide" : "two wide", alone[w][0], alone[w][1], alone[w][2], alone[w][3], alone[w][4], alone[w][0] == 0 ? 0 : aloneGain[w] / alone[w][0]));
         check.check("trench: all rounds ran", results.size() == ROUNDS);
+        int dn = 0, ho = 0, own = 0, none = 0, after = 0, lost = 0;
+        for (int[] h : handoff) {
+            dn += h[0];
+            ho += h[1];
+            own += h[3];
+            none += h[4];
+            after += h[5];
+            lost += h[6];
+        }
+        // (one handed it may be shot in its turn, or the trench cleared before its throw: told, not failed)
+        check.check(String.format(Locale.ROOT, "trench: a thrower downed as it steps out hands its grenade on, and it is thrown (downed %d, throwers lost before the round's end %d, none else with a grenade %d, handed on %d, thrown by one handed it %d, in %d rounds)",
+                dn, lost, none, ho, after, handoff.size()), dn > 0 && ho >= lost - none && ho > 0 && after > 0);
+        check.check(String.format(Locale.ROOT, "trench: a grenade handed on hurts none of the squad (%d)", own), own == 0);
         // (all of it behind a block, or far enough off: either is told above)
         check.check(String.format(Locale.ROOT, "trench: one holding it alone gets away from a grenade by it, unhurt, one wide and two (%d of %d, %d of %d)", alone[0][1], alone[0][0], alone[1][1], alone[1][0]),
                 alone[0][0] > 0 && alone[0][1] == alone[0][0] && alone[1][1] == alone[1][0]);
