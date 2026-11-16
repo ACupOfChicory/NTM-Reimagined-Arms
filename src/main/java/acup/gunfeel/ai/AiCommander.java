@@ -1071,6 +1071,14 @@ public final class AiCommander {
     }
 
     /** one of the job's squad has begun its crossing and is not over yet */
+    /** the war check's: 1 the squad's task kept as it crosses (its staff's round passes it by), 2 the squad has a task not this one's, 0 else */
+    static int passedBy(AiSquads.Squad s, AiBot b, long now) {
+        Job j = job(s, now);
+        if (j == null) return 0;
+        if (crossing(j)) return 1;
+        return b.order == null || b.order.job != j ? 2 : 0;
+    }
+
     private static boolean crossing(Job j) {
         for (AiBot b : j.members)
             if (b.mob.isAlive() && b.order != null && b.order.job == j && b.order.crossKind != null && started(b, b.order)) return true;
