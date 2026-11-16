@@ -24,7 +24,8 @@ import org.jspecify.annotations.Nullable;
  * its own side not falling back, or BACK blocks away from the group. With no group at all, each free squad scouts a
  * sector of the ring round the side's middle (RING blocks off), one after another as the side's sector turns. Any
  * other squad left is the reserve and stays where it is. A squad keeps its task KEEP ticks at least while its group is
- * still there (falling back aside); one that went round and got there advances next. A squad is not sent to a group it
+ * still there (falling back aside); one that went round and got there advances next. A pair (C4) keeps its tasks till
+ * its time is up rather than KEEP: the one going round, there or in a fight, advances; its time up, both advance. A squad is not sent to a group it
  * gave up lately (R5: none of it could get there). A squad asleep (no player near, C2b) is sent as far as the staff
  * knows, FAR, not reach; with no group known it waits (no scouting).
  */
@@ -57,12 +58,28 @@ final class StaffPlan {
      * A squad: where its middle is; its strength; soldiers alive, how many it had when given its task; most of it out
      * of rounds; its task now (null: none), since when, the group it is for (an index into the groups, -1: none), got
      * to its place; the group it gave up lately (-1: none); asleep, far from any player (C2b: sent as far as the staff
-     * knows, FAR, the staff moving it).
+     * knows, FAR, the staff moving it); in a fight now; a pair's (C4: pinning and going round) time up at this tick
+     * (Long.MAX_VALUE: none).
      */
     record Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
-            boolean far) {
+            boolean far, boolean contact, long due) {
         Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there) {
             this(x, z, strength, alive, was, out, kind, since, group, there, -1, false);
+        }
+
+        Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
+                boolean far) {
+            this(x, z, strength, alive, was, out, kind, since, group, there, avoid, far, false, Long.MAX_VALUE);
+        }
+
+        /** one of a pair (C4) whose time is up */
+        boolean late(long now) {
+            return (kind == Kind.PIN || kind == Kind.FLANK) && now >= due;
+        }
+
+        /** one of a pair (C4): its task kept till the pair's time is up, not KEEP */
+        boolean paired() {
+            return (kind == Kind.PIN || kind == Kind.FLANK) && due != Long.MAX_VALUE;
         }
 
         /** how far off a group it is sent at most: reach awake, FAR asleep */
@@ -99,8 +116,10 @@ final class StaffPlan {
         // those keeping their tasks
         for (int i = 0; i < squads.size(); i++) {
             Squad s = squads.get(i);
-            if (out[i] != null || s.kind == null || s.group < 0 || s.group >= groups.size() || s.group == s.avoid || now - s.since >= KEEP) continue;
+            if (out[i] != null || s.kind == null || s.group < 0 || s.group >= groups.size() || s.group == s.avoid || !s.paired() && now - s.since >= KEEP) continue;
             if (s.kind == Kind.RESERVE || s.kind == Kind.BACK || s.kind == Kind.FLANK && s.there) continue;
+            // a pair (C4): the one going round there or in a fight advances; the time up, both do
+            if (s.kind == Kind.FLANK && s.contact || s.late(now)) continue;
             if (sent[s.group] >= groups.get(s.group).room) continue;
             Group g = groups.get(s.group);
             out[i] = switch (s.kind) {
@@ -143,6 +162,13 @@ final class StaffPlan {
                     // the pair keeps the parts it had (a squad going round does not turn back to pin); a new pair takes
                     // the parts that keep it out of the enemy's sight the more on the way to their places
                     boolean had = sa.group == k && (sa.kind == Kind.PIN || sa.kind == Kind.FLANK) || sb.group == k && (sb.kind == Kind.PIN || sb.kind == Kind.FLANK);
+                    // a pair whose time is up (C4): both advance, not paired again
+                    if (had && (sa.group == k && sa.late(now) || sb.group == k && sb.late(now))) {
+                        out[a] = area(g, k);
+                        out[b] = area(g, k);
+                        sent[k] += 2;
+                        continue;
+                    }
                     Task p = pin(grid, g, k, sa.x, sa.z), f = flank(grid, g, k, p.x(), p.z(), sb.x, sb.z);
                     Task p2 = pin(grid, g, k, sb.x, sb.z), f2 = flank(grid, g, k, p2.x(), p2.z(), sa.x, sa.z);
                     boolean swap = had ? sa.group == k && sa.kind == Kind.FLANK || sb.group == k && sb.kind == Kind.PIN

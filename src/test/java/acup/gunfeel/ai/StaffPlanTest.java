@@ -217,4 +217,27 @@ class StaffPlanTest {
         assertEquals(Kind.FLANK, t[0].kind());
         assertEquals(Kind.PIN, t[1].kind());
     }
+
+    @Test
+    void aPairKeepsItsPartsTillItsTimeThenGoesIn() {
+        // a pair (C4), pinning and going round, past KEEP but within its time: kept
+        long due = NOW + 200;
+        Squad pinning = new Squad(0, 40, 2, 3, 3, false, Kind.PIN, NOW - StaffPlan.KEEP - 100, 0, false, -1, false, false, due);
+        Squad round = new Squad(60, 80, 2, 3, 3, false, Kind.FLANK, NOW - StaffPlan.KEEP - 100, 0, false, -1, false, false, due);
+        Task[] t = plan(List.of(pinning, round), List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.FLANK, t[1].kind());
+        // the one going round in a fight: it advances, the other keeps pinning
+        Squad fighting = new Squad(60, 80, 2, 3, 3, false, Kind.FLANK, NOW - 100, 0, false, -1, false, true, due);
+        Squad pressing = new Squad(0, 40, 2, 3, 3, false, Kind.PIN, NOW - 100, 0, false, -1, false, true, due);
+        t = plan(List.of(pressing, fighting), List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.ADVANCE, t[1].kind());
+        // the time up: both advance, not paired again
+        Squad latePin = new Squad(0, 40, 2, 3, 3, false, Kind.PIN, NOW - 100, 0, false, -1, false, false, NOW);
+        Squad lateRound = new Squad(60, 80, 2, 3, 3, false, Kind.FLANK, NOW - 100, 0, false, -1, false, false, NOW);
+        t = plan(List.of(latePin, lateRound), List.of(group(0, 100, 3)));
+        assertEquals(Kind.ADVANCE, t[0].kind());
+        assertEquals(Kind.ADVANCE, t[1].kind());
+    }
 }

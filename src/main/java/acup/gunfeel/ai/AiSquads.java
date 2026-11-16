@@ -246,7 +246,7 @@ public final class AiSquads {
     /** whether it is the one of its squad that goes round the side of this target */
     static boolean flanks(AiBot bot, int target) {
         Squad s = of(bot);
-        return s != null && s.target == target && s.flanker == bot.mob.getId();
+        return s != null && s.target == target && s.flanker == bot.mob.getId() && !AiCommander.leashed(bot, target, bot.mob.level().getGameTime());
     }
 
     /**
@@ -307,6 +307,8 @@ public final class AiSquads {
      */
     static boolean mayHunt(AiBot bot, int target) {
         if (!on || !(bot.mob.level() instanceof ServerLevel level)) return true;
+        // pinning or holding: on a leash from its place (stage 7 C4)
+        if (AiCommander.leashed(bot, target, level.getGameTime())) return false;
         // its base of fire stays, while a rifleman of its squad knows of the target and may go
         if ((base(bot) || AiMarksman.is(bot)) && riflemanKnows(bot, target)) return false;
         // a grenadier does not go after them: near them its shells cannot go (AiGrenadier.MIN)
@@ -339,6 +341,8 @@ public final class AiSquads {
         Squad s = of(bot);
         if (s == null || c.state == TargetMemory.State.VISIBLE || moving(bot)) return false;
         if (s.flanker == bot.mob.getId() && s.target == c.id) return false;
+        // pinning while the squad that went round goes in (stage 7 C4)
+        if (AiCommander.presses(bot, tick)) return true;
         for (AiBot b : s.bots) if (b != bot && moving(b)) return true;
         return false;
     }

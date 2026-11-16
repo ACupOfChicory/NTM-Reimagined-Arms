@@ -1,5 +1,16 @@
 # Changelog
 
+## X1151
+
+- An AI squad pinning an enemy group and the squad sent round its side now
+  work as a pair. The one going round signals when it gets to its place or
+  runs into the enemy; then it goes in while the pinning squad keeps the
+  enemy's places under fire. If it is not round in time (its way's length at
+  a walk, half as long again, and 30 seconds more, at most 90 seconds), both
+  squads go in. A squad pinning or holding a place no longer chases a lost
+  enemy more than 24 blocks from it. Server key `aiCommanderPairs` (true);
+  false: each squad goes about its task on its own, as before.
+
 ## X1150
 
 - AI squads sent by their side's commander go along its ways as soldiers

@@ -491,7 +491,7 @@ neoForge {
             if (providers.gradleProperty("aiRealtime").isPresent) systemProperty("ntmgunfeel.checkAiRealtime", "true")
             // -PaiStage=<name>: that stage of the check alone (AiCheck)
             providers.gradleProperty("aiStage").orNull?.let { systemProperty("ntmgunfeel.checkAiStage", it) }
-            // -PaiCheckWarRounds=<n>: the war's rounds (AiCheckWar; 4 by default, one of each kind: the full check's short war)
+            // -PaiCheckWarRounds=<n>: the war's rounds (AiCheckWar; 5 by default, one of each kind: the full check's short war)
             providers.gradleProperty("aiCheckWarRounds").orNull?.let { systemProperty("ntmgunfeel.checkAiWarRounds", it) }
             // -PaiCheckWarDump=<file>: the war's staff maps, ways and soldiers' places, for a look at them off the stand
             providers.gradleProperty("aiCheckWarDump").orNull?.let { systemProperty("ntmgunfeel.checkAiWarDump", it) }
