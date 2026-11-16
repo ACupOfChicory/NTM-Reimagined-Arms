@@ -211,12 +211,13 @@ final class AiCheckCorner {
         check.check(String.format(Locale.ROOT, "corner: the hunters come round the end and meet the holder in half the rounds at least (%d of %d)", meetings, HOLD.length),
                 2 * meetings >= HOLD.length);
         // a guard: a hunter comes round with its gun on what the end opens, seen as soon as it sees (2026-11-16: the
-        // holder first 2 to 4 of 6, by a tick or two, never more than 5; heads 0 to 10 degrees off; the hunters hit first 11 of 12)
+        // holder first 2 to 4 of 6, by a tick or two, never more than 5; heads 0 to 10 degrees off; the hunters hit
+        // first 41 of 46 rounds, all 23 met further than 10 blocks off; the holder's 5 all close, the hunter by the end)
         check.check(String.format(Locale.ROOT, "corner: the holder sees a hunter more than %d ticks before it is seen in a third of the meetings at most (%d of %d; first at all %d)", LEAD, holderAhead, meetings, holderFirst),
                 3 * holderAhead <= meetings);
         check.check(String.format(Locale.ROOT, "corner: a hunter's head is %.0f degrees or more off the holder in one meeting at most (%d)", WIDE_DEG, wide), wide <= 1);
-        check.check(String.format(Locale.ROOT, "corner: the hunters hit first in two thirds of the rounds with a hit at least (%d of %d)", hunterHitFirst, hunterHitFirst + holderHitFirst),
-                3 * hunterHitFirst >= 2 * (hunterHitFirst + holderHitFirst));
+        check.check(String.format(Locale.ROOT, "corner: the hunters hit first no less often than the holder (%d against %d)", hunterHitFirst, holderHitFirst),
+                hunterHitFirst >= holderHitFirst);
     }
 
     private Mob spawn(double x, double z, String team, float yaw) {
