@@ -26,6 +26,7 @@ import net.neoforged.neoforge.common.NeoForge;
  * turns about on its own (shockCamera degrees a second at most: two slow waves each way, so it wanders off and back,
  * and the player's aim with it). All of it at full for shockSeconds, then wearing off smoothly over the server's fade
  * (ShockServer.envelope, the same as the slowing's: the view narrows with that by the game's own rule for slowness).
+ * As strong as the glitch: discharges and a light vignette at the screen's edges (ShockArcs).
  */
 public final class ShockClient {
     private ShockClient() {
@@ -52,6 +53,10 @@ public final class ShockClient {
         modBus.addListener(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent.class,
                 e -> e.registerAbove(net.neoforged.neoforge.client.gui.VanillaGuiLayers.CROSSHAIR,
                         Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_mark"), ShockClient::mark));
+        // the discharges and the light vignette at the screen's edges, over the camera's own overlays
+        modBus.addListener(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent.class,
+                e -> e.registerAbove(net.neoforged.neoforge.client.gui.VanillaGuiLayers.CAMERA_OVERLAYS,
+                        Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_arcs"), ShockArcs::draw));
         var bus = NeoForge.EVENT_BUS;
         bus.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> {
             if (!Minecraft.getInstance().isPaused()) tick++;
@@ -102,6 +107,16 @@ public final class ShockClient {
         if (p.took()) marksTook++;
         SoundEvent s = BuiltInRegistries.SOUND_EVENT.getValue(Identifier.fromNamespaceAndPath("hbm", "weapon.tesla"));
         if (s != null) Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(s, p.took() ? 1.9F : 1.5F, 0.35F));
+    }
+
+    /** the client's game ticks (ShockArcs' pictures) */
+    static long ticks() {
+        return tick;
+    }
+
+    /** the tick the shock started at (a new shock, new discharges) */
+    static long started() {
+        return start;
     }
 
     // ---- how strong it is now

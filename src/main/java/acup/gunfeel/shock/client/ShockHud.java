@@ -61,7 +61,7 @@ public final class ShockHud {
 
     /** the layers drawn as ever, not glitched */
     private static final Set<Identifier> KEEP = Set.of(VanillaGuiLayers.CHAT, VanillaGuiLayers.SUBTITLE_OVERLAY, VanillaGuiLayers.CAMERA_OVERLAYS,
-            VanillaGuiLayers.SLEEP_OVERLAY, id("suppression"), id("gas_hud"), id("smoke"));
+            VanillaGuiLayers.SLEEP_OVERLAY, id("suppression"), id("gas_hud"), id("smoke"), id("shock_arcs"));
 
     static final BindGroupLayout LAYOUT = BindGroupLayout.builder()
             .withUniform("ShockInfo", UniformType.UNIFORM_BUFFER)

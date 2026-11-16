@@ -48,6 +48,39 @@ public final class BalanceFinal {
     /** the pair (gun.ammo) a projectile was fired with, by the projectile */
     private static final Map<Entity, String> PAIR = Collections.synchronizedMap(new WeakHashMap<>());
 
+    /** a share of its pair's damage a projectile does (ShockServer's repeated hit: a part of a slug's) */
+    private static final Map<Entity, Float> SHARE = Collections.synchronizedMap(new WeakHashMap<>());
+
+    /**
+     * a hit of {@code projectile} (fired with {@code from}) on one shocked or immune to a shock: it does {@code share}
+     * of a shot of the same gun with {@code as}, by the scheme's pair of it when there is one (the target's armour and
+     * the range as for that shot); the share of the projectile's own damage that makes it so off the scheme (a target
+     * not the scheme's), 1 with the balance off
+     */
+    public static float hitAs(Entity projectile, LivingEntity shooter, com.hbm.items.weapon.sedna.BulletConfig from, com.hbm.items.weapon.sedna.BulletConfig as,
+            float share) {
+        if (projectile == null || shooter == null || shooter.level().isClientSide() || !BalanceGuns.on()) return 1F;
+        net.minecraft.world.item.Item gunItem = BalanceGuns.gunOf(shooter);
+        if (gunItem == null) return 1F;
+        try {
+            String gun = gunName(gunItem);
+            String id = gun + "." + ammoName(as);
+            if (on() && gun != null && state().pairs().containsKey(id)) {
+                PAIR.put(projectile, id);
+                SHARE.put(projectile, share);
+            }
+            return share * BalanceGuns.as(gunItem, from, as);
+        } catch (RuntimeException | LinkageError e) {
+            // a hit must never fail over the tables: the shell's own damage
+            return 1F;
+        }
+    }
+
+    private static float share(DamageSource source) {
+        Float k = SHARE.get(source.getDirectEntity());
+        return k == null ? 1F : k;
+    }
+
     /** the last pair each shooter fired, and when (an NTM blast of its shot, the Tesla Cannon's, has no projectile) */
     private record Last(String pair, long tick) {
     }
@@ -407,6 +440,16 @@ public final class BalanceFinal {
         return new Hit(pr, armor, click);
     }
 
+    /** the stand: the damage of one projectile of pair {@code id} on {@code target}'s body (its health's scale), NaN when not the scheme's */
+    static float clickOn(LivingEntity target, String id) {
+        State s = state();
+        var pr = s.pairs().get(id);
+        var armor = pr == null ? null : armorOf(target, s);
+        if (armor == null) return Float.NaN;
+        double click = BalanceFinalRule.clickDamage(pr, armor, s.sets().get("fau"), s.refs(), s.params());
+        return (float) (click / pr.projectiles()) * target.getMaxHealth() / (float) BalanceFinalRule.HP;
+    }
+
     /**
      * the set the scheme takes on {@code target}: a full set of one kind its own (with its pool), a mixed or incomplete
      * one by the slots' weights (no pool), nothing of the table: bare (players only); null when not the scheme's
@@ -460,7 +503,7 @@ public final class BalanceFinal {
         if (againThisTick(target, source)) return 0F;
         if (BalanceLog.on()) BalanceLog.hit(target, source, null, h.pair().id(), h.pair().tier(), HeadDamage.onHead(target));
         float scale = target.getMaxHealth() / (float) BalanceFinalRule.HP;
-        return h.projectile() * scale * range(target, source, h);
+        return h.projectile() * scale * range(target, source, h) * share(source);
     }
 
     /**
@@ -494,7 +537,7 @@ public final class BalanceFinal {
         if (againThisTick(target, source)) return 0F;
         boolean head = HeadDamage.onHead(target);
         if (BalanceLog.on()) BalanceLog.hit(target, source, null, h.pair().id(), h.pair().tier(), head);
-        float d = h.projectile() * range(target, source, h);
+        float d = h.projectile() * range(target, source, h) * share(source);
         return head ? Math.min(d * ModelHeads.multiplier(true, false), DamageCap.limits().head() * (float) BalanceFinalRule.HP) : d;
     }
 

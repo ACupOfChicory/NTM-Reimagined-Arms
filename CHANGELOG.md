@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- A 12 gauge electroshock shell that hits someone already shocked, or in the
+  immunity after a shock, now does 90 % of a slug from the same gun, against
+  the same armour and at the same range (with the mod's balance;
+  `balance = ntm` keeps the light hit). It still does not shock again.
+- A shocked player sees discharges jag in from the screen's edges and a light
+  bluish vignette round it, both as strong as the HUD's glitch and fading
+  with the shock (`shockGlitch`); the HUD still shakes.
+
 ## X1289
 
 - AI soldiers open trapdoors (NTM's steel hatch too) and climb ladders up and
