@@ -3,18 +3,18 @@
 ## X1238
 
 - An AI squad pinning an enemy group and the squad sent round its side now
-  work as a pair. The one going round signals when it gets to its place or
-  runs into the enemy; then it goes in while the pinning squad keeps the
-  enemy's places under fire. If it is not round in time (its way's length at
-  a walk, half as long again, and 30 seconds more, at most 90 seconds), both
-  squads go in. A squad pinning or holding a place no longer chases a lost
-  enemy more than 24 blocks from it. Server key `aiCommanderPairs` (true);
-  false: each squad goes about its task on its own, as before. The squad
-  going round keeps going round while the enemy is more than 20 blocks off,
-  rather than stopping to fight from afar, and goes round on the side
-  nearer to get to (by a ford, where a river lies between). Where neither
-  side is got round to in the pair's time (a river between, its ford far
-  off), or before the commander has mapped the ground, both squads pin.
+  work as a pair. The one going round signals when it gets to its place, runs
+  into the enemy within 20 blocks or is shot at; then it goes in while the
+  pinning squad keeps the enemy's places under fire. Till then it keeps going
+  round rather than stopping to fight from afar. If it is not round in time
+  (its way's length over the ground at a walk, half as long again, and 30
+  seconds more, at most 90 seconds), both squads go in. It goes round on the
+  side nearer to get to (by a ford, where a river lies between); where neither
+  side is got round to in the pair's time, or before the commander has mapped
+  the ground, both squads pin. A squad pinning or holding a place no longer
+  chases a lost enemy more than 24 blocks from it. Server key
+  `aiCommanderPairs` (true); false: each squad goes about its task on its own,
+  as before.
 - A bounding AI squad no longer runs on with no one covering it when the
   soldiers of one of its halves leave it: it is halved again.
 
