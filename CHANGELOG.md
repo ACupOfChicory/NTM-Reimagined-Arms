@@ -1,5 +1,13 @@
 # Changelog
 
+## X1231
+
+- AI soldiers looking round as sentries notice a foe in front of them again,
+  and go where they are sent: since X1223 a sentry's look round could turn
+  its head away from someone it had just glimpsed and stopped its walk every
+  tick. A sentry now looks up to 60 degrees either side of the way it faces
+  and turns its head to anyone it glimpses.
+
 ## X1227
 
 - Soldiers no longer shoot their own: they hold fire with a comrade close

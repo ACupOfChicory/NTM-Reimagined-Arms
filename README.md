@@ -230,9 +230,10 @@ page. They are alphas: expect bugs and back up your world.
   to the sounds of animals.
 - A bot that has lost you behind cover and has none of its own does not
   stand in the open: it goes down on a knee, unless that would hide the place
-  it watches. A bot that knows of no one looks slowly round, its head turning
-  at most 1.5 degrees a tick, so one creeping up from the side or behind can
-  be seen.
+  it watches. A bot that knows of no one looks slowly round, up to 60 degrees
+  either side of the way it faces and never so far that this way leaves its
+  view, so one creeping up from the side can be seen; it turns its head to
+  anyone it glimpses.
 - Fire suppresses them as it does you: bullets passing close, hitting their
   cover or bursting near pin a bot down, and a squad kept under fire loses
   heart, holds back and falls back (server key `aiSuppression`).

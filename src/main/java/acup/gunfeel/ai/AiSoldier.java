@@ -1944,9 +1944,9 @@ public final class AiSoldier implements AiBrain {
     }
 
     private void idle(AiBot bot, long tick) {
-        // after anything but standing (an answer to a contact fires with no move out of IDLE: its target shot dead and
-        // forgotten, the trigger was left down at that place for the rest of the fight)
-        if (mode != Mode.IDLE || why != Why.IDLE) {
+        // after anything but standing or a sentry's look round (an answer to a contact fires with no move out of IDLE: its
+        // target shot dead and forgotten, the trigger was left down at that place for the rest of the fight)
+        if (mode != Mode.IDLE || why != Why.IDLE && why != Why.SENTRY) {
             bot.gunner.fire(false);
             bot.gunner.aim(null);
             drop(bot);
@@ -1960,10 +1960,15 @@ public final class AiSoldier implements AiBrain {
     /**
      * A sentry's look round: idle, its head held the way it faced, from SENTRY_AFTER ticks on turned SENTRY_TURN degrees
      * a tick at most to one side of that way, SENTRY_NEAR to SENTRY_ARC off, a rest there, then to the other side, and so
-     * on (one come up quietly from beside or behind is seen); never round through its back
+     * on (one come up quietly from beside is seen; the way it faced stays in its view, 140 degrees across); never round
+     * through its back. A glimpse of someone (in sight, not yet noticed): it turns its head to them and stops there
      */
     static final int SENTRY_AFTER = 60, SENTRY_REST_MIN = 40, SENTRY_REST_MAX = 120;
-    static final float SENTRY_TURN = 1.5F, SENTRY_ARC = 120F, SENTRY_NEAR = 50F;
+    static final float SENTRY_TURN = 1.5F, SENTRY_ARC = 60F, SENTRY_NEAR = 30F;
+    /** a glimpse (in sight, not yet noticed): the look round stops, the head turns to it this fast, degrees a tick */
+    static final float SENTRY_GLIMPSE_TURN = 4F;
+    /** its head this far off the way the look round holds it: something else turned it, degrees */
+    static final float SENTRY_TURNED = 10F;
     private long sentryLast = Long.MIN_VALUE, sentryRest, sentryFrom;
     private float sentryBase, sentryYaw, sentryTo;
 
@@ -1972,7 +1977,9 @@ public final class AiSoldier implements AiBrain {
         Mob m = bot.mob;
         boolean fresh = tick - sentryLast > 1;
         sentryLast = tick;
-        if (fresh) {
+        // new to idle, or its head turned by something else since (put to face somewhere, knocked round): the way it
+        // faces now is the way it watches, and it holds it SENTRY_AFTER ticks first
+        if (fresh || Math.abs(net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot() - sentryYaw)) > SENTRY_TURNED) {
             sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
             sentryRest = sentryFrom = tick + SENTRY_AFTER;
         }
@@ -1982,7 +1989,21 @@ public final class AiSoldier implements AiBrain {
             sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
             return false;
         }
-        if (tick >= sentryRest) {
+        // something in the corner of its eye: it turns to it (the way it faces from now on), not on round away from it
+        TargetMemory.Contact glimpse = null;
+        for (TargetMemory.Contact c : bot.memory.contacts())
+            if (c.state == TargetMemory.State.GLIMPSED) {
+                glimpse = c;
+                break;
+            }
+        if (glimpse != null) {
+            float to = sentryYaw + net.minecraft.util.Mth.wrapDegrees(
+                    (float) Math.toDegrees(Math.atan2(glimpse.glimpseZ - m.getZ(), glimpse.glimpseX - m.getX())) - 90F - sentryYaw);
+            float d = to - sentryYaw;
+            sentryYaw += Math.abs(d) <= SENTRY_GLIMPSE_TURN ? d : Math.signum(d) * SENTRY_GLIMPSE_TURN;
+            sentryBase = sentryTo = sentryYaw;
+            sentryRest = Math.max(sentryRest, tick + SENTRY_REST_MIN);
+        } else if (tick >= sentryRest) {
             // the yaws kept unwrapped, within SENTRY_ARC of the base: the turn goes the way in front, not through its back
             float d = sentryTo - sentryYaw;
             if (Math.abs(d) <= SENTRY_TURN) {
