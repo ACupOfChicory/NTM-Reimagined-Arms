@@ -285,4 +285,22 @@ class StaffPlanTest {
         assertEquals(Kind.PIN, t[0].kind());
         assertEquals(Kind.HOLD, t[1].kind());
     }
+
+    @Test
+    void pinsFromAPlaceGotToOutOfSight() {
+        // the enemy at cell (32, 40) sees all the ground (0.6) but a hollow running up its left, west of the straight way
+        HqGrid g = HqGridTest.field();
+        for (int c = 0; c < HqGrid.N * HqGrid.N; c++) g.seen[c] = 0.6F;
+        for (int k = 10; k <= 31; k++)
+            for (int i = 20; i <= 23; i++) g.seen[HqGrid.index(i, k)] = 0;
+        double gx = HqGridTest.mid(32), gz = HqGridTest.mid(40);
+        Group grp = new Group(gx, gz, 16, 3, 0, AiCommander.PER);
+        Task t = StaffPlan.pin(g, grp, 0, gx, HqGridTest.mid(10));
+        assertTrue(t.x() < gx - 10, "west of the line, at the hollow's head: " + t);
+        // no hollow: the place on the line as before
+        HqGrid open = HqGridTest.field();
+        for (int c = 0; c < HqGrid.N * HqGrid.N; c++) open.seen[c] = 0.6F;
+        Task o = StaffPlan.pin(open, grp, 0, gx, HqGridTest.mid(10));
+        assertEquals(gx, o.x(), HqGrid.CELL * 2);
+    }
 }
