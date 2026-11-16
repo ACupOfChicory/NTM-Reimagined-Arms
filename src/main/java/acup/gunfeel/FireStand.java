@@ -73,7 +73,7 @@ final class FireStand {
     private static int index, step, until, frames, ticks, hurts, lastHurt;
     private static volatile int incoming, deaths;
     private static long casingSum, casingSamples, casingPeak, drawnSum;
-    // alt=A/B (ntm, cull, batch): the casings' way switched every 32 frames in one case, each frame's time to its way
+    // alt=A/B (ntm, cull): the casings' way switched every 32 frames in one case, each frame's time to its way
     private static String[] alt;
     private static final long[][] ALT_FRAMES = new long[2][100_000];
     private static final int[] ALT_N = new int[2];
@@ -280,7 +280,6 @@ final class FireStand {
                 if (alt != null) {
                     altMode = (frames / 32) % 2;
                     CasingCull.on = !alt[altMode].equals("ntm");
-                    CasingCull.batch = alt[altMode].equals("batch");
                 }
                 if (mc.player.hurtTime > lastHurt) hurts++;
                 if ((frames & 15) == 0) {
@@ -380,7 +379,7 @@ final class FireStand {
         for (var e : CLIENT_DEFAULTS.entrySet()) Config.class.getField(e.getKey()).set(null, e.getValue());
         StringBuilder server = new StringBuilder();
         DROP = Set.of();
-        CasingCull.on = CasingCull.batch = true;
+        CasingCull.on = true;
         alt = null;
         for (String kv : c.keys) {
             String[] p = kv.split("=", 2);
@@ -390,7 +389,6 @@ final class FireStand {
             }
             if (p[0].equals("casing")) {
                 CasingCull.on = !p[1].equals("ntm");
-                CasingCull.batch = p[1].equals("batch");
                 continue;
             }
             if (p[0].equals("drop")) {

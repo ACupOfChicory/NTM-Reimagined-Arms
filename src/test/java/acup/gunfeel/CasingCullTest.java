@@ -79,23 +79,20 @@ class CasingCullTest {
         }
     }
 
-    // the casings drawn in one frame, NTM's own call each (no batch, no frustum: a camera state without one)
+    // the casings drawn in one frame, NTM's own call each (no frustum: a camera state without one)
     private static List<Casing> drawn(List<Casing> all, int max) {
         int before = Config.casingMax;
-        boolean batch = CasingCull.batch;
         try {
             Config.casingMax = max;
-            CasingCull.batch = false;
             CameraRenderState cam = new CameraRenderState();
             cam.pos = Vec3.ZERO;
             cam.cullFrustum = null;
             CasingCull.begin(all, cam);
             List<Casing> out = new ArrayList<>();
-            for (Casing c : all) if (!CasingCull.body(null, c.pose(), null, null)) out.add(c);
+            for (Casing c : all) if (CasingCull.body(c.pose())) out.add(c);
             return out;
         } finally {
             Config.casingMax = before;
-            CasingCull.batch = batch;
         }
     }
 
