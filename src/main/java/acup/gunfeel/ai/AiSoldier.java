@@ -1716,7 +1716,7 @@ public final class AiSoldier implements AiBrain {
         if (spot != null && bot.mover.arrived() && g.loaded() >= 0 && g.loaded() < g.capacity() && g.ammo.any()) g.reload();
     }
 
-    /** standing still, and from its eye down on a knee it sees the place as it does standing (or sees it neither way) */
+    /** standing still, and down on a knee would not hide the place from it (it sees it from there, or does not standing either) */
     private static boolean kneels(AiBot bot, ServerLevel level, Vec3 look) {
         Mob m = bot.mob;
         if (bot.mover.goal() != Long.MIN_VALUE && !bot.mover.arrived() || AiWater.swims(m) || bot.prone.lying()) return false;
@@ -1946,11 +1946,12 @@ public final class AiSoldier implements AiBrain {
     }
 
     /**
-     * A sentry's look round: from SENTRY_AFTER ticks idle, its head SENTRY_TURN degrees a tick at most, to a side
-     * within SENTRY_ARC of the way it faced, a rest there, then another side (one come up quietly from behind is seen)
+     * A sentry's look round: idle, its head held the way it faced, from SENTRY_AFTER ticks on turned SENTRY_TURN degrees
+     * a tick at most to one side of that way, SENTRY_NEAR to SENTRY_ARC off, a rest there, then to the other side, and so
+     * on (one come up quietly from beside or behind is seen); never round through its back
      */
     static final int SENTRY_AFTER = 60, SENTRY_REST_MIN = 40, SENTRY_REST_MAX = 120;
-    static final float SENTRY_TURN = 1.5F, SENTRY_ARC = 120F, SENTRY_APART = 40F;
+    static final float SENTRY_TURN = 1.5F, SENTRY_ARC = 120F, SENTRY_NEAR = 50F;
     private long sentryLast = Long.MIN_VALUE, sentryRest, sentryFrom;
     private float sentryBase, sentryYaw, sentryTo;
 
@@ -1960,25 +1961,24 @@ public final class AiSoldier implements AiBrain {
         boolean fresh = tick - sentryLast > 1;
         sentryLast = tick;
         if (fresh) {
-            sentryBase = sentryYaw = sentryTo = m.getYHeadRot();
+            sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
             sentryRest = sentryFrom = tick + SENTRY_AFTER;
         }
         if (bot.mover.goal() != Long.MIN_VALUE && !bot.mover.arrived() || bot.prone.lying() || AiWater.swims(m)
                 || bot.gunner.aimPoint() != null) {
-            sentryYaw = sentryTo = m.getYHeadRot();
+            // its base and the yaw it turns from follow the head while something else turns it
+            sentryBase = sentryYaw = sentryTo = net.minecraft.util.Mth.wrapDegrees(m.getYHeadRot());
             return false;
         }
         if (tick >= sentryRest) {
-            float d = net.minecraft.util.Mth.wrapDegrees(sentryTo - sentryYaw);
+            // the yaws kept unwrapped, within SENTRY_ARC of the base: the turn goes the way in front, not through its back
+            float d = sentryTo - sentryYaw;
             if (Math.abs(d) <= SENTRY_TURN) {
                 sentryYaw = sentryTo;
                 sentryRest = tick + SENTRY_REST_MIN + m.getRandom().nextInt(SENTRY_REST_MAX - SENTRY_REST_MIN);
-                // another side, well apart from this one
-                float to;
-                int tries = 0;
-                do to = sentryBase + (m.getRandom().nextFloat() * 2 - 1) * SENTRY_ARC;
-                while (Math.abs(net.minecraft.util.Mth.wrapDegrees(to - sentryYaw)) < SENTRY_APART && ++tries < 8);
-                sentryTo = to;
+                // the other side of the way it faced
+                float side = sentryYaw > sentryBase ? -1F : 1F;
+                sentryTo = sentryBase + side * (SENTRY_NEAR + m.getRandom().nextFloat() * (SENTRY_ARC - SENTRY_NEAR));
             } else sentryYaw += Math.signum(d) * SENTRY_TURN;
         }
         // its look held there each tick (with none set the head turns back to its body)

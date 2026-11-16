@@ -229,8 +229,8 @@ page. They are alphas: expect bugs and back up your world.
   grenades thrown at them, including a player's, and do not turn their heads
   to the sounds of animals.
 - A bot that has lost you behind cover and has none of its own does not
-  stand in the open: it goes down on a knee where it still sees the place it
-  watches. A bot that knows of no one looks slowly round, its head turning
+  stand in the open: it goes down on a knee, unless that would hide the place
+  it watches. A bot that knows of no one looks slowly round, its head turning
   at most 1.5 degrees a tick, so one creeping up from the side or behind can
   be seen.
 - Fire suppresses them as it does you: bullets passing close, hitting their
