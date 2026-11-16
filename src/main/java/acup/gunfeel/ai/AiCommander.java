@@ -130,12 +130,17 @@ public final class AiCommander {
         final int[] ids;
         double gx, gz, faceX, faceZ;
         boolean there;
+        /** the squad it is given to now (the staff's squads change as they move), in its order */
+        List<AiBot> members;
+        /** how it goes along its way (C3) */
+        final StaffMove.State move = new StaffMove.State();
 
         Job(StaffPlan.Kind kind, long since, List<AiBot> bots, int[] ids) {
             this.kind = kind;
             this.since = since;
             this.bots = bots;
             this.ids = ids;
+            this.members = bots;
         }
 
         /** of those it was given to, alive still */
@@ -177,6 +182,15 @@ public final class AiCommander {
         boolean noRoute;
         /** at its task's place, stopped there (C2) */
         boolean stood;
+        /**
+         * its squad's bounds and rushes (C3): where it goes to or holds (the cover cell found, else none), whether
+         * cover was found; for which of them (the mode's start, the turn) and where along the way that ended; where
+         * its last leg went
+         */
+        double coverX, coverZ, coverTo, legX = Double.NaN, legZ = Double.NaN;
+        long coverCell = Long.MIN_VALUE, coverSince = Long.MIN_VALUE;
+        int coverTurn;
+        boolean covered;
     }
 
     /** a side's own: its next orders */
@@ -659,6 +673,7 @@ public final class AiCommander {
         }
         job.faceX = t.faceX();
         job.faceZ = t.faceZ();
+        job.members = List.copyOf(s.bots);
         Way way = t.kind() == StaffPlan.Kind.RESERVE ? null : way(level, team, s, t.x(), t.z());
         int i = 0;
         for (AiBot b : s.bots) {
@@ -871,6 +886,8 @@ public final class AiCommander {
         bot.gunner.fire(false);
         if (!there) {
             o.stood = false;
+            boolean moves = o.job != null && StaffMove.on();
+            if (moves) StaffMove.update(level, o, tick);
             boolean stuck = bot.mover.failed();
             // a leg that could not be walked (the map not built that far yet, or no way): counted only when it is no
             // nearer than at the last one
@@ -903,11 +920,16 @@ public final class AiCommander {
                         o.walked = o.way;
                         o.way = null;
                     } else {
+                        StaffMove.Leg leg = moves ? StaffMove.leg(bot, level, o, way, tick) : null;
+                        if (leg != null) {
+                            leg(bot, level, o, leg, stuck, o.at != was, tick);
+                            return true;
+                        }
                         if (tick >= o.nextLeg || bot.mover.arrived() || stuck || o.at != was) {
                             if (bot.mover.arrived()) o.fails = 0;
                             o.nextLeg = tick + LEG_AGAIN;
                             double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of > 1 ? 3 : 0;
-                            go(bot, level, way.x(o.at) + Math.cos(a) * spread, way.z(o.at) + Math.sin(a) * spread);
+                            go(bot, level, way.x(o.at) + Math.cos(a) * spread, way.z(o.at) + Math.sin(a) * spread, AiSoldier.WALK);
                         }
                         return true;
                     }
@@ -921,7 +943,12 @@ public final class AiCommander {
                 double step = Math.min(d, o.fails == 0 ? LEG : LEG / 2), along = Math.atan2(dz, dx) + turn;
                 // the squad spread a little at the leg's end, each its own side
                 double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of > 1 ? 3 : 0;
-                go(bot, level, bot.mob.getX() + Math.cos(along) * step + Math.cos(a) * spread, bot.mob.getZ() + Math.sin(along) * step + Math.sin(a) * spread);
+                go(bot, level, bot.mob.getX() + Math.cos(along) * step + Math.cos(a) * spread, bot.mob.getZ() + Math.sin(along) * step + Math.sin(a) * spread,
+                        moves ? StaffMove.speed(o) : AiSoldier.WALK);
+            }
+            if (moves) {
+                StaffMove.storm(bot, o, tick);
+                if (o.job.move.mode == StaffMove.Mode.CREEP && bot.brain instanceof AiSoldier s) s.crouch(true);
             }
             return true;
         }
@@ -943,7 +970,7 @@ public final class AiCommander {
             o.nextLeg = tick + LOOK_AGAIN;
             var rng = bot.mob.getRandom();
             double a = rng.nextDouble() * Math.PI * 2, r = Math.sqrt(rng.nextDouble()) * o.r;
-            go(bot, level, o.x + Math.cos(a) * r, o.z + Math.sin(a) * r);
+            go(bot, level, o.x + Math.cos(a) * r, o.z + Math.sin(a) * r, AiSoldier.WALK);
         }
         return true;
     }
@@ -957,12 +984,37 @@ public final class AiCommander {
         return false;
     }
 
-    /** a walk to the ground at x, z (where the chunk there is not loaded: at its own height) */
-    private static void go(AiBot bot, ServerLevel level, double x, double z) {
+    /**
+     * a step by its squad's mode (C3): held in its cover facing the enemy, or a leg to where the mode has it go, set
+     * again when that is new (or moved on), when it could not be walked, or when due and not there yet
+     */
+    private static void leg(AiBot bot, ServerLevel level, Order o, StaffMove.Leg leg, boolean stuck, boolean on, long tick) {
+        if (leg.low() && bot.brain instanceof AiSoldier s) s.crouch(true);
+        if (leg.hold()) {
+            if (bot.mover.goal() != Long.MIN_VALUE) bot.mover.stop();
+            StaffMove.face(bot, o);
+            return;
+        }
+        boolean moved = !(Math.hypot(leg.x() - o.legX, leg.z() - o.legZ) <= 1);
+        if (!(leg.fresh() || stuck || on && moved || bot.mover.goal() == Long.MIN_VALUE && moved || tick >= o.nextLeg && (moved || !bot.mover.arrived()))) return;
+        if (bot.mover.arrived()) o.fails = 0;
+        o.nextLeg = tick + leg.again();
+        o.legX = leg.x();
+        o.legZ = leg.z();
+        if (leg.cell() == Long.MIN_VALUE) go(bot, level, leg.x(), leg.z(), leg.speed());
+        else {
+            bot.mover.costs(PathSearch.Cost.NONE);
+            bot.mover.goTo(leg.cell(), 0.35, leg.speed());
+            if (bot.mob.isAlive()) bot.gunner.aim(new net.minecraft.world.phys.Vec3(leg.x(), BlockPos.getY(leg.cell()) + 1.5, leg.z()));
+        }
+    }
+
+    /** a walk (a run, a creep) to the ground at x, z (where the chunk there is not loaded: at its own height) */
+    private static void go(AiBot bot, ServerLevel level, double x, double z, double speed) {
         int bx = Mth.floor(x), bz = Mth.floor(z);
         int y = level.hasChunk(bx >> 4, bz >> 4) ? level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz) : bot.mob.getBlockY();
         bot.mover.costs(PathSearch.Cost.NONE);
-        bot.mover.goTo(BlockPos.asLong(bx, y, bz), 2, AiSoldier.WALK);
+        bot.mover.goTo(BlockPos.asLong(bx, y, bz), 2, speed);
         if (bot.mob.isAlive()) bot.gunner.aim(new net.minecraft.world.phys.Vec3(x, y + 1.5, z));
     }
 
