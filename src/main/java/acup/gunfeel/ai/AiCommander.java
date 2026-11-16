@@ -483,7 +483,16 @@ public final class AiCommander {
         sideZ /= all;
         StaffPlan.Task[] plan = StaffPlan.plan(own, foes, grid, sideX, sideZ, Math.min(REACH, AiBots.radius() * 2), PER, now, side.sector);
         side.blind = grid == null && mapped();
-        for (int i = 0; i < squads.size(); i++) task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
+        for (int i = 0; i < squads.size(); i++) {
+            // a squad crossing a river now keeps its task till it is over (the drill is not broken off half way)
+            Job cj = jobs.get(i);
+            if (cj != null && crossing(cj)) {
+                // its orders kept alive meanwhile (they last LASTS)
+                for (AiBot b : cj.members) if (b.order != null && b.order.job == cj) b.order.until = Math.max(b.order.until, now + LASTS);
+                continue;
+            }
+            task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
+        }
         if (pairs()) pair(squads, grid, now);
         strays(level, team, squads, now);
     }
@@ -887,7 +896,9 @@ public final class AiCommander {
         if (o.route != null || w == null || !w.done) return;
         o.route = w.route;
         o.at = o.route == null ? 0 : ahead(o.route, b.mob.getX(), b.mob.getZ());
-        // the staff's crossing on it (the squad goes over by the drill: AiCrossing), unless already past its water
+        // the staff's crossing on it (the squad goes over by the drill: AiCrossing), unless already past its water;
+        // one begun (it is past the near bank's point) is kept as it is
+        if (o.crossKind != null && started(b, o)) return;
         StaffCross.Site c = o.route == null ? null : w.site;
         o.crossKind = null;
         if (c != null && !past(b.mob.getX(), b.mob.getZ(), c.x(), c.z(), c.farX(), c.farZ())) {
@@ -961,6 +972,18 @@ public final class AiCommander {
             return null;
         }
         return o;
+    }
+
+    /** one of the job's squad has begun its crossing and is not over yet */
+    private static boolean crossing(Job j) {
+        for (AiBot b : j.members)
+            if (b.mob.isAlive() && b.order != null && b.order.job == j && b.order.crossKind != null && started(b, b.order)) return true;
+        return false;
+    }
+
+    /** past the near bank's point of its crossing, toward the far bank */
+    private static boolean started(AiBot b, Order o) {
+        return ((b.mob.getX() - o.crossX) * (o.farX - o.crossX) + (b.mob.getZ() - o.crossZ) * (o.farZ - o.crossZ)) > 0;
     }
 
     /** at x, z: as far along from the crossing's point toward the gathering place as it is, or farther */
