@@ -124,8 +124,13 @@ public final class AiGrenades {
      * 14.7, the battles); it keeps out of that one's reach instead
      */
     static boolean cover(VoxelRay.Source src, Vec3 burst, double x, double y, double z, boolean own) {
-        return !own && behind(src, burst, x, y, z);
+        // all of one standing there, from the burst and from NTM's nodes round it: one ray from the burst to its middle
+        // leaves one round a trench's turn a block and a half off, and the blast there still downs it
+        return !own && shielded(src, x, y, z, STANDING, burst, false);
     }
+
+    /** a soldier standing, blocks (a refuge is where it stands up again) */
+    static final double STANDING = 1.95;
 
     /**
      * a shield's rays: from the burst and from NTM's nodes round it (EntityProcessorCrossSmooth, a frag's: a block off
@@ -851,7 +856,8 @@ public final class AiGrenades {
                 double dx = cx - burst.x, dy = cy - burst.y, dz = cz - burst.z;
                 double d2 = dx * dx + dy * dy + dz * dz;
                 boolean out = d2 >= clear * clear;
-                boolean behind = cover(src, burst, cx, cy, cz, own);
+                // behind a block: in the burst's reach all of it (cover); out of it only for the score, one ray will do
+                boolean behind = out ? !own && behind(src, burst, cx, cy, cz) : cover(src, burst, cx, cy, cz, own);
                 if (!out && !behind) continue;
                 if (inOthers(src, m, others, cx, cy, cz)) continue;
                 // not past the burst to get there: no nearer to it than it is now unless behind a block from it

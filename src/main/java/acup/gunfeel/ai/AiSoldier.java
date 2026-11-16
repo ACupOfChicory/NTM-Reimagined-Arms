@@ -624,7 +624,7 @@ public final class AiSoldier implements AiBrain {
             return false;
         }
         Vec3 b = dg.burst();
-        // behind a block from it where it is (not its own side's: AiGrenades.cover): it stays and fights on
+        // behind a block from it where it is, all of it (not its own side's: AiGrenades.cover): it stays and fights on
         if (dodgeFrom == null && AiGrenades.cover(AiBots.voxels(level), b, bot.mob.getX(), bot.mob.getY(), bot.mob.getZ(), dg.own())) return false;
         boolean first = dodgeFrom == null;
         if (first) {

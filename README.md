@@ -280,10 +280,12 @@ page. They are alphas: expect bugs and back up your world.
   while the other goes round its side; one too weak holds a higher place
   that sees it; an area not seen lately is scouted; a squad that lost more
   than half its men or ran out of rounds falls back on its own; with no enemy
-  known they scout round their side. Soldiers far from any player are
-  moved by their commander too, till a player comes near (server keys
-  `aiCommander`, `aiCommanderHelp`, `aiCommanderStaff`,
-  `aiCommanderTasks`).
+  known they scout round their side. On the way they march in file while
+  far off, bound from cover to cover half by half once near or in sight,
+  creep crouched when close, and storm the last stretch of an advance.
+  Soldiers far from any player are moved by their commander too, till a
+  player comes near (server keys `aiCommander`, `aiCommanderHelp`,
+  `aiCommanderStaff`, `aiCommanderTasks`, `aiCommanderMoves`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim
@@ -309,11 +311,11 @@ page. They are alphas: expect bugs and back up your world.
   into a room already checked (server key `aiClearing`). Into the next room
   inside they go as into the first: from beside the doorway, together (with
   `aiEntry` on).
-- They go into a trench one wide as into a building: each straight stretch
-  is a room, each turn a doorway. They stack up beside a turn, one steps
-  into it and throws a grenade down the next stretch, then they go in and
-  search stretch after stretch, instead of walking along the edge above it
-  (server key `aiTrenches`).
+- They go into a trench one or two wide as into a building: each straight
+  stretch, with its fire step, is a room, each turn a doorway. They stack up
+  beside a turn, one steps into it and throws a grenade down the next
+  stretch, then they go in and search stretch after stretch, instead of
+  walking along the edge above it (server key `aiTrenches`).
 - A soldier who sees a foe fall forgets it and tells its squad, so none of
   them waits for it or goes after it where it fell (server key
   `aiDownTold`).

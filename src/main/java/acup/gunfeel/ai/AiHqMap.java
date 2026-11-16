@@ -13,7 +13,7 @@ import net.minecraft.server.level.ServerLevel;
 
 /**
  * A side's staff's map of the land (stage 7, C1): an {@link HqGrid} round the side, made again off the server thread
- * at each of the side's reports (AiIntel) from the lie of the land (AiTerrain's tiles: heights, crowns, water) and
+ * at each of the side's reports (AiIntel) from the lie of the land (AiTerrain's tiles: heights, leaves at a standing look's height, water) and
  * from where the side thinks its enemies are (what they see). The staff's ways go over it (AiCommander).
  */
 public final class AiHqMap {
@@ -93,7 +93,9 @@ public final class AiHqMap {
                         TerrainTile t = terrain.tile(bx + a, bz + b);
                         if (t == null) continue;
                         h += t.mid(bx + a, bz + b);
-                        crown += t.crowned(bx + a, bz + b);
+                        // leaves a look standing on the ground goes through (underwood, low crowns), not the
+                        // crowns one sees under
+                        crown += t.brushed(bx + a, bz + b);
                         wet += t.wet(bx + a, bz + b);
                         deep += t.deep(bx + a, bz + b);
                         n++;

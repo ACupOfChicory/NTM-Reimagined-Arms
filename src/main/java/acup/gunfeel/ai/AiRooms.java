@@ -56,10 +56,13 @@ public final class AiRooms {
         /** it goes over a sill: its cells stand a step higher than the cell before it at an end (a window climbed through) */
         public boolean sill;
         /**
-         * the direction out of it into b where that is not dir: a trench's turn (AiTrenches), one cell, gone into from a
+         * the direction out of it into b where that is not dir: a trench's turn (AiTrenches), a cell or four, gone into from a
          * one way and out of into b another; -1 for a way straight through
          */
         public int turn = -1;
+        /** at a turn two wide, of its cells the one to throw from into b, into a (stepped out to from beside it); NONE: its end */
+        public long frontA = NONE, frontB = NONE;
+        static final long NONE = Long.MIN_VALUE;
 
         Way(long[] cells, int dir, int a, int b, int width, boolean door, long[] besideA, long[] besideB) {
             this.cells = cells;
@@ -88,7 +91,10 @@ public final class AiRooms {
          */
         public long front(int r) {
             long end = r == b ? cells[0] : cells[cells.length - 1];
-            if (turn >= 0) return end;
+            if (turn >= 0) {
+                long f = r == b ? frontB : frontA;
+                return f != NONE ? f : end;
+            }
             int out = r == b ? Dirs.opposite(dir) : dir;
             return BlockPos.asLong(BlockPos.getX(end) + Dirs.DX[out], BlockPos.getY(end), BlockPos.getZ(end) + Dirs.DZ[out]);
         }
