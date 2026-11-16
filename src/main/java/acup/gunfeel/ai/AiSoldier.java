@@ -192,6 +192,8 @@ public final class AiSoldier implements AiBrain {
     private int exitId = Integer.MIN_VALUE;
     private long exitFor = Long.MIN_VALUE, exitFrom = Long.MIN_VALUE;
     private boolean exitWanted;
+    /** where the loss it chose for was (its squad mates match their losses to it: sameLoss) */
+    private double exitLostX, exitLostZ;
     private @Nullable Vec3 exit;
     private static final long WHERE_IT_STANDS = Long.MIN_VALUE + 1;
     /** exits it chose to watch (the stands) */
@@ -1077,16 +1079,23 @@ public final class AiSoldier implements AiBrain {
         if (c.id != exitId || c.lostTick != exitFor) {
             exitId = c.id;
             exitFor = c.lostTick;
+            exitLostX = c.lostX;
+            exitLostZ = c.lostZ;
             exitFrom = Long.MIN_VALUE;
             exit = null;
-            exitWanted = bot.mob.getRandom().nextFloat() < exitShare;
+            // its squad covers the corners between them: one of them on where they went, the rest each on another way out;
+            // where they went hidden from where it watches (a wall between): no use watching a wall, it watches a way out
+            int squadOn = squadWatches(bot, c);
+            Vec3 eye = watchEye(bot);
+            boolean wentSeen = VoxelRay.clear(AiBots.voxels((ServerLevel) bot.mob.level()), eye.x, eye.y, eye.z, c.lostX, c.lostY + 1.1, c.lostZ, Voxel.SIGHT);
+            exitWanted = exitShare > 0F && (!wentSeen || squadOn == WATCH_WENT || squadOn != WATCH_EXIT && bot.mob.getRandom().nextFloat() < exitShare);
         }
         long from = spot == null ? WHERE_IT_STANDS : spot.hasPeek() ? spot.peek() : spot.cell();
         if (exitWanted && from != exitFrom && ExitSpots.mayPick(tick)) {
             exitFrom = from;
             ServerLevel level = (ServerLevel) bot.mob.level();
             long cell = ExitSpots.pick(TacticalMap.of(level), AiBots.voxels(level), watchEye(bot), c.lostX, c.lostY, c.lostZ, c.vx, c.vz,
-                    bot.mob.getRandom());
+                    bot.mob.getRandom(), squadExits(bot, c));
             boolean had = exit != null;
             exit = cell == Long.MIN_VALUE ? null : new Vec3(BlockPos.getX(cell) + 0.5, BlockPos.getY(cell) + 1.1, BlockPos.getZ(cell) + 0.5);
             if (exit != null && !had) {
@@ -1095,6 +1104,51 @@ public final class AiSoldier implements AiBrain {
             }
         }
         return exit != null ? exit : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+    }
+
+    /** what the rest of its squad watches for the same loss: WATCH_WENT one of them where it went, else WATCH_EXIT one a way out, else 0 */
+    static final int WATCH_WENT = 1, WATCH_EXIT = 2;
+    /** a squad mate's loss this near in time, of the same target or of one lost this near it, is the same loss: ticks, blocks */
+    static final int SAME_LOSS = 60;
+    static final double SAME_PLACE = 8;
+
+    /** a squad mate chose for the same loss (foes gone behind the same wall together count as one) */
+    private static boolean sameLoss(AiSoldier os, TargetMemory.Contact c) {
+        if (os.exitId == Integer.MIN_VALUE || Math.abs(os.exitFor - c.lostTick) > SAME_LOSS) return false;
+        if (os.exitId == c.id) return true;
+        double dx = os.exitLostX - c.lostX, dz = os.exitLostZ - c.lostZ;
+        return dx * dx + dz * dz <= SAME_PLACE * SAME_PLACE;
+    }
+
+    private static int squadWatches(AiBot bot, TargetMemory.Contact c) {
+        AiSquads.Squad s = AiSquads.of(bot);
+        if (s == null) return 0;
+        int on = 0;
+        for (AiBot o : s.bots)
+            if (o != bot && o.brain instanceof AiSoldier os && sameLoss(os, c)) {
+                if (!os.exitWanted) return WATCH_WENT;
+                on = WATCH_EXIT;
+            }
+        return on;
+    }
+
+    /** the ways out its squad mates watch for the same loss */
+    private static List<Vec3> squadExits(AiBot bot, TargetMemory.Contact c) {
+        AiSquads.Squad s = AiSquads.of(bot);
+        if (s == null) return List.of();
+        List<Vec3> out = new java.util.ArrayList<>(2);
+        for (AiBot o : s.bots)
+            if (o != bot && o.brain instanceof AiSoldier os && os.exit != null && sameLoss(os, c)) out.add(os.exit);
+        return out;
+    }
+
+    /** the stands: the way out it watches for its loss (null: none, or where they went), and whether it chose one */
+    @Nullable Vec3 exitWatched() {
+        return exit;
+    }
+
+    boolean exitChosen() {
+        return exitWanted;
     }
 
     /** it watches where a target it lost may come out (its choice for this loss made now if not yet) */

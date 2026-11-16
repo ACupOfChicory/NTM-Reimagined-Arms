@@ -225,7 +225,9 @@ page. They are alphas: expect bugs and back up your world.
   and take the gun's recoil.
 - Bots of one side fight as a squad: when you vanish behind cover one goes
   round the side while the others fire to keep your head down, and a bot
-  leaves cover only while another covers it. They throw grenades, run from
+  leaves cover only while another covers it. Lose them behind a long wall
+  and they split its ends between them: one watches where you went, the
+  others the corners you could come round. They throw grenades, run from
   grenades thrown at them, including a player's, and do not turn their heads
   to the sounds of animals.
 - A bot that has lost you behind cover and has none of its own does not

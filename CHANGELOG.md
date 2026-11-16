@@ -1,5 +1,11 @@
 # Changelog
 
+## X1274
+
+- AI soldiers that lose a foe behind a long wall share its ends: each looks
+  for a corner the foe could come round that none of its squad watches yet,
+  instead of all watching the nearest end.
+
 ## X1271
 
 - Soldiers take a bunker by its firing slits: they keep out of a slit's field
