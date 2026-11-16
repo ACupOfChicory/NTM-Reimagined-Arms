@@ -425,6 +425,7 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `gunWeightTooltip` | `true` | A gun's tooltip names its weight class and how much it slows |
 | `suppressionDarken`, `suppressionMuffle` | `1` | How much the screen darkens and the other sounds go down under fire, 0 to 1 (the server sets the most) |
 | `shockGlitch` | `1` | How much the HUD glitches and shakes when a shock shell hits you, 0 to 1 (the server sets the most and the least) |
+| `casingMax` | `96` | Most of NTM's spent casings drawn at once, the nearest on screen (`-1` = no limit, `0` = none); casings off screen or over 48 blocks away are never drawn |
 | `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
 | `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
 | `enabled` | `true` | The mod's client side as a whole |
