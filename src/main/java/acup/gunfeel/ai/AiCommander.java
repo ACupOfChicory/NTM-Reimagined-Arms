@@ -165,6 +165,8 @@ public final class AiCommander {
 
     /** the stands: orders given (squads sent), times a squad was held in reserve, areas given up, reserves sent where the side loses soldiers */
     public static int orders, reserve, gaveUp, helped, strays;
+    /** of the strays: those come into a squad crossing a river, given its crossing's order */
+    public static int joinedCrossing;
     /** the stands: steps the staff moved soldiers asleep, and those it could not (the ground, water, not loaded) */
     public static long drifted, driftBlocked;
     /** the stands: the game tick each side (by its team) was last given its orders */
@@ -549,8 +551,12 @@ public final class AiCommander {
             // a squad crossing a river now keeps its task till it is over (the drill is not broken off half way)
             Job cj = jobs.get(i);
             if (cj != null && crossing(cj)) {
-                // its orders kept alive meanwhile (they last LASTS)
+                // its orders kept alive meanwhile (they last LASTS); one of the squad made since with none of it is given it
                 for (AiBot b : cj.members) if (b.order != null && b.order.job == cj) b.order.until = Math.max(b.order.until, now + LASTS);
+                for (AiBot b : squads.get(i).bots) {
+                    if (b.order != null && b.order.job == cj) b.order.until = Math.max(b.order.until, now + LASTS);
+                    else if (b.mob.isAlive()) join(b, cj, now);
+                }
                 continue;
             }
             task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
@@ -1070,7 +1076,38 @@ public final class AiCommander {
         return o;
     }
 
-    /** one of the job's squad has begun its crossing and is not over yet */
+    /**
+     * one come into a squad crossing a river with its own order or none (the squads are made again as they move): the
+     * crossing's order, as one of its squad has it. Short of the far bank's gathering place it goes over by the drill
+     * (AiCrossing: at the near bank with the main body, or with the last; on the far bank to a place there, held with its
+     * own); past it already, on along the way. Not one that gave up an order lately (AVOID), nor one in another crossing.
+     */
+    private static void join(AiBot b, Job cj, long now) {
+        if (b.orderFailedUntil > now || AiCrossing.of(b) != null) return;
+        Order by = null;
+        for (AiBot c : cj.members) if (c.order != null && c.order.job == cj && c.order.crossKind != null) by = c.order;
+        if (by == null) return;
+        Order o = new Order();
+        o.job = cj;
+        o.x = by.x;
+        o.z = by.z;
+        o.r = by.r;
+        o.lead = by.lead;
+        o.ids = by.ids;
+        o.until = now + LASTS;
+        if (!cj.members.contains(b)) {
+            List<AiBot> members = new ArrayList<>(cj.members);
+            members.add(b);
+            cj.members = List.copyOf(members);
+        }
+        o.slot = cj.members.indexOf(b);
+        o.of = cj.members.size();
+        o.way = by.way;
+        takeUp(o, b);
+        b.order = o;
+        joinedCrossing++;
+    }
+
     /** the war check's: 1 the squad's task kept as it crosses (its staff's round passes it by), 2 the squad has a task not this one's, 0 else */
     static int passedBy(AiSquads.Squad s, AiBot b, long now) {
         Job j = job(s, now);
@@ -1079,6 +1116,7 @@ public final class AiCommander {
         return b.order == null || b.order.job != j ? 2 : 0;
     }
 
+    /** one of the job's squad has begun its crossing and is not over yet */
     private static boolean crossing(Job j) {
         for (AiBot b : j.members)
             if (b.mob.isAlive() && b.order != null && b.order.job == j && b.order.crossKind != null && started(b, b.order)) return true;

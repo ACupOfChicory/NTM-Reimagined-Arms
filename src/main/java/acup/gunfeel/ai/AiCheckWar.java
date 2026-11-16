@@ -175,6 +175,8 @@ final class AiCheckWar {
     private long alive, idle;
     /** the tasks given (AiCommander.given) at the round's start */
     private int[] given0 = new int[StaffPlan.Kind.values().length];
+    /** AiCommander.joinedCrossing when the stage began */
+    private int joined0 = -1;
     private int strays0;
     /** per round: {alive, idle} and the tasks given in it */
     private final List<long[]> idles = new ArrayList<>();
@@ -700,6 +702,7 @@ final class AiCheckWar {
         java.util.Arrays.fill(modeTicks, 0);
         bounding = covering = inCover = 0;
         given0 = AiCommander.given.clone();
+        if (joined0 < 0) joined0 = AiCommander.joinedCrossing;
         strays0 = AiCommander.strays;
         firstSeenFrom = -1;
         madeBefore = 0;
@@ -1009,6 +1012,7 @@ final class AiCheckWar {
         // falling back out of rounds and back); the reports' answers (most orders now) add none to speak of
         // by squads' tasks (each of a squad changes with it), not by soldiers; a help to a squad pinned down no flap; at
         // most what chance gives at the rate before C5 (flapsAllowed: n changes, k flaps, the most allowed)
+        check.out(String.format(Locale.ROOT, "     war: come into a squad crossing a river, given its crossing's order: %d", AiCommander.joinedCrossing - Math.max(0, joined0)));
         if (jobChanges > 0) check.check(String.format(Locale.ROOT, "war: a squad's task changed again within %d ticks of the last: n %d, k %d (%.1f%%), %d allowed (%.1f%% before C5,"
                 + " %.0f%% by chance at most); %d of them given in answer to a report; %d sent to help one pinned down, not counted", FLAP, jobChanges, flaps, 100.0 * flaps / jobChanges,
                 flapsAllowed(jobChanges), 100 * FLAPS_BEFORE, 100 * FLAP_LEVEL, flapsAnswered, flapsHelp), flaps <= flapsAllowed(jobChanges));

@@ -1,5 +1,13 @@
 # Changelog
 
+## X1313
+
+- An AI soldier who joins a squad while it is crossing a river now goes over
+  with it by the crossing drill: on the near bank they wait their turn (or go
+  with the last if the rest are over), on the far bank they take a place with
+  those holding it. Before, such a soldier could stand idle until the crossing
+  was over, or start a crossing of their own.
+
 ## X1311
 
 - When the AI soldier who was to throw a grenade into a room or round a
