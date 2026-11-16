@@ -430,6 +430,8 @@ public final class AiSoldier implements AiBrain {
 
     private void decide(AiBot bot, long tick) {
         if (!(bot.mob.level() instanceof ServerLevel level)) return;
+        // its ways keep out of the fire of slits its foes are behind (AiBunker), whatever it is doing
+        bot.mover.avoid(AiBunker.avoid(bot, level, tick));
         if (tick - unreachableSince > 400) {
             unreachable.clear();
             unreachableSince = tick;
@@ -477,6 +479,8 @@ public final class AiSoldier implements AiBrain {
         }
         // a river to cross to a foe: at the water's edge for its wave, or over with it (AiCrossing)
         if (AiCrossing.step(this, bot, level, tick)) return;
+        // its side's thrower at a bunker's slit: beside it, out to throw, back (AiBunker)
+        if (AiBunker.step(this, bot, level, tick)) return;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again
@@ -838,6 +842,20 @@ public final class AiSoldier implements AiBrain {
                     return;
                 }
             } else shore = Long.MIN_VALUE;
+            // in the fire of a bunker's slit with nothing to hide behind: out of its wedge to the side
+            if (asideCell != Long.MIN_VALUE && bot.mover.goalIs(asideCell) && bot.mover.failed()) {
+                asideCell = Long.MIN_VALUE;
+                asideAt = tick + ASIDE_EVERY * 5;
+            }
+            if (!AiWater.swims(bot.mob) && AiSquads.mayMove(bot) && tick >= asideAt && (asideCell == Long.MIN_VALUE || !bot.mover.goalIs(asideCell))) {
+                asideAt = tick + ASIDE_EVERY;
+                asideCell = AiBunker.aside(level, bot, tick);
+            }
+            if (asideCell != Long.MIN_VALUE && AiSquads.mayMove(bot) && !(bot.mover.goalIs(asideCell) && bot.mover.arrived())) {
+                moveFiring(bot, asideCell, RUN, null, tick, "out of a slit's fire to the side", Why.BUNKER);
+                return;
+            }
+            asideCell = Long.MIN_VALUE;
             if (dist >= PRONE_NEVER && (dist >= PRONE_FAR || bot.prone.pinned(tick) || longReload(g) && g.reloading())) bot.prone.want();
             why = dist < PRONE_NEVER ? Why.NO_COVER : dist >= PRONE_FAR ? Why.NO_COVER_FAR : bot.prone.pinned(tick) ? Why.NO_COVER_PINNED : Why.NO_COVER;
             burst(bot, tick, true);
@@ -1483,13 +1501,22 @@ public final class AiSoldier implements AiBrain {
         moveFiring(bot, cell, speed, look, tick, what, Why.CROSS);
     }
 
-    /** the same for another errand of its side's (why: what it is): AiCrossing's scout */
+    /** AiBunker.aside: the cell out of a slit's wedge it makes for, and when it looks for one next */
+    private long asideCell = Long.MIN_VALUE, asideAt;
+    static final int ASIDE_EVERY = 20;
+
+    /** the same for another errand of its side's (why: what it is): AiCrossing's scout, AiBunker's thrower */
     void moveFiring(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what, Why why) {
+        moveFiring(bot, cell, speed, look, tick, what, why, 0.6);
+    }
+
+    /** the same, there within this far of the cell's middle (blocks) */
+    void moveFiring(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what, Why why, double near) {
         if (spot != null) drop(bot);
         if (bot.mover.failed() && bot.mover.goalIs(cell)) bot.mover.stop();
         if (!bot.mover.goalIs(cell)) {
             bot.mover.costs(PathSearch.Cost.NONE);
-            bot.mover.goTo(cell, 0.6, speed);
+            bot.mover.goTo(cell, near, speed);
             event(bot, tick, what);
         }
         mode(bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
@@ -1641,7 +1668,9 @@ public final class AiSoldier implements AiBrain {
      */
     private void suppress(AiBot bot, TargetMemory.Contact c, long tick) {
         CoverQuery.Spot s = spot;
-        Vec3 lost = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+        // gone behind a bunker's slit it sees: at the slit (AiBunker)
+        Vec3 slit = bot.mob.level() instanceof ServerLevel sl ? AiBunker.slitFor(sl, bot, c, tick) : null;
+        Vec3 lost = slit != null ? slit : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
         watch = lost;
         AiGunner g = bot.gunner;
         g.aim(lost);
