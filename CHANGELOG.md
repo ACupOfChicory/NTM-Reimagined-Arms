@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers no longer keep firing at the spot where the enemy they answered fell, standing calm with no one in sight.
+
 ## X1194
 
 - Being shot at by many AI soldiers costs much less frame time. NTM drew every
