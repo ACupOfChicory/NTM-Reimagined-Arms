@@ -8,6 +8,9 @@
   rifles 128 (NTM: 16 for every gun). A shot is no louder close by, only
   heard further; squads nearby now hear a fight and come to it. The server
   key `gunshotRange` scales the ranges, `0` puts back NTM's 16.
+- A squad crossing a river by the drill smokes the far bank whenever the
+  crossing is watched: under fire, after its own shots have given it away, or
+  knowing of a foe at the far bank. Before, only under fire.
 
 ## X1277
 

@@ -338,9 +338,11 @@ page. They are alphas: expect bugs and back up your world.
   machine gunner, the marksman and a rifleman stay on the near bank and keep
   the foe under fire, a pair goes over first and holds the far bank, one of
   them a little further on to watch, the rest follow by pairs, the near bank's
-  cover last at the same place. Smoke onto the far bank only under fire. One
-  shot at while swimming from across, not halfway over yet, swims back and
-  goes again; past halfway it goes on (server key `aiCrossing`).
+  cover last at the same place. Smoke goes onto the far bank when the
+  crossing is watched: the squad is under fire, its own fire has given it
+  away, or it knows of a foe at the far bank. One shot at while swimming from
+  across, not halfway over yet, swims back and goes again; past halfway it
+  goes on (server key `aiCrossing`).
 - A bunker is taken by its firing slits. Any open hole at head height in a
   wall with wall over it is a slit, its field of fire a wedge widening as the
   slit is wide for its depth. Their ways keep out of the wedges; one in a

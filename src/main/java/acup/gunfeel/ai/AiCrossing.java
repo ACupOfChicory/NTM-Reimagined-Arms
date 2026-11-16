@@ -26,7 +26,8 @@ import net.minecraft.world.phys.Vec3;
  * the place; the near side's security (its base of fire, its marksman, a rifleman) stays and covers; the far side's
  * security, a pair, crosses first and holds the far bank, one of it a few blocks further on to watch; then the rest,
  * by pairs; the near side's security last, at the same place; all over, it holds the far bank till it is let go. Smoke
- * onto the far bank only under fire. Shot at swimming: to the nearer rally point in the line of the fire (the near bank
+ * onto the far bank when the crossing is watched ({@link #watched}: under fire, its own fire heard, a foe known at the
+ * far bank). Shot at swimming: to the nearer rally point in the line of the fire (the near bank
  * if the fire is from across the river and it is not half over yet, else on). Kept by side and target, as the squads are
  * made again every second. Server thread.
  */
@@ -174,6 +175,8 @@ public final class AiCrossing {
      */
     /** the stands: crossings ended not over: all of it down, too long, the order taken back, none of it came by */
     public static final int[] whyNot = new int[4];
+    /** the stands: why a crossing went under smoke: under fire, its own fire heard, a foe known at the far bank */
+    public static final int[] smokeWhy = new int[3];
     public static int begun, smoked, securitySent, pairsSent, lastSent, back, onward, over, notOver, watches, scouted, found;
 
     private AiCrossing() {
@@ -728,7 +731,11 @@ public final class AiCrossing {
                     Long at = op.bank.get(b);
                     there &= at != null && b.mover.goalIs(at) && (b.mover.arrived() || b.mover.failed());
                 }
-                if (there || tick - op.phaseAt >= GATHER_MAX) phase(op, fired(l, op.members, tick) ? Phase.SMOKE : Phase.SECURITY, tick);
+                if (there || tick - op.phaseAt >= GATHER_MAX) {
+                    int why = watched(l, op, level, tick);
+                    if (why >= 0) smokeWhy[why]++;
+                    phase(op, why >= 0 ? Phase.SMOKE : Phase.SECURITY, tick);
+                }
                 if (op.phase == Phase.SECURITY) sendSecurity(op, map, tick);
             }
             case SMOKE -> {
@@ -845,6 +852,32 @@ public final class AiCrossing {
             if (w.far == 0 ? w.report == null || tick - w.report.tick() > FRESH : w.last != Long.MIN_VALUE && tick - w.last > STALE) unwatch(l, w);
         l.dryWay.values().removeIf(until -> until < tick);
         l.fired.values().removeIf(t -> tick - t > FIRED);
+    }
+
+    /** a foe its own know of this near the far bank, blocks: the crossing's watched */
+    static final double WATCHED = 64;
+
+    /**
+     * Whether the crossing is watched, so it goes under smoke (the manuals: a crossing in the foe's sight is smoked):
+     * 0 under fire; 1 its own fire went (its base of fire or any of it shot within FIRED: the foe heard it); 2 one of
+     * it knows of a live foe at the far bank, seen or lost within FIRED this near it; -1 none. What the foe saw or
+     * heard is not asked: only what its own side knows.
+     */
+    private static int watched(PerLevel l, Op op, ServerLevel level, long tick) {
+        if (fired(l, op.members, tick)) return 0;
+        for (AiBot b : op.members) {
+            long t = b.gunner.shotTick();
+            if (t != Long.MIN_VALUE && tick - t <= FIRED) return 1;
+        }
+        Vec3 far = centre(op.far);
+        for (AiBot b : op.members)
+            for (TargetMemory.Contact c : b.memory.contacts()) {
+                if (!c.known() || Math.max(c.seenTick, c.lostTick) < tick - FIRED) continue;
+                double dx = c.x - far.x, dz = c.z - far.z;
+                if (dx * dx + dz * dz > WATCHED * WATCHED) continue;
+                if (level.getEntity(c.id) instanceof LivingEntity e && e.isAlive() && AiTeams.enemy(b.mob, e)) return 2;
+            }
+        return -1;
     }
 
     /** any of them under fire within FIRED ticks */
