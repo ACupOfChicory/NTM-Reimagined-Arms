@@ -44,6 +44,8 @@ final class AiCheckEntry {
     private final float[] health = new float[SQUAD];
     /** the shed: its floor under the roof, between its two walls; how long the four are left to it */
     static final int SHED_X0 = 863, SHED_X1 = 864, SHED_Z0 = 13, SHED_Z1 = 15, SHED_RUN = 500;
+    /** the pocket the one under the roof goes into, this far under the floor */
+    static final int POCKET = 8;
     private boolean shed;
     private int faultsBefore, shedEntries, shedFaults, shedSearch, shedUnder;
     private int stackSeen, doorSeen, signSeen;
@@ -173,11 +175,20 @@ final class AiCheckEntry {
     }
 
     private boolean shedTick() {
-        // the one under the roof is gone at once: lost there, the four go after it
-        // (held up there: fallen back, it would be down, and those who saw it fall would forget it, aiDownTold)
-        if (ticks == 2) for (Mob m : inside) {
-            m.setNoGravity(true);
-            m.setPos(m.getX(), m.getY() + 200, m.getZ());
+        // the one under the roof is gone at once: lost there, the four go after it. Into a pocket sealed in stone under
+        // the floor, held there: none sees it where it went (high in the air, one glimpse there made the sky the place it
+        // was lost, and none searched), it does not fall (down, those who saw it would forget it, aiDownTold)
+        if (ticks == 2) {
+            BlockState stone = Blocks.STONE.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
+            int px = SHED_X0, pz = SHED_Z0, py = y - POCKET;
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dz = -1; dz <= 1; dz++)
+                    for (int dy = -1; dy <= 2; dy++) set(px + dx, py + dy, pz + dz, dx == 0 && dz == 0 && (dy == 0 || dy == 1) ? air : stone);
+            for (Mob m : inside) {
+                m.setNoGravity(true);
+                m.setDeltaMovement(Vec3.ZERO);
+                m.setPos(px + 0.5, py, pz + 0.5);
+            }
         }
         for (Mob m : squad) {
             AiBot b = AiBots.get(m);

@@ -196,21 +196,26 @@ public final class AiGrenades {
      * high behind its cover till the burst (a burst nearer it than SAFE, CLOSE_BURST on, only shielded).
      */
     static @Nullable Throw plan(ServerLevel level, Mob m, Vec3 at, boolean smoke, double down) {
+        return plan(level, m, at, smoke, down, Double.NaN);
+    }
+
+    /** the same, a smoke grenade thrown this hard (NaN: AiSmoke.FORCE) */
+    static @Nullable Throw plan(ServerLevel level, Mob m, Vec3 at, boolean smoke, double down, double smokeForce) {
         long t0 = System.nanoTime();
         try {
-            return planNow(level, m, at, smoke, down);
+            return planNow(level, m, at, smoke, down, smokeForce);
         } finally {
             planNanos += System.nanoTime() - t0;
         }
     }
 
-    private static @Nullable Throw planNow(ServerLevel level, Mob m, Vec3 at, boolean smoke, double down) {
+    private static @Nullable Throw planNow(ServerLevel level, Mob m, Vec3 at, boolean smoke, double down, double smokeForce) {
         double dx = at.x - m.getX(), dz = at.z - m.getZ();
         float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90F;
         // a smoke grenade: thrown softer, going off where it first hits once armed (AiSmoke), for the near throws it wants
         // a near throw: softer (a frag as hard as NTM throws it falls LOB blocks off at the nearest)
         double share = smoke || down <= 0 ? 1 : share(Math.hypot(dx, dz));
-        double force = smoke ? AiSmoke.FORCE : EnumGrenadeShell.FRAG.getYeetForce() * share, bounce = EnumGrenadeShell.FRAG.getBounce();
+        double force = smoke ? Double.isNaN(smokeForce) ? AiSmoke.FORCE : smokeForce : EnumGrenadeShell.FRAG.getYeetForce() * share, bounce = EnumGrenadeShell.FRAG.getBounce();
         int armed = smoke ? IMPACT_ARMED : -1;
         VoxelRay.Source src = AiBots.voxels(level);
         int minY = level.getMinY();

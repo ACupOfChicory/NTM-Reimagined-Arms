@@ -228,6 +228,11 @@ page. They are alphas: expect bugs and back up your world.
   leaves cover only while another covers it. They throw grenades, run from
   grenades thrown at them, including a player's, and do not turn their heads
   to the sounds of animals.
+- A bot that has lost you behind cover and has none of its own does not
+  stand in the open: it goes down on a knee, unless that would hide the place
+  it watches. A bot that knows of no one looks slowly round, its head turning
+  at most 1.5 degrees a tick, so one creeping up from the side or behind can
+  be seen.
 - Fire suppresses them as it does you: bullets passing close, hitting their
   cover or bursting near pin a bot down, and a squad kept under fire loses
   heart, holds back and falls back (server key `aiSuppression`).
@@ -320,6 +325,12 @@ page. They are alphas: expect bugs and back up your world.
   beside a turn, one steps into it and throws a grenade down the next
   stretch, then they go in and search stretch after stretch, instead of
   walking along the edge above it (server key `aiTrenches`).
+- A squad crosses a river to a foe on the far bank by waves: the machine
+  gunner, the marksman and a rifleman or two stay on the bank and keep the
+  foe under fire, one throws smoke onto the far bank, half the squad (four
+  at most) swims over and holds past the bank, then the rest, the machine
+  gunner last. One shot at while swimming, nearer the bank it left, swims
+  back and goes with the next wave (server key `aiCrossing`).
 - A soldier who sees a foe fall forgets it and tells its squad, so none of
   them waits for it or goes after it where it fell (server key
   `aiDownTold`).

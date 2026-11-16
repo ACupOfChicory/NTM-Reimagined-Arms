@@ -90,6 +90,11 @@ final class AiCheckTeams {
     int briefOut, peekRunOut, shiftsOut;
     long aliveTicksOut;
     private final long[] modeTicks = new long[AiSoldier.Mode.values().length];
+    // shots fired by one that knew of no one (no contact, nothing heard) this tick and the one before (a shot the
+    // tick its target fell and was forgotten is the trigger's last): at nothing
+    private int blindShots;
+    private final java.util.Map<AiBot, Integer> shotsBefore = new java.util.HashMap<>();
+    private final java.util.Set<AiBot> knewNoOne = new java.util.HashSet<>();
     private long seeTicks;
     private final it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap atOne = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
     private final long[] firingAtOne = new long[6];
@@ -139,6 +144,12 @@ final class AiCheckTeams {
         for (AiBot bot : bots) {
             if (!bot.mob.isAlive() || !(bot.brain instanceof AiSoldier so)) continue;
             modeTicks[so.mode().ordinal()]++;
+            int was = shotsBefore.getOrDefault(bot, bot.gunner.shots);
+            boolean noOne = bot.memory.contacts().isEmpty() && bot.memory.noise() == null;
+            if (bot.gunner.shots > was && noOne && knewNoOne.contains(bot)) blindShots += bot.gunner.shots - was;
+            shotsBefore.put(bot, bot.gunner.shots);
+            if (noOne) knewNoOne.add(bot);
+            else knewNoOne.remove(bot);
             TargetMemory.Contact f = bot.memory.focusId < 0 ? null : bot.memory.contact(bot.memory.focusId);
             if (f != null && f.state == TargetMemory.State.VISIBLE) {
                 seeTicks++;
@@ -234,6 +245,12 @@ final class AiCheckTeams {
             AiCheckFight.field(level, y);
             spawn(red, RED, new Vec3(65.5, y, 9.5));
             spawn(blue, BLUE, new Vec3(65.5, y, 33.5));
+            // each side in a line across the field, 18 blocks apart, east of the fight's wall (x 60 to 64 at z 20)
+            // and north of its block (x 66 to 68, z 7 to 9): spawned anywhere round a point (AiSpawn), now and then
+            // a side stood behind the block and the other behind the wall, none saw one of the other side, a shot
+            // was not heard that far, and the whole fight stood idle
+            line(red, 12.5);
+            line(blue, 30.5);
         }
         // each side facing the other's (a fight of two sides that know where the other is): an AI soldier with no
         // one in sight and nothing heard stands as it is, and with each spawned facing anywhere (AiSpawn) now and then
@@ -322,6 +339,15 @@ final class AiCheckTeams {
                 bots.add(bot);
             }
             into.add(m);
+        }
+    }
+
+    /** them in a line at z, from x 66.5 two blocks apart */
+    private void line(List<Mob> them, double z) {
+        for (int i = 0; i < them.size(); i++) {
+            Mob m = them.get(i);
+            m.snapTo(66.5 + 2 * i, y, z, m.getYRot(), 0F);
+            m.setDeltaMovement(Vec3.ZERO);
         }
     }
 
@@ -575,6 +601,8 @@ final class AiCheckTeams {
             }
         } else check.check("two teams of AI mobs fight each other", fought);
         check.check("no AI mob hits one of its own team", ownHits == 0);
+        check.out("     shots by a fighter that knows of no one: " + blindShots);
+        check.check("no AI mob fires knowing of no one", blindShots == 0);
         check.check("no AI mob is hit by its own grenade", selfBlasts == 0);
         for (Mob m : red) m.discard();
         for (Mob m : blue) m.discard();
