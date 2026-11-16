@@ -1,5 +1,11 @@
 # Changelog
 
+## X1227
+
+- Soldiers no longer shoot their own: they hold fire with a comrade close
+  beside them, and a machine gun keeps a wider line clear for the kick of its
+  burst.
+
 ## X1225
 
 - Soldiers crossing a river no longer shoot through their own waiting at the
