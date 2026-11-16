@@ -100,6 +100,27 @@ final class AiCheckWar {
         return s;
     }
 
+    /** why one stands with no foe known and no order: its order ran out (the staff gave it none again), the staff took it back (cannot get there), in no squad (no staff's order for it), none given */
+    static final int IDLE_EXPIRED = 0, IDLE_GAVE_UP = 1, IDLE_NO_SQUAD = 2, IDLE_NONE = 3;
+    private static final String[] IDLE_NAMES = {"order ran out", "taken back", "in no squad", "none given"};
+
+    /** the idle's whys (a round's: IDLE_*), counted as idle is; the ticks past their order's end of those it ran out on */
+    private final long[] idleWhy = new long[4];
+    private long idleLate;
+
+    /** the idle's whys of a round's idles line (alive, idle, the whys, the late ticks): "(order ran out 3, ...)" or "" */
+    private static String whys(long[] id) {
+        if (id.length < 7 || id[1] == 0) return "";
+        StringBuilder s = new StringBuilder(" (");
+        for (int k = 0; k < IDLE_NAMES.length; k++) {
+            if (id[2 + k] == 0) continue;
+            if (s.length() > 2) s.append(", ");
+            s.append(IDLE_NAMES[k]).append(' ').append(id[2 + k]);
+            if (k == IDLE_EXPIRED) s.append(String.format(Locale.ROOT, ", %.0f ticks past on the mean", (double) id[6] / id[2]));
+        }
+        return s.append(" of the looks)").toString();
+    }
+
     /** a squad going round at its place: one of it within this of it */
     static final double AT_PLACE = 8;
     /** a squad within this north of the camp's line is still at the camp */
@@ -369,7 +390,13 @@ final class AiCheckWar {
             AiBot b = AiBots.get(m);
             if (b == null || !m.isAlive()) continue;
             alive++;
-            if (b.memory.focus(m.getX(), m.getZ()) == null && !AiCommander.has(b, now)) idle++;
+            if (b.memory.focus(m.getX(), m.getZ()) == null && !AiCommander.has(b, now)) {
+                idle++;
+                // why (a soldier waiting for its squad's way has its order already: never here)
+                int why = b.order != null ? IDLE_EXPIRED : b.orderFailedUntil > now ? IDLE_GAVE_UP : AiSquads.of(b) == null ? IDLE_NO_SQUAD : IDLE_NONE;
+                idleWhy[why]++;
+                if (why == IDLE_EXPIRED) idleLate += now - b.order.until;
+            }
         }
         // the squads' ways of going (C3): each squad's mode, and bounding, whether one of the half covering is in cover
         if (ticks % LOOK == 0) {
@@ -438,7 +465,7 @@ final class AiCheckWar {
             return false;
         }
         results.add(new int[] {seenAt, down()});
-        idles.add(new long[] {alive, idle});
+        idles.add(new long[] {alive, idle, idleWhy[0], idleWhy[1], idleWhy[2], idleWhy[3], idleLate});
         // the tasks given, then the stragglers sent after a squad
         int[] t = new int[given0.length + 1];
         for (int k = 0; k < given0.length; k++) t[k] = AiCommander.given[k] - given0[k];
@@ -647,6 +674,8 @@ final class AiCheckWar {
         reportsSeen = 0;
         looks = inReach = inSight = 0;
         alive = idle = 0;
+        java.util.Arrays.fill(idleWhy, 0);
+        idleLate = 0;
         java.util.Arrays.fill(modeTicks, 0);
         bounding = covering = inCover = 0;
         given0 = AiCommander.given.clone();
@@ -781,7 +810,7 @@ final class AiCheckWar {
         int[] fromN = new int[MODES];
         // rounds of each, and of them those in which one of the side came within the player's reach
         int[] roundsOf = new int[MODES], reachedOf = new int[MODES];
-        long[] aliveOf = new long[MODES], idleOf = new long[MODES];
+        long[] aliveOf = new long[MODES], idleOf = new long[MODES], tasksWhy = new long[7];
         long bounds = 0, covers = 0, coversHard = 0, pairsMade = 0, pairsReady = 0, pairsLate = 0;
         long[] flankOf = new long[MODES], wideOf = new long[MODES], roundOf = new long[MODES], crossOf = new long[MODES];
         for (int i = 0; i < results.size(); i++) {
@@ -804,12 +833,14 @@ final class AiCheckWar {
             long[] id = idles.get(i);
             aliveOf[on] += id[0];
             idleOf[on] += id[1];
+            // the whys with the staff's tasks, all such rounds
+            if (on >= TASKS && id.length >= 7) for (int k = 0; k < 7; k++) tasksWhy[k] += id[k];
             StringBuilder kinds = new StringBuilder();
             for (StaffPlan.Kind k : StaffPlan.Kind.values())
                 if (tasksOf.get(i)[k.ordinal()] > 0) kinds.append(kinds.length() == 0 ? "" : ", ").append(k.name().toLowerCase(Locale.ROOT)).append(' ').append(tasksOf.get(i)[k.ordinal()]);
             int strays = tasksOf.get(i)[StaffPlan.Kind.values().length];
-            check.out(String.format(Locale.ROOT, "     war, round %d: standing with no foe known and no order %.1f%% of the soldiers' time; tasks given: %s%s", i + 1,
-                    id[0] == 0 ? 0 : 100.0 * id[1] / id[0], kinds.length() == 0 ? "none" : kinds, strays > 0 ? "; " + strays + " sent after their squad" : ""));
+            check.out(String.format(Locale.ROOT, "     war, round %d: standing with no foe known and no order %.1f%% of the soldiers' time%s; tasks given: %s%s", i + 1,
+                    id[0] == 0 ? 0 : 100.0 * id[1] / id[0], whys(id), kinds.length() == 0 ? "none" : kinds, strays > 0 ? "; " + strays + " sent after their squad" : ""));
             long[] mv = movesOf.get(i);
             long[] pr = pairsOf.get(i);
             if (on >= TASKS) check.out(String.format(Locale.ROOT, "     war, round %d: squads going round that saw the player within 64 blocks %d, of them %.0f degrees or more off the pinning one %d; pairs %d,"
@@ -895,8 +926,8 @@ final class AiCheckWar {
         }
         for (int i = 0; i < tasksOf.size(); i++)
             if (i % MODES >= TASKS) for (StaffPlan.Kind k : new StaffPlan.Kind[] {StaffPlan.Kind.ADVANCE, StaffPlan.Kind.PIN, StaffPlan.Kind.FLANK}) sentAt += tasksOf.get(i)[k.ordinal()];
-        check.check(String.format(Locale.ROOT, "war: with the staff's tasks, the soldiers stand with no foe known and no order %.1f%% of their time (2%% at most); %d tasks to advance, pin or go round",
-                tasksAlive == 0 ? 0 : 100.0 * tasksIdle / tasksAlive, sentAt), !tasksRan || tasksAlive > 0 && tasksIdle * 50 <= tasksAlive && sentAt > 0);
+        check.check(String.format(Locale.ROOT, "war: with the staff's tasks, the soldiers stand with no foe known and no order %.1f%% of their time%s (2%% at most); %d tasks to advance, pin or go round",
+                tasksAlive == 0 ? 0 : 100.0 * tasksIdle / tasksAlive, whys(tasksWhy), sentAt), !tasksRan || tasksAlive > 0 && tasksIdle * 50 <= tasksAlive && sentAt > 0);
         // C3: bounding, one half at least is in cover facing the enemy most of the time
         // C4: the squad going round comes on the group from its side; before it (C2, C3) as a share too
         long nearFlank = 0, nearWide = 0;
