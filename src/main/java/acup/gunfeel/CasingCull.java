@@ -20,6 +20,8 @@ public final class CasingCull {
     static final double FAR = 48;
     // the stand's switch (FireStand: casing=ntm|cull)
     static boolean on = true;
+    /** the stand's control frame: no casing bodies at all (FireStand body-) */
+    static boolean hidden;
 
     private static Frustum frustum;
     private static Vec3 cam;
@@ -77,6 +79,7 @@ public final class CasingCull {
 
     /** whether a casing's body at this pose is drawn */
     public static boolean body(PoseStack stack) {
+        if (hidden) return false;
         if (!on || cam == null) return true;
         var m = stack.last().pose();
         float x = m.m30(), y = m.m31(), z = m.m32();

@@ -293,6 +293,8 @@ final class FireStand {
         }
     }
 
+    private static long[] soundsAt = new long[4];
+
     static void frame() {
         try {
             long t = System.nanoTime();
@@ -309,6 +311,7 @@ final class FireStand {
                     altMode = (frames / 32) % 2;
                     altApply(alt[altMode]);
                 }
+                SoundNoWait.timingWay = alt != null ? altMode : 0;
                 if (mc.player.hurtTime > lastHurt) hurts++;
                 if ((frames & 15) == 0) {
                     int n = casings();
@@ -330,6 +333,10 @@ final class FireStand {
                 serverSamples = 0;
                 PACKETS.clear();
                 ALT_N[0] = ALT_N[1] = 0;
+                SoundNoWait.timing = true;
+                SoundNoWait.delays(0);
+                SoundNoWait.delays(1);
+                soundsAt = new long[] {SoundNoWait.EARLY.get(), SoundNoWait.TAKEN.get(), SoundNoWait.NONE.get(), SoundNoWait.DROPPED.get()};
                 windowStart = System.currentTimeMillis();
                 renderNs = guiNs = cpuNs = 0;
                 gpuNs = 0;
@@ -340,6 +347,8 @@ final class FireStand {
                 partsAt = ClientSmoke.particlesSeen();
                 holesAt = ClientSmoke.holesSeen();
                 tracersAt = ClientSmoke.tracesSeen();
+            } else if (step == 10) {
+                shots(mc);
             } else if (step == 2 && now() >= until) {
                 step = 3;
                 gcCount0 = gcCount() - gcCount0;
@@ -348,17 +357,88 @@ final class FireStand {
                 allocMain0 = ((com.sun.management.ThreadMXBean) THREADS).getCurrentThreadAllocatedBytes() - allocMain0;
                 measure(cases.get(index), windowStart, System.currentTimeMillis());
                 write();
-                if (++index >= cases.size()) {
-                    restore();
-                    ClientSmoke.finish();
-                    step = 999;
-                } else prepare();
+                if (shots != null) {
+                    step = 10;
+                    shotFrame = 0;
+                } else next();
             }
             renderAt = System.nanoTime();
         } catch (Throwable e) {
             GunFeel.LOGGER.error("[fire-stand]", e);
             fail("исключение: " + e);
         }
+    }
+
+    /**
+     * shots=A/B (alt's ways): the world frozen (tick freeze, 200 frames in), a frame taken with each way in turn, A B A B, to
+     * notes/perf/fire-stand/<label>-<case>-<n><way>.png; the two of one way should be alike to the pixel (a still frame)
+     */
+    private static String[] shots;
+    private static int shotFrame;
+
+    private static void shots(Minecraft mc) throws Exception {
+        int f = shotFrame++, k = f - 400, n = shots.length * 2;
+        // the casings laid while the world still ticks (a frozen tick leaves new particles in the engine's queue), the
+        // world frozen once they lie
+        if (f == 0 && stillCasings > 0) lay(mc, stillCasings);
+        if (f == 200) command("tick freeze");
+        if (k >= 0 && k < 4 * n) {
+            String way = shots[(k / 4) % shots.length];
+            // each way from all on, so a switch one way turns off does not carry into the next
+            if (k % 4 == 0) {
+                altReset();
+                altApply(way);
+            }
+            if (k % 4 == 3) {
+                Path png = Path.of(OUT.toString().replaceAll("\\.tsv$", "") + "-" + index + "-" + (k / 4) + way.replaceAll("[^a-z0-9+-]", "") + ".png");
+                net.minecraft.client.Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
+                    try (image) {
+                        image.writeToFile(png);
+                    } catch (java.io.IOException e) {
+                        GunFeel.LOGGER.warn("[fire-stand] снимок {}", png, e);
+                    }
+                });
+            }
+        }
+        if (f == 400 + 4 * n + 4) {
+            altReset();
+            command("tick unfreeze");
+            GunFeel.LOGGER.info("[fire-stand] снимки сняты");
+            next();
+        }
+    }
+
+    /** casings=N with shots: N of NTM's casings of each kind laid on the ground before the player, still */
+    private static int stillCasings;
+
+    private static void lay(Minecraft mc, int n) {
+        var p = mc.player;
+        var kinds = new java.util.ArrayList<>(com.hbm.particle.SpentCasing.casingMap.values());
+        kinds.sort(java.util.Comparator.comparing(com.hbm.particle.SpentCasing::getName));
+        double yaw = Math.toRadians(p.getYRot());
+        double fx = -Math.sin(yaw), fz = Math.cos(yaw), sx = -fz, sz = fx;
+        for (int i = 0; i < n; i++) {
+            double d = 1.5 + (i % 4) * 1.0, s = (i / 4 - (n / 4) / 2.0) * 0.4;
+            var config = kinds.get((i * 7) % kinds.size());
+            var c = new com.hbm.particle.ParticleSpentCasing(mc.level, p.getX() + fx * d + sx * s, p.getY() + 0.05,
+                    p.getZ() + fz * d + sz * s, 0, 0, 0, 0F, 0F, config, false, 0, 0, 0);
+            c.rotationYaw = c.prevRotationYaw = i * 37F;
+            c.rotationPitch = c.prevRotationPitch = i * 23F;
+            mc.particleEngine.add(c);
+        }
+    }
+
+    private static void command(String c) {
+        var server = Minecraft.getInstance().getSingleplayerServer();
+        server.execute(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), c));
+    }
+
+    private static void next() throws Exception {
+        if (++index >= cases.size()) {
+            restore();
+            ClientSmoke.finish();
+            step = 999;
+        } else prepare();
     }
 
     private static void measure(Case c, long from, long to) {
@@ -402,6 +482,16 @@ final class FireStand {
                     acup.gunfeel.ai.client.BotPoseCache.DIFFER.get());
             acup.gunfeel.ai.client.BotPoseCache.verify = false;
         }
+        long sounds = 0;
+        for (var e : PACKETS.entrySet()) if (e.getKey().startsWith("звук ")) sounds += e.getValue().sum();
+        GunFeel.LOGGER.info("[fire-stand] звуки {}: {}/с; без ожидания {}, каналы {}, без канала {}, сняты stopAll {}", c.text, d(sounds / sec),
+                SoundNoWait.EARLY.get() - soundsAt[0], SoundNoWait.TAKEN.get() - soundsAt[1], SoundNoWait.NONE.get() - soundsAt[2],
+                SoundNoWait.DROPPED.get() - soundsAt[3]);
+        for (int m = 0; m < (alt != null ? 2 : 1); m++) {
+            long[] dl = SoundNoWait.delays(m);
+            GunFeel.LOGGER.info("[fire-stand] звук до канала {}{}: {} шт., p50 {} мс, p99 {} мс, макс {} мс", c.text, alt != null ? " → " + alt[m] : "",
+                    dl.length, ms(pct(dl, 50)), ms(pct(dl, 99)), ms(dl.length == 0 ? 0 : dl[dl.length - 1]));
+        }
         if (alt != null) for (int m = 0; m < 2; m++) {
             long[] a = Arrays.copyOf(ALT_FRAMES[m], ALT_N[m]);
             Arrays.sort(a);
@@ -417,7 +507,11 @@ final class FireStand {
      * "pose-&hit-" / "pose+&hit+"
      */
     static final java.util.Map<String, java.util.function.Consumer<Boolean>> SWITCHES = java.util.Map.of(
-            "pose", on -> acup.gunfeel.ai.client.BotPoseCache.on = on);
+            "pose", on -> acup.gunfeel.ai.client.BotPoseCache.on = on,
+            "inst", on -> CasingInstances.on = on,
+            "body", on -> CasingCull.hidden = !on,
+            "snd", on -> Config.soundNoWait = on,
+            "edge", on -> BoxEdges.use = on);
 
     private static void altApply(String way) {
         if (way.equals("ntm") || way.equals("cull")) {
@@ -470,11 +564,21 @@ final class FireStand {
         DROP = Set.of();
         CasingCull.on = true;
         alt = null;
+        shots = null;
+        stillCasings = 0;
         altReset();
         for (String kv : c.keys) {
             String[] p = kv.split("=", 2);
             if (p[0].equals("alt")) {
                 alt = p[1].split("/");
+                continue;
+            }
+            if (p[0].equals("casings")) {
+                stillCasings = Integer.parseInt(p[1]);
+                continue;
+            }
+            if (p[0].equals("shots")) {
+                shots = p[1].split("/");
                 continue;
             }
             if (p[0].equals("poseverify")) {

@@ -1,15 +1,16 @@
 # Changelog
 
-## X1278
+## X1277
 
-- AI squads report to their commander: contact, losses, being pinned down,
-  out of rounds, at their place, unable to get through. The commander gives
-  its orders again at once instead of at its next round of orders.
-- A squad pinned down by enemy fire holds where it is and fires back while
-  the nearest free squad goes round the enemy; when the squad going round is
-  the one pinned, the two change over. Pinned for 20 seconds and still losing
-  men, it throws smoke and falls back. Server key `aiCommanderReports`
-  (true); false: the commander answers no report, as before.
+- NTM's spent casings are drawn by the graphics card, all of a kind at once:
+  the same look, less time a frame with many casings around (`casingInstances`,
+  on by default; NTM's own way under an Iris shader pack).
+- The thermal outlines of NTM's armour and thermal sights take less time to
+  draw, the same lines.
+- A new sound no longer holds the frame while the sound thread is busy (heavy
+  fire, Sound Physics Remastered): fewer stutters; in heavy fire a sound may
+  start a few milliseconds later (`soundNoWait`, on by default; false = the
+  game's way).
 
 ## X1274
 

@@ -129,6 +129,11 @@ public final class Config {
     // shockGlitch; never under the server's shockGlitchMin
     public static float shockGlitch = 1F;
     public static boolean holeCache = true;
+    // NTM's spent casings drawn by the graphics card, one draw a part for all of them (CasingInstances)
+    public static boolean casingInstances = true;
+    // a new sound does not hold the frame while the sound thread is busy: its channel is taken in the sound thread's
+    // turn (SoundNoWait)
+    public static boolean soundNoWait = true;
     // NTM's own blocks drawn as their textures are: on NTM Decentralized Edition (1.21.1) the reinforced laminate's
     // models ask for the cutout layer, where its half-clear texture shows opaque. Read when the models are loaded. There
     // also see-through glass behind NTM's explosion smoke, hidden by the depth the smoke writes (the port's
@@ -336,6 +341,10 @@ public final class Config {
               (the server may not let it go under its shockGlitchMin)
             holeCache: bullet holes kept on the graphics card in batches, rebuilt only when a hole comes or goes, not
               every frame (false = the old way, every hole sent again each frame)
+            casingInstances: NTM's spent casings drawn by the graphics card, all of a kind in one draw (false = NTM's
+              way, each casing sent again each frame); off by itself under an Iris shader pack
+            soundNoWait: a new sound no longer makes the frame wait while the sound thread is busy (many shots, Sound
+              Physics); it starts in the sound thread's turn as before (false = the game's way)
             ntmRenderFixes: NTM blocks drawn as their textures are (NTM Decentralized Edition: the reinforced laminate
               and its pane, block and item, see-through as the glass they are, and see-through glass no longer hidden
               behind NTM's explosion smoke; off = as NTM draws them). The laminate takes effect when the resources are
@@ -582,6 +591,8 @@ public final class Config {
         casingMax = Math.max(-1, Math.min(16384, Math.round(num(p, "casingMax", casingMax))));
         shockGlitch = Math.max(0F, Math.min(1F, num(p, "shockGlitch", shockGlitch)));
         holeCache = bool(p, "holeCache", holeCache);
+        casingInstances = bool(p, "casingInstances", casingInstances);
+        soundNoWait = bool(p, "soundNoWait", soundNoWait);
         ntmRenderFixes = bool(p, "ntmRenderFixes", ntmRenderFixes);
         armBaseRight = num(p, "armBaseRight", armBaseRight);
         armBaseLeft = num(p, "armBaseLeft", armBaseLeft);
@@ -724,6 +735,8 @@ public final class Config {
         p.setProperty("casingMax", Integer.toString(casingMax));
         p.setProperty("shockGlitch", Float.toString(shockGlitch));
         p.setProperty("holeCache", Boolean.toString(holeCache));
+        p.setProperty("casingInstances", Boolean.toString(casingInstances));
+        p.setProperty("soundNoWait", Boolean.toString(soundNoWait));
         p.setProperty("ntmRenderFixes", Boolean.toString(ntmRenderFixes));
         p.setProperty("armBaseRight", Float.toString(armBaseRight));
         p.setProperty("armBaseLeft", Float.toString(armBaseLeft));
