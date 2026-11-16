@@ -78,6 +78,10 @@ public final class GunFeel {
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather.class, e -> {
             if (Feature.TRACERS.on()) Tracers.afterWeather(e);
         });
+        NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.sound.PlaySoundEvent.class, e -> SoundNoWait.played++);
+        // NTM's casings first: they are opaque, and the smoke's copy of the depth comes after them
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGHEST,
+                net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterOpaqueFeatures.class, e -> CasingInstances.draw(e.getModelViewMatrix()));
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterOpaqueFeatures.class, e -> {
             if (Feature.TRACERS.on()) Tracers.afterOpaqueFeatures(e);
         });
@@ -89,6 +93,8 @@ public final class GunFeel {
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> {
             ModelHitClient.clear();
+            CasingInstances.leave();
+            SoundNoWait.leaving();
             CompatClient.leave();
             ArmLayers.leave();
             if (Feature.TRACERS.on()) Tracers.clear();

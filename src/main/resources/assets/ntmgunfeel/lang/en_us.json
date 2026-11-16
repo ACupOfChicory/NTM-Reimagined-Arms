@@ -34,6 +34,7 @@
   "ntmgunfeel.gl54.wheel": "Wheel",
   "ntmgunfeel.feature.suppression": "Suppression under fire",
   "ntmgunfeel.feature.casings": "Fewer spent casings drawn",
+  "ntmgunfeel.feature.thermal_outlines": "Thermal outlines drawn faster",
   "ntmgunfeel.feature.shock": "12 gauge shock shell",
   "ntmgunfeel.feature.prone_fire": "No shot while crawling",
   "ntmgunfeel.feature.mob_ai": "Mob AI",
