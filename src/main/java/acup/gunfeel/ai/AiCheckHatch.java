@@ -272,8 +272,9 @@ final class AiCheckHatch {
                     oakDown == on[3] / 2 && steelDown == on[3] / 2);
             check.check(String.format(Locale.ROOT, "hatch: a grenade down the shaft first (%d in %d rounds)", on[2], on[3]), on[2] * 2 >= on[3]);
             check.check("hatch: none of the squad hurt by its own grenade down the shaft (" + hurt + ")", hurt == 0);
-            check.check(String.format(Locale.ROOT, "hatch: the squad comes up the shaft through an oak and a steel hatch (oak %d, steel %d of %d each)", upOak, upSteel, SQUAD),
-                    upOak > 0 && upSteel > 0);
+            // all of them: one hanging on the ladder's top rung under the open hatch is not up
+            check.check(String.format(Locale.ROOT, "hatch: the squad comes up the shaft through an oak and a steel hatch, all of it (oak %d, steel %d of %d each)", upOak, upSteel, SQUAD),
+                    upOak == SQUAD && upSteel == SQUAD);
         }
         return true;
     }

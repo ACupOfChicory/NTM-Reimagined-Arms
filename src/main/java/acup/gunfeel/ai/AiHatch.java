@@ -15,7 +15,10 @@ import com.hbm.items.weapon.grenade.ItemGrenadeFilling.EnumGrenadeFilling;
 import acup.gunfeel.ReaimTimes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.phys.Vec3;
 
@@ -29,6 +32,41 @@ import net.minecraft.world.phys.Vec3;
  * is down (then it goes on: AiClearing, room after room); the security last. The foe is kept looked for the while (TargetMemory.keep). Server thread, from AiSoldier's search.
  */
 final class AiHatch {
+    /** how far up or down a ladder its top or foot is looked for, blocks */
+    static final int LADDER_REACH = 12;
+
+    /** a ladder's rung, or a trapdoor open over one (the game climbs both) */
+    private static boolean rung(ServerLevel level, BlockPos p) {
+        BlockState s = level.getBlockState(p);
+        return s.is(BlockTags.CLIMBABLE) || s.getBlock() instanceof TrapDoorBlock && s.getValue(TrapDoorBlock.OPEN) && level.getBlockState(p.below()).is(BlockTags.CLIMBABLE);
+    }
+
+    /**
+     * Where one on a ladder steps off it: at its top a cell to stand in beside where the rungs end (out of a hatch on
+     * to the ground), else, the way up shut, its foot. MIN_VALUE: none known (the map not read there yet)
+     */
+    static long offLadder(ServerLevel level, Mob mob) {
+        TacticalMap map = TacticalMap.of(level);
+        int x = mob.getBlockX(), z = mob.getBlockZ(), y0 = mob.getBlockY();
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+        int top = y0;
+        while (top < y0 + LADDER_REACH && rung(level, p.set(x, top, z))) top++;
+        if (top > y0 || !rung(level, p.set(x, y0, z))) {
+            if (walkable(map, x, top, z)) return BlockPos.asLong(x, top, z);
+            int[][] side = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+            for (int[] d : side) if (walkable(map, x + d[0], top, z + d[1])) return BlockPos.asLong(x + d[0], top, z + d[1]);
+        }
+        for (int y = y0; y > y0 - LADDER_REACH && y > level.getMinY(); y--) {
+            if (!rung(level, p.set(x, y - 1, z)) && walkable(map, x, y, z)) return BlockPos.asLong(x, y, z);
+        }
+        return Long.MIN_VALUE;
+    }
+
+    private static boolean walkable(TacticalMap map, int x, int y, int z) {
+        SectionCells c = map.cellsAt(x, y, z);
+        return c != null && c.find(x & 15, y & 15, z & 15) >= 0;
+    }
+
     public static final String KEY = "aiHatches";
     /** off only for the stands' "before" */
     static boolean on = true;

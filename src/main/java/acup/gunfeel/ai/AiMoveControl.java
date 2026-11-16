@@ -89,7 +89,10 @@ final class AiMoveControl extends MoveControl<Mob> {
             dy = next.getY() - mob.getY();
             column = next.getX() == mob.getBlockX() && next.getZ() == mob.getBlockZ();
         }
-        if (Math.abs(dy) < (column ? LADDER_NEAR : LADDER_DY)) return;
+        // the next point beside the ladder's top a little over its feet: it climbs on till its feet are up to it (off
+        // the ground a step up is no step: it walked against the shaft's rim, slid back and climbed again, over and over)
+        boolean off = dy > 0 && !column && !mob.onGround();
+        if (Math.abs(dy) < (column || off ? LADDER_NEAR : LADDER_DY)) return;
         // on its feet on a ladder's foot, the way on off it and down (a step down beside it): it walks
         if (dy < 0 && !column && mob.onGround()) return;
         mob.setXxa(0F);

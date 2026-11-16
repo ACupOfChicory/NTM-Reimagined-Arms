@@ -1,5 +1,12 @@
 # Changelog
 
+## X1309
+
+- AI soldiers coming up a ladder through a hatch no longer hang on its top
+  rung: they climb on until they can step off on to the ground, and one that
+  finds no cover while on a ladder gets off it first instead of fighting from
+  it.
+
 ## X1307
 
 - Gunshots carry by the gun, for players and AI soldiers alike: a silenced gun
