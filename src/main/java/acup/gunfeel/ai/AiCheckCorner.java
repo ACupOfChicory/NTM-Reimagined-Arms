@@ -38,6 +38,8 @@ final class AiCheckCorner {
     static final String HUNT = "corner_hunt", HOLDS = "corner_hold";
     /** a hunter's head this far off the holder or more: it had a wide turn to make (the guard: one meeting at most) */
     static final double WIDE_DEG = 45;
+    /** the holder saw a hunter this many ticks before any hunter saw it, or more: an edge (a tick or two is at once) */
+    static final int LEAD = 5;
 
     private final AiCheck check;
     private final ServerLevel level;
@@ -54,7 +56,7 @@ final class AiCheckCorner {
     private boolean[] hunterHitYet = new boolean[SIDE];
     private final List<String> lines = new ArrayList<>();
     /** over the rounds: meetings, the holder first, wide turns, the holder hit first, hunters hit before they hit */
-    private int meetings, holderFirst, wide, holderHitFirst, hunterHitFirst, hitBeforeAll, movingAll;
+    private int meetings, holderFirst, holderAhead, wide, holderHitFirst, hunterHitFirst, hitBeforeAll, movingAll;
     private double nearestAll = Double.MAX_VALUE, distanceSum;
 
     AiCheckCorner(AiCheck check, ServerLevel level, int y) {
@@ -188,6 +190,7 @@ final class AiCheckCorner {
             meetings++;
             distanceSum += sawDistance;
             if (first.equals("holder")) holderFirst++;
+            if (holderSaw >= 0 && (hunterSaw < 0 || hunterSaw - holderSaw > LEAD)) holderAhead++;
             if (turnDeg >= WIDE_DEG) wide++;
         }
         if (hitFirst.equals("holder")) holderHitFirst++;
@@ -208,9 +211,9 @@ final class AiCheckCorner {
         check.check(String.format(Locale.ROOT, "corner: the hunters come round the end and meet the holder in half the rounds at least (%d of %d)", meetings, HOLD.length),
                 2 * meetings >= HOLD.length);
         // a guard: a hunter comes round with its gun on what the end opens, seen as soon as it sees (2026-11-16: the
-        // holder first 2 and 3 of 6, by a tick; heads 0 to 10 degrees off; the hunters hit first 11 of 12)
-        check.check(String.format(Locale.ROOT, "corner: the holder sees first in two thirds of the meetings at most (%d of %d)", holderFirst, meetings),
-                3 * holderFirst <= 2 * meetings);
+        // holder first 2 to 4 of 6, by a tick or two, never more than 5; heads 0 to 10 degrees off; the hunters hit first 11 of 12)
+        check.check(String.format(Locale.ROOT, "corner: the holder sees a hunter more than %d ticks before it is seen in a third of the meetings at most (%d of %d; first at all %d)", LEAD, holderAhead, meetings, holderFirst),
+                3 * holderAhead <= meetings);
         check.check(String.format(Locale.ROOT, "corner: a hunter's head is %.0f degrees or more off the holder in one meeting at most (%d)", WIDE_DEG, wide), wide <= 1);
         check.check(String.format(Locale.ROOT, "corner: the hunters hit first in two thirds of the rounds with a hit at least (%d of %d)", hunterHitFirst, hunterHitFirst + holderHitFirst),
                 3 * hunterHitFirst >= 2 * (hunterHitFirst + holderHitFirst));
