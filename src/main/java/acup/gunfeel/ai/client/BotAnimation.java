@@ -100,10 +100,15 @@ public final class BotAnimation {
     public static void pose(HumanoidModel<?> model, HumanoidRenderState state) {
         BotAnimator.Frame f = ((BotRenderData) state).gunfeel$bot();
         if (f == null) return;
-        BotPoser.Parts parts = new BotPoser.Parts(model.head, model.body, model.rightArm, model.leftArm, model.rightLeg,
-                model.leftLeg);
-        BotPoser.apply(parts, f, state.swimAmount, standStill ? 1F : state.walkAnimationSpeed,
-                standStill ? 0F : state.walkAnimationPos);
+        // the parts kept on the model; the pose worked out once a frame, copied to the state's other models
+        BotPoseModel holder = (BotPoseModel) model;
+        BotPoseCache.Model m = holder.gunfeel$botParts();
+        if (m == null) holder.gunfeel$setBotParts(m = BotPoseCache.Model.of(new BotPoser.Parts(model.head, model.body,
+                model.rightArm, model.leftArm, model.rightLeg, model.leftLeg)));
+        BotPoser.Parts parts = m.parts();
+        BotRenderData data = (BotRenderData) state;
+        data.gunfeel$setPose(BotPoseCache.pose(data.gunfeel$pose(), m, f, state.swimAmount,
+                standStill ? 1F : state.walkAnimationSpeed, standStill ? 0F : state.walkAnimationPos));
         BiConsumer<BotAnimator.Frame, BotPoser.Parts> watch = standWatch;
         if (watch != null) watch.accept(f, parts);
     }

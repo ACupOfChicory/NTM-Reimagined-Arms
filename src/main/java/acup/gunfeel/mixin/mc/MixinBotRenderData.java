@@ -5,6 +5,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 
 import acup.gunfeel.ai.client.BotAnimator;
+import acup.gunfeel.ai.client.BotPoseCache;
 import acup.gunfeel.ai.client.BotRenderData;
 import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
 
@@ -12,6 +13,17 @@ import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
 @Mixin(HumanoidRenderState.class)
 public abstract class MixinBotRenderData implements BotRenderData {
     @Unique private BotAnimator.@Nullable Frame gunfeel$bot;
+    @Unique private @Nullable BotPoseCache gunfeel$pose;
+
+    @Override
+    public @Nullable BotPoseCache gunfeel$pose() {
+        return gunfeel$pose;
+    }
+
+    @Override
+    public void gunfeel$setPose(@Nullable BotPoseCache pose) {
+        gunfeel$pose = pose;
+    }
 
     @Override
     public BotAnimator.@Nullable Frame gunfeel$bot() {
