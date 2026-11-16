@@ -393,4 +393,66 @@ class BotModelTest {
         // the steel legging goes on over the knee: its corner is filled
         assertTrue(legCorner > 0, "steel legging's corner\n" + table);
     }
+
+    /** each vertex a cube gives to the buffer, in order: x, y, z, colour, u, v, overlay, light, normal x, y, z */
+    static List<Object[]> drawn(ModelPart.Cube cube) {
+        var out = new java.util.ArrayList<Object[]>();
+        var buffer = (com.mojang.blaze3d.vertex.VertexConsumer) java.lang.reflect.Proxy.newProxyInstance(
+                BotModelTest.class.getClassLoader(), new Class<?>[] { com.mojang.blaze3d.vertex.VertexConsumer.class },
+                (proxy, method, args) -> {
+                    if (method.getName().equals("addVertex") && args != null && args.length == 11) out.add(args);
+                    return method.getReturnType().isInstance(proxy) ? proxy : null;
+                });
+        cube.compile(new PoseStack().last(), buffer, 7, 9, 0x123456);
+        return out;
+    }
+
+    @Test
+    void limbsAreDrawnFromTheirOwnFaces() throws Exception {
+        // Sodium draws a ModelPart.Cube from what it was made with (at the head of its compile): a split limb's boxes
+        // draw themselves from their faces, the hand's end and the overlap's row as they were moved
+        var set = HumanoidModel.createArmorMeshSet(new CubeDeformation(0.5F), new CubeDeformation(1F))
+                .map(mesh -> LayerDefinition.create(mesh, 64, 32).bakeRoot());
+        var roots = new java.util.ArrayList<ModelPart>(List.of(BotModel.split(vanilla(), ModelPoseCaptureTest.PARTS)));
+        roots.add(BotModel.split(set.get(net.minecraft.world.entity.EquipmentSlot.CHEST), ModelPoseCaptureTest.PARTS));
+        roots.add(BotModel.split(set.get(net.minecraft.world.entity.EquipmentSlot.LEGS), ModelPoseCaptureTest.PARTS));
+        int cubes = 0;
+        for (ModelPart root : roots) for (String limb : new String[] { "right_arm", "left_arm", "right_leg", "left_leg" }) {
+            ModelPart upper = root.getChild(limb);
+            for (ModelPart part : new ModelPart[] { upper, BotModel.lower(upper) }) for (ModelPart.Cube cube : ModelPoseCaptureTest.PARTS.cubes(part)) {
+                cubes++;
+                var compile = cube.getClass().getMethod("compile", PoseStack.Pose.class, com.mojang.blaze3d.vertex.VertexConsumer.class,
+                        int.class, int.class, int.class);
+                assertTrue(compile.getDeclaringClass() != ModelPart.Cube.class, limb + ": drawn by ModelPart.Cube's compile");
+                // as vanilla's compile on an unmoved pose: each face's vertices, their skin and its normal
+                var want = new java.util.ArrayList<float[]>();
+                for (var p : cube.polygons) for (var v : p.vertices())
+                    want.add(new float[] { v.worldX(), v.worldY(), v.worldZ(), v.u(), v.v(), p.normal().x(), p.normal().y(), p.normal().z() });
+                var got = drawn(cube);
+                assertEquals(want.size(), got.size(), limb);
+                int[] at = { 0, 1, 2, 4, 5, 8, 9, 10 };
+                for (int k = 0; k < want.size(); k++) {
+                    for (int a = 0; a < at.length; a++) assertEquals(want.get(k)[a], (float) got.get(k)[at[a]], 1e-5F, limb + " vertex " + k + " arg " + at[a]);
+                    assertEquals(0x123456, got.get(k)[3], limb + " colour");
+                    assertEquals(9, got.get(k)[6], limb + " overlay");
+                    assertEquals(7, got.get(k)[7], limb + " light");
+                }
+            }
+        }
+        assertTrue(cubes >= 20, "limb boxes " + cubes);
+        // the sleeve's hand end: rows 16 to 20 (clear on a short sleeve), not 22 to 26 (the sleeve)
+        ModelPart sleeve = BotModel.lower(roots.get(1).getChild("right_arm"));
+        ModelPart.Cube forearm = ModelPoseCaptureTest.PARTS.cubes(sleeve).getFirst();
+        float end = -Float.MAX_VALUE;
+        for (var p : forearm.polygons) for (var v : p.vertices()) end = Math.max(end, v.y());
+        int faces = 0;
+        for (var p : forearm.polygons) {
+            boolean flat = true;
+            for (var v : p.vertices()) flat &= Math.abs(v.y() - end) < 1e-4F;
+            if (!flat) continue;
+            faces++;
+            for (var v : p.vertices()) assertTrue(v.v() * 32F >= 16F - 1e-3F && v.v() * 32F <= 20F + 1e-3F, "hand end v " + v.v() * 32F);
+        }
+        assertEquals(1, faces, "the sleeve's hand end");
+    }
 }
