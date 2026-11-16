@@ -33,6 +33,7 @@ public final class AiThoughts {
         SEEN_COVER("to cover: target in sight"),
         SHELTER("beside the way in, the entry's grenade not burst yet: keeps out of its blast"),
         BUNKER("its side's thrower at a bunker's slit: beside it out of its fire, before it to throw a grenade in, back"),
+        HATCH("into a building under the ground down a shaft: by the hatch, a grenade down, one at a time down the ladder, holding its foot"),
         ANSWER("a new fight, near or looked at: a burst where it stands, then cover"),
         WALK_FIRE("to cover at a walk, firing: the target near"),
         NO_COVER("no cover found: fights here"),
