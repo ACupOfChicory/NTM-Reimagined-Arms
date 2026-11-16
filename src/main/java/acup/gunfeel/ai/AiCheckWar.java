@@ -915,6 +915,7 @@ final class AiCheckWar {
                 AiCrossing.whyNot[0] - crossWhy0[0], AiCrossing.whyNot[1] - crossWhy0[1], AiCrossing.whyNot[2] - crossWhy0[2], AiCrossing.whyNot[3] - crossWhy0[3])
                 + String.format(Locale.ROOT, "; with smoke %d (under fire %d, its own fire heard %d, a foe known at the far bank %d)", AiCrossing.smoked - crossSmoked0,
                 AiCrossing.smokeWhy[0] - smokeWhy0[0], AiCrossing.smokeWhy[1] - smokeWhy0[1], AiCrossing.smokeWhy[2] - smokeWhy0[2]));
+        check.out(String.format(Locale.ROOT, "     war, squads' own stretches past the staff's way: made %d, none (water, a cliff, off the map) %d", AiCommander.tails, AiCommander.tailsNot));
         check.check("war: all rounds ran", results.size() == rounds);
         check.check("war: the side's picture has the player at every report, always within its circle", reports > 0 && missing == 0 && outside == 0);
         check.check(String.format(Locale.ROOT, "war: seen lately (0-5 s), the picture is off by %.1f on average (at most the circle's least radius, %.0f)",

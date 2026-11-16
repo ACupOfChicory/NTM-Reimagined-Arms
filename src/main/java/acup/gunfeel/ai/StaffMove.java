@@ -526,7 +526,8 @@ final class StaffMove {
             else if (o.coverSince != st.since) {
                 double d = Math.hypot(o.x - b.mob.getX(), o.z - b.mob.getZ());
                 boolean in = j.place() ? d <= o.r * 2 : d <= o.r;
-                why = "no place this bound, " + (in ? "in its task's area" : o.route == null ? "past the way's end" : "on the way");
+                why = "no place this bound, " + (in ? "in its task's area" : o.route == null ? "past the way's end" + (o.way != null ? " (a way)" : "")
+                        + (o.walked == null ? " (none walked)" : "") + (o.noRoute ? " (no route)" : "") + (o.noTail ? " (no tail)" : "") + (j.tail == null ? " (tail none)" : "") : "on the way");
             }
             else if (!atCover(b, o)) {
                 double d = Math.hypot(o.coverX - b.mob.getX(), o.coverZ - b.mob.getZ());
