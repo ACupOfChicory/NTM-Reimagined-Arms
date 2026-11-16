@@ -362,14 +362,14 @@ public final class AiGunner {
         boolean friend = false;
         if (shoot && checkLine) {
             Vec3 eye = AiLean.eye(mob);
-            double cone = clearCone();
+            double cone = AiBots.wideLine ? clearCone() : CLEAR_CONE;
             double far = Math.max(2, aim.distanceTo(eye));
             // NTM sends the bullet along the body's turn (getYRot), not the head's
             double yaw = Math.toRadians(mob.getYRot()), pitch = Math.toRadians(mob.getXRot());
             Vec3 body = new Vec3(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
             friend = AiBots.friendInLine(level, mob, eye, aim, cone)
-                    || AiBots.friendInLine(level, mob, eye, eye.add(mob.getViewVector(1F).scale(far)), cone)
-                    || AiBots.friendInLine(level, mob, eye, eye.add(body.scale(far)), cone);
+                    || AiBots.wideLine && AiBots.friendInLine(level, mob, eye, eye.add(mob.getViewVector(1F).scale(far)), cone)
+                    || AiBots.wideLine && AiBots.friendInLine(level, mob, eye, eye.add(body.scale(far)), cone);
         }
         if (friend) {
             // one of its own between it and the target: it holds fire

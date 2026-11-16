@@ -62,9 +62,14 @@ final class AiCheckEntry {
         this.y = y;
     }
 
+    /** AiBots.friendlyHits when the stage began: its bullets (and blasts) into its own counted at its end */
+    private int friendly0;
+
     boolean tick() {
         if (!started) {
             started = true;
+            friendly0 = AiBots.friendlyHits;
+            AiBots.friendlyWhy.clear();
             for (int cx = X0 >> 4; cx <= (X0 + SIZE) >> 4; cx++)
                 for (int cz = Z0 >> 4; cz <= (Z0 + SIZE) >> 4; cz++) level.setChunkForced(cx, cz, true);
             AiBots.awake = true;
@@ -308,6 +313,8 @@ final class AiCheckEntry {
                     + " in the house down by one %.0f", names[arm], n[arm], cleared[arm], sum[arm][2], n[arm] * INSIDE, sum[arm][3], n[arm] * SQUAD,
                     n[arm] == 0 ? 0 : sum[arm][4] / n[arm], sum[arm][5], sum[arm][7], sum[arm][8], sum[arm][9], sum[arm][10], sum[arm][11], sum[arm][12], sum[arm][13]));
         check.check("entry: all rounds ran", results.size() == ROUNDS);
+        for (String w : AiBots.friendlyWhy) check.out("     a hit on one of its own: " + w);
+        check.check("entry: close in rooms, no AI mob hits one of its own (" + (AiBots.friendlyHits - friendly0) + ")", AiBots.friendlyHits == friendly0);
         check.out(String.format(Locale.ROOT, "     entry, a roof with an open side two wide, a target lost under it, %d ticks: entries begun %d, mob ticks searching %d, under the roof %d, faults caught %d",
                 SHED_RUN, shedEntries, shedSearch, shedUnder, shedFaults));
         check.check("entry: a target lost under a roof with an open side two wide is gone after, and nothing in the reading of it fails", shed && shedSearch > 0 && shedFaults == 0);

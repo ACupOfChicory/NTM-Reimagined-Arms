@@ -1,5 +1,12 @@
 # Changelog
 
+## X1364
+
+- AI soldiers no longer shoot their own squad mates with fire aimed at a
+  spot short of them, such as covering fire into a room their squad is
+  clearing: they hold fire while one of their own stands anywhere along
+  the line until a block that stops bullets, behind glass or a door too.
+
 ## X1360
 
 - An AI squad sent round the flank no longer gives its signal to attack when the
