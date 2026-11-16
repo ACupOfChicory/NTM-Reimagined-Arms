@@ -1250,6 +1250,9 @@ public final class AiCommander {
             if (stuck) {
                 if (o.failedAt - d >= PROGRESS) o.fails = 0;
                 o.failedAt = d;
+                // (it or one of its squad sent there was in the area a moment ago: the place is to be got to, its own
+                // in the way at a narrow doorway; the leg is turned aside as one not walked, the place kept)
+                if (mateIn(bot, o, tick)) o.fails = Math.min(o.fails, FAILS - 2);
                 if (++o.fails >= FAILS) return giveUp(bot, o, tick);
             }
             // the staff's way: to its points one after another, each a short walk (C1); a leg that fails is walked
@@ -1306,7 +1309,10 @@ public final class AiCommander {
                     if (d <= o.bestD - PROGRESS) {
                         o.bestD = d;
                         o.idleLegs = 0;
-                    } else if (!bot.mover.arrived() && ++o.idleLegs >= IDLE_LEGS) return giveUp(bot, o, tick);
+                    // (one of its squad sent to the same place was in it a moment ago: the place is to be got to, this
+                    // one waits its turn, at a narrow doorway its own in the way)
+                    } else if (mateIn(bot, o, tick)) o.idleLegs = 0;
+                    else if (!bot.mover.arrived() && ++o.idleLegs >= IDLE_LEGS) return giveUp(bot, o, tick);
                 }
                 o.nextLeg = tick + LEG_AGAIN;
                 // a leg that could not be walked: the next one shorter and turned aside, one way then the other
@@ -1440,6 +1446,23 @@ public final class AiCommander {
     static boolean unstuck = true;
     /** straight legs one after another with no PROGRESS on the nearest it got to its area: the area given up */
     static final int IDLE_LEGS = 8;
+
+    /** it, or one of its side with an order to the same area, was in it within MATE_IN ticks */
+    static final int MATE_IN = 2 * LEG_AGAIN;
+
+    private static boolean mateIn(AiBot bot, Order o, long tick) {
+        if (o.lastInside != Long.MIN_VALUE && tick - o.lastInside <= MATE_IN) return true;
+        if (!(bot.mob.level() instanceof ServerLevel level)) return false;
+        String team = AiSquads.team(bot);
+        // (its side's, not its squad's alone: those sent there together need not be one squad)
+        for (AiBot b : AiBots.bots(level)) {
+            if (!AiSquads.team(b).equals(team)) continue;
+            Order m = b.order;
+            if (b == bot || m == null || !AiSquads.live(b) || Math.abs(m.x - o.x) > 1 || Math.abs(m.z - o.z) > 1) continue;
+            if (m.lastInside != Long.MIN_VALUE && tick - m.lastInside <= MATE_IN) return true;
+        }
+        return false;
+    }
     /** places it could not get to kept, and a place this near one is not taken; random places tried before one is taken anyway */
     static final int BAD_PLACES = 8, PLACE_TRIES = 4;
     static final double BAD_NEAR = 6;
