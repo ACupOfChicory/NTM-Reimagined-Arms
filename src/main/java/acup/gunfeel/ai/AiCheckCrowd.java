@@ -129,6 +129,63 @@ final class AiCheckCrowd {
         ticks = 0;
     }
 
+    /**
+     * A shot at a place short of one of its own goes on past it (AiBots.friendInLine): one fires at a spot 3 blocks
+     * ahead, one of its own stands 4 blocks past it behind glass, a shut wooden door, stone, or nothing. The bullet
+     * pierces glass and the door: it holds fire; stone stops it: it fires.
+     */
+    private void barriers() {
+        int z = 32, sx = 96, wx = 102;
+        String[] names = {"nothing", "glass", "a shut oak door", "stone"};
+        boolean[] want = {true, true, true, false};
+        StringBuilder got = new StringBuilder();
+        boolean ok = true;
+        for (int i = 0; i < names.length; i++) {
+            int zz = z + i * 3;
+            for (int h = 0; h < 3; h++) level.setBlock(new BlockPos(wx, y + h, zz), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            switch (i) {
+                case 1 -> {
+                    level.setBlock(new BlockPos(wx, y, zz), Blocks.GLASS.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    level.setBlock(new BlockPos(wx, y + 1, zz), Blocks.GLASS.defaultBlockState(), Block.UPDATE_CLIENTS);
+                }
+                case 2 -> {
+                    BlockState door = Blocks.OAK_DOOR.defaultBlockState().setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.WEST);
+                    level.setBlock(new BlockPos(wx, y, zz), door, Block.UPDATE_CLIENTS);
+                    level.setBlock(new BlockPos(wx, y + 1, zz), door.setValue(net.minecraft.world.level.block.DoorBlock.HALF,
+                            net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER), Block.UPDATE_CLIENTS);
+                }
+                case 3 -> {
+                    level.setBlock(new BlockPos(wx, y, zz), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    level.setBlock(new BlockPos(wx, y + 1, zz), Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
+                }
+                default -> {
+                }
+            }
+            List<Mob> a = AiSpawn.spawn(level, new net.minecraft.world.phys.Vec3(sx + 0.5, y, zz + 0.5), AiSpawn.Kind.DUMMY, 1, null);
+            List<Mob> b = AiSpawn.spawn(level, new net.minecraft.world.phys.Vec3(wx + 4.5, y, zz + 0.5), AiSpawn.Kind.DUMMY, 1, null);
+            if (a.isEmpty() || b.isEmpty()) {
+                ok = false;
+                got.append(names[i]).append(": no mob; ");
+                continue;
+            }
+            Mob shooter = a.get(0), own = b.get(0);
+            shooter.setPos(sx + 0.5, y, zz + 0.5);
+            own.setPos(wx + 4.5, y, zz + 0.5);
+            // facing east, along the line
+            shooter.setYRot(-90F);
+            shooter.setYHeadRot(-90F);
+            shooter.setXRot(0F);
+            var eye = shooter.getEyePosition();
+            boolean held = AiBots.friendInLine(level, shooter, eye, eye.add(3, 0, 0), AiGunner.CLEAR_CONE);
+            got.append(names[i]).append(held ? " holds" : " fires").append("; ");
+            ok &= held == want[i];
+            shooter.discard();
+            own.discard();
+        }
+        check.check("a shot at a place short of one of its own: it holds fire with it behind nothing, glass or a shut door past the place, fires with it behind stone ("
+                + got.toString().trim() + ")", ok);
+    }
+
     private void run() {
         lost[round] += target.getMaxHealth() - target.getHealth();
         target.setHealth(target.getMaxHealth());
@@ -161,6 +218,7 @@ final class AiCheckCrowd {
         check.check(String.format(Locale.ROOT, "close with grease guns, with X1227's wider line they hardly hit their own (a quarter at most, 2 at most: %d against %d)", friendly[3], friendly[2]),
                 friendly[3] <= 2 && friendly[3] * 4 <= Math.max(friendly[2], 1));
         check.check("and close they still shoot the target", lost[3] > 0);
+        barriers();
         target.discard();
         phase = Phase.DONE;
     }

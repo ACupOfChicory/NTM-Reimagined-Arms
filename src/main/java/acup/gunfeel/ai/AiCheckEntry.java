@@ -313,7 +313,7 @@ final class AiCheckEntry {
                     + " in the house down by one %.0f", names[arm], n[arm], cleared[arm], sum[arm][2], n[arm] * INSIDE, sum[arm][3], n[arm] * SQUAD,
                     n[arm] == 0 ? 0 : sum[arm][4] / n[arm], sum[arm][5], sum[arm][7], sum[arm][8], sum[arm][9], sum[arm][10], sum[arm][11], sum[arm][12], sum[arm][13]));
         check.check("entry: all rounds ran", results.size() == ROUNDS);
-        for (String w : AiBots.friendlyWhy) check.out("     DBG own hit: " + w);
+        for (String w : AiBots.friendlyWhy) check.out("     a hit on one of its own: " + w);
         check.check("entry: close in rooms, no AI mob hits one of its own (" + (AiBots.friendlyHits - friendly0) + ")", AiBots.friendlyHits == friendly0);
         check.out(String.format(Locale.ROOT, "     entry, a roof with an open side two wide, a target lost under it, %d ticks: entries begun %d, mob ticks searching %d, under the roof %d, faults caught %d",
                 SHED_RUN, shedEntries, shedSearch, shedUnder, shedFaults));

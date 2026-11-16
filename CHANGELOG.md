@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers no longer shoot their own squad mates with fire aimed at a
+  spot short of them, such as covering fire into a room their squad is
+  clearing: they hold fire while one of their own stands anywhere along
+  the line until a block that stops bullets, behind glass or a door too.
+
 ## X1347
 
 - AI soldiers going down a long ladder (such as the sixty-block shaft of NTM's

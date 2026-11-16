@@ -422,7 +422,12 @@ public final class AiBots {
         Vec3 d = to.subtract(from);
         double len = d.length();
         if (len < 1e-3) return false;
-        Vec3 u = d.scale(1 / len), end = to.add(u), look = shooter.getViewVector(1F);
+        Vec3 u = d.scale(1 / len), look = shooter.getViewVector(1F);
+        // a shot goes on past where it is aimed (a place it fires at, a miss) until a block stops it: glass, a door, a
+        // thin board it goes through (NTM's bullets pierce them), what stops bullets (protection 2 and up) or its reach
+        // stops the line
+        len = Math.max(len, past(level, from, u));
+        Vec3 end = from.add(u.scale(len + 1));
         double tan = Math.tan(Math.toRadians(coneDegrees));
         for (AiBot b : l.bots.values()) {
             Mob m = b.mob;
@@ -432,6 +437,18 @@ public final class AiBots {
         if (shooter.getTeam() != null) for (Player p : level.players())
             if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && (crosses(p, from, u, end, len, tan) || wideLine && beside(p, from, look))) return true;
         return false;
+    }
+
+    /** how far a shot's line is kept clear at most, blocks */
+    static final double PAST = 48;
+    /** the voxel bit of protection 2 and up (Voxel.hard): a block that stops a bullet */
+    static final int STOPS = 1 << (Voxel.PROTECT_SHIFT + 1);
+
+    /** how far along u from `from` a bullet goes before a block stops it, PAST at most */
+    static double past(ServerLevel level, Vec3 from, Vec3 u) {
+        Vec3 far = from.add(u.scale(PAST));
+        double t = VoxelRay.blocked(voxels(level), from.x, from.y, from.z, far.x, far.y, far.z, STOPS);
+        return t < 0 ? PAST : t * PAST;
     }
 
     /** one of its own this near the eye, blocks across, and not behind it: a shot hits it (the bullet starts a block ahead, to the gun hand) */
