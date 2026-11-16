@@ -141,11 +141,13 @@ public final class AiCheck {
             AiCheckTrench trench = new AiCheckTrench(check, check.level, Y);
             AiCheckCrossing crossing = new AiCheckCrossing(check, check.level, Y);
             AiCheckAlert alert = new AiCheckAlert(check, check.level, Y);
+            AiCheckBunker bunker = new AiCheckBunker(check, check.level, Y);
+            AiCheckBunkerNtm bunkerNtm = new AiCheckBunkerNtm(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
-            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed, took cover to fire from on a hill (and with height weighed), a side's staff in a war, went into a trench round its turns, crossed a river under fire by waves
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves", "hill", "hillheights", "war", "trench", "crossing", "alert");
+            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed, took cover to fire from on a hill (and with height weighed), a side's staff in a war, went into a trench round its turns, crossed a river under fire by waves, took a bunker by its slit, went at NTM's underground bunker
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves", "hill", "hillheights", "war", "trench", "crossing", "alert", "bunker", "bunkerntm");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick, leaves::tick, hill::tick, hillHeights::tick, war::tick, trench::tick, crossing::tick, alert::tick);
+                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick, leaves::tick, hill::tick, hillHeights::tick, war::tick, trench::tick, crossing::tick, alert::tick, bunker::tick, bunkerNtm::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
@@ -173,7 +175,7 @@ public final class AiCheck {
                         AiLegsLog.stage = names.get(at[0]);
                         if (legsIn.contains(names.get(at[0]))) AiLegsLog.begin();
                         AiGrenades.trace = true;
-                        AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel", "entry", "supply", "water", "trench").contains(names.get(at[0]));
+                        AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel", "entry", "supply", "water", "trench", "bunker", "bunkerntm").contains(names.get(at[0]));
                         // the commanders only in their own stage: the others' mobs know of no one by design
                         AiCommander.on = List.of("commander", "war").contains(names.get(at[0]));
                         AiVoice.reset();

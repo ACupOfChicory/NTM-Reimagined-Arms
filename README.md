@@ -337,6 +337,17 @@ page. They are alphas: expect bugs and back up your world.
   cover last at the same place. Smoke onto the far bank only under fire. One
   shot at while swimming from across, not halfway over yet, swims back and
   goes again; past halfway it goes on (server key `aiCrossing`).
+- A bunker is taken by its firing slits. Any open hole at head height in a
+  wall with wall over it is a slit, its field of fire a wedge widening as the
+  slit is wide for its depth. Their ways keep out of the wedges; one in a
+  wedge with nothing to hide behind steps aside out of it. The machine gunner
+  fires into a slit it cannot see the foe behind. Through a slit in a wall
+  two blocks thick or more (a bunker, not a house's open window) the one of
+  the squad with a grenade nearest it goes to the wall beside it, out of its
+  fire, steps out before it and throws a grenade in, then back to the wall,
+  and its own do not run from that grenade (server key `aiBunker`). `/armsai bunker
+  [squad]` builds a bunker with a slit 20 blocks ahead of you, one inside at
+  it, and a squad with a grenade each beside you, to watch.
 - A soldier who sees a foe fall forgets it and tells its squad, so none of
   them waits for it or goes after it where it fell (server key
   `aiDownTold`).

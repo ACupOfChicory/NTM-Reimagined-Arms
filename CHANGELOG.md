@@ -1,5 +1,13 @@
 # Changelog
 
+## X1271
+
+- Soldiers take a bunker by its firing slits: they keep out of a slit's field
+  of fire, the machine gunner fires into it, and one of the squad goes along
+  the wall to the slit, steps out before it and throws a grenade in.
+  `/armsai bunker` builds a bunker with someone inside and a squad beside you
+  to watch it (server key `aiBunker`).
+
 ## X1269
 
 - An AI squad sent to pin an enemy group now picks a place to fire from that
