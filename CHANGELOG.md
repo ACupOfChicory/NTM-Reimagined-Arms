@@ -1,5 +1,14 @@
 # Changelog
 
+## X1144
+
+- AI soldiers now see under high tree crowns: only leaves at eye height
+  (underwood, low crowns) block a look across a wood, so a wood with no
+  underwood is seen into far.
+- The terrain map now tells, for each coarse cell, how much of it has leaves
+  in the way of a standing look (brushed), for the staff's map to use instead
+  of crowns.
+
 ## X1140
 
 - AI side commanders move their soldiers far from any player too. Soldiers

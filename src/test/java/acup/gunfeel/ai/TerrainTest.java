@@ -25,18 +25,23 @@ class TerrainTest {
             return (x & 0xFFFFFFFFL) | (z & 0xFFFFFFFFL) << 32;
         }
 
-        /** ground: the feet's block on the bed; water over it; leaves over that */
+        /** ground: the feet's block on the bed; water over it; leaves over that, from the surface up */
         void set(int x, int z, int ground, int water, int canopy) {
-            columns.put(at(x, z), new int[] {ground, water, canopy});
+            set(x, z, ground, water, canopy, 0);
+        }
+
+        /** the same, the lowest leaves under blocks over the surface */
+        void set(int x, int z, int ground, int water, int canopy, int under) {
+            columns.put(at(x, z), new int[] {ground, water, canopy, under});
         }
 
         int[] get(int x, int z) {
             int[] c = columns.get(at(x, z));
-            return c == null ? new int[] {base, 0, 0} : c;
+            return c == null ? new int[] {base, 0, 0, 0} : c;
         }
 
         @Override
-        public boolean read(int cx, int cz, short[] ground, byte[] canopy, byte[] water) {
+        public boolean read(int cx, int cz, short[] ground, byte[] canopy, byte[] under, byte[] water) {
             if (unloaded.contains(TerrainTile.key(cx, cz))) return false;
             reads++;
             for (int z = 0; z < 16; z++)
@@ -45,6 +50,7 @@ class TerrainTest {
                     ground[z << 4 | x] = (short) c[0];
                     water[z << 4 | x] = (byte) c[1];
                     canopy[z << 4 | x] = (byte) c[2];
+                    under[z << 4 | x] = (byte) c[3];
                 }
             return true;
         }
@@ -139,6 +145,29 @@ class TerrainTest {
         assertTrue(in >= 8 && in <= 24, "in a wood one sees a dozen or two blocks: " + in);
         int glade = r.core.derivedAt(6, 6).open(6, 6);
         assertTrue(glade > in && glade < 48, "from a glade a little further: " + glade);
+        assertEquals(1F, wood.brushed(30, 30), "leaves from the ground up: in the way of a look");
+    }
+
+    @Test
+    void underHighCrownsOneSeesFarButNotOverThemFromUnderwood() {
+        Rig r = new Rig();
+        // oaks: leaves 3 to 6 over the ground, none under (a wood with no underwood)
+        for (int x = -200; x < 200; x++) for (int z = -200; z < 200; z++) r.land.set(x, z, 64, 0, 7, 3);
+        r.core.want(0, 0);
+        r.settle();
+        TerrainTile wood = r.core.tileAt(30, 30);
+        assertEquals(1F, wood.crowned(30, 30), "under crowns as ever");
+        assertEquals(3, wood.under(30, 30));
+        assertEquals(0F, wood.brushed(30, 30), "looked under");
+        assertEquals(TerrainDerived.REACH, r.core.derivedAt(30, 30).open(30, 30), "the eye at 1.6 goes under the crowns");
+        // the same wood with underwood: leaves from the block over the feet up
+        Rig u = new Rig();
+        for (int x = -200; x < 200; x++) for (int z = -200; z < 200; z++) u.land.set(x, z, 64, 0, 7, 1);
+        u.core.want(0, 0);
+        u.settle();
+        assertEquals(1F, u.core.tileAt(30, 30).brushed(30, 30));
+        int in = u.core.derivedAt(30, 30).open(30, 30);
+        assertTrue(in >= 8 && in <= 24, "underwood in the way: " + in);
     }
 
     @Test
