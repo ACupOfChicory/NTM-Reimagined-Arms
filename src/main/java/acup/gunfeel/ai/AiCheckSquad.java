@@ -118,14 +118,19 @@ final class AiCheckSquad {
             if (covered) coveredTicks++;
         }
         if (ticks >= RUN) {
-            int flanks = 0, sup = 0, tries = 0;
+            int flanks = 0, sup = 0, tries = 0, rifleShots = 0, riflemen = 0;
             for (Mob m : squad)
                 if (AiBots.get(m) != null && AiBots.get(m).brain instanceof AiSoldier s) {
                     flanks += s.flanks;
                     tries += s.flankTries;
                     sup += s.suppressions;
+                    // the rounds a rifleman fires (its squad's base of fire not counted)
+                    if (!AiSquads.base(AiBots.get(m))) {
+                        rifleShots += AiBots.get(m).gunner.shots;
+                        riflemen++;
+                    }
                 }
-            results.add(new int[] {round % 2, flanks, sup, moveTicks, coveredTicks, maxHunters, hitsBy, hitsOn, firstHit, tries});
+            results.add(new int[] {round % 2, flanks, sup, moveTicks, coveredTicks, maxHunters, hitsBy, hitsOn, firstHit, tries, rifleShots, riflemen});
             angles.add(new double[] {angleN == 0 ? -1 : angleSum / angleN});
             for (Mob m : squad) m.discard();
             foe.discard();
@@ -233,6 +238,15 @@ final class AiCheckSquad {
                     + " most hunting at once %d; hits on the foe %d (first at tick %d, from %.0f degrees off), on the squad %d", i + 1, on == 1 ? "with squads" : "alone",
                     r[1], r[9], r[2], r[3], r[4], r[5], r[6], r[8], angles.get(i)[0], r[7]));
         }
+        // the bursts for those on the move, all rounds of a kind; a rifleman's shots a round
+        int[] supAll = new int[2], shotsAll = new int[2], riflemenAll = new int[2];
+        for (int[] r : results) {
+            supAll[r[0]] += r[2];
+            shotsAll[r[0]] += r[10];
+            riflemenAll[r[0]] += r[11];
+        }
+        check.out(String.format(Locale.ROOT, "     squad, bursts for those moving with squads %d in all; shots a rifleman a round: alone %.1f, with squads %.1f", supAll[1],
+                (double) shotsAll[0] / Math.max(1, riflemenAll[0]), (double) shotsAll[1] / Math.max(1, riflemenAll[1])));
         String[] names = {"alone", "with squads"};
         double[] covered = new double[2];
         for (int on = 0; on < 2; on++) {

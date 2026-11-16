@@ -12,6 +12,23 @@
   crossing is watched: under fire, after its own shots have given it away, or
   knowing of a foe at the far bank. Before, only under fire.
 
+## X1287
+
+- AI soldiers that watch a corner the foe could come round from fire bursts at
+  that corner while one of their squad is on the move, instead of holding
+  fire: a squad moves under covering fire again.
+
+## X1284
+
+- AI squads report to their commander: contact, losses, being pinned down,
+  out of rounds, at their place, unable to get through. The commander gives
+  its orders again at once instead of at its next round of orders.
+- A squad pinned down by enemy fire holds where it is and fires back while
+  the nearest free squad goes round the enemy; when the squad going round is
+  the one pinned, the two change over. Pinned for 20 seconds and still losing
+  men, it throws smoke and falls back. Server key `aiCommanderReports`
+  (true); false: the commander answers no report, as before.
+
 ## X1277
 
 - NTM's spent casings are drawn by the graphics card, all of a kind at once:

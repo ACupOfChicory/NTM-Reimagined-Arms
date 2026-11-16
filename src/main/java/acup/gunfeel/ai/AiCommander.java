@@ -55,6 +55,34 @@ public final class AiCommander {
     static final double PROGRESS = 4;
     /** an order lasts this long unless given again, ticks */
     static final int LASTS = 400;
+    /**
+     * the squads' reports (C5): looked for every LOOK ticks; the orders given again ASKED_GAP after the last at the
+     * soonest; a soldier suppressed this much counts (AiProne.suppressed); most of the squad so PIN_AFTER ticks: pinned
+     * down, none PIN_QUIET: no longer
+     */
+    static final int LOOK = 20, ASKED_GAP = 20, PIN_AFTER = 60, PIN_QUIET = 100;
+    /** one that broke contact stays back this long after it was pinned down (C5), ticks */
+    static final int REST = 1200;
+    static final float SUPPRESSED = 0.5F;
+    /** a report's answer (the orders given again after it): ticks in all, how many, the longest (the stands') */
+    public static long askedLag, askedN, askedMost;
+    /** the last tick orders were given in answer to a report (the stands') */
+    public static long answeredAt = Long.MIN_VALUE;
+    /** squads that broke contact pinned down (C5) */
+    public static long broke;
+    static final String REPORTS_KEY = "aiCommanderReports";
+    static boolean reportsOn = true;
+
+    /** the staff answers its squads' reports (C5: pinned down, broke contact); false: as before (the reports still made) */
+    static boolean reports() {
+        return reportsOn && ReaimTimes.flag(REPORTS_KEY, true);
+    }
+
+    /** falling back pinned down (C5): it breaks contact, its smoke first, rather than fight on where it is */
+    static boolean breaksContact(AiBot bot, long tick) {
+        Order o = bot.order;
+        return o != null && tick <= o.until && o.job != null && o.job.kind == StaffPlan.Kind.BACK && o.job.breaking && on();
+    }
 
     /**
      * the server setting: the side's staff (stage 7): its map of the land and its ways (C1); off: as R5b, straight
@@ -163,6 +191,15 @@ public final class AiCommander {
         @Nullable Job partner;
         long due = Long.MAX_VALUE, ready = Long.MIN_VALUE, pairedAt;
         boolean late;
+        /**
+         * its squad's reports (C5, AiReports): made already (contact, out of rounds, there, cannot get through); losses
+         * reported (1 a third, 2 half); pinned down: most of it suppressed since, pinned since (reported), alive then
+         */
+        boolean saidContact, saidAmmo, saidThere, saidBlocked;
+        /** falling back pinned down (C5): it breaks contact, smoke first (AiSoldier) */
+        boolean breaking;
+        int saidLosses, aliveAtPin;
+        long pinFrom = Long.MIN_VALUE, pinnedAt = Long.MIN_VALUE, quietFrom = Long.MIN_VALUE, noFoeFrom = Long.MIN_VALUE;
 
         Job(StaffPlan.Kind kind, long since, List<AiBot> bots, int[] ids) {
             this.kind = kind;
@@ -240,6 +277,8 @@ public final class AiCommander {
         long reports;
         /** its last tasks given with no map yet (the pairs on: none to go round): all looked at afresh once it has one */
         boolean blind;
+        /** its last orders given at; the first report since (Long.MIN_VALUE: none) */
+        long commanded = Long.MIN_VALUE, asked = Long.MIN_VALUE;
     }
 
     private static final Map<ServerLevel, Map<String, Side>> LEVELS = new WeakHashMap<>();
@@ -259,6 +298,7 @@ public final class AiCommander {
 
     public static void forget(ServerLevel level) {
         LEVELS.remove(level);
+        AiReports.forget(level);
         AiIntel.forget(level);
         AiHqMap.forget(level);
     }
@@ -305,6 +345,7 @@ public final class AiCommander {
         long now = level.getGameTime();
         if (tasks() && now % DRIFT == 0) drift(level, now);
         if (tasks() && pairs() && now % COUPLE == 0) couple(level, now);
+        if (tasks() && now % LOOK == 0) look(level, now);
         Map<String, Side> sides = LEVELS.computeIfAbsent(level, k -> new HashMap<>());
         boolean due = sides.isEmpty() || now >= reportDue.getOrDefault(level, Long.MIN_VALUE);
         for (Side side : sides.values()) due |= now >= side.next;
@@ -356,6 +397,16 @@ public final class AiCommander {
     }
 
     private static void command(ServerLevel level, String team, Side side, List<AiSquads.Squad> squads, long now) {
+        // a report's answer: how long after it the orders were given again (C5)
+        if (side.asked != Long.MIN_VALUE) {
+            long lag = now - side.asked;
+            askedLag += lag;
+            askedN++;
+            askedMost = Math.max(askedMost, lag);
+            side.asked = Long.MIN_VALUE;
+            answeredAt = now;
+        }
+        side.commanded = now;
         List<Group> groups = groups(level, team);
         waysLeft = WAYS;
         commandedAt.put(team, now);
@@ -476,7 +527,9 @@ public final class AiCommander {
                 expired++;
             }
             own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), out * 2 > alive, job == null ? null : job.kind,
-                    job == null ? 0 : afresh ? now - StaffPlan.KEEP : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE));
+                    job == null ? 0 : afresh ? now - StaffPlan.KEEP : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE,
+                    job == null || !reports() ? Long.MIN_VALUE : job.pinnedAt, job != null && job.pinnedAt != Long.MIN_VALUE && job.alive() < job.aliveAtPin,
+                    pair && job.partner != null && job.partner.alive() > 0 && !job.late));
         }
         if (all == 0) return;
         sideX /= all;
@@ -492,6 +545,14 @@ public final class AiCommander {
                 continue;
             }
             task(level, team, side, squads.get(i), jobs.get(i), plan[i], plan[i].group() < 0 ? null : groups.get(plan[i].group()), now);
+            // pinned down and sent back (C5): it breaks contact
+            if (plan[i].kind() == StaffPlan.Kind.BACK && own.get(i).pinned() != Long.MIN_VALUE) {
+                Job nj = job(squads.get(i), now);
+                if (nj != null && nj.kind == StaffPlan.Kind.BACK && !nj.breaking) {
+                    nj.breaking = true;
+                    broke++;
+                }
+            }
         }
         if (pairs()) pair(squads, grid, now);
         strays(level, team, squads, now);
@@ -729,6 +790,19 @@ public final class AiCommander {
         // falling back, the losses still counted from those it had before (not from those it has left)
         Job job = same ? had
                 : new Job(t.kind(), now, t.kind() == StaffPlan.Kind.BACK && had != null ? had.bots : List.copyOf(s.bots), ids);
+        // its contact and its being pinned down go on with its new task (C5): not reported again, not forgotten
+        if (!same && had != null) {
+            job.saidContact = had.saidContact;
+            job.noFoeFrom = had.noFoeFrom;
+            job.saidAmmo = had.saidAmmo;
+            // falling back, the losses counted from the same soldiers
+            if (job.bots == had.bots) job.saidLosses = had.saidLosses;
+            job.pinFrom = had.pinFrom;
+            job.pinnedAt = had.pinnedAt;
+            job.quietFrom = had.quietFrom;
+            job.aliveAtPin = job.alive() + Math.max(0, had.aliveAtPin - had.alive());
+            job.breaking = had.breaking && t.kind() == StaffPlan.Kind.BACK;
+        }
         if (!same || g != null && Math.hypot(g.x() - job.gx, g.z() - job.gz) > REROUTE) {
             job.gx = g == null ? t.x() : g.x();
             job.gz = g == null ? t.z() : g.z();
@@ -998,7 +1072,78 @@ public final class AiCommander {
      */
     public static void reported(ServerLevel level, String team) {
         Side side = LEVELS.computeIfAbsent(level, l -> new HashMap<>()).get(team);
-        if (side != null) side.next = Math.min(side.next, level.getGameTime() + 1);
+        if (side == null) return;
+        long now = level.getGameTime();
+        if (side.asked == Long.MIN_VALUE) side.asked = now;
+        // at once, but its orders given again ASKED_GAP apart at least (reports come in bunches in a fight)
+        side.next = Math.min(side.next, Math.max(now + 1, side.commanded == Long.MIN_VALUE ? now + 1 : side.commanded + ASKED_GAP));
+    }
+
+    /**
+     * The squads' reports (C5), every LOOK ticks: contact, losses, pinned down (most of it suppressed PIN_AFTER ticks;
+     * over once none has been for PIN_QUIET), out of rounds, at its place. Each once for its task (losses at a third,
+     * at half; pinned again after it was over).
+     */
+    private static void look(ServerLevel level, long now) {
+        for (AiSquads.Squad s : AiSquads.squads(level)) {
+            Job j = job(s, now);
+            if (j == null) continue;
+            String team = AiSquads.team(s.bots.get(0));
+            int id = j.bots.get(0).mob.getId(), alive = 0, held = 0, empty = 0;
+            double x = 0, z = 0;
+            for (AiBot b : s.bots) {
+                if (!b.mob.isAlive()) continue;
+                alive++;
+                x += b.mob.getX();
+                z += b.mob.getZ();
+                if (b.prone.suppressed() >= SUPPRESSED) held++;
+                if (!b.gunner.ammo.infinite() && b.gunner.ammo.reserve() <= 0 && b.gunner.capacity() > 0) empty++;
+            }
+            if (alive == 0) continue;
+            x /= alive;
+            z /= alive;
+            // contact: once, again only after PIN_QUIET with no foe (a foe lost from sight a moment is the same fight)
+            if (s.target >= 0) {
+                j.noFoeFrom = Long.MIN_VALUE;
+                if (!j.saidContact) {
+                    j.saidContact = true;
+                    AiReports.report(level, team, new AiReports.Report(id, now, AiReports.Kind.CONTACT, x, z, s.target));
+                }
+            } else if (j.noFoeFrom == Long.MIN_VALUE) j.noFoeFrom = now;
+            else if (now - j.noFoeFrom >= PIN_QUIET) j.saidContact = false;
+            int left = j.alive(), was = j.bots.size(), losses = left * 2 < was ? 2 : left * 3 <= was * 2 ? 1 : 0;
+            if (losses > j.saidLosses) {
+                j.saidLosses = losses;
+                AiReports.report(level, team, new AiReports.Report(id, now, AiReports.Kind.LOSSES, x, z, losses));
+            }
+            if (held * 2 >= alive) {
+                j.quietFrom = Long.MIN_VALUE;
+                if (j.pinFrom == Long.MIN_VALUE) j.pinFrom = now;
+                if (j.pinnedAt == Long.MIN_VALUE && now - j.pinFrom >= PIN_AFTER) {
+                    j.pinnedAt = now;
+                    j.aliveAtPin = left;
+                    AiReports.report(level, team, new AiReports.Report(id, now, AiReports.Kind.PINNED, x, z, held));
+                }
+            } else {
+                j.pinFrom = Long.MIN_VALUE;
+                if (held > 0) j.quietFrom = Long.MIN_VALUE;
+                else if (j.quietFrom == Long.MIN_VALUE) j.quietFrom = now;
+                // over once quiet a while; one that broke contact stays back REST
+                boolean over = j.breaking ? now - j.pinnedAt >= REST : j.quietFrom != Long.MIN_VALUE && now - j.quietFrom >= PIN_QUIET;
+                if (j.pinnedAt != Long.MIN_VALUE && over) {
+                    j.pinnedAt = Long.MIN_VALUE;
+                    j.breaking = false;
+                }
+            }
+            if (!j.saidAmmo && empty * 2 > alive) {
+                j.saidAmmo = true;
+                AiReports.report(level, team, new AiReports.Report(id, now, AiReports.Kind.AMMO, x, z, empty));
+            } else if (empty == 0) j.saidAmmo = false;
+            if (!j.saidThere && j.there) {
+                j.saidThere = true;
+                AiReports.report(level, team, new AiReports.Report(id, now, AiReports.Kind.THERE, x, z, 0));
+            }
+        }
     }
 
     /**
@@ -1113,6 +1258,12 @@ public final class AiCommander {
 
     /** the group given up: not again for AVOID (its squad's next order is another) */
     private static boolean giveUp(AiBot bot, Order o, long tick) {
+        // its squad cannot get through (C5): reported once for its task
+        Job j = o.job;
+        if (j != null && !j.saidBlocked && bot.mob.level() instanceof ServerLevel level) {
+            j.saidBlocked = true;
+            AiReports.report(level, AiSquads.team(bot), new AiReports.Report(j.bots.get(0).mob.getId(), tick, AiReports.Kind.BLOCKED, bot.mob.getX(), bot.mob.getZ(), 0));
+        }
         bot.orderFailed = o.ids;
         bot.orderFailedUntil = tick + AVOID;
         bot.order = null;

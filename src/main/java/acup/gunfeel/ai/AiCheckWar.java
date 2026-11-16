@@ -65,6 +65,16 @@ final class AiCheckWar {
      * between (the way round is made in a pair's time); C3 and C4 by turns, ntmgunfeel.checkAiWarNear of them
      */
     static final double NEAR_Z = 240.5;
+    /**
+     * the pinned rounds after the near ones (C5): camp and player as near, all the staff on; from PIN_AT the stand keeps
+     * the first squad suppressed (as under a machine gun's fire); ntmgunfeel.checkAiWarPinned of them. Help: the other
+     * squad sent round the group or to pin it within HELP_IN of the report
+     */
+    static final int PIN_AT = 300, HELP_IN = 200;
+    /** a squad's task changed again within this: a flap (C5: the staff answering reports at once), ticks */
+    static final int FLAP = 200;
+    /** the share of changes that were flaps before C5 (C4b, war of 60 rounds) */
+    static final double FLAPS_BEFORE = 110.0 / 1032;
     /** a squad going round at its place: one of it within this of it */
     static final double AT_PLACE = 8;
     /** a squad within this north of the camp's line is still at the camp */
@@ -155,9 +165,19 @@ final class AiCheckWar {
     /** the far round: on; the tick the first of the side woke (-1: none), the most awake at once, the nearest any came */
     private boolean far;
     /** the near rounds: on, how many run, how many to run; each: its mode, pairs made, ready, late, ticks one going round sees the player, of them with one pinning, squads going round, at their place */
-    private boolean near;
-    private int nearDone;
-    private final int nears;
+    private boolean near, pinRound;
+    private int nearDone, pinDone;
+    private final int nears, pinRounds;
+    /** the pinned rounds: each, the tick of the pinned report, of the pinned squad's task to pin where it is, of the other's help, its kind (-1 none) */
+    private final List<long[]> pinOf = new ArrayList<>();
+    private long pinReport, pinHeld, pinHelp, pinHelpKind, pinMade0;
+    /** each soldier's task and when it changed; changes, of them within FLAP of the one before */
+    private final java.util.Map<Integer, Object[]> lastJob = new java.util.HashMap<>();
+    private long jobChanges, flaps, flapsAnswered;
+    private final long[] changesOf = new long[MODES], flapsOf = new long[MODES];
+    private final java.util.Map<String, Integer> flapKinds = new java.util.TreeMap<>();
+    /** the pinned round's fire begun (the side knows of the player: a task for its group) */
+    private boolean pinFire;
     private final List<long[]> nearOf = new ArrayList<>();
     private final java.util.Set<AiCommander.Job> flankJobs = new java.util.HashSet<>(), flankThere = new java.util.HashSet<>(), flankReady = new java.util.HashSet<>();
     /** the near rounds: the one going round at its signal (ready), the angle at the player between it and the pinning one's middle: counted, WIDE or more */
@@ -181,6 +201,7 @@ final class AiCheckWar {
         this.y = y;
         this.rounds = Math.max(1, Integer.getInteger("ntmgunfeel.checkAiWarRounds", MODES));
         this.nears = Math.max(0, Integer.getInteger("ntmgunfeel.checkAiWarNear", 2));
+        this.pinRounds = Math.max(0, Integer.getInteger("ntmgunfeel.checkAiWarPinned", 2));
     }
 
     boolean tick() {
@@ -216,6 +237,33 @@ final class AiCheckWar {
         // squad pinning the same group (C4: the pair's; before it, any pinning that group)
         // the player under fire from two sides: one of a squad pinning and one of a squad going round (or that went
         // round this round and advances now) see it at once
+        // C5: the pinned rounds, the first squad kept under fire; the staff's answer
+        if (pinRound) pinTick(now);
+        // C5: each soldier's task changing again soon (the staff answering reports at once: no flapping)
+        if (mode() >= TASKS && ticks % LOOK == 0) for (Mob m : ours) {
+            AiBot b = AiBots.get(m);
+            if (b == null || !m.isAlive()) continue;
+            // its task's kind (what the soldier does), not the staff's Job made again for the same
+            AiCommander.Job jb = b.order == null || !AiCommander.has(b, now) ? null : b.order.job;
+            Object j = jb == null ? null : jb.kind;
+            Object[] was = lastJob.get(m.getId());
+            // a flap: a change within FLAP of its last change (its first task given is none)
+            if (was == null) lastJob.put(m.getId(), new Object[] {j, Long.MIN_VALUE});
+            else if (j != null && was[0] != j) {
+                if (was[0] != null) {
+                    jobChanges++;
+                    changesOf[mode()]++;
+                    if ((Long) was[1] != Long.MIN_VALUE && now - (Long) was[1] < FLAP) {
+                        flaps++;
+                        flapsOf[mode()]++;
+                        // its new task given in answer to a report (C5), not on the staff's own time
+                        if (now - AiCommander.answeredAt <= LOOK) flapsAnswered++;
+                        flapKinds.merge(was[0] + ">" + j + (pinRound ? " (pinned)" : near ? " (near)" : ""), 1, Integer::sum);
+                    }
+                }
+                lastJob.put(m.getId(), new Object[] {j, now});
+            }
+        }
         if (mode() >= TASKS) {
             boolean pinSees = false, roundSees = false;
             for (Mob m : ours) {
@@ -338,6 +386,19 @@ final class AiCheckWar {
             clear();
             if (++nearDone >= nears) {
                 near = false;
+                if (pinRounds == 0) return finish();
+                pinRound = true;
+                pinDone = 0;
+            }
+            start(round + 1);
+            return false;
+        }
+        if (pinRound) {
+            pinOf.add(new long[] {pinReport, pinHeld, pinHelp, pinHelpKind});
+            AiCommander.made.clear();
+            clear();
+            if (++pinDone >= pinRounds) {
+                pinRound = false;
                 return finish();
             }
             start(round + 1);
@@ -419,9 +480,10 @@ final class AiCheckWar {
         AiCommander.made.clear();
         AiBots.awake = true;
         far = false;
-        if (nears == 0) return finish();
-        near = true;
-        nearDone = 0;
+        if (nears == 0 && pinRounds == 0) return finish();
+        near = nears > 0;
+        pinRound = !near;
+        nearDone = pinDone = 0;
         start(round + 1);
         return false;
     }
@@ -495,6 +557,7 @@ final class AiCheckWar {
             "the staff's pairs working together too (C4)"};
 
     private int mode() {
+        if (pinRound) return PAIRS;
         if (near) return nearDone % 2 == 0 ? MOVES : PAIRS;
         return round % MODES;
     }
@@ -569,6 +632,11 @@ final class AiCheckWar {
         flankJobs.clear();
         flankThere.clear();
         flankReady.clear();
+        pinReport = pinHeld = pinHelp = -1;
+        pinHelpKind = -1;
+        pinMade0 = AiReports.made[AiReports.Kind.PINNED.ordinal()];
+        pinFire = false;
+        lastJob.clear();
         flankContacts = flankWide = roundTicks = crossTicks = 0;
         paired0 = AiCommander.paired;
         coupled0 = AiCommander.coupled;
@@ -580,7 +648,7 @@ final class AiCheckWar {
         AiSquads.offTeams.clear();
         AiSquads.forget(level);
         for (int s = 0; s < SQUADS; s++)
-            for (int i = 0; i < EACH; i++) ours.add(spawn(X0 + SQUAD_X[s] + (i - 1) * 2, Z0 + (near ? NEAR_Z : CAMP_Z), A, near ? 180F : 0F));
+            for (int i = 0; i < EACH; i++) ours.add(spawn(X0 + SQUAD_X[s] + (i - 1) * 2, Z0 + (near || pinRound ? NEAR_Z : CAMP_Z), A, near || pinRound ? 180F : 0F));
         for (int i = 0; i < ours.size(); i++) {
             lastX[i] = ours.get(i).getX();
             lastZ[i] = ours.get(i).getZ();
@@ -612,6 +680,38 @@ final class AiCheckWar {
         AiBot b = AiBots.get(m);
         if (b != null) b.gunner.ammo.set(b.gunner.capacity() * 4);
         return m;
+    }
+
+    /** a pinned round's tick (C5): the first squad suppressed from PIN_AT; its report, its task to pin where it is, the other's help */
+    private void pinTick(long now) {
+        if (ticks < PIN_AT) return;
+        // the fire from the player once the side knows of it (a group to send help round), not before
+        if (!pinFire) for (Mob m : ours) {
+            AiBot b = AiBots.get(m);
+            if (b != null && m.isAlive() && AiCommander.has(b, now) && b.order.ids.length > 0) pinFire = true;
+        }
+        if (!pinFire) return;
+        if (ticks % 10 == 0) for (int i = 0; i < EACH && i < ours.size(); i++) {
+            AiBot b = AiBots.get(ours.get(i));
+            if (b != null && ours.get(i).isAlive()) b.prone.feel(acup.gunfeel.SuppressionScale.MAX, true, now);
+        }
+        if (pinReport < 0 && AiReports.made[AiReports.Kind.PINNED.ordinal()] > pinMade0) pinReport = ticks;
+        if (pinReport < 0) return;
+        for (int i = 0; i < ours.size(); i++) {
+            AiBot b = AiBots.get(ours.get(i));
+            AiCommander.Job j = b == null || !ours.get(i).isAlive() || !AiCommander.has(b, now) ? null : b.order.job;
+            if (j == null) continue;
+            // the pinned one: told to pin where it is (its place within PLACE of it)
+            // the pinned one: the base of fire, pinning (its pair's place, or where it is)
+            if (i < EACH && pinHeld < 0 && j.kind == StaffPlan.Kind.PIN) pinHeld = ticks;
+            // the other: going round (as the pinned one's pair already, or sent so), or sent to pin as well
+            boolean round = j.kind == StaffPlan.Kind.FLANK && j.partner != null;
+            if (!round && j.since < now - (ticks - pinReport)) continue;
+            if (i >= EACH && pinHelp < 0 && (round || j.kind == StaffPlan.Kind.PIN)) {
+                pinHelp = ticks;
+                pinHelpKind = j.kind.ordinal();
+            }
+        }
     }
 
     /** the angle at the player between a place and a mob, degrees */
@@ -811,6 +911,38 @@ final class AiCheckWar {
                     (double) c4[11] / c4[10] <= (double) c3[11] / c3[10] + 0.1);
             if (c4[0] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the staff pairs its squads and the one going round is ready in time: %d pairs, %d ready in time"
                     + " (half at least), %d out of time", c4[1], c4[2], c4[3]), c4[1] > 0 && c4[2] * 2 >= c4[1]);
+        }
+        // C5: the squads' reports, the staff's answer, no flapping
+        StringBuilder kinds = new StringBuilder();
+        for (AiReports.Kind k : AiReports.Kind.values()) kinds.append(' ').append(k.name().toLowerCase(Locale.ROOT)).append(' ').append(AiReports.made[k.ordinal()]);
+        check.out(String.format(Locale.ROOT, "     war, reports (C5):%s; answered (orders again) %d times, %.1f ticks after on the mean, %d at most; broke contact %d",
+                kinds, AiCommander.askedN, AiCommander.askedN == 0 ? 0 : (double) AiCommander.askedLag / AiCommander.askedN, AiCommander.askedMost, AiCommander.broke));
+        StringBuilder fl = new StringBuilder();
+        for (int on = TASKS; on < MODES; on++) if (changesOf[on] > 0) fl.append(String.format(Locale.ROOT, " %s %d of %d;", MODE_NAMES[on], flapsOf[on], changesOf[on]));
+        check.out("     war, task changes within " + FLAP + " ticks by mode:" + fl + " by kind " + flapKinds);
+        // flaps were there before C5 (C4b's war, 60 rounds: 110 of 1032 changes, FLAPS_BEFORE: scouting to advancing,
+        // falling back out of rounds and back); the reports' answers (most orders now) add none to speak of
+        if (jobChanges > 0) check.check(String.format(Locale.ROOT, "war: a soldier's task changed again within %d ticks of the last %d times of %d (%.1f%%; before C5 %.1f%%, 2 points more"
+                + " at most; %d of them given in answer to a report)", FLAP, flaps, jobChanges, 100.0 * flaps / jobChanges, 100 * FLAPS_BEFORE, flapsAnswered),
+                (double) flaps / jobChanges <= FLAPS_BEFORE + 0.02);
+        if (AiCommander.askedN > 0) check.check(String.format(Locale.ROOT, "war: the staff gives its orders again at most %d ticks after a report (%d most)", AiCommander.ASKED_GAP + AiCommander.LOOK,
+                AiCommander.askedMost), AiCommander.askedMost <= AiCommander.ASKED_GAP + AiCommander.LOOK);
+        if (!pinOf.isEmpty()) {
+            int said = 0, held = 0, helped = 0, flank = 0;
+            StringBuilder ticksOf = new StringBuilder();
+            for (long[] r : pinOf) {
+                if (r[0] >= 0) said++;
+                if (r[0] >= 0 && r[1] >= 0) held++;
+                if (r[0] >= 0 && r[2] >= 0 && r[2] - r[0] <= HELP_IN) helped++;
+                if (r[3] == StaffPlan.Kind.FLANK.ordinal()) flank++;
+                ticksOf.append(String.format(Locale.ROOT, " %d/%d/%d", r[0] < 0 ? -1 : r[0] - PIN_AT, r[1] < 0 ? -1 : r[1] - r[0], r[2] < 0 ? -1 : r[2] - r[0]));
+            }
+            check.out(String.format(Locale.ROOT, "     war, pinned (C5), a round each (report after the fire / its pin after the report / help after it, ticks):%s; help going round %d of %d",
+                    ticksOf, flank, helped));
+            check.check(String.format(Locale.ROOT, "war: pinned (C5), the squad under fire reports and is told to hold where it is: %d and %d of %d rounds", said, held, pinOf.size()),
+                    said == pinOf.size() && held == pinOf.size());
+            check.check(String.format(Locale.ROOT, "war: pinned (C5), the other squad sent round or to pin within %d ticks of the report: %d of %d rounds", HELP_IN, helped, pinOf.size()),
+                    helped == pinOf.size());
         }
         if (roundsOf[MOVES] + roundsOf[PAIRS] > 0)
             check.check(String.format(Locale.ROOT, "war: the squads bound (C3), out of a fight one half standing at its place facing the enemy (in cover where there was one) while the other goes"

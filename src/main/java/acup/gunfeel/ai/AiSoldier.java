@@ -503,6 +503,9 @@ public final class AiSoldier implements AiBrain {
         // going round for its side's pair, the foe still far: on round by the order, not into a fight from here (C4)
         if (c != null && AiCommander.goesRound(bot, c, tick) && ordered(bot, level, tick)) {
         }
+        // pinned down and sent back by its staff (C5, Break contact): a smoke between it and the foe, then back by the order
+        else if (c != null && AiCommander.breaksContact(bot, tick) && breakContact(bot, level, c, tick)) {
+        }
         // in sight, sitting behind low cover (its legs hidden, still): a grenade over it
         else if (c != null && c.state == TargetMemory.State.VISIBLE && sits(c) && grenade(bot, level, new Vec3(c.x, c.y, c.z), tick, false)) {
         }
@@ -519,14 +522,15 @@ public final class AiSoldier implements AiBrain {
         }
         // out of sight a while, looked for already (or no cover to look from): it goes for them
         else if (c != null && c.state == TargetMemory.State.LOST && pushes(bot, c, tick)) search(bot, level, c, tick);
-        // one of its squad on the move: it keeps the place they went out of sight under fire, a burst every few seconds
-        // (not one that watches where they may come out: it keeps watching there)
+        // one of its squad on the move: it keeps the place they went out of sight under fire, a burst every few seconds;
+        // one that watches where they may come out fires at that way out instead (where they went is behind a wall from
+        // there: the likely place of the enemy, as an overwatch's fire goes for a bound)
         // (its base of fire goes on while the wait has turned into a search: the one gone round is still on its way)
         else if (c != null && (c.state == TargetMemory.State.LOST || c.state == TargetMemory.State.SEARCH && mode != Mode.SEARCH && AiSquads.base(bot))
                 && spot != null && (mode == Mode.COVER || mode == Mode.PEEK || mode == Mode.HOLD)
-                && (wasSuppressing || AiSquads.suppresses(bot, c, tick)) && (AiSquads.base(bot) || !watchesExit(bot, c, tick))) {
+                && (wasSuppressing || AiSquads.suppresses(bot, c, tick))) {
             suppressing = wasSuppressing;
-            suppress(bot, c, tick);
+            suppress(bot, c, tick, AiSquads.base(bot) || !watchesExit(bot, c, tick) ? null : exit);
         }
         // lost from sight because it went into cover itself: it goes on hiding and looking out where they were
         else if (c != null && c.state == TargetMemory.State.LOST && spot != null && c.lostTick != blindLost
@@ -1498,6 +1502,12 @@ public final class AiSoldier implements AiBrain {
         return true;
     }
 
+    /** breaking contact (C5): its smoke at the foe in sight (as on a fall back), then on by its order */
+    private boolean breakContact(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
+        if (c.state == TargetMemory.State.VISIBLE) smoke(bot, level, new Vec3(c.x, c.y, c.z), tick);
+        return ordered(bot, level, tick);
+    }
+
     /**
      * A smoke grenade half the way to the threat (AiSmoke), as it falls back: one left, the threat not too near, none by
      * it or its squad a while, the throw bursting within AiGrenades.LAND of the place. Whether it threw.
@@ -1716,15 +1726,15 @@ public final class AiSoldier implements AiBrain {
     }
 
     /**
-     * One of its squad on the move, a target out of sight a moment ago: from its cover, a burst at the place the
-     * target went out of sight every few seconds (out at its peek, or up over low cover), and back in; the target
-     * there keeps its head down, or shows it.
+     * One of its squad on the move, a target out of sight a moment ago: from its cover, a burst every few seconds at
+     * the place the target went out of sight, or at the way out it watches (wayOut, not null), out at its peek or up
+     * over low cover, and back in; the target there keeps its head down, or shows it.
      */
-    private void suppress(AiBot bot, TargetMemory.Contact c, long tick) {
+    private void suppress(AiBot bot, TargetMemory.Contact c, long tick, @Nullable Vec3 wayOut) {
         CoverQuery.Spot s = spot;
-        // gone behind a bunker's slit it sees: at the slit (AiBunker)
+        // gone behind a bunker's slit it sees: at the slit (AiBunker); one watching a way out: at that
         Vec3 slit = bot.mob.level() instanceof ServerLevel sl ? AiBunker.slitFor(sl, bot, c, tick) : null;
-        Vec3 lost = slit != null ? slit : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+        Vec3 lost = slit != null ? slit : wayOut != null ? wayOut : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
         watch = lost;
         AiGunner g = bot.gunner;
         g.aim(lost);
