@@ -104,7 +104,7 @@ final class AiCheckWar {
     /** the round's soldiers that went round (a FLANK task) */
     private final java.util.Set<Integer> wentRound = new java.util.HashSet<>();
     private int paired0, coupled0, expired0;
-    private long coupleTicks0;
+    private long coupleTicks0, pressed0;
     private final List<long[]> pairsOf = new ArrayList<>();
     /** a squad going round sees the player this many degrees or more off the line from the pinning one: round its side */
     static final double WIDE = 60;
@@ -282,7 +282,7 @@ final class AiCheckWar {
         tasksOf.add(t);
         movesOf.add(new long[] {modeTicks[0], modeTicks[1], modeTicks[2], modeTicks[3], bounding, covering, inCover});
         pairsOf.add(new long[] {flankContacts, flankWide, AiCommander.paired - paired0, AiCommander.coupled - coupled0, AiCommander.expired - expired0, AiCommander.coupleTicks - coupleTicks0,
-                roundTicks, crossTicks});
+                roundTicks, crossTicks, AiCommander.pressed - pressed0});
         approach.add(new double[] {mode(), looks, inReach, inSight, walked / Math.max(1, ours.size()), firstSeenFrom});
         if (mode() == STAFF) {
             // a copy first: a way may still come in off the server thread
@@ -496,6 +496,7 @@ final class AiCheckWar {
         coupled0 = AiCommander.coupled;
         expired0 = AiCommander.expired;
         coupleTicks0 = AiCommander.coupleTicks;
+        pressed0 = AiCommander.pressed;
         AiCommander.forget(level);
         AiSquads.on = true;
         AiSquads.offTeams.clear();
@@ -588,8 +589,8 @@ final class AiCheckWar {
             long[] mv = movesOf.get(i);
             long[] pr = pairsOf.get(i);
             if (on >= TASKS) check.out(String.format(Locale.ROOT, "     war, round %d: squads going round that saw the player within 64 blocks %d, of them %.0f degrees or more off the pinning one %d; pairs %d,"
-                    + " ready in time %d (%.0f s on average), out of time %d; the player seen by one going round %d ticks, by it and one pinning at once %d", i + 1, pr[0], WIDE, pr[1], pr[2], pr[3],
-                    pr[3] == 0 ? 0 : pr[5] / 20.0 / pr[3], pr[4], pr[6], pr[7]));
+                    + " ready in time %d (%.0f s on average), out of time %d; the player seen by one going round %d ticks, by it and one pinning at once %d; pinning ones firing on its places for the pair %d", i + 1, pr[0], WIDE, pr[1], pr[2], pr[3],
+                    pr[3] == 0 ? 0 : pr[5] / 20.0 / pr[3], pr[4], pr[6], pr[7], pr[8]));
             flankOf[on] += pr[0];
             roundOf[on] += pr[6];
             crossOf[on] += pr[7];

@@ -454,6 +454,11 @@ public final class AiCommander {
             int avoid = -1;
             for (int k = 0; k < groups.size() && avoid < 0; k++) if (failed(s, groups.get(k), now)) avoid = k;
             boolean pair = pairs() && job != null && job.partner != null;
+            // a pair's time up with the one going round not ready: counted here, before the plan gives it another task
+            if (pair && job.kind == StaffPlan.Kind.FLANK && job.ready == Long.MIN_VALUE && now >= job.due && !job.late) {
+                job.late = true;
+                expired++;
+            }
             own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), out * 2 > alive, job == null ? null : job.kind,
                     job == null ? 0 : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE));
         }
@@ -1103,10 +1108,6 @@ public final class AiCommander {
                 paired++;
                 break;
             }
-            if (f.partner != null && f.ready == Long.MIN_VALUE && now >= f.due && !f.late) {
-                f.late = true;
-                expired++;
-            }
         }
     }
 
@@ -1170,8 +1171,13 @@ public final class AiCommander {
     static boolean presses(AiBot bot, long tick) {
         Order o = bot.order;
         Job j = o == null || tick > o.until ? null : o.job;
-        return j != null && j.kind == StaffPlan.Kind.PIN && j.ready != Long.MIN_VALUE && tick < j.due && pairs() && on();
+        boolean p = j != null && j.kind == StaffPlan.Kind.PIN && j.ready != Long.MIN_VALUE && tick < j.due && pairs() && on();
+        if (p) pressed++;
+        return p;
     }
+
+    /** the stands: times a pinning soldier kept a lost foe's places under fire for its pair (C4) */
+    public static long pressed;
 
     /**
      * pinning or holding (C4), once within LEASH of its place (on the way there it is free): a foe lost farther than

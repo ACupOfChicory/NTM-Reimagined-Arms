@@ -30,8 +30,11 @@ public final class HqGrid {
     static final double CLUMP = 3, FADED = 0.25;
     /** the enemy sees this far, blocks */
     public static final double RANGE = 128;
-    /** the cost of a cell on the enemy's sight (times its length, on top of the length); in water to swim, to wade */
-    public static final double SEEN = 3, SWIM = 8, WADE = 1;
+    /**
+     * the cost of a cell on the enemy's sight (times its length, on top of the length); in water to swim (the soldiers
+     * stop at deep water: a ford a dozen cells aside is the way, C4's stand), to wade
+     */
+    public static final double SEEN = 3, SWIM = 60, WADE = 1;
     /** cells whose height differs by more than this from the last are steep, costing more; by more than CLIFF, no way */
     static final double STEEP = 2, CLIFF = 6;
     /** a cell nothing is known of costs this */
