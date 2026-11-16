@@ -21,7 +21,7 @@ import net.minecraft.world.phys.Vec3;
  * (stretch after stretch, as a building's rooms): one wide, those holding it not walking; the same, walking as they
  * will; two wide with a fire step, not walking; last, one holding it alone with a grenade set down by it. Counted: who is left, when the trench was cleared,
  * the squad's ticks on the ground at the trench's edge (seen from in it) and in it, entries begun, grenades thrown
- * round a turn, those in the trench down by a blast, the squad hurt by a blast; for those walking, of the grenades
+ * round a turn, those in the trench down by a blast, the squad hurt by its own side's blast; for those walking, of the grenades
  * that went off near one of them, how often it got away first.
  */
 final class AiCheckTrench {
@@ -52,6 +52,19 @@ final class AiCheckTrench {
     private final ServerLevel level;
     private final int y;
     private boolean started;
+    private String who(net.minecraft.world.entity.Entity e, Mob hurt) {
+        if (e == null) return "-";
+        if (e == hurt) return "itself";
+        int k = squad.indexOf(e);
+        if (k >= 0) return "the squad's " + k + (e.isAlive() ? "" : " (down)");
+        k = held.indexOf(e);
+        if (k >= 0) return "one holding it " + k + (e.isAlive() ? "" : " (down)");
+        return e.getType().toShortString() + " " + e.getId();
+    }
+
+    private Vec3 lastBlast;
+    private int lastBlastTick = -1;
+    private final java.util.Set<Integer> seenOther = new java.util.HashSet<>();
     private int round = -1, ticks, firstDown, edge, inside, entriesBefore, fragsBefore, ownBlast, blastKills;
     private int roomsRead = -1, turnsRead = -1, wideRooms = -1, wideTurns = -1, stepRoom = -2, stepStretch = -1;
     /** those holding it, where each was when a grenade was first seen in the air, by the grenade */
@@ -130,7 +143,11 @@ final class AiCheckTrench {
         java.util.Set<Integer> now = new java.util.HashSet<>();
         for (var g : level.getEntitiesOfClass(com.hbm.entity.grenade.EntityGrenadeUniversal.class, box)) {
             // the squad's, told by its thrower when first seen (a thrower down later leaves it with none)
-            if (!flying.containsKey(g.getId()) && !(g.getOwner() instanceof Mob o && squad.contains(o))) continue;
+            if (!flying.containsKey(g.getId()) && !(g.getOwner() instanceof Mob o && squad.contains(o))) {
+                if (seenOther.add(g.getId())) check.out(String.format(Locale.ROOT, "     trench, round %d, tick %d: a grenade not the squad's at %.1f %.1f %.1f, thrown by %s",
+                        round + 1, ticks, g.getX(), g.getY() - y, g.getZ(), g.getOwner() instanceof Mob o2 ? who(o2, null) : "?"));
+                continue;
+            }
             now.add(g.getId());
             if (flying.put(g.getId(), g.position()) == null) {
                 Vec3[] at = new Vec3[held.size()];
@@ -147,6 +164,8 @@ final class AiCheckTrench {
             // those down this tick as well: the blast may be what downed them
             for (Mob m : held) if (m.isAlive() || m.deathTime <= 1) near = Math.min(near, m.position().distanceTo(b));
             bursts++;
+            lastBlast = b;
+            lastBlastTick = ticks;
             // one holding it, moving, near where it went off when it was thrown: gone away from it, or down by it
             Vec3[] then = heldAt.remove(e.getKey());
             int a = arm(round);
@@ -180,7 +199,15 @@ final class AiCheckTrench {
             float h = m.isAlive() ? m.getHealth() : 0;
             if (h < health[i]) {
                 var by = m.getLastDamageSource();
-                if (by == null || by.getDirectEntity() == null || !by.getDirectEntity().getType().toShortString().contains("bullet")) ownBlast++;
+                if (by == null || by.getDirectEntity() == null || !by.getDirectEntity().getType().toShortString().contains("bullet")) {
+                    // its own side's blast only (a grenade of those holding it is theirs, not counted)
+                    if (by != null && by.getEntity() instanceof Mob o && squad.contains(o)) ownBlast++;
+                    String mode = AiBots.get(m) instanceof AiBot ob && ob.brain instanceof AiSoldier os ? os.mode() + "/" + os.why : "-";
+                    check.out(String.format(Locale.ROOT, "     trench, round %d, tick %d: one of the squad hurt %.1f by %s (%s, from %s) at %.1f %.1f %.1f, %s, the last blast %.1f off at tick %d",
+                            round + 1, ticks, health[i] - h, by == null ? "?" : by.type().msgId(), by == null || by.getDirectEntity() == null ? "-" : by.getDirectEntity().getType().toShortString(),
+                            who(by == null ? null : by.getEntity(), m),
+                            m.getX(), m.getY() - y, m.getZ(), mode, lastBlast == null ? -1 : lastBlast.distanceTo(m.position()), lastBlastTick));
+                }
             }
             health[i] = h;
             if (!m.isAlive()) continue;
@@ -354,6 +381,8 @@ final class AiCheckTrench {
         entriesBefore = AiEntry.entries;
         fragsBefore = AiEntry.frags;
         ownBlast = blastKills = heldBlast = 0;
+        lastBlast = null;
+        lastBlastTick = -1;
         flying.clear();
         for (int i = 0; i < HELD; i++) heldHealth[i] = held.get(i).getHealth();
         for (int i = 0; i < SQUAD; i++) health[i] = squad.get(i).getHealth();
@@ -395,12 +424,12 @@ final class AiCheckTrench {
             }
             if (r[0] == 6) continue;
             check.out(String.format(Locale.ROOT, "     trench, round %d, %s: in the trench %d of %d left, of the squad %d of %d, %d ticks, the first in it down %s;"
-                    + " the squad's ticks at its edge %d, in it %d; entries %d, grenades in round a turn %d; in the trench hurt by a blast %d, down by one %d; the squad hurt by a blast %d; those holding it out of it %d ticks",
+                    + " the squad's ticks at its edge %d, in it %d; entries %d, grenades in round a turn %d; in the trench hurt by a blast %d, down by one %d; the squad hurt by its own blast %d; those holding it out of it %d ticks",
                     i + 1, names[r[0]], r[1], HELD, r[2], SQUAD, r[3], r[4] < 0 ? "never" : "at tick " + r[4], r[5], r[6], r[7], r[8], r[11], r[9], r[10], r[12]));
         }
         for (int on = 0; on < 6; on++)
             check.out(String.format(Locale.ROOT, "     trench, %s, %d rounds: cleared in %d (%.0f ticks on average), the first in it down in %d (%.0f ticks); left in it %.0f of %d,"
-                    + " of the squad %.0f of %d; the squad's ticks at its edge %.0f, in it %.0f; entries %.0f, grenades in %.0f; in it hurt by a blast %.0f, down by one %.0f; the squad hurt by a blast %.0f; those holding it out of it %.0f ticks",
+                    + " of the squad %.0f of %d; the squad's ticks at its edge %.0f, in it %.0f; entries %.0f, grenades in %.0f; in it hurt by a blast %.0f, down by one %.0f; the squad hurt by its own blast %.0f; those holding it out of it %.0f ticks",
                     names[on], n[on], cleared[on], cleared[on] == 0 ? 0 : clearTicks[on] / cleared[on], firsts[on], firsts[on] == 0 ? 0 : firstTicks[on] / firsts[on],
                     sum[on][1], n[on] * HELD, sum[on][2], n[on] * SQUAD, sum[on][5], sum[on][6], sum[on][7], sum[on][8], sum[on][11], sum[on][9], sum[on][10], sum[on][12]));
         check.out(String.format(Locale.ROOT, "     trench, the squad's grenades: %d went off, %d of them in the trench; the nearest holding it %.1f off on average;"

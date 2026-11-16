@@ -1,5 +1,11 @@
 # Changelog
 
+## X1212
+
+- Soldiers going into a room or round a trench's turn behind a grenade keep
+  to their places beside the way in until it has gone off, even with a foe in
+  sight, instead of stepping round into their own blast.
+
 ## X1210
 
 - An AI machine gunner kept as its squad's base of fire no longer goes after

@@ -30,6 +30,7 @@ public final class AiThoughts {
         ALERT_HIDE("in cover from a noise: hides, then looks out"),
         ALERT_PEEK("looks out where the noise came from"),
         SEEN_COVER("to cover: target in sight"),
+        SHELTER("beside the way in, the entry's grenade not burst yet: keeps out of its blast"),
         ANSWER("a new fight, near or looked at: a burst where it stands, then cover"),
         WALK_FIRE("to cover at a walk, firing: the target near"),
         NO_COVER("no cover found: fights here"),
