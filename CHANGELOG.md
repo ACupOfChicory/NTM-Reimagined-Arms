@@ -1,5 +1,15 @@
 # Changelog
 
+## X1265
+
+- Soldiers no longer swim a river on their own. With an enemy across the
+  water and no order, a squad holds its bank, sends two riflemen along it to
+  look for a bridge, a ford or a narrow place, and reports to its command.
+  Ordered across, it crosses by the drill: a pair goes first and secures the
+  far bank, the rest follow in pairs while the machine gunner and marksman
+  cover, and the cover crosses last. Smoke only under fire; one shot at before
+  mid-river swims back and tries again.
+
 ## X1258
 
 - An AI squad pinning an enemy group and the squad sent round its side now
