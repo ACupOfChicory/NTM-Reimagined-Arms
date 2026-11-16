@@ -1,5 +1,19 @@
 # Changelog
 
+## X1157
+
+- The AI check fails less by chance. Its noisy checks were run 20 times over
+  on main, and those that failed now and then were mended in the check itself,
+  not in the AI: the pinned soldier's standing up is counted at its cover
+  only; aiming at a head and chest over a low wall goes by the share of shots
+  that hit; the squad's covering fire has six rounds; a leaned soldier has six
+  tries to settle, not three; the battle has four fights; the medic six fights
+  a mode; the commander two rounds without help and four with it, a round with
+  no reserve not counted; the marksman stands a block higher at least; the
+  staff's ways are held to their own straight lines. The warm snapshot and a
+  look take the best of three runs. Each stage now also says how long it took,
+  in seconds and ticks.
+
 ## X1153
 
 - An AI soldier that sees a foe fall now forgets it and tells its squad, so

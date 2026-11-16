@@ -96,7 +96,7 @@ final class AiCheckCommander {
     }
 
     private boolean help() {
-        return round >= MAIN + HELPS_OFF;
+        return round < MAIN || round >= MAIN + HELPS_OFF;
     }
 
     boolean tick() {
