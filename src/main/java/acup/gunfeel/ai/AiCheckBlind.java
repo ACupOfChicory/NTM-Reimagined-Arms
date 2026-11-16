@@ -46,7 +46,7 @@ final class AiCheckBlind {
     private int phase = -1, ticks;
     private Mob soldier, foe;
     /** this phase: ticks pinned, its shots then, ticks stood pinned, hits on it, its hits (blind), blind shots cut by a block */
-    private int pinned, shotsPinned, stood, hitsOn, hitsBy, hitsBlind, cut, blindPose, lastShots;
+    private int pinned, shotsPinned, stood, hitsOn, hitsBy, hitsBlind, cut, blindPose, lastShots, pinnedThere, stoodThere;
     /** ticks it was at low cover, pinned: where it would fire blind if it fired at all */
     private int ready;
     private final int[][] results = new int[3][];
@@ -113,18 +113,23 @@ final class AiCheckBlind {
         // the prone stage counts); the foe's shots go on past it all the same
         bot.prone.pin(now);
         int shots = bot.gunner.shots;
+        // at its low cover (not on its way there, standing either way)
+        boolean there = bot.brain instanceof AiSoldier s && s.spot() != null && bot.mover.arrived() && (s.spot().peek() == s.spot().cell() || !s.spot().hasPeek());
         if (bot.prone.pinned(now)) {
             pinned++;
             shotsPinned += shots - lastShots;
             if (soldier.getPose() == Pose.STANDING) stood++;
+            if (there) {
+                pinnedThere++;
+                if (soldier.getPose() == Pose.STANDING) stoodThere++;
+            }
         }
         lastShots = shots;
         if (AiPose.of(soldier).arms() == AiPose.BLIND) blindPose++;
-        if (bot.brain instanceof AiSoldier s && s.spot() != null && bot.mover.arrived() && (s.spot().peek() == s.spot().cell() || !s.spot().hasPeek()))
-            ready++;
+        if (there) ready++;
         if (ticks >= (phase == 2 ? WALLED : RUN)) {
             results[phase] = new int[] {pinned, shotsPinned, bot.gunner.blindShots, stood, hitsOn, hitsBy, hitsBlind, cut, blindPose, ready,
-                    bot.brain instanceof AiSoldier s ? s.blindWalled : 0};
+                    bot.brain instanceof AiSoldier s ? s.blindWalled : 0, pinnedThere, stoodThere};
             soldier.discard();
             foe.discard();
             soldier = foe = null;
@@ -171,7 +176,7 @@ final class AiCheckBlind {
 
     private void start(int p) {
         phase = p;
-        ticks = pinned = shotsPinned = stood = hitsOn = hitsBy = hitsBlind = cut = blindPose = lastShots = ready = 0;
+        ticks = pinned = shotsPinned = stood = hitsOn = hitsBy = hitsBlind = cut = blindPose = lastShots = ready = pinnedThere = stoodThere = 0;
         AiSoldier.blindOn = p >= 1;
         build(p == 2);
         soldier = spawn(SX, SZ, "blind_soldier", 180F);
@@ -199,8 +204,8 @@ final class AiCheckBlind {
         for (int i = 0; i < 3; i++) {
             int[] r = results[i];
             check.out(String.format(Locale.ROOT, "     blind, %s: pinned %d ticks, shots then %d (blind %d), stood up pinned %d ticks; hit by the foe %d times,"
-                    + " hit it %d (blind %d); blind shots a block cut %d; ticks in the blind pose %d; at low cover %d ticks; held back for a wall %d ticks", names[i], r[0], r[1],
-                    r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10]));
+                    + " hit it %d (blind %d); blind shots a block cut %d; ticks in the blind pose %d; at low cover %d ticks; held back for a wall %d ticks; at its cover pinned %d"
+                    + " ticks, stood up %d", names[i], r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12]));
         }
         int[] off = results[0], on = results[1], walled = results[2];
         for (String b : bad) check.out("       " + b);
@@ -209,7 +214,11 @@ final class AiCheckBlind {
         // staying down it keeps firing: 0.6 of the shots it let go rising for them at least (stand runs: 0.8 to 1.0)
         check.check("pinned, staying down it keeps firing (blind fire: 0.6 of the shots rising at least)",
                 on[0] > 0 && off[0] > 0 && (double) on[1] / on[0] >= 0.6 * off[1] / off[0]);
-        check.check("pinned, it stands up less with blind fire than without", on[0] > 0 && off[0] > 0 && (double) on[3] / on[0] < (double) off[3] / off[0]);
+        // at its cover only: on its way there it stands either way (some 100 ticks of the 600), and that hid the
+        // difference now and then
+        check.check(String.format(Locale.ROOT, "pinned at its cover, it stands up less with blind fire than without (%.0f%% of the ticks, %.0f%% off)",
+                on[11] == 0 ? 0 : 100.0 * on[12] / on[11], off[11] == 0 ? 0 : 100.0 * off[12] / off[11]),
+                on[11] > 0 && off[11] > 0 && (double) on[12] / on[11] < (double) off[12] / off[11]);
         check.check("no blind shot into a wall (at its low wall, the foe behind a high one: held back, none at all)", on[7] == 0 && walled[10] > 0 && walled[2] == 0);
         return true;
     }
