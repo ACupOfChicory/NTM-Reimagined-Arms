@@ -40,6 +40,8 @@ final class StaffPlan {
     static final long STALE = 1200;
     /** the pinning squad's place this far off the group, blocks; the one going round's, and its angle off the line */
     static final double PIN = 60, FLANK_D = 40, FLANK_ANGLE = Math.toRadians(75);
+    /** going round: a side this many blocks farther to go by the map weighs as one wholly in the enemy's sight */
+    static final double FAR_SIDE = 100;
     /** a squad holding looks for its place this far round it at most, blocks */
     static final double HOLD_NEAR = 24;
     /** a squad falling back with no squad of its own to fall back on goes this far from the group, blocks */
@@ -275,7 +277,8 @@ final class StaffPlan {
 
     /**
      * go round the group: a place FLANK_D off it, FLANK_ANGLE off the line from the pinning place, on the side the
-     * enemy sees less of (else nearer the squad); null: neither on the map nor known
+     * enemy sees less of and the nearer to go to over the map (FAR_SIDE blocks farther weigh as all in its sight);
+     * null: neither on the map nor known
      */
     static @Nullable Task flank(@Nullable HqGrid grid, Group g, int k, double px, double pz, double sx, double sz) {
         double base = Math.atan2(pz - g.z, px - g.x);
@@ -288,6 +291,11 @@ final class StaffPlan {
                 int i = grid.cellX(x), c = grid.cellZ(z);
                 if (i < 0 || c < 0 || !grid.known[HqGrid.index(i, c)] || grid.deep[HqGrid.index(i, c)] >= 0.5) continue;
                 score += grid.seen[HqGrid.index(i, c)];
+                // the way there over the map rather than the straight line (a river between: by its ford, C4): a side
+                // much farther to go round loses its pair's time
+                int si = grid.cellX(sx), sk = grid.cellZ(sz);
+                int[] p = si < 0 || sk < 0 ? null : grid.path(si, sk, i, c, 0);
+                if (p != null) score += HqGrid.cells(p) * HqGrid.CELL / FAR_SIDE;
             }
             if (score < bestScore) {
                 bestScore = score;
