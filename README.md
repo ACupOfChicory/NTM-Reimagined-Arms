@@ -368,8 +368,10 @@ page. They are alphas: expect bugs and back up your world.
   deep as NTM's bunker's is too deep for one) and none of its own is in its
   reach, then they go down one after another; the first at the foot holds the
   way out of the shaft till the next is down, and one stays up by the hatch
-  till the others are down, then goes last (server key `aiHatches`). A ladder
-  is never taken for cover.
+  till the others are down, then goes last (server key `aiHatches`). A foe
+  lost up a shaft is gone after up its ladder, the search going on from its
+  way out at the top. A ladder is never taken for cover, and one left on a
+  ladder with nothing to do climbs on to its end and steps off.
 - A soldier who sees a foe fall forgets it and tells its squad, so none of
   them waits for it or goes after it where it fell (server key
   `aiDownTold`).

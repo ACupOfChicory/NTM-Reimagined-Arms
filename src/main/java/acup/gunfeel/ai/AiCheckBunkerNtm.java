@@ -23,7 +23,8 @@ import net.minecraft.world.phys.Vec3;
  * placed, read as a building with no slit (AiBunker) and that nothing in the AI threw. The way down is a steel trapdoor
  * over a ladder sixty deep: ROUNDS rounds on the one bunker, the way down a shaft (AiHatch) off and on by turns;
  * checked that none hangs halfway down the shaft and that some get to its foot in every round (how many, down by the
- * drill, the hub taken and those lost are counted).
+ * drill, the hub taken and those lost are counted). Last a round up: the squad in the hub, a foe on the ground, checked
+ * that all of it comes up the shaft through the steel hatch.
  */
 final class AiCheckBunkerNtm {
     static final int X0 = 4300, Z0 = 0, REACH = 40, RUN = 2400, SQUAD = 4, INSIDE = 2;
@@ -111,6 +112,7 @@ final class AiCheckBunkerNtm {
                             m.getZ(), m.getDeltaMovement().x, m.getDeltaMovement().y, m.getDeltaMovement().z, m.onClimbable(), m.horizontalCollision, m.onGround(), m.getPose(), m.isShiftKeyDown(),
                             m.getNavigation().isDone() ? "done" : "on " + m.getNavigation().getPath().getNextNodePos().toShortString(), AiBots.get(m) instanceof AiBot b ? b.mover.state() : ""));
         if (rt % 400 == 0 && rt > 0) check.out(String.format(Locale.ROOT, "     bunkerntm %d, tick %d:%s", round, rt, where()));
+        if (round == ROUNDS) return upTick(rt);
         boolean anyIn = inside.stream().anyMatch(Mob::isAlive), anyOut = squad.stream().anyMatch(Mob::isAlive);
         if (rt < RUN && anyIn && anyOut) return false;
         endRound(rt);
@@ -118,7 +120,8 @@ final class AiCheckBunkerNtm {
             spawn();
             return false;
         }
-        return finish();
+        spawnUp();
+        return false;
     }
 
     /** the structure's blocks round the place by kind, its ladders' top (the hatch) and foot (the hub); the map asked for there */
@@ -289,6 +292,59 @@ final class AiCheckBunkerNtm {
         AiHatch.forget(level);
     }
 
+    /** the last round: the squad up the shaft from the hub, through the steel hatch, to a foe on the ground; its ticks */
+    static final int UP_RUN = 1600;
+    private Mob upFoe;
+    private int upAt = -1;
+    private final boolean[] upped = new boolean[SQUAD];
+
+    private void spawnUp() {
+        roundAt = ticks;
+        // (on: the foe on the ground is a still target, no grenade comes down; the way up a shaft is AiHatch's)
+        AiHatch.on = hatchOn;
+        AiHatch.forget(level);
+        double hx = BlockPos.getX(hub) + 0.5, hy = BlockPos.getY(hub), hz = BlockPos.getZ(hub) + 0.5;
+        double fx = BlockPos.getX(hatch) + 10.5, fz = BlockPos.getZ(hatch) + 0.5;
+        int fy = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(fx), (int) Math.floor(fz));
+        // a still target on the ground (no AI of its own: it does not come down to them)
+        upFoe = net.minecraft.world.entity.EntityTypes.PIG.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        upFoe.setNoAi(true);
+        upFoe.addTag("armsai_target");
+        upFoe.setInvulnerable(true);
+        upFoe.setPos(fx, fy, fz);
+        level.addFreshEntity(upFoe);
+        AiTeams.join(level, upFoe, "ntmbunker_inup");
+        for (int i = 0; i < SQUAD; i++) {
+            Mob m = AiSpawn.spawn(level, new Vec3(hx, hy, hz), AiSpawn.Kind.DUMMY, 1, null).get(0);
+            m.setPos(hx + (i % 2), hy, hz + (i / 2));
+            AiTeams.join(level, m, "ntmbunker_outup");
+            squad.add(m);
+            upped[i] = false;
+        }
+        AiBots.refreshTargets(level);
+        long now = level.getGameTime();
+        for (Mob m : squad) if (AiBots.get(m) instanceof AiBot b) b.memory.seen(upFoe.getId(), upFoe.getX(), upFoe.getY(), upFoe.getZ(), now, 0);
+    }
+
+    private boolean upTick(int rt) {
+        int up = 0;
+        for (int i = 0; i < squad.size(); i++) {
+            Mob m = squad.get(i);
+            if (!upped[i] && m.isAlive() && m.getY() >= ground - 0.1) upped[i] = true;
+            if (upped[i]) up++;
+        }
+        if (up == SQUAD && upAt < 0) upAt = rt;
+        if (rt % 400 == 0 && rt > 0) check.out(String.format(Locale.ROOT, "     bunkerntm up, tick %d:%s", rt, where()));
+        if (rt < UP_RUN && up < SQUAD) return false;
+        check.out(String.format(Locale.ROOT, "     bunkerntm up: %d of %d up the shaft through the steel hatch by tick %d (all at %d);%s", up, SQUAD, rt, upAt, where()));
+        check.check(String.format(Locale.ROOT, "bunkerntm: the squad comes up the sixty-deep shaft through NTM's steel hatch, all of it (%d of %d in %d ticks)", up, SQUAD, UP_RUN), up == SQUAD);
+        for (Mob m : squad) m.discard();
+        squad.clear();
+        upFoe.discard();
+        AiHatch.on = hatchOn;
+        return finish();
+    }
+
     private boolean finish() {
         StringBuilder where = new StringBuilder();
         for (Mob m : squad)
@@ -311,8 +367,10 @@ final class AiCheckBunkerNtm {
             check.check(String.format(Locale.ROOT, "bunkerntm: none hangs halfway down the shaft as a round runs out (%d, %d before)", hung[1], hung[0]), hung[0] == 0 && hung[1] == 0);
             // (down by the drill itself counted: one shot off the ladder, or slow under fire, goes on as it may, uncounted)
             check.out(String.format(Locale.ROOT, "     bunkerntm: with it down the ladder by the drill in %d of %d rounds", ladderRounds, sums[1][3]));
-            check.check(String.format(Locale.ROOT, "bunkerntm: some get to the shaft's foot in every round (%d of %d, %d of %d before)", footRounds[1], sums[1][3], footRounds[0], sums[0][3]),
-                    footRounds[0] == sums[0][3] && footRounds[1] == sums[1][3]);
+            // (with the way down off, under fire from the hub up the shaft they come off the ladder at its top, X1309: so
+            // the bunker placed with its hub under the shaft; the drill goes down whatever it sees)
+            check.check(String.format(Locale.ROOT, "bunkerntm: with the way down a shaft some get to its foot in every round (%d of %d, %d of %d before)", footRounds[1], sums[1][3], footRounds[0], sums[0][3]),
+                    footRounds[1] == sums[1][3]);
             // (the hub taken is counted, not checked: two holding the shaft's foot shoot most going down it either way)
         }
         check.check("bunkerntm: nothing in the AI threw on it (" + (AiRooms.faults - faults0) + ")", AiRooms.faults == faults0);

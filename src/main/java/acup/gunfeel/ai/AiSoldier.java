@@ -340,6 +340,8 @@ public final class AiSoldier implements AiBrain {
         bot.gunner.blind = false;
         bot.gunner.low = false;
         orderedNow = false;
+        if (!bot.mob.onClimbable() || bot.mob.onGround()) climbWay = 0;
+        else if (Math.abs(bot.mob.getDeltaMovement().y) > 0.05) climbWay = bot.mob.getDeltaMovement().y > 0 ? 1 : -1;
         decide(bot, tick);
         if (orderedNow) {
             orderGoal = bot.mover.goal();
@@ -1894,6 +1896,25 @@ public final class AiSoldier implements AiBrain {
         }
         mode(Mode.SEARCH, tick);
         bot.gunner.fire(false);
+        // lost up a shaft over it: up it to its way out first, the search from there (the place is out of reach of
+        // the search from its foot: no cell near it was in the map, and none in sight)
+        // (looked for every WAY_UP_EVERY ticks: ladders a few blocks round, each up to its top)
+        if (tick >= wayUpNext) {
+            wayUpNext = tick + WAY_UP_EVERY;
+            wayUp = AiHatch.on() ? AiHatch.wayUp(level, bot, c) : Long.MIN_VALUE;
+        }
+        long up = wayUp;
+        if (up != Long.MIN_VALUE) {
+            if (!bot.mover.goalIs(up)) {
+                bot.mover.costs(PathSearch.Cost.NONE);
+                bot.mover.goTo(up, 0.35, WALK);
+            }
+            searchCell = Long.MIN_VALUE;
+            why = Why.SEARCH;
+            watch = new Vec3(BlockPos.getX(up) + 0.5, BlockPos.getY(up) + 1.1, BlockPos.getZ(up) + 0.5);
+            bot.gunner.aim(watch);
+            return;
+        }
         // lost in a room: beside the way in first, a grenade in, and in together (AiEntry)
         Vec3 door = AiEntry.on() ? AiEntry.step(this, bot, level, c, tick) : null;
         if (door != null) {
@@ -2074,7 +2095,49 @@ public final class AiSoldier implements AiBrain {
         return true;
     }
 
+    /** the way up a shaft a foe was lost up (AiHatch.wayUp), looked for again from wayUpNext on */
+    private long wayUp = Long.MIN_VALUE, wayUpNext;
+    static final int WAY_UP_EVERY = 20;
+    /** the way it last went on a ladder: up 1, down -1, 0 none (on the ground) */
+    private int climbWay;
+    /** off a ladder idle: how far up or down its end is looked for, blocks; again after none or a failed walk, ticks */
+    static final int OFF_LADDER_REACH = 96, OFF_LADDER_AGAIN = 40, OFF_LADDER_NEAR = 3;
+    private long offLadderNext;
+
+    /**
+     * On a ladder with nothing to do (an order or a search over while it climbed, a drill not its own): on the way it
+     * went to the ladder's end, off it (left on a rung it hung there, halfway up or down a long shaft, for good).
+     * Whether it goes so
+     */
+    private boolean offLadderIdle(AiBot bot, long tick) {
+        Mob m = bot.mob;
+        if (!m.onClimbable() || m.onGround()) return false;
+        if (mode == Mode.IDLE && why == Why.OFF_LADDER && bot.mover.goal() != Long.MIN_VALUE && !bot.mover.failed() && !bot.mover.noWay()) return true;
+        if (tick < offLadderNext) return false;
+        // an end a step or two off first (at the foot pushed up a rung by its own: not back up the whole shaft), else on
+        // the way it went
+        long off = AiHatch.offLadder((ServerLevel) m.level(), m, 0, OFF_LADDER_NEAR);
+        if (off == Long.MIN_VALUE) off = AiHatch.offLadder((ServerLevel) m.level(), m, climbWay, OFF_LADDER_REACH);
+        if (off == Long.MIN_VALUE) {
+            offLadderNext = tick + OFF_LADDER_AGAIN;
+            return false;
+        }
+        if (mode != Mode.IDLE || why != Why.OFF_LADDER) {
+            bot.gunner.fire(false);
+            bot.gunner.aim(null);
+            drop(bot);
+            watch = null;
+        }
+        mode(Mode.IDLE, tick);
+        why = Why.OFF_LADDER;
+        bot.mover.costs(PathSearch.Cost.NONE);
+        bot.mover.goTo(off, 0.35, WALK);
+        offLadderNext = tick + OFF_LADDER_AGAIN;
+        return true;
+    }
+
     private void idle(AiBot bot, long tick) {
+        if (offLadderIdle(bot, tick)) return;
         // after anything but standing or a sentry's look round (an answer to a contact fires with no move out of IDLE: its
         // target shot dead and forgotten, the trigger was left down at that place for the rest of the fight)
         if (mode != Mode.IDLE || why != Why.IDLE && why != Why.SENTRY) {
