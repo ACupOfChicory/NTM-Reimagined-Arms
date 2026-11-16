@@ -1,5 +1,15 @@
 # Changelog
 
+## X1291
+
+- AI squads march to a fight at a jog instead of a sprint; they still storm
+  and fall back at a run.
+- AI soldiers' legs no longer swing between the jog and the sprint while they
+  run at an even pace.
+- New client setting `botRunGait` (`/gunfeel botrungait`): AI soldiers' legs
+  on the run as before (`vanilla`), with fewer steps (`tempo`) or with longer
+  steps (`stride`).
+
 ## X1289
 
 - AI soldiers open trapdoors (NTM's steel hatch too) and climb ladders up and

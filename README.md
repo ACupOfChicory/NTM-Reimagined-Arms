@@ -474,6 +474,7 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `casingMax` | `96` | Most of NTM's spent casings drawn at once, the nearest on screen (`-1` = no limit, `0` = none); casings off screen or over 48 blocks away are never drawn |
 | `casingInstances` | `true` | NTM's spent casings drawn by the graphics card, all of a kind in one draw (`false` = NTM's way); off by itself under an Iris shader pack |
 | `soundNoWait` | `true` | A new sound no longer makes the frame wait while the sound thread is busy (many shots, Sound Physics); it starts in the sound thread's turn as before (`false` = the game's way) |
+| `botRunGait` | `vanilla` | AI soldiers' legs on the run: `vanilla`, `tempo` (fewer steps, nearer the run's own pace; the feet slide more), `stride` (longer steps; the feet slide less) |
 | `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
 | `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
 | `enabled` | `true` | The mod's client side as a whole |
@@ -552,6 +553,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
   value shows it.
 - `/gunfeel quality <preset>`: impact-effect quality.
 - `/gunfeel hitvolume <0..4>`: loudness of hit sounds.
+- `/gunfeel botrungait <vanilla|tempo|stride>`: AI soldiers' legs on the run.
 - `/gunfeel clearholes`: remove the bullet holes on your screen.
 - `/gunfeel settings`: the settings of the gun in hand.
 - `/gunsmoke` (operators): let out smoke clouds, clear them, show how many

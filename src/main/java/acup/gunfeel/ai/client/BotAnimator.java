@@ -262,7 +262,8 @@ public final class BotAnimator {
         float walkWas = walk;
         walk += (Math.min(s * 4F, 1F) - walk) * kw;
         if (dt <= 20F) {
-            float on = (walkWas + walk) / 2F * dt;
+            // on the run, fewer steps by the player's choice (Config.botRunGait tempo; vanilla's pace at a walk)
+            float on = (walkWas + walk) / 2F * dt * BotPoser.tempo(speed);
             if (s < BotPoser.MOVE_FROM) {
                 // only where it goes on faster than its fading walk would: a tick with no step in a run (a late
                 // packet) leaves the run's pace as it was
