@@ -170,6 +170,12 @@ public final class AiCommander {
         int inside, fails;
         /** its place in the squad, for a spread of the legs' ends */
         int slot, of;
+        /**
+         * a crossing (the staff's task CROSS): the place on the near bank to go over from, how (null: not a crossing),
+         * where to gather on the far bank
+         */
+        double crossX, crossZ, farX, farZ;
+        AiCrossing.@Nullable Kind crossKind;
         /** the staff's way there as asked for (stage 7 C1, the squad's one); null: straight, as R5 */
         @Nullable Way way;
         /** a way walked to its end: not taken up again (on from there in straight legs) */
@@ -875,6 +881,12 @@ public final class AiCommander {
     /** it has an order to go by now */
     static boolean has(AiBot bot, long tick) {
         return on() && bot.order != null && tick <= bot.order.until;
+    }
+
+    /** its order now if it is to cross a river (the staff's task CROSS: crossX/Z, crossKind, farX/Z), else null */
+    static @Nullable Order crossing(AiBot bot, long tick) {
+        Order o = bot.order;
+        return o != null && o.crossKind != null && o.job != null && o.job.kind == StaffPlan.Kind.CROSS && has(bot, tick) ? o : null;
     }
 
     /**
