@@ -192,6 +192,8 @@ public final class AiSoldier implements AiBrain {
     private int exitId = Integer.MIN_VALUE;
     private long exitFor = Long.MIN_VALUE, exitFrom = Long.MIN_VALUE;
     private boolean exitWanted;
+    /** where the loss it chose for was (its squad mates match their losses to it: sameLoss) */
+    private double exitLostX, exitLostZ;
     private @Nullable Vec3 exit;
     private static final long WHERE_IT_STANDS = Long.MIN_VALUE + 1;
     /** exits it chose to watch (the stands) */
@@ -430,6 +432,8 @@ public final class AiSoldier implements AiBrain {
 
     private void decide(AiBot bot, long tick) {
         if (!(bot.mob.level() instanceof ServerLevel level)) return;
+        // its ways keep out of the fire of slits its foes are behind (AiBunker), whatever it is doing
+        bot.mover.avoid(AiBunker.avoid(bot, level, tick));
         if (tick - unreachableSince > 400) {
             unreachable.clear();
             unreachableSince = tick;
@@ -477,6 +481,8 @@ public final class AiSoldier implements AiBrain {
         }
         // a river to cross to a foe: at the water's edge for its wave, or over with it (AiCrossing)
         if (AiCrossing.step(this, bot, level, tick)) return;
+        // its side's thrower at a bunker's slit: beside it, out to throw, back (AiBunker)
+        if (AiBunker.step(this, bot, level, tick)) return;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again
@@ -841,6 +847,20 @@ public final class AiSoldier implements AiBrain {
                     return;
                 }
             } else shore = Long.MIN_VALUE;
+            // in the fire of a bunker's slit with nothing to hide behind: out of its wedge to the side
+            if (asideCell != Long.MIN_VALUE && bot.mover.goalIs(asideCell) && bot.mover.failed()) {
+                asideCell = Long.MIN_VALUE;
+                asideAt = tick + ASIDE_EVERY * 5;
+            }
+            if (!AiWater.swims(bot.mob) && AiSquads.mayMove(bot) && tick >= asideAt && (asideCell == Long.MIN_VALUE || !bot.mover.goalIs(asideCell))) {
+                asideAt = tick + ASIDE_EVERY;
+                asideCell = AiBunker.aside(level, bot, tick);
+            }
+            if (asideCell != Long.MIN_VALUE && AiSquads.mayMove(bot) && !(bot.mover.goalIs(asideCell) && bot.mover.arrived())) {
+                moveFiring(bot, asideCell, RUN, null, tick, "out of a slit's fire to the side", Why.BUNKER);
+                return;
+            }
+            asideCell = Long.MIN_VALUE;
             if (dist >= PRONE_NEVER && (dist >= PRONE_FAR || bot.prone.pinned(tick) || longReload(g) && g.reloading())) bot.prone.want();
             why = dist < PRONE_NEVER ? Why.NO_COVER : dist >= PRONE_FAR ? Why.NO_COVER_FAR : bot.prone.pinned(tick) ? Why.NO_COVER_PINNED : Why.NO_COVER;
             burst(bot, tick, true);
@@ -1062,16 +1082,23 @@ public final class AiSoldier implements AiBrain {
         if (c.id != exitId || c.lostTick != exitFor) {
             exitId = c.id;
             exitFor = c.lostTick;
+            exitLostX = c.lostX;
+            exitLostZ = c.lostZ;
             exitFrom = Long.MIN_VALUE;
             exit = null;
-            exitWanted = bot.mob.getRandom().nextFloat() < exitShare;
+            // its squad covers the corners between them: one of them on where they went, the rest each on another way out;
+            // where they went hidden from where it watches (a wall between): no use watching a wall, it watches a way out
+            int squadOn = squadWatches(bot, c);
+            Vec3 eye = watchEye(bot);
+            boolean wentSeen = VoxelRay.clear(AiBots.voxels((ServerLevel) bot.mob.level()), eye.x, eye.y, eye.z, c.lostX, c.lostY + 1.1, c.lostZ, Voxel.SIGHT);
+            exitWanted = exitShare > 0F && (!wentSeen || squadOn == WATCH_WENT || squadOn != WATCH_EXIT && bot.mob.getRandom().nextFloat() < exitShare);
         }
         long from = spot == null ? WHERE_IT_STANDS : spot.hasPeek() ? spot.peek() : spot.cell();
         if (exitWanted && from != exitFrom && ExitSpots.mayPick(tick)) {
             exitFrom = from;
             ServerLevel level = (ServerLevel) bot.mob.level();
             long cell = ExitSpots.pick(TacticalMap.of(level), AiBots.voxels(level), watchEye(bot), c.lostX, c.lostY, c.lostZ, c.vx, c.vz,
-                    bot.mob.getRandom());
+                    bot.mob.getRandom(), squadExits(bot, c));
             boolean had = exit != null;
             exit = cell == Long.MIN_VALUE ? null : new Vec3(BlockPos.getX(cell) + 0.5, BlockPos.getY(cell) + 1.1, BlockPos.getZ(cell) + 0.5);
             if (exit != null && !had) {
@@ -1080,6 +1107,51 @@ public final class AiSoldier implements AiBrain {
             }
         }
         return exit != null ? exit : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+    }
+
+    /** what the rest of its squad watches for the same loss: WATCH_WENT one of them where it went, else WATCH_EXIT one a way out, else 0 */
+    static final int WATCH_WENT = 1, WATCH_EXIT = 2;
+    /** a squad mate's loss this near in time, of the same target or of one lost this near it, is the same loss: ticks, blocks */
+    static final int SAME_LOSS = 60;
+    static final double SAME_PLACE = 8;
+
+    /** a squad mate chose for the same loss (foes gone behind the same wall together count as one) */
+    private static boolean sameLoss(AiSoldier os, TargetMemory.Contact c) {
+        if (os.exitId == Integer.MIN_VALUE || Math.abs(os.exitFor - c.lostTick) > SAME_LOSS) return false;
+        if (os.exitId == c.id) return true;
+        double dx = os.exitLostX - c.lostX, dz = os.exitLostZ - c.lostZ;
+        return dx * dx + dz * dz <= SAME_PLACE * SAME_PLACE;
+    }
+
+    private static int squadWatches(AiBot bot, TargetMemory.Contact c) {
+        AiSquads.Squad s = AiSquads.of(bot);
+        if (s == null) return 0;
+        int on = 0;
+        for (AiBot o : s.bots)
+            if (o != bot && o.brain instanceof AiSoldier os && sameLoss(os, c)) {
+                if (!os.exitWanted) return WATCH_WENT;
+                on = WATCH_EXIT;
+            }
+        return on;
+    }
+
+    /** the ways out its squad mates watch for the same loss */
+    private static List<Vec3> squadExits(AiBot bot, TargetMemory.Contact c) {
+        AiSquads.Squad s = AiSquads.of(bot);
+        if (s == null) return List.of();
+        List<Vec3> out = new java.util.ArrayList<>(2);
+        for (AiBot o : s.bots)
+            if (o != bot && o.brain instanceof AiSoldier os && os.exit != null && sameLoss(os, c)) out.add(os.exit);
+        return out;
+    }
+
+    /** the stands: the way out it watches for its loss (null: none, or where they went), and whether it chose one */
+    @Nullable Vec3 exitWatched() {
+        return exit;
+    }
+
+    boolean exitChosen() {
+        return exitWanted;
     }
 
     /** it watches where a target it lost may come out (its choice for this loss made now if not yet) */
@@ -1492,13 +1564,22 @@ public final class AiSoldier implements AiBrain {
         moveFiring(bot, cell, speed, look, tick, what, Why.CROSS);
     }
 
-    /** the same for another errand of its side's (why: what it is): AiCrossing's scout */
+    /** AiBunker.aside: the cell out of a slit's wedge it makes for, and when it looks for one next */
+    private long asideCell = Long.MIN_VALUE, asideAt;
+    static final int ASIDE_EVERY = 20;
+
+    /** the same for another errand of its side's (why: what it is): AiCrossing's scout, AiBunker's thrower */
     void moveFiring(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what, Why why) {
+        moveFiring(bot, cell, speed, look, tick, what, why, 0.6);
+    }
+
+    /** the same, there within this far of the cell's middle (blocks) */
+    void moveFiring(AiBot bot, long cell, double speed, @Nullable Vec3 look, long tick, String what, Why why, double near) {
         if (spot != null) drop(bot);
         if (bot.mover.failed() && bot.mover.goalIs(cell)) bot.mover.stop();
         if (!bot.mover.goalIs(cell)) {
             bot.mover.costs(PathSearch.Cost.NONE);
-            bot.mover.goTo(cell, 0.6, speed);
+            bot.mover.goTo(cell, near, speed);
             event(bot, tick, what);
         }
         mode(bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
@@ -1650,7 +1731,9 @@ public final class AiSoldier implements AiBrain {
      */
     private void suppress(AiBot bot, TargetMemory.Contact c, long tick) {
         CoverQuery.Spot s = spot;
-        Vec3 lost = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
+        // gone behind a bunker's slit it sees: at the slit (AiBunker)
+        Vec3 slit = bot.mob.level() instanceof ServerLevel sl ? AiBunker.slitFor(sl, bot, c, tick) : null;
+        Vec3 lost = slit != null ? slit : new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
         watch = lost;
         AiGunner g = bot.gunner;
         g.aim(lost);

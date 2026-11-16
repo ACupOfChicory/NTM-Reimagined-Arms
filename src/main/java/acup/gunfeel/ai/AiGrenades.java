@@ -735,6 +735,8 @@ public final class AiGrenades {
             boolean own = ownSide(m, g);
             // the grenade thrown into a room before an entry, it behind the wall beside the way in (or out of its reach): it stays
             if (own && AiEntry.keeps(level, bot, g.e.getId(), g.burst, src)) continue;
+            // the one thrown in through a bunker's slit, it beside the slit behind the wall (or out of its reach): it stays
+            if (own && AiBunker.keeps(level, bot, g.e.getId(), g.burst, src)) continue;
             // its own near throw, it down behind its cover till the burst: it stays down while blocks keep all of it
             // off the burst (worked out again as the grenade flies); else it runs as from any of its own side's
             if (own && g.e.getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(g.e) && s.downShield(bot, level.getGameTime()) > 0

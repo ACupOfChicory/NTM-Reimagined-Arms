@@ -38,6 +38,9 @@ import net.minecraft.server.level.ServerPlayer;
  *                          the round, take the role (what each is to its squad whatever its gun; auto: by its gun)
  * /armsai clear            every AI mob of this level goes
  * /armsai ammo infinite|&lt;rounds&gt;   what every AI mob of this level carries besides its gun
+ * /armsai bunker [squad]   a bunker of stone bricks 20 blocks ahead, a slit facing you, a doorway at its back, one
+ *                          inside at the slit (team bunker_in, it does not walk); beside you a squad, 4 by default, a
+ *                          grenade each (team bunker_out), both knowing of the other (AiBunker)
  * </pre>
  */
 public final class AiCommand {
@@ -84,6 +87,8 @@ public final class AiCommand {
         root.then(Commands.literal("ammo").then(Commands.literal("infinite").executes(c -> ammo(c, AiAmmo.INFINITE)))
                 .then(Commands.argument("rounds", IntegerArgumentType.integer(0, 100000))
                         .executes(c -> ammo(c, IntegerArgumentType.getInteger(c, "rounds")))));
+        root.then(Commands.literal("bunker").executes(c -> bunker(c, 4))
+                .then(Commands.argument("squad", IntegerArgumentType.integer(1, 12)).executes(c -> bunker(c, IntegerArgumentType.getInteger(c, "squad")))));
         d.register(root);
     }
 
@@ -211,6 +216,76 @@ public final class AiCommand {
         c.getSource().sendSuccess(() -> Component.literal(bots.size() + " AI mobs now carry "
                 + (rounds == AiAmmo.INFINITE ? "endless rounds" : rounds + " rounds") + " besides their guns"), true);
         return bots.size();
+    }
+
+    /** /armsai bunker: the box's middle this far ahead of the player, blocks */
+    static final int BUNKER_AWAY = 20;
+
+    private static int bunker(CommandContext<CommandSourceStack> c, int size) throws CommandSyntaxException {
+        ServerPlayer p = c.getSource().getPlayerOrException();
+        var made = bunker(c.getSource().getLevel(), p.position(), p.getDirection(), size);
+        int n = made[1].size();
+        c.getSource().sendSuccess(() -> Component.literal("A bunker " + BUNKER_AWAY + " blocks ahead, its slit facing you, one inside at it (team bunker_in); " + n
+                + " AI dummies beside you with a grenade each (team bunker_out)" + (AiBunker.on() ? "" : "; aiBunker is off: they take it as any building")), true);
+        if (p.isCreative() || p.isSpectator()) c.getSource().sendSuccess(() -> Component.translatable("ntmgunfeel.armsai.unseen"), false);
+        return n;
+    }
+
+    /**
+     * The bunker of /armsai bunker, BUNKER_AWAY ahead of the place facing f, and its two sides: {the one inside, the
+     * squad at the place}. The stand (AiCheckBunker) makes one too.
+     */
+    @SuppressWarnings("unchecked")
+    static java.util.List<net.minecraft.world.entity.Mob>[] bunker(net.minecraft.server.level.ServerLevel level, net.minecraft.world.phys.Vec3 at, net.minecraft.core.Direction f, int size) {
+        int fx = f.getStepX(), fz = f.getStepZ(), rx = -fz, rz = fx;
+        int cx = net.minecraft.util.Mth.floor(at.x) + fx * BUNKER_AWAY, cz = net.minecraft.util.Mth.floor(at.z) + fz * BUNKER_AWAY;
+        int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, cx, cz);
+        var brick = net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState();
+        var air = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        // across a -3..3, along b -3..3 away from the place: the front wall two thick (b -3, -2) with the slit at a 0 a
+        // block over the floor, the back wall (b 3) with a doorway at a 1; inside a -2..2, b -1..2; a roof over it all
+        // (stone bricks: natural stone under a roof is a cave to the AI)
+        for (int a = -3; a <= 3; a++)
+            for (int b = -3; b <= 3; b++) {
+                int x = cx + rx * a + fx * b, z = cz + rz * a + fz * b;
+                level.setBlockAndUpdate(new net.minecraft.core.BlockPos(x, y - 1, z), brick);
+                boolean wall = Math.abs(a) == 3 || b == 3 || b <= -2;
+                for (int h = 0; h < 3; h++) {
+                    boolean open = a == 0 && h == 1 && b <= -2 || a == 1 && b == 3 && h < 2;
+                    level.setBlockAndUpdate(new net.minecraft.core.BlockPos(x, y + h, z), wall && !open ? brick : air);
+                }
+                level.setBlockAndUpdate(new net.minecraft.core.BlockPos(x, y + 3, z), brick);
+                level.setBlockAndUpdate(new net.minecraft.core.BlockPos(x, y + 4, z), air);
+            }
+        float toPlace = f.getOpposite().toYRot();
+        double ix = cx - fx + 0.5, iz = cz - fz + 0.5;
+        var inside = AiSpawn.spawn(level, new net.minecraft.world.phys.Vec3(ix, y, iz), AiSpawn.Kind.DUMMY, 1, null);
+        var squad = AiSpawn.spawn(level, at, AiSpawn.Kind.DUMMY, size, null);
+        for (var m : inside) {
+            m.setPos(ix, y, iz);
+            m.setYRot(toPlace);
+            m.setYHeadRot(toPlace);
+            AiTeams.join(level, m, "bunker_in");
+            var speed = m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+            if (speed != null) speed.setBaseValue(0);
+        }
+        for (var m : squad) {
+            AiTeams.join(level, m, "bunker_out");
+            AiBot b = AiBots.get(m);
+            if (b != null) {
+                b.grenades = Math.max(b.grenades, 1);
+                AiAdapter.keepGrenades(b);
+            }
+        }
+        AiBots.refreshTargets(level);
+        long now = level.getGameTime();
+        for (var m : squad)
+            for (var o : inside) {
+                AiBot b = AiBots.get(m), ob = AiBots.get(o);
+                if (b != null) b.memory.seen(o.getId(), o.getX(), o.getY(), o.getZ(), now, 0);
+                if (ob != null) ob.memory.seen(m.getId(), m.getX(), m.getY(), m.getZ(), now, 0);
+            }
+        return new java.util.List[] {inside, squad};
     }
 
     private static int info(CommandContext<CommandSourceStack> c) {

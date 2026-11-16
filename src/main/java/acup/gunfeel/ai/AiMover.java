@@ -131,6 +131,13 @@ public final class AiMover {
         this.cost = cost;
     }
 
+    /** a second cost added to the first whatever that is, its own owner's (AiBunker: the fire of slits) */
+    private PathSearch.Cost avoid = PathSearch.Cost.NONE;
+
+    public void avoid(PathSearch.Cost avoid) {
+        this.avoid = avoid;
+    }
+
     /**
      * Under fire its paths begin no swim (one that is swimming swims out); the fire over, a goal it gave up on for
      * want of a dry way is tried again.
@@ -337,7 +344,7 @@ public final class AiMover {
         double rad = radius;
         int asked = gen;
         // the cost as things are now (its own side's lines of fire move every tick), here on the server thread
-        PathSearch.Cost c = cost.now();
+        PathSearch.Cost c = PathSearch.Cost.sum(cost.now(), avoid.now());
         boolean keepDry = dry;
         AiThreads.submit(() -> answer = new Answer(asked, PathSearch.find(map, start, g, rad, MAX_NODES, c, keepDry)));
     }
