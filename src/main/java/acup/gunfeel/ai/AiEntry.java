@@ -184,6 +184,21 @@ public final class AiEntry {
         return op;
     }
 
+    /**
+     * One of an entry whose grenade is thrown and not burst yet: its place beside the way in, out of the blast, kept
+     * whatever it sees (one in sight of a foe round the turn would step into the blast to fight); else null.
+     */
+    static @Nullable Long sheltered(AiBot bot, ServerLevel level) {
+        Map<Long, Op> ops = OPS.get(level);
+        if (ops == null) return null;
+        for (Op op : ops.values()) {
+            if (op.phase != WAIT) continue;
+            int i = op.members.indexOf(bot);
+            if (i >= 0 && i < op.places.size()) return op.places.get(i)[1];
+        }
+        return null;
+    }
+
     private static @Nullable Vec3 step(Op op, AiRooms.Plan plan, AiSoldier s, AiBot bot, ServerLevel level, long tick) {
         if (op.phase == OVER || op.done.contains(bot)) return null;
         int i = op.members.indexOf(bot);
