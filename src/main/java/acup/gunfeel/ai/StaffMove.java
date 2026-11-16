@@ -215,7 +215,12 @@ final class StaffMove {
     /** its pace on a straight leg (no way): by the squad's mode */
     static double speed(AiCommander.Order o) {
         Mode m = o.job == null ? null : o.job.move.mode;
-        return m == Mode.MARCH || m == Mode.ASSAULT ? AiSoldier.RUN : m == Mode.CREEP ? AiSoldier.CREEP : AiSoldier.WALK;
+        return m == Mode.MARCH ? march(o.job.kind) : m == Mode.ASSAULT ? AiSoldier.RUN : m == Mode.CREEP ? AiSoldier.CREEP : AiSoldier.WALK;
+    }
+
+    /** a march's pace: a jog to the fight; falling back, a run */
+    static double march(StaffPlan.Kind kind) {
+        return kind == StaffPlan.Kind.BACK ? AiSoldier.RUN : AiSoldier.MARCH;
     }
 
     /** holding its cover: facing the nearest enemy */
@@ -255,10 +260,10 @@ final class StaffMove {
             case MARCH -> {
                 // the first to the next point of the way; each after it a little behind the one ahead, on the way (one
                 // past it waits where it is)
-                if (me == 0) return new Leg(way.x(o.at), way.z(o.at), Long.MIN_VALUE, AiSoldier.RUN, false, false, false, AiCommander.LEG_AGAIN);
+                if (me == 0) return new Leg(way.x(o.at), way.z(o.at), Long.MIN_VALUE, march(j.kind), false, false, false, AiCommander.LEG_AGAIN);
                 AiBot ahead = of.get(me - 1);
                 double[] p = at(way, Math.max(along(way, bot.mob.getX(), bot.mob.getZ()), along(way, ahead.mob.getX(), ahead.mob.getZ()) - FILE));
-                return new Leg(p[0], p[1], Long.MIN_VALUE, AiSoldier.RUN, false, false, false, AGAIN);
+                return new Leg(p[0], p[1], Long.MIN_VALUE, march(j.kind), false, false, false, AGAIN);
             }
             case ASSAULT -> {
                 storm(bot, o, tick);

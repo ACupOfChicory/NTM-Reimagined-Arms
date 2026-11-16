@@ -26,6 +26,13 @@ class StaffMoveTest {
     }
 
     @Test
+    void aMarchIsAJogAndFallingBackARun() {
+        assertEquals(AiSoldier.MARCH, StaffMove.march(StaffPlan.Kind.ADVANCE));
+        assertEquals(AiSoldier.MARCH, StaffMove.march(StaffPlan.Kind.FLANK));
+        assertEquals(AiSoldier.RUN, StaffMove.march(StaffPlan.Kind.BACK));
+    }
+
+    @Test
     void halvesCoverWithTheBaseOfFireFirst() {
         // the base of fire and marksman cover first, half of the squad (the larger half when odd)
         assertArrayEquals(new int[] {1, 0, 0}, StaffMove.halves(List.of(AiRole.RIFLE, AiRole.BASE, AiRole.MARKSMAN)));

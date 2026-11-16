@@ -39,7 +39,11 @@ public final class AiSoldier implements AiBrain {
     static final int QUERY_EVERY = 20, EXPOSED_EVERY = 10, HIDE_MIN = 10, HIDE_MAX = 80, BURST_MIN = 10, BURST_MAX = 25, PEEK_BLIND = 20;
     /** heard only, in cover: ticks between two looks out the way the noise came from */
     static final int LOOK_AGAIN_MIN = 60, LOOK_AGAIN_MAX = 120;
-    static final double RUN = 1.3, WALK = 1.0, CREEP = 0.7;
+    /**
+     * the paces, as the move's speed modifier: it goes twice into the game's push, so over the ground a walk is 0.19
+     * blocks a tick, a march (the staff's way to a fight, StaffMove) 0.27, a jog, and a run 0.32, a sprint
+     */
+    static final double RUN = 1.3, MARCH = 1.2, WALK = 1.0, CREEP = 0.7;
     /** how near a peek's middle it must stand: a peek a block aside from cover sees round it only about there */
     static final double PEEK_AT = 0.1;
     /** where it aims, as parts of the target's height (chest, head, legs), and half a part's height */
