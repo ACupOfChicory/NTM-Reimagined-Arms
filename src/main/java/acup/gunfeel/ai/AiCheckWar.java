@@ -520,16 +520,20 @@ final class AiCheckWar {
                     + " %.1f%% of the time within its reach, first in its sight %.0f blocks off, first seen at tick %.0f, %.0f blocks walked each", MODE_NAMES[on], roundsOf[on],
                     aliveOf[on] == 0 ? 0 : 100.0 * idleOf[on] / aliveOf[on],
                     reachedOf[on] == 0 ? 0 : 100 * sightOf[on] / reachedOf[on], fromN[on] == 0 ? -1 : fromOf[on] / fromN[on], firstOf[on] / roundsOf[on], walkOf[on] / roundsOf[on]));
-        double waySeen = 0, straightSeen = 0, longer = 0;
+        double waySeen = 0, straightSeen = 0, longer = 0, wayAll = 0, shortestAll = 0;
         for (HqGrid.Route r : ways) {
-            waySeen += r.seenPart() / ways.size();
-            straightSeen += r.shortestSeenPart() / ways.size();
+            // up to the river (beyond its ford every way goes the same, over open ground): where the staff has a choice
+            waySeen += r.dryPart() / ways.size();
+            straightSeen += r.shortestDryPart() / ways.size();
+            wayAll += r.seenPart() / ways.size();
+            shortestAll += r.shortestSeenPart() / ways.size();
             longer += r.length() / Math.max(1, r.shortest()) / ways.size();
         }
         long routesAll = AiCommander.routes.get() - routes0;
         double msRoute = routesAll == 0 ? 0 : (AiCommander.routeNanos.get() - routeNanos0) / 1e6 / routesAll;
-        check.out(String.format(Locale.ROOT, "     war, the staff's ways (C1 rounds) before the player was seen: %d, in the enemy's sight (as the staff thinks, short of the last %.0f blocks) %.1f%% against %.1f%% on the shortest way, %.2f times as long as the shortest;"
-                + " %.2f ms a way (off the server thread); %s", ways.size(), HqGrid.END, 100 * waySeen, 100 * straightSeen, longer, msRoute, AiHqMap.info()));
+        check.out(String.format(Locale.ROOT, "     war, the staff's ways (C1 rounds) before the player was seen: %d, in the enemy's sight (as the staff thinks) up to the river %.1f%% against %.1f%% on the shortest way, all the way (short of the last %.0f blocks)"
+                + " %.1f%% against %.1f%%, %.2f times as long as the shortest; %.2f ms a way (off the server thread); %s", ways.size(), 100 * waySeen, 100 * straightSeen, HqGrid.END,
+                100 * wayAll, 100 * shortestAll, longer, msRoute, AiHqMap.info()));
         StringBuilder t = new StringBuilder("     war, the picture's error by how long the player was unseen:");
         for (int k = 0; k < AGE_NAMES.length; k++)
             t.append(String.format(Locale.ROOT, " %s %s", AGE_NAMES[k], errN[k] == 0 ? "-" : String.format(Locale.ROOT, "%.1f (most %.1f, %d)", errSum[k] / errN[k], errMost[k], errN[k])));
@@ -544,7 +548,7 @@ final class AiCheckWar {
                 errN[0] == 0 ? -1 : errSum[0] / errN[0], IntelBook.R_MIN), errN[0] > 0 && errSum[0] / errN[0] <= IntelBook.R_MIN);
         check.check(String.format(Locale.ROOT, "war: the picture costs %.2f us a tick a side (at most 20)", usTick), usTick <= 20);
         boolean staffRan = roundsOf[STAFF] > 0, tasksRan = roundsOf[TASKS] + roundsOf[MOVES] > 0;
-        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight: %.1f%% of them in it against %.1f%% on the shortest way (40%% less at least), %.2f times as long as the shortest (1.5 at most)",
+        check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight up to the river: %.1f%% of them in it against %.1f%% on the shortest way (40%% less at least), %.2f times as long as the shortest (1.5 at most)",
                 100 * waySeen, 100 * straightSeen, longer), !staffRan || !ways.isEmpty() && waySeen <= straightSeen * 0.6 && longer <= 1.5);
         check.check(String.format(Locale.ROOT, "war: a way takes %.2f ms off the server thread (5 at most)", msRoute), msRoute <= 5);
         // C2: with the staff's tasks no squad stands about with nothing to do, and the squads were sent at the player
