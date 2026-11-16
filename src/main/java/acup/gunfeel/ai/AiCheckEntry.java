@@ -174,7 +174,11 @@ final class AiCheckEntry {
 
     private boolean shedTick() {
         // the one under the roof is gone at once: lost there, the four go after it
-        if (ticks == 2) for (Mob m : inside) m.setPos(m.getX(), m.getY() + 200, m.getZ());
+        // (held up there: fallen back, it would be down, and those who saw it fall would forget it, aiDownTold)
+        if (ticks == 2) for (Mob m : inside) {
+            m.setNoGravity(true);
+            m.setPos(m.getX(), m.getY() + 200, m.getZ());
+        }
         for (Mob m : squad) {
             AiBot b = AiBots.get(m);
             if (m.isAlive() && b != null && b.brain instanceof AiSoldier so && so.mode() == AiSoldier.Mode.SEARCH) shedSearch++;
