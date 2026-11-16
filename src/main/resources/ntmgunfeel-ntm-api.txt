@@ -618,6 +618,8 @@ CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setTimer (Lnet/minecraft/wo
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;I)V
 CORE method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F
 CORE method com/hbm/items/weapon/sedna/Receiver getDelayAfterFire (Lnet/minecraft/world/item/ItemStack;)I
+CORE method com/hbm/items/weapon/sedna/Receiver getFireSound (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/Supplier;
+CORE method com/hbm/items/weapon/sedna/Receiver getFireVolume (Lnet/minecraft/world/item/ItemStack;)F
 CORE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V

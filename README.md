@@ -226,7 +226,9 @@ page. They are alphas: expect bugs and back up your world.
 - They see and hear as a person does, run to cover, crouch behind low walls,
   run low past them, lean out round a corner, fire blind over cover and lie
   down in the open. They aim at what they see of you, never miss on purpose
-  and take the gun's recoil.
+  and take the gun's recoil. Shots carry by the gun, for them and for you
+  alike: a rifle is heard 80 blocks off, a pistol 48, a silenced gun only
+  close by (server key `gunshotRange`).
 - Bots of one side fight as a squad: when you vanish behind cover one goes
   round the side while the others fire to keep your head down, and a bot
   leaves cover only while another covers it. Lose them behind a long wall
@@ -343,9 +345,11 @@ page. They are alphas: expect bugs and back up your world.
   machine gunner, the marksman and a rifleman stay on the near bank and keep
   the foe under fire, a pair goes over first and holds the far bank, one of
   them a little further on to watch, the rest follow by pairs, the near bank's
-  cover last at the same place. Smoke onto the far bank only under fire. One
-  shot at while swimming from across, not halfway over yet, swims back and
-  goes again; past halfway it goes on (server key `aiCrossing`).
+  cover last at the same place. Smoke goes onto the far bank when the
+  crossing is watched: the squad is under fire, its own fire has given it
+  away, or it knows of a foe at the far bank. One shot at while swimming from
+  across, not halfway over yet, swims back and goes again; past halfway it
+  goes on (server key `aiCrossing`).
 - A bunker is taken by its firing slits. Any open hole at head height in a
   wall with wall over it is a slit, its field of fire a wedge widening as the
   slit is wide for its depth. Their ways keep out of the wedges; one in a
@@ -516,6 +520,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `shockSpread` | `0.12` | The spread added to a shocked one's shots (NTM's units: buckshot's is 0.035; about 7 degrees) |
 | `shockGlitch`, `shockGlitchMin` | `1`, `0.5` | The most the HUD glitches, and the least share of it a player may turn their own down to |
 | `shockCamera`, `shockShake` | `45`, `0.6` | How fast the view drifts on its own at most (degrees a second), and how much it shakes (degrees) |
+| `gunshotRange` | `1` | How far shots are heard, players and AI bots alike: silenced 16 blocks, energy weapons 24, pistols 48, shotguns and launchers 64, rifles 80, machine guns 96, anti-materiel rifles 128; the part over 16 scaled (`0`: 16 for all, as in NTM) |
 | `gunHitKnockback`, `gunHitTilt` | `false` | `true`: a player hit by an NTM gun's bullet or beam is thrown back as in vanilla; their view tilts with the hit |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |
 | `bulletPierceMachines` | `false` | Bullets pierce machines |

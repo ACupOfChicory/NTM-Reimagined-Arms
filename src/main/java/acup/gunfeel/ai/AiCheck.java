@@ -145,11 +145,12 @@ public final class AiCheck {
             AiCheckBunkerNtm bunkerNtm = new AiCheckBunkerNtm(check, check.level, Y);
             AiCheckHatch hatch = new AiCheckHatch(check, check.level, Y);
             AiCheckWall wall = new AiCheckWall(check, check.level, Y);
+            AiCheckFolly folly = new AiCheckFolly(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
-            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed, took cover to fire from on a hill (and with height weighed), a side's staff in a war, went into a trench round its turns, crossed a river under fire by waves, took a bunker by its slit, went at NTM's underground bunker, went down a shaft through a hatch, sent by its staff into a house with no way in
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves", "hill", "hillheights", "war", "trench", "crossing", "alert", "bunker", "bunkerntm", "hatch", "wall");
+            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed, took cover to fire from on a hill (and with height weighed), a side's staff in a war, went into a trench round its turns, crossed a river under fire by waves, took a bunker by its slit, went at NTM's underground bunker, went down a shaft through a hatch, sent by its staff into a house with no way in, the loudest shot among a hundred
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves", "hill", "hillheights", "war", "trench", "crossing", "alert", "bunker", "bunkerntm", "hatch", "wall", "folly");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick, leaves::tick, hill::tick, hillHeights::tick, war::tick, trench::tick, crossing::tick, alert::tick, bunker::tick, bunkerNtm::tick, hatch::tick, wall::tick);
+                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick, leaves::tick, hill::tick, hillHeights::tick, war::tick, trench::tick, crossing::tick, alert::tick, bunker::tick, bunkerNtm::tick, hatch::tick, wall::tick, folly::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
@@ -514,6 +515,44 @@ public final class AiCheck {
         bot.memory.update(now += 4000);
         level.playSound(null, mob.getX() + 1, Y, mob.getZ(), net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE.value(), net.minecraft.sounds.SoundSource.BLOCKS, 4F, 1F);
         check("its own sounds are not news", bot.memory.noise() == null);
+
+        // gunshots heard as far as the gun's class carries (GunshotRange): NTM's every gun, its fire sound and the range
+        // its volume gives; a rifle 60 blocks off is heard, loud; a silenced gun 30 blocks off is not
+        java.util.Map<Float, java.util.List<String>> byRange = new java.util.TreeMap<>();
+        java.util.Map<String, net.minecraft.world.item.ItemStack> bySound = new java.util.HashMap<>();
+        for (net.minecraft.world.item.Item item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+            if (!(item instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) continue;
+            net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
+            com.hbm.items.weapon.sedna.Receiver[] recs = gun.getConfig(stack, 0).getReceivers(stack);
+            if (recs == null || recs.length == 0 || recs[0].getFireSound(stack) == null) continue;
+            net.minecraft.sounds.SoundEvent fire = recs[0].getFireSound(stack).get();
+            if (fire == null) continue;
+            float range = fire.getRange(recs[0].getFireVolume(stack));
+            // NTM's own joke (Folly, at volume 100): as NTM has it
+            if (recs[0].getFireVolume(stack) > 100F * 0.99F && fire.location().getPath().contains("loudest")) continue;
+            String key = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getPath().replace("gun_", "");
+            byRange.computeIfAbsent(range, k -> new java.util.ArrayList<>()).add(key + " (" + fire.location().getPath().replace("weapon.fire.", "") + ")");
+            bySound.putIfAbsent(fire.location().getPath(), stack);
+        }
+        StringBuilder ranges = new StringBuilder("     gunshots heard, blocks: ");
+        byRange.forEach((r, g) -> ranges.append(String.format(Locale.ROOT, "%.0f: %s; ", r, String.join(", ", g))));
+        out.add(ranges.toString());
+        check("NTM's guns are heard from 16 (silenced) to 128 blocks (" + byRange.keySet() + ")",
+                !byRange.isEmpty() && byRange.containsKey(16F) && byRange.containsKey(128F) && byRange.keySet().stream().allMatch(r -> r >= 16F && r <= 128F));
+        for (String[] shot : new String[][] {{"weapon.fire.rifle", "78.5", "heard"}, {"weapon.fire.silenced", "48.5", "not heard"}}) {
+            net.minecraft.world.item.ItemStack stack = bySound.get(shot[0]);
+            if (stack == null) {
+                check("a gun of " + shot[0], false);
+                continue;
+            }
+            var rec = ((com.hbm.items.weapon.sedna.ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getReceivers(stack)[0];
+            bot.memory.update(now += 4000);
+            double z = Double.parseDouble(shot[1]);
+            level.playSound(null, 22.5, Y + 1.5, z, rec.getFireSound(stack).get(), net.minecraft.sounds.SoundSource.PLAYERS, rec.getFireVolume(stack), 1F);
+            TargetMemory.Noise g = bot.memory.noise();
+            String what = String.format(Locale.ROOT, "a shot of %s %.0f blocks off is %s", shot[0].replace("weapon.fire.", ""), Math.hypot(mob.getX() - 22.5, mob.getZ() - z), shot[2]);
+            check(what + (shot[2].equals("heard") ? ", loud" : ""), shot[2].equals("heard") ? g != null && g.loud : g == null);
+        }
 
         // a hit tells where from, roughly
         move(target, 22.5, 40.5);

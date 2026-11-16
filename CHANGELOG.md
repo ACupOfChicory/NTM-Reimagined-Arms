@@ -1,5 +1,17 @@
 # Changelog
 
+## X1307
+
+- Gunshots carry by the gun, for players and AI soldiers alike: a silenced gun
+  is heard only close by, energy weapons a little further, pistols 48 blocks,
+  shotguns and launchers 64, rifles 80, machine guns 96 and anti-materiel
+  rifles 128 (NTM: 16 for every gun). A shot is no louder close by, only
+  heard further; squads nearby now hear a fight and come to it. The server
+  key `gunshotRange` scales the ranges, `0` puts back NTM's 16.
+- A squad crossing a river by the drill smokes the far bank whenever the
+  crossing is watched: under fire, after its own shots have given it away, or
+  knowing of a foe at the far bank. Before, only under fire.
+
 ## X1297
 
 - AI squads sent by their commander no longer go round and round the wall of

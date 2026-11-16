@@ -141,6 +141,8 @@ final class AiCheckWar {
     /** AiCrossing's counters when the stage began */
     private final int crossBegun0 = AiCrossing.begun, crossOver0 = AiCrossing.over, crossNotOver0 = AiCrossing.notOver, crossWatches0 = AiCrossing.watches, crossFound0 = AiCrossing.found;
     private final int[] crossWhy0 = AiCrossing.whyNot.clone();
+    private final int crossSmoked0 = AiCrossing.smoked;
+    private final int[] smokeWhy0 = AiCrossing.smokeWhy.clone();
     private final int y, rounds;
     private boolean started;
     private int round = -1, ticks;
@@ -901,7 +903,9 @@ final class AiCheckWar {
                 orderedOut, orderedAt));
         check.out(String.format(Locale.ROOT, "     war, river crossings (AiCrossing, all rounds): begun %d, over %d, not over %d; watches at a bank %d, places found %d",
                 AiCrossing.begun - crossBegun0, AiCrossing.over - crossOver0, AiCrossing.notOver - crossNotOver0, AiCrossing.watches - crossWatches0, AiCrossing.found - crossFound0) + String.format(Locale.ROOT, "; not over: all down %d, too long %d, the order taken back %d, none came by %d",
-                AiCrossing.whyNot[0] - crossWhy0[0], AiCrossing.whyNot[1] - crossWhy0[1], AiCrossing.whyNot[2] - crossWhy0[2], AiCrossing.whyNot[3] - crossWhy0[3]));
+                AiCrossing.whyNot[0] - crossWhy0[0], AiCrossing.whyNot[1] - crossWhy0[1], AiCrossing.whyNot[2] - crossWhy0[2], AiCrossing.whyNot[3] - crossWhy0[3])
+                + String.format(Locale.ROOT, "; with smoke %d (under fire %d, its own fire heard %d, a foe known at the far bank %d)", AiCrossing.smoked - crossSmoked0,
+                AiCrossing.smokeWhy[0] - smokeWhy0[0], AiCrossing.smokeWhy[1] - smokeWhy0[1], AiCrossing.smokeWhy[2] - smokeWhy0[2]));
         check.check("war: all rounds ran", results.size() == rounds);
         check.check("war: the side's picture has the player at every report, always within its circle", reports > 0 && missing == 0 && outside == 0);
         check.check(String.format(Locale.ROOT, "war: seen lately (0-5 s), the picture is off by %.1f on average (at most the circle's least radius, %.0f)",

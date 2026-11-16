@@ -458,6 +458,11 @@ public final class AiGunner {
         return acup.gunfeel.ProneFire.on(mob.getMainHandItem());
     }
 
+    /** the tick NTM last let a shot of its go (AiShots; Long.MIN_VALUE: none yet) */
+    long shotTick() {
+        return shotTick;
+    }
+
     /** NTM let a shot of its go (AiShots), counted once a tick */
     void shot(long tick) {
         if (tick == shotTick) return;
