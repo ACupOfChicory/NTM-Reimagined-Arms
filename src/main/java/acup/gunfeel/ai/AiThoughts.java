@@ -36,6 +36,7 @@ public final class AiThoughts {
         NO_COVER_FAR("no cover, far off: lies, fights"),
         NO_COVER_PINNED("no cover, pinned down: lies, fights"),
         ASHORE("no cover, swimming: swims ashore"),
+        CROSS("a river to cross to them: with its wave, covered from the bank and behind smoke"),
         HIDE("hides, then peeks"),
         DRY("no rounds left: hides"),
         RELOAD("reloads in cover"),

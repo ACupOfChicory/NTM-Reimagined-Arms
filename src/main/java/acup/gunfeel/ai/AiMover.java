@@ -234,6 +234,11 @@ public final class AiMover {
         return w != null && !fresh(map, w, walkStamps);
     }
 
+    /** the last search kept out of water it meant to swim (under fire: dry) */
+    public boolean refused() {
+        return refused;
+    }
+
     /** the cells of the path being walked, or none */
     public long[] path() {
         PathSearch.Result w = walking;
