@@ -1,5 +1,13 @@
 # Changelog
 
+## X1153
+
+- An AI soldier that sees a foe fall now forgets it and tells its squad, so
+  none of them waits for it, searches for it or throws a grenade where it
+  fell. New server setting `aiDownTold` (true by default).
+- In a trench, the grenade thrown round a turn now goes after the defender
+  still there, and downs or drives them out much more often.
+
 ## X1151
 
 - AI soldiers now go into a trench one wide as into a building: each straight
