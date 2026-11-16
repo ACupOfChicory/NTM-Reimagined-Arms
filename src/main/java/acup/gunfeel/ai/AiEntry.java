@@ -27,7 +27,9 @@ import net.minecraft.world.phys.Vec3;
  * the wall (a grenade with glue: it sticks where it first hits, so it comes back off no wall; thrown only where its
  * burst is in the room and harms none of its own: those of the entry behind the wall, the rest out of its reach or
  * behind blocks); it has gone off, and they go in together, each to its own side of the way in. From there on they
- * search as before. One entry a side, a target and a room; all of it is over in ENTRY_MAX ticks at most.
+ * search as before. One entry a side, a target and a room; all of it is over in ENTRY_MAX ticks at most. Into a
+ * trench's stretch they go so through the turn before it (AiTrenches): beside it in the stretch behind, the thrower
+ * steps into the turn.
  */
 public final class AiEntry {
     /** the server setting: AI soldiers stack up beside a doorway and go in together */
@@ -42,6 +44,8 @@ public final class AiEntry {
     static boolean frag = true;
     /** the stands: entries begun, grenades thrown in before one, throwers that stepped out and did not throw */
     public static int entries, frags, noThrow;
+    /** the stands: entries gone in before all of them were beside the way in; all there, and none had a throw found from before it */
+    public static int unstacked, noPlan;
     /** a grenade is thrown this many cells into the room, straight in through the opening */
     static final int DEEP = 4;
     /** the thrower has this long to step out and throw; a throw is worked out this often and this many times; ticks */
@@ -226,7 +230,7 @@ public final class AiEntry {
         op.made = op.phaseAt = tick;
         op.nextPlan = tick + AGAIN;
         op.lost = lost;
-        AiRooms.Plan plan = AiRooms.of(TacticalMap.of(level), lost);
+        AiRooms.Plan plan = AiTrenches.place(TacticalMap.of(level), lost);
         if (plan == null) return op;
         int room = plan.room(lost);
         if (room == AiRooms.OUTSIDE) return op;
@@ -250,14 +254,18 @@ public final class AiEntry {
         for (int i = 0; i < op.slots.length; i++)
             if (far[i] != op.slots[i] && far2[i] != far[i]) op.places.add(new long[] {far[i], far2[i]});
         op.inner = w.beside(room);
-        // looked at from beside it: the opening's cell at the far end from the room; before it, the cell a thrower steps out to
+        // looked at from beside it: the opening's cell at the far end from the room; before it, the cell a thrower steps
+        // out to (at a trench's turn, the turn)
         long end = room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
-        int out = room == w.b ? Dirs.opposite(w.dir) : w.dir, in = Dirs.opposite(out);
+        int in = w.in(room);
         op.door = mid(end, 1.1);
-        op.front = BlockPos.asLong(BlockPos.getX(end) + Dirs.DX[out], BlockPos.getY(end), BlockPos.getZ(end) + Dirs.DZ[out]);
-        // the thrower stands so that its hand (a quarter of a block to its right), not its middle, is before the opening's middle
-        op.offX = 0.25 * Dirs.DZ[in];
-        op.offZ = -0.25 * Dirs.DX[in];
+        op.front = w.front(room);
+        // the thrower stands so that its hand (a quarter of a block to its right), not its middle, is before the opening's
+        // middle; in a trench's turn, one wide, in its middle (off it, the hand is at the wall)
+        if (w.turn < 0) {
+            op.offX = 0.25 * Dirs.DZ[in];
+            op.offZ = -0.25 * Dirs.DX[in];
+        }
         // where a grenade goes: straight in through the opening, DEEP cells into the room (the room's corners by the wall
         // with the way in cannot be thrown at from before it; the burst reaches them)
         long first = room == w.b ? w.cells[w.cells.length - 1] : w.cells[0];
@@ -288,6 +296,8 @@ public final class AiEntry {
                 if (!(all && (op.members.size() >= Math.min(2, op.slots.length) || waited >= WAIT_SECOND) || waited >= STACK_MAX)) return;
                 entries++;
                 op.thrower = all ? thrower(op, level, tick) : null;
+                if (!all) unstacked++;
+                else if (op.thrower == null) noPlan++;
                 phase(op, op.thrower != null ? FRAG : GO, tick);
             }
             case FRAG -> {

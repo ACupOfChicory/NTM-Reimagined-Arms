@@ -6,7 +6,8 @@ package acup.gunfeel.ai;
  * heightmaps on the server thread and never changed after, so any thread reads it. Columns are (z &lt;&lt; 4) | x.
  *
  * <p>With it the same in coarse cells of {@link #CELL} x {@link #CELL} columns, sixteen to a tile, (cz &lt;&lt; 2) | cx:
- * the lowest, middle and highest surface, how many of its columns stand under leaves and how many in water. What
+ * the lowest, middle and highest surface, how many of its columns stand under leaves (and how many with leaves in the
+ * way of a look standing there) and how many in water. What
  * needs the tiles around (how the place stands against the land about it, how far one sees from it) is in
  * {@link TerrainDerived}.
  */
@@ -15,6 +16,11 @@ public final class TerrainTile {
     public static final int CELL = 4, CELLS = 4;
     /** leaves this high over the ground and higher are a crown over a mob's head */
     static final int CROWN = 2;
+    /**
+     * leaves this low over the ground and lower stand in the way of a look standing (the eye 1.6 over the feet, the
+     * chest 1.3: the block over the feet' one): underwood, a bush, a low crown. A crown higher up is looked under.
+     */
+    static final int BRUSH = 1;
     /** water this deep and deeper is swum, shallower waded */
     static final int DEEP = 2;
 
@@ -25,22 +31,26 @@ public final class TerrainTile {
     private final short[] ground;
     /** blocks of leaves and air under them over the ground (or the water), 0..127 */
     private final byte[] canopy;
+    /** blocks of air between the ground (or the water) and the lowest leaves over it, under canopy; 0 with no leaves */
+    private final byte[] under;
     /** blocks of water over the bed, 0..127 */
     private final byte[] water;
     private final short[] lo, mid, hi;
-    private final byte[] crowned, wet, deep;
+    private final byte[] crowned, brushed, wet, deep;
 
-    private TerrainTile(long key, int version, short[] ground, byte[] canopy, byte[] water) {
+    private TerrainTile(long key, int version, short[] ground, byte[] canopy, byte[] under, byte[] water) {
         this.key = key;
         this.version = version;
         this.ground = ground;
         this.canopy = canopy;
+        this.under = under;
         this.water = water;
         int n = CELLS * CELLS;
         lo = new short[n];
         mid = new short[n];
         hi = new short[n];
         crowned = new byte[n];
+        brushed = new byte[n];
         wet = new byte[n];
         deep = new byte[n];
         for (int c = 0; c < n; c++) {
@@ -53,6 +63,7 @@ public final class TerrainTile {
                     max = Math.max(max, s);
                     sum += s;
                     if (canopy[i] >= CROWN) crowned[c]++;
+                    if (canopy[i] > BRUSH && under[i] <= BRUSH) brushed[c]++;
                     if (water[i] > 0) wet[c]++;
                     if (water[i] >= DEEP) deep[c]++;
                 }
@@ -62,10 +73,11 @@ public final class TerrainTile {
         }
     }
 
-    /** the three arrays, 256 each, are the tile's from here on */
-    public static TerrainTile of(long key, int version, short[] ground, byte[] canopy, byte[] water) {
-        if (ground.length != 256 || canopy.length != 256 || water.length != 256) throw new IllegalArgumentException("a chunk has 256 columns");
-        return new TerrainTile(key, version, ground, canopy, water);
+    /** the four arrays, 256 each, are the tile's from here on */
+    public static TerrainTile of(long key, int version, short[] ground, byte[] canopy, byte[] under, byte[] water) {
+        if (ground.length != 256 || canopy.length != 256 || under.length != 256 || water.length != 256)
+            throw new IllegalArgumentException("a chunk has 256 columns");
+        return new TerrainTile(key, version, ground, canopy, under, water);
     }
 
     /** a chunk's key, as ChunkPos.asLong */
@@ -83,13 +95,23 @@ public final class TerrainTile {
 
     /** the same columns as another copy of the chunk */
     boolean same(TerrainTile o) {
-        return java.util.Arrays.equals(ground, o.ground) && java.util.Arrays.equals(canopy, o.canopy) && java.util.Arrays.equals(water, o.water);
+        return java.util.Arrays.equals(ground, o.ground) && java.util.Arrays.equals(canopy, o.canopy) && java.util.Arrays.equals(under, o.under)
+                && java.util.Arrays.equals(water, o.water);
     }
 
     /** the same coarse cells as another copy of the chunk: all that the layers worked out from the tiles read (TerrainDerived) */
     boolean sameCells(TerrainTile o) {
         return java.util.Arrays.equals(lo, o.lo) && java.util.Arrays.equals(mid, o.mid) && java.util.Arrays.equals(hi, o.hi)
-                && java.util.Arrays.equals(crowned, o.crowned);
+                && java.util.Arrays.equals(crowned, o.crowned) && sameLeaves(o);
+    }
+
+    /** the same leaves where there are any, as high over the sea (a look through them, TerrainDerived) */
+    private boolean sameLeaves(TerrainTile o) {
+        for (int i = 0; i < 256; i++) {
+            if (canopy[i] != o.canopy[i]) return false;
+            if (canopy[i] > 0 && (under[i] != o.under[i] || ground[i] + water[i] != o.ground[i] + o.water[i])) return false;
+        }
+        return true;
     }
 
     // ---- columns, by block x z (any, the low four bits are taken)
@@ -115,6 +137,24 @@ public final class TerrainTile {
         return canopy[(z & 15) << 4 | (x & 15)];
     }
 
+    /** blocks of air between the ground (or the water) and the lowest leaves over it there; 0 with no leaves */
+    public int under(int x, int z) {
+        return under[(z & 15) << 4 | (x & 15)];
+    }
+
+    /** how many of the coarse cell c's columns have leaves at a level look at height eye (the leaves' lowest to highest block) */
+    int leavesAt(int c, double eye) {
+        int x0 = (c & 3) * CELL, z0 = (c >> 2) * CELL, n = 0;
+        for (int z = z0; z < z0 + CELL; z++)
+            for (int x = x0; x < x0 + CELL; x++) {
+                int i = z << 4 | x;
+                if (canopy[i] == 0) continue;
+                int s = ground[i] + water[i];
+                if (eye >= s + under[i] && eye < s + canopy[i]) n++;
+            }
+        return n;
+    }
+
     // ---- coarse cells, by block x z
 
     static int cell(int x, int z) {
@@ -136,6 +176,14 @@ public final class TerrainTile {
     /** the part of the coarse cell's columns under a crown, 0..1 */
     public float crowned(int x, int z) {
         return crowned[cell(x, z)] / (float) (CELL * CELL);
+    }
+
+    /**
+     * the part of the coarse cell's columns with leaves in the way of a look standing on the ground there (BRUSH):
+     * underwood and low crowns, not the crowns one sees under
+     */
+    public float brushed(int x, int z) {
+        return brushed[cell(x, z)] / (float) (CELL * CELL);
     }
 
     /** the part of the coarse cell's columns in water, 0..1 */
@@ -163,5 +211,9 @@ public final class TerrainTile {
 
     int crownedAt(int c) {
         return crowned[c];
+    }
+
+    int brushedAt(int c) {
+        return brushed[c];
     }
 }

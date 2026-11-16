@@ -225,6 +225,21 @@ class PathSearchTest {
     }
 
     @Test
+    void aNoiseHeardHighOverItsFloorStillHasACell() {
+        Grid g = new Grid(1).build();
+        // the floor's cells are at y 0; a shot at head height (1.5) heard 1.7 higher: snap finds nothing there
+        assertEquals(Long.MIN_VALUE, PathSearch.snap(g, 7.5, 3.2, 7.5));
+        assertEquals(at(7, 0, 7), PathSearch.ground(g, 7.5, 3.2, 7.5, 0));
+        // heard higher still: found lower down the column
+        assertEquals(at(7, 0, 7), PathSearch.ground(g, 7.5, 5.4, 7.5, 0));
+        // below the floor, or far over it: at the height of the one who heard it
+        assertEquals(at(7, 0, 7), PathSearch.ground(g, 7.5, -2.6, 7.5, 0));
+        assertEquals(at(7, 0, 7), PathSearch.ground(g, 7.5, 12, 7.5, 0.0));
+        // where snap finds one, the same one
+        assertEquals(PathSearch.snap(g, 7.5, 1.5, 7.5), PathSearch.ground(g, 7.5, 1.5, 7.5, 0));
+    }
+
+    @Test
     void aLongSearchIsQuick() {
         Grid g = new Grid(4);
         java.util.Random rng = new java.util.Random(7);

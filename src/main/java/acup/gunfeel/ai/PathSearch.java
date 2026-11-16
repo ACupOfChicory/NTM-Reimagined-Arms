@@ -197,6 +197,17 @@ public final class PathSearch {
         return found;
     }
 
+    /**
+     * The cell under a place heard (a noise: AiBots.hear errs up and down too, its sigma up to two blocks): as {@link #snap}, else
+     * lower down the column (a noise heard over its floor), else at the height of the one who heard it (flat ground).
+     */
+    public static long ground(CellSource src, double x, double y, double z, double ownY) {
+        long cell = snap(src, x, y, z);
+        if (cell == NONE) cell = snap(src, x, y - 3, z);
+        if (cell == NONE) cell = snap(src, x, ownY, z);
+        return cell;
+    }
+
     // ------------------------------------------------------------------ the search
 
     /**
