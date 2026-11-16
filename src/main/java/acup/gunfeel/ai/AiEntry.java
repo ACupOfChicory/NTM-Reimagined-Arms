@@ -268,11 +268,16 @@ public final class AiEntry {
         }
         // where a grenade goes: straight in through the opening, DEEP cells into the room (the room's corners by the wall
         // with the way in cannot be thrown at from before it; the burst reaches them)
-        long first = room == w.b ? w.cells[w.cells.length - 1] : w.cells[0];
-        for (int k = 1; k <= DEEP; k++) {
+        // (round a turn two wide, from the cell thrown from, over the rest of the turn)
+        long first = w.turn >= 0 ? op.front : room == w.b ? w.cells[w.cells.length - 1] : w.cells[0];
+        for (int k = 1, got = 0; k <= DEEP + 1 && got < DEEP; k++) {
             long c = BlockPos.asLong(BlockPos.getX(first) + Dirs.DX[in] * k, BlockPos.getY(first), BlockPos.getZ(first) + Dirs.DZ[in] * k);
-            if (plan.room(c) != room) break;
+            if (plan.room(c) != room) {
+                if (got > 0 || w.turn < 0) break;
+                continue;
+            }
             op.aim = mid(c, 0);
+            got++;
         }
         return op;
     }
