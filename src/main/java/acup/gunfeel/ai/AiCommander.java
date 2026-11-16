@@ -439,6 +439,7 @@ public final class AiCommander {
     /**
      * The side's soldiers asleep in squads of the staff's own (C2b), as AiSquads makes them of those awake: each grown
      * from one, the nearest of its side within AiSquads.NEAR of any in it, AiSquads.MAX at most; one alone is one too.
+     * (A base of fire is not kept BASE_REACH times as far here as AiSquads keeps it: asleep, no one goes round a side.)
      * Only those within AiIntel.KNOW and aiRadius of a player (farther none of their enemies may wake: no work for a
      * server no one plays near), and none still in a squad of AiSquads' (asleep since it was made).
      */
