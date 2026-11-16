@@ -30,9 +30,7 @@ import org.jspecify.annotations.Nullable;
  */
 final class StaffPlan {
     enum Kind {
-        ADVANCE, PIN, FLANK, HOLD, SCOUT, RESERVE, BACK,
-        /** across a river here (the crossing's doctrine): the place on the near bank, the way over, where to gather beyond */
-        CROSS
+        ADVANCE, PIN, FLANK, HOLD, SCOUT, RESERVE, BACK
     }
 
     /** a squad at least this many times as strong as the group advances alone; one weaker than this part of it holds */
@@ -107,8 +105,6 @@ final class StaffPlan {
             Group g = groups.get(s.group);
             out[i] = switch (s.kind) {
                 case ADVANCE, SCOUT -> area(g, s.group);
-                // a crossing is given afresh each time (AiCommander, from the squads' reports), not kept here
-                case CROSS -> null;
                 case PIN -> pin(grid, g, s.group, s.x, s.z);
                 case HOLD -> hold(grid, g, s.group, s);
                 case FLANK -> {
