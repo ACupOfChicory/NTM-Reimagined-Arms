@@ -16,9 +16,21 @@ import net.minecraft.world.entity.HumanoidArm;
 // layers' models run the same setupAnim on the same state, so the armour follows. Its item is held in the hand at the
 // end of the forearm (BotModel), not at the end of a straight arm.
 @Mixin(HumanoidModel.class)
-public abstract class MixinBotPose {
+public abstract class MixinBotPose implements acup.gunfeel.ai.client.BotPoseModel {
     @org.spongepowered.asm.mixin.Unique
     private float gunfeel$swim = -1F;
+    @org.spongepowered.asm.mixin.Unique
+    private acup.gunfeel.ai.client.BotPoseCache.@org.jspecify.annotations.Nullable Model gunfeel$botParts;
+
+    @Override
+    public acup.gunfeel.ai.client.BotPoseCache.@org.jspecify.annotations.Nullable Model gunfeel$botParts() {
+        return gunfeel$botParts;
+    }
+
+    @Override
+    public void gunfeel$setBotParts(acup.gunfeel.ai.client.BotPoseCache.Model parts) {
+        gunfeel$botParts = parts;
+    }
 
     // Lying, vanilla's swim stroke is not run on a bot (BotAnimation.noSwim): the pose layer lies it down itself
     @Inject(method = "setupAnim(Lnet/minecraft/client/renderer/entity/state/HumanoidRenderState;)V", at = @At("HEAD"))

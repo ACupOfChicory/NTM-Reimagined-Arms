@@ -6,6 +6,47 @@
   for a corner the foe could come round that none of its squad watches yet,
   instead of all watching the nearest end.
 
+## X1269
+
+- An AI squad sent to pin an enemy group now picks a place to fire from that
+  it can get to out of the enemy's sight, where there is one: of the places
+  50 to 80 blocks off the group on its side that see it, the one whose way
+  there is least in the enemy's sight short of its last 20 blocks. Where none
+  is clearly better, it goes to the place it went to before.
+
+## X1265
+
+- Soldiers no longer swim a river on their own. With an enemy across the
+  water and no order, a squad holds its bank, sends two riflemen along it to
+  look for a bridge, a ford or a narrow place, and reports to its command.
+  Ordered across, it crosses by the drill: a pair goes first and secures the
+  far bank, the rest follow in pairs while the machine gunner and marksman
+  cover, and the cover crosses last. Smoke only under fire; one shot at before
+  mid-river swims back and tries again.
+
+## X1258
+
+- An AI squad pinning an enemy group and the squad sent round its side now
+  work as a pair. The one going round signals when it gets to its place, runs
+  into the enemy within 20 blocks or is shot at; then it goes in while the
+  pinning squad keeps the enemy's places under fire. Till then it keeps going
+  round rather than stopping to fight from afar. If it is not round in time
+  (its way's length over the ground at a walk, half as long again, and 30
+  seconds more, at most 90 seconds), both squads go in. It goes round on the
+  side nearer to get to (by a ford, where a river lies between); where neither
+  side is got round to in the pair's time, or before the commander has mapped
+  the ground, the other holds the best place about it instead. A squad pinning or holding a place no longer
+  chases a lost enemy more than 24 blocks from it. Server key
+  `aiCommanderPairs` (true); false: each squad goes about its task on its own,
+  as before.
+- A bounding AI squad no longer runs on with no one covering it when the
+  soldiers of one of its halves leave it: it is halved again.
+
+## X1236
+
+- Less CPU per frame with many AI soldiers on screen: a soldier's pose is
+  worked out once a frame instead of once for its body and each armour piece.
+
 ## X1231
 
 - AI soldiers looking round as sentries notice a foe in front of them again,

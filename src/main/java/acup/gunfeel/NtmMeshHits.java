@@ -83,12 +83,15 @@ public final class NtmMeshHits {
                 && info.gunfeel$primary()==model?info.gunfeel$texture():null;
         var base=ModelTextureMask.parts(texture,primary);
         boolean avatar=model instanceof net.minecraft.client.model.player.PlayerModel;
+        // a blended layer's cubes are taken whole where they have a volume (not the base's mask): only it looks them up
+        boolean whole=!avatar && submit.renderType().hasBlending();
         var access=new ModelPoseCapture.Parts() {
             public List<net.minecraft.client.model.geom.ModelPart.Cube> cubes(net.minecraft.client.model.geom.ModelPart part) { return base.cubes(part); }
             public java.util.Map<String,net.minecraft.client.model.geom.ModelPart> children(net.minecraft.client.model.geom.ModelPart part) { return base.children(part); }
             public ModelCubeGeometry geometry(net.minecraft.client.model.geom.ModelPart.Cube cube) {
+                if(!whole) return base.geometry(cube);
                 var raw=ModelTextureMask.geometry(cube,null); var b=raw.bounds();
-                return !avatar && submit.renderType().hasBlending() && b[3]>b[0] && b[4]>b[1] && b[5]>b[2]?raw:base.geometry(cube);
+                return b[3]>b[0] && b[4]>b[1] && b[5]>b[2]?raw:base.geometry(cube);
             }
             public boolean custom(net.minecraft.client.model.geom.ModelPart part,String name,PoseStack pose,java.util.List<ModelBox> out,double x,double y,double z) {
                 return avatar && SkinLayerGeometry.append(part,name,pose,out,x,y,z);

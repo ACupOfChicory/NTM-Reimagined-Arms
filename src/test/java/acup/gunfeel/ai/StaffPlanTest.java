@@ -25,7 +25,24 @@ class StaffPlanTest {
     }
 
     static Task[] plan(List<Squad> squads, List<Group> groups) {
-        return StaffPlan.plan(squads, groups, null, 0, 0, 160, AiCommander.PER, NOW, 0);
+        return StaffPlan.plan(squads, groups, OPEN, 0, 0, 160, AiCommander.PER, NOW, 0);
+    }
+
+    /** the staff's map: open ground all known about (0, 0), none of it seen (no map: no squad sent round) */
+    static final HqGrid OPEN = open();
+
+    static HqGrid open() {
+        HqGrid g = new HqGrid(-HqGrid.N * HqGrid.CELL / 2, -HqGrid.N * HqGrid.CELL / 2);
+        for (int i = 0; i < HqGrid.N; i++)
+            for (int k = 0; k < HqGrid.N; k++) g.set(i, k, 64, 0, 0, 0);
+        return g;
+    }
+
+    @Test
+    void noMapNoGoingRound() {
+        Task[] t = StaffPlan.plan(List.of(squad(0, 0, 3), squad(30, 0, 3)), List.of(group(0, 100, 3)), null, 0, 0, 160, AiCommander.PER, NOW, 0);
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.HOLD, t[1].kind());
     }
 
     @Test
@@ -216,5 +233,74 @@ class StaffPlanTest {
         Task[] t = plan(List.of(round, pinning), List.of(group(0, 100, 3)));
         assertEquals(Kind.FLANK, t[0].kind());
         assertEquals(Kind.PIN, t[1].kind());
+    }
+
+    @Test
+    void aPairKeepsItsPartsTillItsTimeThenGoesIn() {
+        // a pair (C4), pinning and going round, past KEEP but within its time: kept
+        long due = NOW + 200;
+        Squad pinning = new Squad(0, 40, 2, 3, 3, false, Kind.PIN, NOW - StaffPlan.KEEP - 100, 0, false, -1, false, false, due);
+        Squad round = new Squad(60, 80, 2, 3, 3, false, Kind.FLANK, NOW - StaffPlan.KEEP - 100, 0, false, -1, false, false, due);
+        Task[] t = plan(List.of(pinning, round), List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.FLANK, t[1].kind());
+        // the one going round in a fight: it advances, the other keeps pinning
+        Squad fighting = new Squad(60, 80, 2, 3, 3, false, Kind.FLANK, NOW - 100, 0, false, -1, false, true, due);
+        Squad pressing = new Squad(0, 40, 2, 3, 3, false, Kind.PIN, NOW - 100, 0, false, -1, false, true, due);
+        t = plan(List.of(pressing, fighting), List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.ADVANCE, t[1].kind());
+        // the time up: both advance, not paired again
+        Squad latePin = new Squad(0, 40, 2, 3, 3, false, Kind.PIN, NOW - 100, 0, false, -1, false, false, NOW);
+        Squad lateRound = new Squad(60, 80, 2, 3, 3, false, Kind.FLANK, NOW - 100, 0, false, -1, false, false, NOW);
+        t = plan(List.of(latePin, lateRound), List.of(group(0, 100, 3)));
+        assertEquals(Kind.ADVANCE, t[0].kind());
+        assertEquals(Kind.ADVANCE, t[1].kind());
+    }
+
+    @Test
+    void goesRoundOnTheSideOfTheFord() {
+        HqGrid g = HqGridTest.field();
+        // a deep river between the squad and the group, its ford east: the place to go round to east of the group
+        for (int i = 0; i < HqGrid.N; i++) g.set(i, 16, 63, 0, 1, i == 24 ? 0 : 1);
+        double gx = HqGridTest.mid(16), gz = HqGridTest.mid(22);
+        Group grp = new Group(gx, gz, 16, 3, 0, AiCommander.PER);
+        Task f = StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(10));
+        assertTrue(f != null && f.x() > gx, "east of the group, by the ford: " + f);
+        // the enemy sees the east side, not the west: still east, the west too far to go round to in time
+        g.sight(gx + 40, gz);
+        f = StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(10));
+        assertTrue(f != null && f.x() > gx, "east of the group, by the ford: " + f);
+    }
+
+    @Test
+    void noGoingRoundWhereTheFordIsTooFarAwayButHolding() {
+        HqGrid g = HqGridTest.field();
+        // the ford far east: neither side got round to in a pair's time
+        for (int i = 0; i < HqGrid.N; i++) g.set(i, 16, 63, 0, 1, i == 60 ? 0 : 1);
+        double gx = HqGridTest.mid(16), gz = HqGridTest.mid(22);
+        Group grp = new Group(gx, gz, 16, 3, 0, AiCommander.PER);
+        assertEquals(null, StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(4)));
+        Task[] t = StaffPlan.plan(List.of(squad(gx - 8, HqGridTest.mid(4), 2), squad(gx + 8, HqGridTest.mid(4), 2)), List.of(grp), g, gx, HqGridTest.mid(4), 400, AiCommander.PER, NOW, 0);
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.HOLD, t[1].kind());
+    }
+
+    @Test
+    void pinsFromAPlaceGotToOutOfSight() {
+        // the enemy at cell (32, 40) sees all the ground (0.6) but a hollow running up its left, west of the straight way
+        HqGrid g = HqGridTest.field();
+        for (int c = 0; c < HqGrid.N * HqGrid.N; c++) g.seen[c] = 0.6F;
+        for (int k = 10; k <= 31; k++)
+            for (int i = 20; i <= 23; i++) g.seen[HqGrid.index(i, k)] = 0;
+        double gx = HqGridTest.mid(32), gz = HqGridTest.mid(40);
+        Group grp = new Group(gx, gz, 16, 3, 0, AiCommander.PER);
+        Task t = StaffPlan.pin(g, grp, 0, gx, HqGridTest.mid(10));
+        assertTrue(t.x() < gx - 10, "west of the line, at the hollow's head: " + t);
+        // no hollow: the place on the line as before
+        HqGrid open = HqGridTest.field();
+        for (int c = 0; c < HqGrid.N * HqGrid.N; c++) open.seen[c] = 0.6F;
+        Task o = StaffPlan.pin(open, grp, 0, gx, HqGridTest.mid(10));
+        assertEquals(gx, o.x(), HqGrid.CELL * 2);
     }
 }

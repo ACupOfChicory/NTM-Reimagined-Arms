@@ -24,7 +24,8 @@ import org.jspecify.annotations.Nullable;
  * its own side not falling back, or BACK blocks away from the group. With no group at all, each free squad scouts a
  * sector of the ring round the side's middle (RING blocks off), one after another as the side's sector turns. Any
  * other squad left is the reserve and stays where it is. A squad keeps its task KEEP ticks at least while its group is
- * still there (falling back aside); one that went round and got there advances next. A squad is not sent to a group it
+ * still there (falling back aside); one that went round and got there advances next. A pair (C4) keeps its tasks till
+ * its time is up rather than KEEP: the one going round, there or in a fight, advances; its time up, both advance. A squad is not sent to a group it
  * gave up lately (R5: none of it could get there). A squad asleep (no player near, C2b) is sent as far as the staff
  * knows, FAR, not reach; with no group known it waits (no scouting).
  */
@@ -39,6 +40,21 @@ final class StaffPlan {
     static final long STALE = 1200;
     /** the pinning squad's place this far off the group, blocks; the one going round's, and its angle off the line */
     static final double PIN = 60, FLANK_D = 40, FLANK_ANGLE = Math.toRadians(75);
+    /**
+     * the pinning place got to out of sight (C4b): looked for PIN_NEAR..PIN_FAR off the group by PIN_STEP, PIN_TURNS
+     * of PIN_TURN each way of the line to the squad; seeing the group (its cell seen PIN_SEES at least); the way's last
+     * PIN_LAST blocks not counted (it comes into sight to fire); taken for one at most PIN_BETTER of the blocks in sight
+     * and PIN_LESS fewer
+     */
+    static final double PIN_NEAR = 50, PIN_FAR = 80, PIN_STEP = 15, PIN_TURN = Math.toRadians(20), PIN_SEES = 0.5, PIN_LAST = 20, PIN_BETTER = 0.8, PIN_LESS = 8;
+    static final int PIN_TURNS = 2;
+    /** going round: a side this many blocks farther to go by the map weighs as one wholly in the enemy's sight */
+    static final double FAR_SIDE = 100;
+    /**
+     * going round: a side farther than this to go by the map is not got round in a pair's time (AiCommander.PAIR_MOST
+     * by bounds, half the squad going at a time: some 0.085 blocks a tick on the war's stand): not gone round to
+     */
+    static final double FAR_MOST = AiCommander.PAIR_MOST * 0.085;
     /** a squad holding looks for its place this far round it at most, blocks */
     static final double HOLD_NEAR = 24;
     /** a squad falling back with no squad of its own to fall back on goes this far from the group, blocks */
@@ -57,12 +73,28 @@ final class StaffPlan {
      * A squad: where its middle is; its strength; soldiers alive, how many it had when given its task; most of it out
      * of rounds; its task now (null: none), since when, the group it is for (an index into the groups, -1: none), got
      * to its place; the group it gave up lately (-1: none); asleep, far from any player (C2b: sent as far as the staff
-     * knows, FAR, the staff moving it).
+     * knows, FAR, the staff moving it); in a fight now; a pair's (C4: pinning and going round) time up at this tick
+     * (Long.MAX_VALUE: none).
      */
     record Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
-            boolean far) {
+            boolean far, boolean contact, long due) {
         Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there) {
             this(x, z, strength, alive, was, out, kind, since, group, there, -1, false);
+        }
+
+        Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
+                boolean far) {
+            this(x, z, strength, alive, was, out, kind, since, group, there, avoid, far, false, Long.MAX_VALUE);
+        }
+
+        /** one of a pair (C4) whose time is up */
+        boolean late(long now) {
+            return (kind == Kind.PIN || kind == Kind.FLANK) && now >= due;
+        }
+
+        /** one of a pair (C4): its task kept till the pair's time is up, not KEEP */
+        boolean paired() {
+            return (kind == Kind.PIN || kind == Kind.FLANK) && due != Long.MAX_VALUE;
         }
 
         /** how far off a group it is sent at most: reach awake, FAR asleep */
@@ -99,8 +131,10 @@ final class StaffPlan {
         // those keeping their tasks
         for (int i = 0; i < squads.size(); i++) {
             Squad s = squads.get(i);
-            if (out[i] != null || s.kind == null || s.group < 0 || s.group >= groups.size() || s.group == s.avoid || now - s.since >= KEEP) continue;
+            if (out[i] != null || s.kind == null || s.group < 0 || s.group >= groups.size() || s.group == s.avoid || !s.paired() && now - s.since >= KEEP) continue;
             if (s.kind == Kind.RESERVE || s.kind == Kind.BACK || s.kind == Kind.FLANK && s.there) continue;
+            // a pair (C4): the one going round there or in a fight advances; the time up, both do
+            if (s.kind == Kind.FLANK && s.contact || s.late(now)) continue;
             if (sent[s.group] >= groups.get(s.group).room) continue;
             Group g = groups.get(s.group);
             out[i] = switch (s.kind) {
@@ -143,6 +177,13 @@ final class StaffPlan {
                     // the pair keeps the parts it had (a squad going round does not turn back to pin); a new pair takes
                     // the parts that keep it out of the enemy's sight the more on the way to their places
                     boolean had = sa.group == k && (sa.kind == Kind.PIN || sa.kind == Kind.FLANK) || sb.group == k && (sb.kind == Kind.PIN || sb.kind == Kind.FLANK);
+                    // a pair whose time is up (C4): both advance, not paired again
+                    if (had && (sa.group == k && sa.late(now) || sb.group == k && sb.late(now))) {
+                        out[a] = area(g, k);
+                        out[b] = area(g, k);
+                        sent[k] += 2;
+                        continue;
+                    }
                     Task p = pin(grid, g, k, sa.x, sa.z), f = flank(grid, g, k, p.x(), p.z(), sb.x, sb.z);
                     Task p2 = pin(grid, g, k, sb.x, sb.z), f2 = flank(grid, g, k, p2.x(), p2.z(), sa.x, sa.z);
                     boolean swap = had ? sa.group == k && sa.kind == Kind.FLANK || sb.group == k && sb.kind == Kind.PIN
@@ -155,7 +196,13 @@ final class StaffPlan {
                         f = f2;
                     }
                     out[a] = p;
-                    out[b] = f != null ? f : area(g, k);
+                    // no side to go round to in time (a river between, its ford far: C4), or no map yet to tell (it comes
+                    // soon, the pairs on): it holds the best place about it, rather than be gone minutes on the way round
+                    // or go up in the open to pin beside the other
+                    // (asleep, C2b: no pair for it, moved on to the fight as before)
+                    Squad sq = squads.get(b);
+                    boolean blind = grid == null && AiCommander.mapped() && !sq.far;
+                    out[b] = sq.far ? f != null ? f : area(g, k) : f != null && !blind ? f : grid == null && !blind ? pin(grid, g, k, sq.x, sq.z) : hold(grid, g, k, sq);
                     sent[k] += 2;
                     continue;
                 }
@@ -244,12 +291,56 @@ final class StaffPlan {
         double dx = sx - g.x, dz = sz - g.z, d = Math.hypot(dx, dz);
         double x = d <= PIN ? sx : g.x + dx / d * PIN, z = d <= PIN ? sz : g.z + dz / d * PIN;
         double[] at = lookout(grid, x, z, HqGrid.CELL * 2, g, Double.MAX_VALUE);
+        if (d > PIN && grid != null) at = hidden(grid, g, sx, sz, at);
         return new Task(Kind.PIN, k, at[0], at[1], PLACE, g.x, g.z);
     }
 
     /**
+     * a place to pin from that the squad gets to less in the enemy's sight (C4b): of those about the group within
+     * PIN_NEAR..PIN_FAR on the squad's side that see it (seen PIN_SEES at least), the one whose way there (the enemy's
+     * sight weighing) is least in its sight short of its last PIN_LAST blocks; the place found by lookout unless one is
+     * clearly so (PIN_BETTER of its blocks in sight, PIN_LESS fewer at least)
+     */
+    static double[] hidden(HqGrid grid, Group g, double sx, double sz, double[] at) {
+        int si = grid.cellX(sx), sk = grid.cellZ(sz), ai = grid.cellX(at[0]), ak = grid.cellZ(at[1]);
+        if (si < 0 || sk < 0 || ai < 0 || ak < 0) return at;
+        int[] from = grid.tree(si, sk, HqGrid.SEEN);
+        double was = seenOnWay(grid, from, HqGrid.index(ai, ak)), best = was;
+        double[] out = at;
+        double base = Math.atan2(sz - g.z, sx - g.x);
+        for (double r = PIN_NEAR; r <= PIN_FAR + 1e-9; r += PIN_STEP)
+            for (int a = -PIN_TURNS; a <= PIN_TURNS; a++) {
+                double x = g.x + r * Math.cos(base + a * PIN_TURN), z = g.z + r * Math.sin(base + a * PIN_TURN);
+                int i = grid.cellX(x), c = grid.cellZ(z);
+                if (i < 0 || c < 0) continue;
+                int cell = HqGrid.index(i, c);
+                if (!grid.known[cell] || grid.deep[cell] >= 0.5 || grid.wet[cell] >= 0.5 || grid.seen[cell] < PIN_SEES) continue;
+                double s = seenOnWay(grid, from, cell);
+                if (s < best) {
+                    best = s;
+                    out = new double[] {grid.midX(i), grid.midZ(c)};
+                }
+            }
+        return best <= was * PIN_BETTER && best <= was - PIN_LESS ? out : at;
+    }
+
+    /** blocks of the way to a cell in the enemy's sight (each cell's part seen by its length), short of its last PIN_LAST blocks; infinite: no way */
+    static double seenOnWay(HqGrid grid, int[] from, int goal) {
+        if (from[goal] == -2) return Double.POSITIVE_INFINITY;
+        double sum = 0, back = 0;
+        for (int c = goal; from[c] >= 0; c = from[c]) {
+            int p = from[c];
+            double len = (p % HqGrid.N != c % HqGrid.N && p / HqGrid.N != c / HqGrid.N ? Math.sqrt(2) : 1) * HqGrid.CELL;
+            back += len;
+            if (back > PIN_LAST) sum += grid.seen[c] * len;
+        }
+        return sum;
+    }
+
+    /**
      * go round the group: a place FLANK_D off it, FLANK_ANGLE off the line from the pinning place, on the side the
-     * enemy sees less of (else nearer the squad); null: neither on the map nor known
+     * enemy sees less of and the nearer to go to over the map (FAR_SIDE blocks farther weigh as all in its sight;
+     * farther than FAR_MOST, not got round in time: none); null: neither side on the map, known and near enough
      */
     static @Nullable Task flank(@Nullable HqGrid grid, Group g, int k, double px, double pz, double sx, double sz) {
         double base = Math.atan2(pz - g.z, px - g.x);
@@ -262,6 +353,16 @@ final class StaffPlan {
                 int i = grid.cellX(x), c = grid.cellZ(z);
                 if (i < 0 || c < 0 || !grid.known[HqGrid.index(i, c)] || grid.deep[HqGrid.index(i, c)] >= 0.5) continue;
                 score += grid.seen[HqGrid.index(i, c)];
+                // the way there over the map rather than the straight line (a river between: by its ford, C4): a side
+                // much farther to go round loses its pair's time
+                int si = grid.cellX(sx), sk = grid.cellZ(sz);
+                int[] p = si < 0 || sk < 0 ? null : grid.path(si, sk, i, c, 0);
+                // no way there at all (the squad off the map aside), one through water to swim (the soldiers stop at
+                // it), or too far: not gone round to
+                if (si >= 0 && sk >= 0 && (p == null || swims(grid, p))) continue;
+                double way = p == null ? 0 : HqGrid.cells(p) * HqGrid.CELL;
+                if (way > FAR_MOST) continue;
+                score += way / FAR_SIDE;
             }
             if (score < bestScore) {
                 bestScore = score;
@@ -269,6 +370,11 @@ final class StaffPlan {
             }
         }
         return best == null ? null : new Task(Kind.FLANK, k, best[0], best[1], PLACE, g.x, g.z);
+    }
+
+    private static boolean swims(HqGrid grid, int[] p) {
+        for (int c : p) if (grid.deep[c] >= 0.5) return true;
+        return false;
     }
 
     /** hold: the best place about the squad within HOLD_NEAR, no farther from the group than it is */

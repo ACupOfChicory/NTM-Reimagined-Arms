@@ -206,6 +206,12 @@ final class StaffMove {
         st.set = false;
     }
 
+    /** its way of going begun again at its next look (a river crossed: AiCommander.crossing) */
+    static void afresh(AiCommander.Job j) {
+        j.move.mode = null;
+        j.move.next = Long.MIN_VALUE;
+    }
+
     /** its pace on a straight leg (no way): by the squad's mode */
     static double speed(AiCommander.Order o) {
         Mode m = o.job == null ? null : o.job.move.mode;
@@ -304,7 +310,8 @@ final class StaffMove {
 
     /**
      * a bound's halves as they were given at the mode's start, each kept to its own (the staff's squads are made again
-     * as they move, their order with them); one new to the squad to the smaller half
+     * as they move, their order with them); one new to the squad to the smaller half; a half left empty, all halved
+     * again
      */
     private static int[] halves(List<AiBot> of, State st) {
         int[] base = halves(roles(of)), h = new int[of.size()], n = new int[2];
@@ -323,6 +330,18 @@ final class StaffMove {
             if (o != null) {
                 o.half = h[i];
                 o.halfSince = st.since;
+            }
+        }
+        // a half left empty (those in it gone from the squad): halved again by their roles, else the other half
+        // would go on its own with no one covering it, and the empty one's bounds be over at once
+        if (of.size() >= 2 && (n[0] == 0 || n[1] == 0)) {
+            for (int i = 0; i < of.size(); i++) {
+                h[i] = base[i];
+                AiCommander.Order o = of.get(i).order;
+                if (o != null) {
+                    o.half = h[i];
+                    o.halfSince = st.since;
+                }
             }
         }
         return h;
@@ -365,7 +384,10 @@ final class StaffMove {
      * end is not waited for)
      */
     private static boolean steps(AiBot b) {
-        return b.active && b.order != null && b.order.route != null && b.memory.focus(b.mob.getX(), b.mob.getZ()) == null;
+        if (!b.active || b.order == null || b.order.route == null) return false;
+        // in a fight it stands, unless it goes round for its pair (C4: AiSoldier goes on by its order)
+        TargetMemory.Contact c = b.memory.focus(b.mob.getX(), b.mob.getZ());
+        return c == null || AiCommander.goesRound(b, c, b.mob.level().getGameTime());
     }
 
     /** on its cover cell (or at its place in the open) */
