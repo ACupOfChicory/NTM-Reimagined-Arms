@@ -127,6 +127,8 @@ final class AiCheckWar {
     static final double CAMP_NEAR = 20;
     /** fewer squads going round seen on the river's field than this: their angle not checked (few go round there now) */
     static final int FLANKS_MIN = 4;
+    /** the near rounds by default (half of them C4); the side angles at the pairs' signals fewer than this: not measured, a FAIL */
+    static final int NEAR_ROUNDS = 12, ANGLES_MIN = 3;
     /** C4 on the river's field: in the player's sight before it is seen this much (a share) more than C3 at most (C4b) */
     static final double PAIRS_WORSE = 0.03;
     static final int FAR_RUN = 2400;
@@ -248,7 +250,8 @@ final class AiCheckWar {
         this.level = level;
         this.y = y;
         this.rounds = Math.max(1, Integer.getInteger("ntmgunfeel.checkAiWarRounds", MODES));
-        this.nears = Math.max(0, Integer.getInteger("ntmgunfeel.checkAiWarNear", 2));
+        // near rounds by turns C3, C4: NEAR_ROUNDS / 2 of C4, a pair's signal about one a round (the side angle measured)
+        this.nears = Math.max(0, Integer.getInteger("ntmgunfeel.checkAiWarNear", NEAR_ROUNDS));
         this.pinRounds = Math.max(0, Integer.getInteger("ntmgunfeel.checkAiWarPinned", 2));
     }
 
@@ -785,12 +788,6 @@ final class AiCheckWar {
         return Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, cos))));
     }
 
-    private long nearPairs() {
-        long n = 0;
-        for (long[] r : nearOf) n += r[1];
-        return n;
-    }
-
     private boolean finish() {
         if (dump != null) dump.close();
         long drifted = AiCommander.drifted - drifted0, blocked = AiCommander.driftBlocked - driftBlocked0;
@@ -948,10 +945,17 @@ final class AiCheckWar {
                     + " of the ticks one going round sees it: C2 %.0f%%, C3 %.0f%%, C4 %.0f%%", (double) crossOf[TASKS] / Math.max(1, roundsOf[TASKS]),
                     (double) crossOf[MOVES] / Math.max(1, roundsOf[MOVES]), (double) crossOf[PAIRS] / Math.max(1, roundsOf[PAIRS]),
                     100.0 * crossOf[TASKS] / Math.max(1, roundOf[TASKS]), 100.0 * crossOf[MOVES] / Math.max(1, roundOf[MOVES]), 100.0 * crossOf[PAIRS] / Math.max(1, roundOf[PAIRS])));
+        }
+        // C4 run near or on the field: its angle checked (near alone the default war's: its field rounds may hold no C4)
+        if (roundsOf[PAIRS] > 0 || nearOf.stream().anyMatch(r -> r[0] == PAIRS)) {
             // near, the camp 80 blocks off: one of the pair sees the player within CLOSE before they part; there the angle at its signal
-            check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round comes on the player %.0f degrees or more off the pinning one %d times of %d (half at least;"
-                    + " near, first seen within %.0f: %d of %d), %d pairs made", WIDE, wideOf[PAIRS], flankOf[PAIRS], CLOSE, nearWide, nearFlank, pairsMade),
-                    pairsMade + nearPairs() > 0 && (flankOf[PAIRS] < FLANKS_MIN || wideOf[PAIRS] * 2 >= flankOf[PAIRS]));
+            // measured where it is sure to be: near, at the pair's signal (the one going round at its place); and where it
+            // sees the player within CLOSE (seldom on the field: the river); too few of them all, nothing measured: a FAIL
+            long angles = readyAngles + flankOf[PAIRS] + nearFlank, wide = readyWide + wideOf[PAIRS] + nearWide;
+            check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round %.0f degrees or more off the pinning one: %d of %d (half at least, %d measured at least%s):"
+                    + " near at its signal %d of %d, coming on the player within %.0f near %d of %d, on the field %d of %d; %d pairs made", WIDE, wide, angles, ANGLES_MIN,
+                    angles < ANGLES_MIN ? ", NOT MEASURED" : "", readyWide, readyAngles, CLOSE, nearWide, nearFlank, wideOf[PAIRS], flankOf[PAIRS], pairsMade),
+                    angles >= ANGLES_MIN && wide * 2 >= angles);
         }
         if (roundsOf[PAIRS] > 0)
             check.check(String.format(Locale.ROOT, "war: the pairs (C4), no squad going round for a pair sent across the river from the camp (its ford too far for the pair's time):"
