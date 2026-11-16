@@ -1920,7 +1920,7 @@ public final class AiSoldier implements AiBrain {
     /** to an area its side's commander sent its squad to, and through it (AiCommander); false: no order */
     private boolean ordered(AiBot bot, ServerLevel level, long tick) {
         if (!AiCommander.has(bot, tick)) return false;
-        if (mode != Mode.IDLE) {
+        if (mode != Mode.IDLE || why != Why.ORDER) {
             bot.gunner.aim(null);
             drop(bot);
             bot.mover.stop();
@@ -1934,7 +1934,9 @@ public final class AiSoldier implements AiBrain {
     }
 
     private void idle(AiBot bot, long tick) {
-        if (mode != Mode.IDLE) {
+        // after anything but standing (an answer to a contact fires with no move out of IDLE: its target shot dead and
+        // forgotten, the trigger was left down at that place for the rest of the fight)
+        if (mode != Mode.IDLE || why != Why.IDLE) {
             bot.gunner.fire(false);
             bot.gunner.aim(null);
             drop(bot);
