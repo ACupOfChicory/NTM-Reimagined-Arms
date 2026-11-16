@@ -280,8 +280,10 @@ page. They are alphas: expect bugs and back up your world.
   while the other goes round its side; one too weak holds a higher place
   that sees it; an area not seen lately is scouted; a squad that lost more
   than half its men or ran out of rounds falls back on its own; with no enemy
-  known they scout round their side (server keys `aiCommander`,
-  `aiCommanderHelp`, `aiCommanderStaff`, `aiCommanderTasks`).
+  known they scout round their side. Soldiers far from any player are
+  moved by their commander too, till a player comes near (server keys
+  `aiCommander`, `aiCommanderHelp`, `aiCommanderStaff`,
+  `aiCommanderTasks`).
 - They open wooden doors, fence gates and NTM's plain doors on their way; an
   iron door still keeps them out (server key `aiDoors`).
 - They cross water over a bridge or through a ford when there is one, and swim

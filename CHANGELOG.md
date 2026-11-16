@@ -1,5 +1,28 @@
 # Changelog
 
+## X1140
+
+- AI side commanders move their soldiers far from any player too. Soldiers
+  asleep (no player within `aiRadius`) are put in squads of the commander's
+  own and given tasks as the others, as far off as the commander knows of its
+  enemies (256 blocks) rather than 160; the commander walks them along its
+  ways at a walk's pace, on the ground, round deep water and steep steps, in
+  loaded chunks only, no nearer an enemy group than 48 blocks, till a player
+  comes near and wakes them, and they go on from there. Only with
+  `aiCommanderTasks` on.
+
+## X1134
+
+- AI soldiers with one of their own in the line of fire step aside sooner:
+  the ticks they hold fire for a friend (or for their own cover in front of
+  the gun) now add up through the pauses of their bursts. Before, each pause
+  put the count back to none, a burst shorter than a second never got there,
+  and a soldier could stand behind its own for seconds without a shot. The
+  count ends with a shot, with no target, or two seconds with no fire wanted.
+  The unseen check sets its two dummies side by side across the player's way
+  (spawned by chance one stood in the other's line now and then), and has a
+  round of its own with one right behind the other.
+
 ## X1129
 
 - AI side commanders give each squad a task. A squad at least half as strong

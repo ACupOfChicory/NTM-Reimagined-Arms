@@ -110,6 +110,16 @@ class StaffPlanTest {
     }
 
     @Test
+    void aSquadAsleepIsSentAsFarAsTheStaffKnows() {
+        // out of an awake squad's reach, within the staff's knowledge
+        Squad asleep = new Squad(0, 0, 3, 3, 3, false, null, 0, -1, false, -1, true);
+        assertEquals(Kind.ADVANCE, plan(List.of(asleep), List.of(group(0, 220, 1)))[0].kind());
+        assertEquals(Kind.RESERVE, plan(List.of(asleep), List.of(group(0, StaffPlan.FAR + 10, 1)))[0].kind());
+        // with no group known it waits where it is, not scouting
+        assertEquals(Kind.RESERVE, StaffPlan.plan(List.of(asleep), List.of(), null, 0, 0, 160, AiCommander.PER, NOW, 0)[0].kind());
+    }
+
+    @Test
     void aTaskIsKeptAWhileThenLookedAtAgain() {
         // holding, weak, the group now much weaker: kept within KEEP, advances after
         Squad holding = new Squad(0, 0, 1, 3, 3, false, Kind.HOLD, NOW - 100, 0, false);
@@ -181,7 +191,7 @@ class StaffPlanTest {
 
     @Test
     void aGroupGivenUpLatelyIsNotGivenAgain() {
-        Squad gaveUp = new Squad(0, 0, 3, 3, 3, false, null, 0, -1, false, 0);
+        Squad gaveUp = new Squad(0, 0, 3, 3, 3, false, null, 0, -1, false, 0, false);
         Task[] t = plan(List.of(gaveUp), List.of(group(0, 100, 1)));
         assertEquals(Kind.RESERVE, t[0].kind());
         // another group: that one
