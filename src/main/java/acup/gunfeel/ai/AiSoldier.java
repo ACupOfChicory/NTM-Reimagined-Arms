@@ -2154,11 +2154,16 @@ public final class AiSoldier implements AiBrain {
             wayUp = AiHatch.on() ? AiHatch.wayUp(level, bot, c) : Long.MIN_VALUE;
         }
         long up = wayUp;
+        // its walk to it failed WayUpTries.TRIES times on this loss: the way up given up, its search from the foot
+        if (!wayUpTries.tried(c.id, c.lostTick)) up = Long.MIN_VALUE;
         if (up != Long.MIN_VALUE) {
-            if (!bot.mover.goalIs(up)) {
+            // (no way to it found: a while, and again)
+            if (wayUpTries.step(tick, bot.mover.goalIs(up), bot.mover.failed(), bot.mob.onClimbable(), bot.mob.getY())) {
+                if (bot.mover.goalIs(up)) bot.mover.stop();
                 bot.mover.costs(PathSearch.Cost.NONE);
                 bot.mover.goTo(up, 0.35, WALK);
             }
+            if (wayUpTries.missed) AiHatch.wayUpFailed(bot, level, up, wayUpTries.misses());
             searchCell = Long.MIN_VALUE;
             why = Why.SEARCH;
             watch = new Vec3(BlockPos.getX(up) + 0.5, BlockPos.getY(up) + 1.1, BlockPos.getZ(up) + 0.5);
@@ -2382,6 +2387,13 @@ public final class AiSoldier implements AiBrain {
     /** the way up a shaft a foe was lost up (AiHatch.wayUp), looked for again from wayUpNext on */
     private long wayUp = Long.MIN_VALUE, wayUpNext;
     static final int WAY_UP_EVERY = 20;
+    /** its walks to the way up that failed, for the loss it goes after now */
+    private final WayUpTries wayUpTries = new WayUpTries();
+
+    /** short of the way up a shaft, its walk to it failed (WayUpTries): no hunter of its side (AiSquads) */
+    boolean wayUpStuck() {
+        return wayUpTries.stuck();
+    }
     /** the way it last went on a ladder: up 1, down -1, 0 none (on the ground) */
     private int climbWay;
     /** off a ladder idle: how far up or down its end is looked for, blocks; again after none or a failed walk, ticks */

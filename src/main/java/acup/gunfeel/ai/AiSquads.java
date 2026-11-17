@@ -317,6 +317,7 @@ public final class AiSquads {
      * squad each is in now (a hunt spreads them out past a squad's reach, and the squads made again would let two
      * more go each).
      */
+    // (one short of the way up a shaft, its walk to it failed, is no hunter: AiSoldier.wayUpStuck)
     static boolean mayHunt(AiBot bot, int target) {
         if (!on || !(bot.mob.level() instanceof ServerLevel level)) return true;
         // pinning or holding: on a leash from its place (stage 7 C4)
@@ -329,7 +330,8 @@ public final class AiSquads {
         if (offTeams.contains(team)) return true;
         int n = 0;
         for (AiBot b : AiBots.bots(level)) {
-            if (b == bot || !live(b) || b.memory.focusId != target && !AiSoldier.fights(b, target) || !(b.brain instanceof AiSoldier o) || o.mode() != AiSoldier.Mode.SEARCH) continue;
+            if (b == bot || !live(b) || b.memory.focusId != target && !AiSoldier.fights(b, target) || !(b.brain instanceof AiSoldier o) || o.mode() != AiSoldier.Mode.SEARCH
+                    || o.wayUpStuck()) continue;
             if (b.mob.distanceToSqr(bot.mob) > HUNT_NEAR * HUNT_NEAR || !team.equals(team(b))) continue;
             if (++n >= HUNTERS) return false;
         }
@@ -347,7 +349,7 @@ public final class AiSquads {
         String team = team(bot);
         int n = 0;
         for (AiBot b : AiBots.bots(level)) {
-            if (b == bot || !live(b) || b.memory.focusId != target || !(b.brain instanceof AiSoldier o) || o.mode() != AiSoldier.Mode.SEARCH) continue;
+            if (b == bot || !live(b) || b.memory.focusId != target || !(b.brain instanceof AiSoldier o) || o.mode() != AiSoldier.Mode.SEARCH || o.wayUpStuck()) continue;
             TargetMemory.Contact c = b.memory.contact(target);
             if (c == null || c.state != TargetMemory.State.SEARCH) continue;
             if (b.mob.distanceToSqr(bot.mob) > HUNT_NEAR * HUNT_NEAR || !team.equals(team(b))) continue;
