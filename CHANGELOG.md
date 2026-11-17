@@ -1,5 +1,12 @@
 # Changelog
 
+## X1592
+
+- A hit no longer throws an AI soldier's head about: its flinch folds the
+  trunk at the hips and turns it about the neck while the head stays where
+  the soldier sees and shoots from, so a shot at the head drawn is a shot at
+  the head it has. The head itself nods less in a flinch.
+
 ## X1589
 
 - AI soldiers going into a room after their own grenade are ready for
