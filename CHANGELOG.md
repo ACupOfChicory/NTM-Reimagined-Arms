@@ -1,5 +1,16 @@
 # Changelog
 
+## X1449
+
+- An AI squad now falls back for rounds a magazine sooner: once most of its
+  soldiers have one magazine or none left besides the one in the gun, not
+  only once they are empty. Squads running dry one soldier after another are
+  no longer sent forward just before they turn back. Its supplier now tops up
+  a soldier with one magazine left too, and the squad goes back into the
+  fight once none of it is short. A soldier left short with no rounds brought
+  for about a minute fights with what it has, so a squad without a supplier
+  does not stand back for good.
+
 ## X1442
 
 - The new rounds now have tracers. Both bullets of a Duplex round draw the
