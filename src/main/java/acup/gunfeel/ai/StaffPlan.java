@@ -77,10 +77,16 @@ final class StaffPlan {
      * to its place; the group it gave up lately (-1: none); asleep, far from any player (C2b: sent as far as the staff
      * knows, FAR, the staff moving it); in a fight now; a pair's (C4: pinning and going round) time up at this tick
      * (Long.MAX_VALUE: none); pinned down since (C5: its report; Long.MIN_VALUE: not), losing more since, its pair's
-     * other alive and in time (help on its way).
+     * other alive and in time (help on its way); the squad before it with the very same task (-1: none: a squad split
+     * on the way, as the squads are made again as they move, is one squad to the plan: the same task, one place).
      */
     record Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
-            boolean far, boolean contact, long due, long pinned, boolean worse, boolean helped) {
+            boolean far, boolean contact, long due, long pinned, boolean worse, boolean helped, int twin) {
+        Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
+                boolean far, boolean contact, long due, long pinned, boolean worse, boolean helped) {
+            this(x, z, strength, alive, was, out, kind, since, group, there, avoid, far, contact, due, pinned, worse, helped, -1);
+        }
+
         Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
                 boolean far, boolean contact, long due) {
             this(x, z, strength, alive, was, out, kind, since, group, there, avoid, far, contact, due, Long.MIN_VALUE, false, false);
@@ -140,6 +146,11 @@ final class StaffPlan {
         // those keeping their tasks
         for (int i = 0; i < squads.size(); i++) {
             Squad s = squads.get(i);
+            // the other part of a squad split on the way: its first's task, no more room at the group taken
+            if (out[i] == null && follows(s, out)) {
+                out[i] = out[s.twin];
+                continue;
+            }
             if (out[i] != null || s.kind == null || s.group < 0 || s.group >= groups.size() || s.group == s.avoid || !s.paired() && now - s.since >= KEEP) continue;
             if (s.kind == Kind.RESERVE || s.kind == Kind.BACK || s.kind == Kind.FLANK && s.there) continue;
             // a pair (C4): the one going round there or in a fight advances; the time up, both do
@@ -219,6 +230,12 @@ final class StaffPlan {
                 sent[k]++;
             }
         }
+        // the other parts of squads split on the way whose first was sent to a group now (the one going round ready, to
+        // advance): with it
+        for (int i = 0; i < squads.size(); i++) {
+            int t = squads.get(i).twin;
+            if (out[i] == null && follows(squads.get(i), out) && out[t].group() >= 0) out[i] = out[t];
+        }
         // more where the side loses soldiers (R5b): the rest, each to the nearest group with room for it
         for (int i = 0; i < squads.size(); i++) {
             if (out[i] != null) continue;
@@ -274,6 +291,8 @@ final class StaffPlan {
     static void pinned(List<Squad> squads, List<Group> groups, @Nullable HqGrid grid, double reach, long now, Task[] out, int[] sent) {
         for (int i = 0; i < squads.size(); i++) {
             Squad s = squads.get(i);
+            // the other part of a split squad: its first's (one place, one help)
+            if (out[i] == null && follows(s, out)) out[i] = out[s.twin];
             if (out[i] != null || s.pinned == Long.MIN_VALUE) continue;
             // broken contact: back till it is over (its report's REST), not sent on again meanwhile
             if (s.kind == Kind.BACK) {
@@ -294,7 +313,7 @@ final class StaffPlan {
             if (helped && s.kind == Kind.FLANK) {
                 for (int j = 0; j < squads.size(); j++) {
                     Squad o = squads.get(j);
-                    if (j == i || out[j] != null || o.group != s.group || o.kind != Kind.PIN || !o.paired() || o.pinned != Long.MIN_VALUE) continue;
+                    if (j == i || out[j] != null || o.twin >= 0 || o.group != s.group || o.kind != Kind.PIN || !o.paired() || o.pinned != Long.MIN_VALUE) continue;
                     Task f = flank(grid, g, s.group, s.x, s.z, o.x, o.z);
                     if (f != null) {
                         out[j] = f;
@@ -310,7 +329,7 @@ final class StaffPlan {
             double best = Double.MAX_VALUE;
             for (int j = 0; j < squads.size(); j++) {
                 Squad o = squads.get(j);
-                if (j == i || out[j] != null || o.avoid == s.group || o.paired() || breaks(o) || o.far || o.pinned != Long.MIN_VALUE || !idle(o)) continue;
+                if (j == i || out[j] != null || o.twin >= 0 || o.avoid == s.group || o.paired() || breaks(o) || o.far || o.pinned != Long.MIN_VALUE || !idle(o)) continue;
                 double d = d2(g, o.x, o.z), r = o.reach(reach);
                 if (d < best && d <= r * r) {
                     best = d;
@@ -320,7 +339,7 @@ final class StaffPlan {
             // none free: one pinning the same group (not pinned itself) goes round, the pinned one its base of fire now
             if (h < 0) for (int j = 0; j < squads.size(); j++) {
                 Squad o = squads.get(j);
-                if (j != i && out[j] == null && o.group == s.group && o.kind == Kind.PIN && o.pinned == Long.MIN_VALUE && !breaks(o)) {
+                if (j != i && out[j] == null && o.twin < 0 && o.group == s.group && o.kind == Kind.PIN && o.pinned == Long.MIN_VALUE && !breaks(o)) {
                     h = j;
                     break;
                 }
@@ -348,12 +367,18 @@ final class StaffPlan {
         return dx * dx + dz * dz;
     }
 
+    /** the other part of a split squad whose first has its task now, one it may go to (not a group it gave up) */
+    private static boolean follows(Squad s, Task[] out) {
+        return s.twin >= 0 && out[s.twin] != null && (out[s.twin].group() < 0 || out[s.twin].group() != s.avoid);
+    }
+
     /** the free squad nearest the group (k) within reach, not this one, not one that gave it up (-1: none) */
     private static int nearest(List<Squad> squads, Task[] out, Group g, int k, double reach, int not) {
         int best = -1;
         double bestD = Double.MAX_VALUE;
         for (int i = 0; i < squads.size(); i++) {
-            if (i == not || out[i] != null || squads.get(i).avoid == k) continue;
+            // the other part of a split squad goes with its first
+            if (i == not || out[i] != null || squads.get(i).avoid == k || squads.get(i).twin >= 0) continue;
             double d = d2(g, squads.get(i).x, squads.get(i).z), r = squads.get(i).reach(reach);
             if (d < bestD && d <= r * r) {
                 bestD = d;

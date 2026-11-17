@@ -445,7 +445,7 @@ public final class AiSoldier implements AiBrain {
     private void decide(AiBot bot, long tick) {
         if (!(bot.mob.level() instanceof ServerLevel level)) return;
         // its ways keep out of the fire of slits its foes are behind (AiBunker), whatever it is doing
-        bot.mover.avoid(AiBunker.avoid(bot, level, tick));
+        bot.mover.avoid(PathSearch.Cost.sum(AiBunker.avoid(bot, level, tick), AiHatch.avoid(bot, level, tick)));
         if (tick - unreachableSince > 400) {
             unreachable.clear();
             unreachableSince = tick;
