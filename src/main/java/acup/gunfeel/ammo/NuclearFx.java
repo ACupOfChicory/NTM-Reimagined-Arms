@@ -8,8 +8,10 @@ import com.hbm.packet.toclient.MukePayload;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * The mod's mini nukes' cloud, one call for all (the nuclear .50; delta's mini nuke particles take it over:
- * MiniNukeCloud.spawn(level, x, y, z, size, false) here once both are in).
+ * The mod's mini nukes' cloud, one call for all (the nuclear .50). The mini nuke particles take it over once both are
+ * in: the body becomes MiniNukeCloud.spawn(level, x, y, z, size, balefire), which sends this same MukePayload itself
+ * where its cloud is off or out of the simulation distance. x, y, z: the blast's centre (as the Fat Mine's, whose
+ * cloud is at its blast's centre too).
  */
 public final class NuclearFx {
     private NuclearFx() {
