@@ -1,5 +1,13 @@
 # Changelog
 
+## X1567
+
+- The AI soldier sent to throw a grenade into a room before the squad goes
+  in no longer forgets it the moment it fires at something or hears a
+  noise: with no foe in sight and no one shooting at it, it steps to the
+  doorway and throws, and one handed the grenade does too. Before, the
+  squad often went in without one.
+
 ## X1563
 
 - AI soldiers waiting their turn while two of their squad go after a lost

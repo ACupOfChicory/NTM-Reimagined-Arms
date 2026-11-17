@@ -528,6 +528,20 @@ public final class AiSoldier implements AiBrain {
             shelter(bot, Long.MIN_VALUE, c, tick);
             return;
         }
+        // its entry's thrower, no foe in its sight and not shot at since its throw began: to the opening and the grenade
+        // in, whatever it heard or lost sight of (in sight: it fights; shot at: it takes cover as ever) (AiEntry)
+        if (AiEntry.on() && (c == null || c.state != TargetMemory.State.VISIBLE)) {
+            Vec3 door = AiEntry.throwing(this, bot, level, tick);
+            if (door != null) {
+                if (spot != null) drop(bot);
+                mode(Mode.SEARCH, tick);
+                why = Why.SEARCH;
+                watch = door;
+                bot.gunner.aim(door);
+                bot.gunner.fire(false);
+                return;
+            }
+        }
         // going round for its side's pair, the foe still far: on round by the order, not into a fight from here (C4)
         if (c != null && AiCommander.goesRound(bot, c, tick) && ordered(bot, level, tick)) {
         }
