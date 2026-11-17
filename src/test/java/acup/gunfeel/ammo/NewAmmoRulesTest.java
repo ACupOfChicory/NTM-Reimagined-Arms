@@ -2,6 +2,7 @@ package acup.gunfeel.ammo;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Random;
@@ -143,8 +144,36 @@ class NewAmmoRulesTest {
         for (int i = 1; i < shots; i++) {
             w = NuclearRule.wear(w, durability, shots);
             assertTrue(w < durability, gun + " worn out after " + i);
+            assertFalse(NuclearRule.wornOut(w, durability), gun + " still fires the round after " + i);
         }
         w = NuclearRule.wear(w, durability, shots);
         assertEquals(durability, w, 0F, gun + " worn out after " + shots);
+        assertTrue(NuclearRule.wornOut(w, durability), gun + " fires no more of the round after " + shots);
+    }
+
+    // NTM 1.0.3's wear spread (Lego.getStandardWearSpread times the receiver's durability spread, 0.125 on the AMATs):
+    // nothing up to half the durability, then up to the whole of it at full wear
+    private static float ntmWearSpread(float wear, float durability) {
+        float p = wear / durability;
+        return (p < 0.5F ? 0F : (p - 0.5F) * 2F) * 0.125F;
+    }
+
+    @Test
+    void nuclearShotsOfAWornRifleStrayAQuarterOfNtms() {
+        assertEquals(0.25F, NuclearRule.WEAR_SPREAD, 0F);
+        // the AMAT's three shots, the wear before each: 0, a third, two thirds; only the third has a wear spread
+        float w = 0F;
+        float[] before = new float[3];
+        for (int i = 0; i < 3; i++) {
+            before[i] = ntmWearSpread(w, 350F);
+            w = NuclearRule.wear(w, 350F, 3);
+        }
+        assertEquals(0F, before[0], 0F);
+        assertEquals(0F, before[1], 0F);
+        assertEquals(0.125F / 3, before[2], 1e-5F);
+        // the mean miss at 100 blocks (NTM's gaussian on each axis: 1.2533 sigma), aimed, no other spread
+        double mean = Math.sqrt(Math.PI / 2) * 100;
+        assertEquals(5.22, mean * before[2], 0.01);
+        assertEquals(1.31, mean * before[2] * NuclearRule.WEAR_SPREAD, 0.01);
     }
 }

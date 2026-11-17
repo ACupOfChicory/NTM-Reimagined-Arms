@@ -92,9 +92,11 @@ page. They are alphas: expect bugs and back up your world.
   large casing give one). It does no damage of its own and goes off where it
   hits as 80 % of NTM's Fat Mine, breaking no blocks; point blank as well. One
   shot wears the rifle by a fixed share of its durability: an AMAT from new is
-  worn out in 3 shots, a Subtlety in 6, a Penance in 10. A worn-out rifle
-  still fires, as NTM has it, but spreads its shots wide and jams at the end
-  of each reload.
+  worn out in 3 shots, a Subtlety in 6, a Penance in 10. Wear spreads this
+  round's shots only a quarter as much as NTM's other rounds, so the last
+  shots before the rifle is worn out still go about where they are aimed. A
+  worn-out rifle no longer fires the nuclear round (it clicks as if empty);
+  its other rounds it fires as NTM has it, spread wide.
 
 ### Hits
 

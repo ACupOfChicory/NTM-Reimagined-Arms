@@ -25,7 +25,9 @@
     damage of its own: wherever it hits, at any range and point blank too, it
     goes off as a mini nuke a little smaller than NTM's Fat Mine (80 % of its
     blast and radiation), which breaks no blocks. It wears the rifle out from
-    new in 3 shots (AMAT), 6 (Subtlety) or 10 (Penance).
+    new in 3 shots (AMAT), 6 (Subtlety) or 10 (Penance); wear spreads its
+    shots a quarter as much as other rounds', and a worn-out rifle does not
+    fire it at all (other rounds it still fires).
 
 ## X1416
 

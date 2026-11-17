@@ -97,4 +97,14 @@ public final class NuclearBmg {
     public static float wearAfter(ItemStack stack, GunConfig gun, int index) {
         return NuclearRule.wear(ItemGunBaseNT.getWear(stack, index), gun.getDurability(stack), NuclearRule.shots(NewAmmo.gunId(stack.getItem())));
     }
+
+    /**
+     * whether the receiver would fire a nuclear round from a worn out gun (owner 2026-11-17: not that; the gun's other
+     * rounds fire as NTM has it)
+     */
+    public static boolean blocked(ItemStack stack, ItemGunBaseNT.LambdaContext ctx, com.hbm.items.weapon.sedna.Receiver rec) {
+        if (config == null || stack == null || ctx == null || ctx.config() == null || rec == null) return false;
+        if (!is(rec.getMagazine(stack).getType(stack, ctx.inventory()) instanceof BulletConfig c ? c : null)) return false;
+        return NuclearRule.wornOut(ItemGunBaseNT.getWear(stack, ctx.configIndex()), ctx.config().getDurability(stack));
+    }
 }

@@ -49,4 +49,12 @@ public final class NuclearRule {
         float w = wear + durability / shots;
         return w >= durability * (1F - 1e-4F) ? durability : w;
     }
+
+    /** the share of NTM's wear spread a nuclear round's shot gets (the gun's own spread as it is): owner 2026-11-17 */
+    public static final float WEAR_SPREAD = 0.25F;
+
+    /** whether a gun at {@code wear} of {@code durability} is worn out: no nuclear round fires from it */
+    public static boolean wornOut(float wear, float durability) {
+        return durability > 0F && wear >= durability * (1F - 1e-4F);
+    }
 }
