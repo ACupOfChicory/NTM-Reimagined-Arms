@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- An AI soldier now notices an enemy right at its back, within about a block
+  and a half, even one standing silent: a little slower than one in front of
+  it, and a player crouching still there much slower, so one can still lie
+  low behind it a while. A block between them hides as before. Two foes no longer stand
+  a block apart for good with nobody firing.
+- An AI soldier on its way to cover that gets nowhere while one of its own
+  keeps it from firing now looks for other cover instead of standing there.
+
 ## X1416
 
 - AI squads now take a room hollowed out of plain rock as a building when
