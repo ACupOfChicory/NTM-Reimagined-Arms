@@ -31,6 +31,22 @@ class MiniNukeCloudTest {
     }
 
     @Test
+    void aSmallCloudIsHotAtFirstAsABombIs() {
+        // NTM: maxHeat = (int) (50 * s * s), heat = maxHeat - (maxHeat * age / maxAge)^0.6; at s 1 the same
+        for (int age : new int[] {0, 100, 450, 899}) {
+            double ntm = 50 - Math.pow(50.0 * age / 900, 0.6);
+            assertEquals(ntm, MiniNukeCloud.heat(1, age, 900), 1e-9);
+        }
+        // a radius 10 blast: NTM's heat is (int) 0.5 = 0, grey from the start; here a bomb's scaled by s squared
+        double s = MiniNukeCloud.scale(10F);
+        int maxAge = (int) (900 * s);
+        double hot = MiniNukeCloud.heat(s, 0, maxAge), end = MiniNukeCloud.heat(s, maxAge, maxAge);
+        assertEquals(0.5, hot, 1e-6);
+        assertTrue(end > 0 && end < hot, "cools, never to nothing or below");
+        assertEquals(MiniNukeCloud.heat(1, 30, 90) * s * s, MiniNukeCloud.heat(s, 30, 90), 1e-9);
+    }
+
+    @Test
     void sizeFromTheBlastAtThePointThisTick() {
         Object level = new Object(), other = new Object();
         MiniNukeCloud.mark(level, 100, 64, 100, 15F, 50);

@@ -1,5 +1,11 @@
 # Changelog
 
+## X1448
+
+- The small nuclear blasts' mushroom cloud now starts hot, fiery orange (green
+  for balefire) and greys as it cools, as a bomb's does, instead of grey from
+  the start.
+
 ## X1442
 
 - The new rounds now have tracers. Both bullets of a Duplex round draw the
