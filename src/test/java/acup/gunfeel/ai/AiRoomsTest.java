@@ -244,6 +244,35 @@ class AiRoomsTest {
     }
 
     @Test
+    void aBoxOfTheRocksStoneWithADoorIsABuildingWithNoneACave() {
+        // (d) the house all of the rock's stone, a door hung in its way out (6, 10): someone lives there (a door is a
+        // sign of it as a bed is; a burrow with a door was no building before)
+        PathSearchTest.Grid g = house();
+        g.set(6, 0, 10, DOOR);
+        g.set(6, 1, 10, DOOR);
+        Kinds box = new Kinds(g.build(), AiBlockKinds.NATURAL);
+        AiRooms.Plan p = AiRooms.of(box, BlockPos.asLong(6, 0, 7));
+        assertNotNull(p);
+        assertTrue(p.room(BlockPos.asLong(6, 0, 7)) >= 0);
+        // with only a doorway, no door: a cave
+        assertNull(AiRooms.of(new Kinds(house().build(), AiBlockKinds.NATURAL), BlockPos.asLong(6, 0, 7)));
+    }
+
+    @Test
+    void aRoomDugOffATunnelWithADoorIsABuildingAndTheTunnelNot() {
+        // the west room (20 cells) dug off the east hollow (25: the tunnel, the bigger side), a door between at (9, 7)
+        PathSearchTest.Grid g = house();
+        g.set(9, 0, 7, DOOR);
+        g.set(9, 1, 7, DOOR);
+        Kinds dug = new Kinds(g.build(), AiBlockKinds.NATURAL);
+        AiRooms.Plan p = AiRooms.of(dug, BlockPos.asLong(6, 0, 7));
+        assertNotNull(p);
+        assertEquals(4 * 5, p.size[p.room(BlockPos.asLong(6, 0, 7))]);
+        assertEquals(AiRooms.OUTSIDE, p.room(BlockPos.asLong(12, 0, 7)));
+        assertNull(AiRooms.of(dug, BlockPos.asLong(12, 0, 7)));
+    }
+
+    @Test
     void aBunkerBrokenIntoACaveEndsAtTheBreach() {
         // (b) the west room of concrete, x 4..9 with the wall between; east of it a cave; the doorway is the breach
         Kinds b = new Kinds(house().build(), AiBlockKinds.NATURAL).set(4, 4, 9, 10, AiBlockKinds.BUILT);
@@ -274,15 +303,6 @@ class AiRoomsTest {
         assertEquals(2, p.rooms());
         assertEquals(4 * 5, p.size[p.room(BlockPos.asLong(6, 0, 7))]);
         assertEquals(5 * 5, p.size[p.room(BlockPos.asLong(12, 0, 7))]);
-    }
-
-    @Test
-    void aBurrowWithNothingKeptInItIsNoBuilding() {
-        // (d) a hole in the ground with a door and nothing else
-        PathSearchTest.Grid g = house();
-        g.set(6, 0, 10, DOOR);
-        g.set(6, 1, 10, DOOR);
-        assertNull(AiRooms.of(new Kinds(g.build(), AiBlockKinds.NATURAL), BlockPos.asLong(6, 0, 7)));
     }
 
     // ------------------------------------------------------------------ frames two and three wide, windows, corridors

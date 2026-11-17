@@ -152,10 +152,48 @@ final class AiCheckWar {
     static final double CAMP_NEAR = 20;
     /** fewer squads going round seen on the river's field than this: their angle not checked (few go round there now) */
     static final int FLANKS_MIN = 4;
-    /** the near rounds by default (half of them C4); the side angles at the pairs' signals fewer than this: not measured, a FAIL */
+    /** the near rounds by default (half of them C4); the side angles at the pairs' signals fewer than this: not measured */
     static final int NEAR_ROUNDS = 12, ANGLES_MIN = 3;
-    /** C4 on the river's field: in the player's sight before it is seen this much (a share) more than C3 at most (C4b) */
-    static final double PAIRS_WORSE = 0.03;
+    /**
+     * C4 on the river's field (C4b): its rounds more in the player's sight before it is seen than C3's only so far as
+     * chance gives at this (one-sided; a run's share alone spreads ~6 points, a fixed margin failed 4 runs of 43)
+     */
+    static final double PAIRS_WORSE_P = 0.05;
+    /** the permutations the C4b check draws (seeded: a run's verdict is its numbers' alone) */
+    static final int PERMUTATIONS = 20000;
+
+    /**
+     * one-sided: the chance that a's rounds come out this much more than b's (in the mean) or more with no difference
+     * at all, by permutations of the rounds between them (exact enough, any spread); 1 when a's mean is not more
+     */
+    static double moreByChance(List<Double> a, List<Double> b) {
+        int na = a.size(), n = na + b.size();
+        if (na == 0 || b.isEmpty()) return 1;
+        double[] all = new double[n];
+        double sa = 0, sum = 0;
+        for (int i = 0; i < n; i++) {
+            all[i] = i < na ? a.get(i) : b.get(i - na);
+            sum += all[i];
+            if (i < na) sa += all[i];
+        }
+        double seen = sa / na - (sum - sa) / (n - na);
+        if (seen <= 0) return 1;
+        java.util.Random r = new java.util.Random(1217);
+        int more = 0;
+        for (int k = 0; k < PERMUTATIONS; k++) {
+            // a random na of the n as a: a partial shuffle
+            double s = 0;
+            for (int i = 0; i < na; i++) {
+                int j = i + r.nextInt(n - i);
+                double t = all[i];
+                all[i] = all[j];
+                all[j] = t;
+                s += all[i];
+            }
+            if (s / na - (sum - s) / (n - na) >= seen - 1e-12) more++;
+        }
+        return (more + 1.0) / (PERMUTATIONS + 1);
+    }
     static final int FAR_RUN = 2400;
     static final String A = "war_a";
     /** the reports' ages: up to each, ticks (the last: never seen) */
@@ -853,6 +891,9 @@ final class AiCheckWar {
         // one side reports every REPORT ticks: its cost a tick
         double usTick = usReport / AiIntel.REPORT;
         double[] sightOf = new double[MODES], walkOf = new double[MODES], firstOf = new double[MODES], fromOf = new double[MODES];
+        // each round's share in sight, by mode (C4b's check compares C4's rounds with C3's)
+        List<List<Double>> sightRounds = new ArrayList<>();
+        for (int on = 0; on < MODES; on++) sightRounds.add(new ArrayList<>());
         int[] fromN = new int[MODES];
         // rounds of each, and of them those in which one of the side came within the player's reach
         int[] roundsOf = new int[MODES], reachedOf = new int[MODES];
@@ -869,6 +910,7 @@ final class AiCheckWar {
             if (a[2] > 0) {
                 sightOf[on] += a[3] / a[2];
                 reachedOf[on]++;
+                sightRounds.get(on).add(a[3] / a[2]);
             }
             walkOf[on] += a[4];
             if (a[5] >= 0) {
@@ -1094,10 +1136,12 @@ final class AiCheckWar {
                         + " (rounds within its reach %d of %d, %d of %d)", MODE_NAMES[on], reachedOf[on] == 0 ? 0 : 100 * sightOf[on] / reachedOf[on],
                         reachedOf[OFF] == 0 ? 0 : 100 * sightOf[OFF] / reachedOf[OFF], reachedOf[on], roundsOf[on], reachedOf[OFF], roundsOf[OFF]);
                 // C4 on the river's field: the way round not made in time, no pair; the pinning one gets to its place out of
-                // sight (C4b): no more in sight than C3's (PAIRS_WORSE at most)
-                if (on == PAIRS && roundsOf[MOVES] >= 2 && reachedOf[MOVES] > 0)
-                    check.check(line + String.format(Locale.ROOT, "; C3 %.1f%% (%.0f points more at most)", 100 * sightOf[MOVES] / reachedOf[MOVES], 100 * PAIRS_WORSE),
-                            reachedOf[on] * 2 > roundsOf[on] && sightOf[on] / reachedOf[on] <= sightOf[MOVES] / reachedOf[MOVES] + PAIRS_WORSE);
+                // sight (C4b): no more in sight than C3's, round by round: more only by chance (one-sided, PAIRS_WORSE_P)
+                if (on == PAIRS && roundsOf[MOVES] >= 2 && reachedOf[MOVES] > 0) {
+                    double p = moreByChance(sightRounds.get(PAIRS), sightRounds.get(MOVES));
+                    check.check(line + String.format(Locale.ROOT, "; C3 %.1f%% (more than C3's by chance p %.2f, %.2f at least)", 100 * sightOf[MOVES] / reachedOf[MOVES],
+                            p, PAIRS_WORSE_P), reachedOf[on] * 2 > roundsOf[on] && p >= PAIRS_WORSE_P);
+                }
                 else check.check(line, reachedOf[on] * 2 > roundsOf[on] && reachedOf[OFF] * 2 > roundsOf[OFF] && sightOf[on] / reachedOf[on] < sightOf[OFF] / reachedOf[OFF]);
             }
         return true;

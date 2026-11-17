@@ -44,6 +44,8 @@ public final class TargetMemory {
          * does not run out; Long.MIN_VALUE: none. Where it was lost and the clearing made of it stay as they were.
          */
         public long heardTick = Long.MIN_VALUE;
+        /** no one known there now: where a foe its squad knew of fell in a building (AiBot.fought), its rooms gone through as a lost target's */
+        public boolean place;
 
         Contact(int id) {
             this.id = id;

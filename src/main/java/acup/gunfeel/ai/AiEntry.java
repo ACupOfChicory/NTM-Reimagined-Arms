@@ -43,7 +43,25 @@ public final class AiEntry {
     /** off only for the stands' "before" */
     static boolean frag = true;
     /** the stands: entries begun, grenades thrown in before one, throwers that stepped out and did not throw */
-    public static int entries, frags, noThrow;
+    public static int entries, frags, noThrow, noFragFought;
+    /** a room a foe fell in takes a grenade only this small (cells), every cell of it this near where it goes (blocks), none of its side this near where the foe fell nor in it */
+    static final int FOUGHT_CELLS = 64;
+    static final double FOUGHT_REACH = 6, FOUGHT_OWN = 4;
+
+    /** a grenade into a room fought in: a shut room the burst covers, and none of the thrower's side in it or by where the foe fell */
+    private static boolean fragFought(Op op, ServerLevel level, AiBot bot, long lost) {
+        AiRooms.Plan plan = op.plan;
+        if (plan == null || op.room < 0 || plan.size[op.room] > FOUGHT_CELLS) return false;
+        for (long cell : plan.cells()[op.room])
+            if (Math.hypot(BlockPos.getX(cell) + 0.5 - op.aim.x, BlockPos.getZ(cell) + 0.5 - op.aim.z) > FOUGHT_REACH) return false;
+        Vec3 at = mid(lost, 0);
+        double r = Math.max(FOUGHT_OWN, Math.sqrt(plan.size[op.room]) + FOUGHT_REACH);
+        for (net.minecraft.world.entity.LivingEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(at, at).inflate(r))) {
+            if (!e.isAlive() || !AiTeams.own(bot.mob, e)) continue;
+            if (e.position().distanceTo(at) <= FOUGHT_OWN || plan.room(cell(e.getX(), e.getY(), e.getZ())) == op.room) return false;
+        }
+        return true;
+    }
     /** the stands: those of an entry in its room while its grenade was out and not burst yet (in before their own blast) */
     public static int inBeforeBlast;
     /** the stands: those of an entry off their place beside the way in (OFF_PLACE) while its grenade was out, past WAIT_GRACE ticks of the wait */
@@ -96,6 +114,8 @@ public final class AiEntry {
         String lostHow = "";
         Vec3 aim = Vec3.ZERO;
         double safe;
+        /** an entry into a room a foe fell in (no one known there now) whose grenade is not to go in: the room too big, or one of its side there */
+        boolean noFrag, placeSeen;
         long[] slots = {}, inner = {};
         /** where each of the entry waits, by its number: {beside the way in, a grenade going in} */
         final List<long[]> places = new ArrayList<>(4);
@@ -213,6 +233,14 @@ public final class AiEntry {
                     }
             ops.put(key, op);
         }
+        // a room fought in (the foe known of fallen there): whether a grenade goes in, worked out once, on the entry it
+        // has (one made while the foe was alive, by AiSoldier's flank check, is the same entry)
+        if (c.place && !op.placeSeen && op.way != null) {
+            op.placeSeen = true;
+            if (op.phase == STACK) op.noFrag = !fragFought(op, level, bot, lost);
+            fate("a room fought in: " + (op.phase != STACK ? "its entry under way already (phase " + op.phase + ")" : op.noFrag ? "no grenade" : "a grenade may go in")
+                    + ", room cells " + (op.plan == null || op.room < 0 ? -1 : op.plan.size[op.room]));
+        }
         return op;
     }
 
@@ -226,6 +254,12 @@ public final class AiEntry {
         for (Op op : ops.values()) {
             if (op.phase != WAIT) continue;
             int i = op.members.indexOf(bot);
+            // (the wait goes on by those sheltering too: with all of the squad in the entry, none else thinks for it)
+            if (i >= 0) {
+                advance(op, level, level.getGameTime());
+                if (op.phase != WAIT) return null;
+                i = op.members.indexOf(bot);
+            }
             if (i >= 0 && i < op.places.size()) return op.places.get(i)[1];
         }
         return null;
@@ -348,8 +382,11 @@ public final class AiEntry {
                 if (!(all && (op.members.size() >= Math.min(2, op.slots.length) || waited >= WAIT_SECOND) || waited >= STACK_MAX)) return;
                 entries++;
                 int[] w0 = why.clone();
-                op.thrower = all ? thrower(op, level, tick) : null;
-                if (!all) {
+                op.thrower = all && !op.noFrag ? thrower(op, level, tick) : null;
+                if (op.noFrag) {
+                    noFragFought++;
+                    fate("a room fought in, no grenade: too big, or one of its side there");
+                } else if (!all) {
                     unstacked++;
                     fate("in before all were beside it (" + op.members.size() + " there)");
                 } else if (op.thrower == null) {

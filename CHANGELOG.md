@@ -27,6 +27,26 @@
     blast and radiation), which breaks no blocks. It wears the rifle out from
     new in 3 shots (AMAT), 6 (Subtlety) or 10 (Penance).
 
+## X1416
+
+- AI squads now take a room hollowed out of plain rock as a building when
+  someone has plainly lived in it: a door hung in its way in, a hatch, glass,
+  a lantern or a ladder. Such a room is entered and cleared like any other,
+  instead of searched as a cave. A door counts for the smaller side of it: a
+  room dug off a tunnel is a building, the tunnel is not. A hollow with no
+  such sign is a cave as before, and old mines and fortresses stay caves.
+  The cave right by an ancient city's walls reads as a building too.
+
+## X1412
+
+- An AI squad that shoots down an enemy it knew of inside a building no
+  longer stops there: those nearby clear that building all the same, as
+  there may be more inside. They stack up by the way in and go in together;
+  a grenade goes in first only if the room is small enough for it to cover
+  and none of their own side is in it. A new enemy in sight comes first.
+- An AI squad that had thrown a grenade into a room no longer waits beside
+  the way in for good when all of it took part in the entry.
+
 ## X1408
 
 - An AI soldier that lost sight of an enemy no longer forgets it while it

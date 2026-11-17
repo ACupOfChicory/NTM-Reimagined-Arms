@@ -158,7 +158,7 @@ public final class AiClearing {
         if (mine == null || s.checked[mine]) {
             s.rooms.remove(bot);
             s.goals.remove(bot);
-            mine = pick(s, plan, bot, in);
+            mine = pick(s, plan, bot, in, c.id);
             if (mine == null) {
                 // the rooms checked are not walked again by the search as before
                 if (s.told.getOrDefault(bot, -1) != s.done) {
@@ -270,7 +270,7 @@ public final class AiClearing {
     }
 
     private static boolean sweeps(AiBot b, int target) {
-        return AiSquads.live(b) && b.memory.focusId == target && b.brain instanceof AiSoldier o && o.mode() == AiSoldier.Mode.SEARCH;
+        return AiSquads.live(b) && (b.memory.focusId == target || AiSoldier.fights(b, target)) && b.brain instanceof AiSoldier o && o.mode() == AiSoldier.Mode.SEARCH;
     }
 
     private static int taken(Sweep s, int room, int target) {
@@ -347,7 +347,7 @@ public final class AiClearing {
      * The room it takes next: not checked, with fewer than two in it; the nearest by the rooms to go through from
      * where it is and the way to its middle, one of its side there already before an empty one (two to a room).
      */
-    private static @Nullable Integer pick(Sweep s, AiRooms.Plan plan, AiBot bot, int in) {
+    private static @Nullable Integer pick(Sweep s, AiRooms.Plan plan, AiBot bot, int in, int target) {
         int rooms = plan.rooms();
         // rooms to go through, from the room it is in, or from outside
         int[] hops = new int[rooms];
@@ -376,7 +376,7 @@ public final class AiClearing {
         double least = Double.MAX_VALUE;
         for (int r = 0; r < rooms; r++) {
             if (s.checked[r] || hops[r] == Integer.MAX_VALUE) continue;
-            int taken = taken(s, r, bot.memory.focusId);
+            int taken = taken(s, r, target);
             if (taken >= PAIR) continue;
             long mid = plan.mid[r];
             double dx = BlockPos.getX(mid) + 0.5 - bot.mob.getX(), dz = BlockPos.getZ(mid) + 0.5 - bot.mob.getZ();
