@@ -134,7 +134,7 @@ public final class AiSoldier implements AiBrain {
      * place it looks at (and a leaned head can be shot: AiLean.may); else, as before, a step to its peek.
      */
     private void peekOut(AiBot bot, Vec3 at) {
-        long pick = choosePeek(bot);
+        long pick = choosePeek(bot, at);
         peekPick = pick;
         long cell = spot.cell();
         leanSide = 0;
@@ -1178,6 +1178,11 @@ public final class AiSoldier implements AiBrain {
         return exitWanted;
     }
 
+    /** it will watch a way out, not yet found from where it watches now (ExitSpots.mayPick: next tick) */
+    private boolean exitPending() {
+        return exitWanted && exitFrom != (spot == null ? WHERE_IT_STANDS : spot.hasPeek() ? spot.peek() : spot.cell());
+    }
+
     /** it watches where a target it lost may come out (its choice for this loss made now if not yet) */
     private boolean watchesExit(AiBot bot, TargetMemory.Contact c, long tick) {
         lookFor(bot, c, tick);
@@ -1295,7 +1300,7 @@ public final class AiSoldier implements AiBrain {
      * Where it looks out from this time: one of its cover's places to shoot from that none of its own side holds,
      * another than last time where it can; held as its own.
      */
-    private long choosePeek(AiBot bot) {
+    private long choosePeek(AiBot bot, Vec3 at) {
         long[] all = spot.peeks();
         long[] taken = AiBots.friendsSpots(bot)[1];
         long[] free = new long[all.length];
@@ -1304,6 +1309,21 @@ public final class AiSoldier implements AiBrain {
             boolean held = false;
             for (long t : taken) held |= t == k;
             if (!held) free[n++] = k;
+        }
+        // of those, the ones it sees the place from (a way out found from one peek may be hidden from another)
+        if (n > 1 && bot.mob.level() instanceof ServerLevel level) {
+            VoxelRay.Source v = AiBots.voxels(level);
+            double eyeH = bot.mob.getDimensions(Pose.STANDING).eyeHeight();
+            long[] sees = new long[n];
+            int m = 0;
+            for (int i = 0; i < n; i++) {
+                Vec3 e = Vec3.atBottomCenterOf(BlockPos.of(free[i])).add(0, eyeH, 0);
+                if (VoxelRay.clear(v, e.x, e.y, e.z, at.x, at.y, at.z, Voxel.SIGHT)) sees[m++] = free[i];
+            }
+            if (m > 0) {
+                free = sees;
+                n = m;
+            }
         }
         long pick;
         if (n == 0) pick = spot.peek();
@@ -1750,8 +1770,10 @@ public final class AiSoldier implements AiBrain {
 
     /**
      * One of its squad on the move, a target out of sight a moment ago: from its cover, a burst every few seconds at
-     * the place the target went out of sight, or at the way out it watches (wayOut, not null), out at its peek or up
-     * over low cover, and back in; the target there keeps its head down, or shows it.
+     * the bunker's slit they went behind (AiBunker), else at the way out it watches (wayOut, not null; the first burst
+     * waits till it is chosen), else at the place they went out of sight; out at a peek it sees that from, or up over
+     * low cover, and back in. The base of fire fires at where they went, a long burst, reloads less, and steps out
+     * beside its cover where that is in the way. The target there keeps its head down, or shows it.
      */
     private void suppress(AiBot bot, TargetMemory.Contact c, long tick, @Nullable Vec3 wayOut) {
         CoverQuery.Spot s = spot;
@@ -1773,7 +1795,9 @@ public final class AiSoldier implements AiBrain {
                     && g.ammo.any();
             if (reload) g.reload();
             crouch = low && bot.mover.arrived();
-            if (bot.mover.arrived() && !reload && !g.reloading() && g.loaded() != 0 && tick >= nextSuppress) {
+            // its way out still to be chosen (ExitSpots.mayPick put it off): the burst waits for it, not begun where they went
+            // (the base of fire fires where they went: no way out for it)
+            if (bot.mover.arrived() && !reload && !g.reloading() && g.loaded() != 0 && tick >= nextSuppress && (base || !exitPending())) {
                 suppressing = true;
                 suppressSince = tick;
                 // its one burst: a rifleman's usual one, the base of fire's a long one
