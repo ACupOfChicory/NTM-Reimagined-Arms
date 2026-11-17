@@ -568,8 +568,8 @@ public final class AiEntry {
                 long c = BlockPos.asLong(x, ey, z);
                 if (plan.room(c) == op.room || !Voxel.open(src.voxel(x, ey, z)) || !Voxel.open(src.voxel(x, ey + 1, z)) || Voxel.open(src.voxel(x, ey - 1, z)))
                     continue;
+                // (the room's cells it sees, not the opening's middle: from a wide angle that is behind its jamb)
                 double eyeY = ey + 1.62;
-                if (!VoxelRay.clear(src, x + 0.5, eyeY, z + 0.5, mouth.x, mouth.y, mouth.z, Voxel.SIGHT)) continue;
                 java.util.BitSet seen = new java.util.BitSet(cells.length);
                 for (int k = 0; k < cells.length; k++) {
                     Vec3 t = mid(cells[k], 1.0);
@@ -626,6 +626,10 @@ public final class AiEntry {
             int m = n.cardinality();
             aims[k] = new Vec3(sx / m, sy / m, sz / m);
         }
+        StringBuilder f = new StringBuilder("slicing, side " + side + ":");
+        for (int k = 0; k < arc.length; k++)
+            f.append(String.format(java.util.Locale.ROOT, " %d %d (aim %.1f %.1f)", BlockPos.getX(arc[k]), BlockPos.getZ(arc[k]), aims[k].x, aims[k].z));
+        fate(f.toString());
         op.slicers.add(bot);
         op.arcs.add(arc);
         op.arcAims.add(aims);

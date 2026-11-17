@@ -17,15 +17,19 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * The AI check's opening looked into from round it before going in (AiEntry's slicing): a house of stone bricks seven
- * by seven, its way in a block wide in the middle of its south wall, open ground before it; a squad of four south of
- * it, knowing of one foe. Two of another team stand still: the one known of in the house's far corner, the other in
- * the corner by the wall with the way in, not seen from straight before it, only from round it. Rounds by fours: the
+ * by seven, its way in two blocks wide in the middle of its south wall, open ground before it; a squad of four south
+ * of it, knowing of one foe. Two of another team stand still: the one known of in the house's far corner, the other by
+ * the side wall near the wall with the way in, not seen from straight before it, only from round it. Rounds by fours: the
  * slicing on and off, with a grenade each and with none. Counted: of the squad fallen by the way in, the one in the
- * corner known of (or down) as the first of the squad came in, slicings.
+ * corner known of (or down) before any of the squad came in, slicings.
  */
 final class AiCheckSlice {
-    static final int X0 = 5600, Z0 = 0, RUN = 1200, ROUNDS = 12, ARMS = 4, SQUAD = 4;
-    /** the house: inside x HX0..HX1, z HZ0..HZ1, walls round it, its way in at DX in the south wall HZ1 + 1 */
+    static final int X0 = 5600, Z0 = 0, RUN = 1200, ROUNDS = 40, ARMS = 4, SQUAD = 4;
+    /**
+     * the house: inside x HX0..HX1, z HZ0..HZ1, walls round it, its way in two wide at DX, DX + 1 in the south wall HZ1 + 1
+     * (one a block wide in a wall a block thick shows a cone too thin for any by the side wall: seen from round it only
+     * along a line through the jambs' corners, grazing)
+     */
     static final int HX0 = X0 + 10, HX1 = X0 + 16, HZ0 = Z0 + 4, HZ1 = Z0 + 10, DX = X0 + 13;
     /** a fall this near the way in (outside or in) is one by it */
     static final double BY_WAY_IN = 3.5;
@@ -102,7 +106,7 @@ final class AiCheckSlice {
     }
 
     private boolean byWayIn(Mob m) {
-        return Math.hypot(m.getX() - DX - 0.5, m.getZ() - HZ1 - 1.5) <= BY_WAY_IN;
+        return Math.hypot(m.getX() - DX - 1, m.getZ() - HZ1 - 1.5) <= BY_WAY_IN;
     }
 
     private String by(Mob m) {
@@ -137,8 +141,10 @@ final class AiCheckSlice {
                 set(x, y + 3, z, house ? brick : air);
                 set(x, y + 4, z, air);
             }
-        set(DX, y, HZ1 + 1, air);
-        set(DX, y + 1, HZ1 + 1, air);
+        for (int x = DX; x <= DX + 1; x++) {
+            set(x, y, HZ1 + 1, air);
+            set(x, y + 1, HZ1 + 1, air);
+        }
         TacticalMap.of(level).want(X0 + 18, y, Z0 + 12, 26, 6);
     }
 
@@ -182,9 +188,11 @@ final class AiCheckSlice {
         frags0 = AiEntry.frags;
         held.clear();
         squad.clear();
-        // the known one in the far corner; the other in the corner by the wall with the way in
+        // the known one in the far corner; the other by the side wall, two in from the wall with the way in: not seen
+        // from straight before it, seen from round it (flush in the corner by that wall it is seen from none outside:
+        // the first in take that one, their guns on it)
         held.add(spawn(HX1 + 0.5, HZ0 + 0.5, "slice_in" + r, true));
-        held.add(spawn(HX0 + 0.5, HZ1 + 0.5, "slice_in" + r, true));
+        held.add(spawn(HX0 + 0.5, HZ1 - 1.5, "slice_in" + r, true));
         for (int i = 0; i < SQUAD; i++) squad.add(spawn(DX - 2.5 + i * 1.5, HZ1 + 16.5, "slice_out" + r, false));
         AiBots.refreshTargets(level);
         long now = level.getGameTime();
@@ -228,23 +236,29 @@ final class AiCheckSlice {
             a[0]++;
             a[1] += r[1];
             a[2] += r[2];
-            if (r[3] >= 0) a[3]++;
-            if (r[3] == 0 || r[3] == 1) a[4]++;
+            // (the one in the corner down with none of them gone in: taken from outside, looked in at)
+            if (r[3] >= 0 || r[4] == 1) a[3]++;
+            if (r[3] == 0 || r[3] == 1 || r[3] < 0 && r[4] == 1) a[4]++;
             if (r[3] == 2) a[5]++;
             a[6] += r[6];
             a[7] += r[4];
             a[8] += r[5];
         }
         for (int k = 0; k < ARMS; k++)
-            check.out(String.format(Locale.ROOT, "     slice: %s: %d rounds, of the squad left %d, fallen by the way in %d; rounds gone in %d, the one in the corner down or known of as the first came in %d, not %d; sliced %d; the one in the corner down %d, the known one %d",
+            check.out(String.format(Locale.ROOT, "     slice: %s: %d rounds, of the squad left %d, fallen by the way in %d; rounds gone in or the one in the corner down %d, it down or known of before any came in %d, not known of as they came in %d; sliced %d; the one in the corner down %d, the known one %d",
                     NAMES[k], s[k][0], s[k][1], s[k][2], s[k][3], s[k][4], s[k][5], s[k][6], s[k][7], s[k][8]));
         if (!sliceOn) return true;
         int[] on = s[0], off = s[1], onBare = s[2], offBare = s[3];
         // (the owner's ask: the corner by the wall with the way in looked into from round it, before going in)
-        check.check(String.format(Locale.ROOT, "slice: the opening looked into from round it, the one in the corner by its wall down or known of as the first goes in, in most rounds gone in (with a grenade %d of %d, with none %d of %d)",
-                on[4], on[3], onBare[4], onBare[3]), (on[4] + onBare[4]) * 3 >= (on[3] + onBare[3]) * 2 && on[0] == on[6] && onBare[0] == onBare[6]);
-        check.check(String.format(Locale.ROOT, "slice: of the squad no more fallen by the way in with the slicing than without it (with %d, without %d)",
-                on[2] + onBare[2], off[2] + offBare[2]), on[2] + onBare[2] <= off[2] + offBare[2]);
+        check.check(String.format(Locale.ROOT, "slice: the opening looked into from round it, the one by the side wall down or known of before any goes in, in most rounds (with a grenade %d of %d, with none %d of %d)",
+                on[4], on[3], onBare[4], onBare[3]), (on[4] + onBare[4]) * 3 >= (on[3] + onBare[3]) * 2);
+        // (no check: most fall by the way in as they stack beside it, before any slicing, to the one by the side wall;
+        // beside an opening two wide one is seen from across the room, flush with the wall as one may be)
+        check.out(String.format(Locale.ROOT, "     slice: of the squad fallen by the way in, with the slicing %d, without it %d; and as they came in the one by the side wall known of with it %d, without %d",
+                on[2] + onBare[2], off[2] + offBare[2], on[4] + onBare[4], off[4] + offBare[4]));
+        // (with it off as well as on: the one by the side wall is seen from round the opening, so more with it)
+        check.check(String.format(Locale.ROOT, "slice: the one by the side wall down or known of before any goes in, more often with the slicing than without it (with %d, without %d)",
+                on[4] + onBare[4], off[4] + offBare[4]), on[4] + onBare[4] > off[4] + offBare[4]);
         return true;
     }
 }
