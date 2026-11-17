@@ -336,6 +336,26 @@ public final class AiSquads {
         return true;
     }
 
+    /**
+     * Whether HUNTERS of its side within HUNT_NEAR go after this lost target already, each of them searching for it
+     * itself now (its focus, its own memory of it in SEARCH, not one waiting its turn): it waits its turn (mayHunt) and keeps
+     * the target in mind meanwhile (AiSoldier: one left at a shaft's foot forgot the foe while two climbed sixty
+     * rungs to it, and stayed there, the stands).
+     */
+    static boolean othersHunt(AiBot bot, int target) {
+        if (!on || !(bot.mob.level() instanceof ServerLevel level)) return false;
+        String team = team(bot);
+        int n = 0;
+        for (AiBot b : AiBots.bots(level)) {
+            if (b == bot || !live(b) || b.memory.focusId != target || !(b.brain instanceof AiSoldier o) || o.mode() != AiSoldier.Mode.SEARCH) continue;
+            TargetMemory.Contact c = b.memory.contact(target);
+            if (c == null || c.state != TargetMemory.State.SEARCH) continue;
+            if (b.mob.distanceToSqr(bot.mob) > HUNT_NEAR * HUNT_NEAR || !team.equals(team(b))) continue;
+            if (++n >= HUNTERS) return true;
+        }
+        return false;
+    }
+
     /** one of the rest of its squad falls back now (AiSoldier.fallBack): it looks out and fires to cover it */
     static boolean coversFallBack(AiBot bot) {
         Squad s = of(bot);
