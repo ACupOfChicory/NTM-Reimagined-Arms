@@ -408,7 +408,10 @@ final class AiCheckBunkerNtm {
         downs = 0;
         firstDown = -1;
         for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(X0 - REACH, level.getMinY(), Z0 - REACH, X0 + REACH, TOP + 20, Z0 + REACH),
-                e -> e instanceof com.hbm.entity.grenade.EntityGrenadeUniversal || e instanceof net.minecraft.world.entity.item.ItemEntity)) e.discard();
+                e -> e instanceof com.hbm.entity.grenade.EntityGrenadeUniversal || e instanceof net.minecraft.world.entity.item.ItemEntity
+                        // (bullets still in flight from the round's last shots: one would hit the next round's squad put at the hub)
+                        || e instanceof com.hbm.entity.projectile.EntityBulletBaseMK4
+                        || e instanceof net.minecraft.world.entity.projectile.Projectile)) e.discard();
         BlockPos h = BlockPos.of(hatch).above();
         BlockState hs = level.getBlockState(h);
         if (hs.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) level.setBlock(h, hs.setValue(net.minecraft.world.level.block.TrapDoorBlock.OPEN, false), 3);
