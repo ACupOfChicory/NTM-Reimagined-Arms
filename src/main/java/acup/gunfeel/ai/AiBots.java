@@ -202,7 +202,11 @@ public final class AiBots {
         AiCommander.tick(level);
         AiGrenades.tick(level);
         if (level.getGameTime() % 20 != 0) return;
-        for (AiBot b : l.bots.values()) if (b.mob.isRemoved()) claimGone(l, b.mob.getId());
+        for (AiBot b : l.bots.values()) if (b.mob.isRemoved()) {
+            claimGone(l, b.mob.getId());
+            // its pool of DNS, FAU or euphemium
+            acup.gunfeel.EuphImmunity.forget(b.mob);
+        }
         l.bots.values().removeIf(b -> b.mob.isRemoved());
         double r = radius(), r2 = r * r;
         for (AiBot b : l.bots.values()) {
@@ -301,6 +305,9 @@ public final class AiBots {
     }
 
     public static void forget(ServerLevel level) {
+        PerLevel l = LEVELS.get(level);
+        // their pools of DNS, FAU or euphemium: the same world loaded again in this run must not find them
+        if (l != null) for (AiBot b : l.bots.values()) acup.gunfeel.EuphImmunity.forget(b.mob);
         LEVELS.remove(level);
     }
 

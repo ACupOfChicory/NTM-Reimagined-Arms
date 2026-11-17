@@ -2,11 +2,6 @@
 
 ## Unreleased
 
-- The 5.56mm and 7.62mm Duplex Rounds now take small weapon steel casings in
-  the ammo press instead of small gunmetal casings. The rest of the recipe is
-  the same.
-- The 12 gauge electroshock shell now takes three tantalum capacitors and a
-  gold coil in the ammo press instead of a capacitor and a copper coil.
 - An AI soldier's armour now keeps radiation out as a player's does. NTM let
   all of it through to a soldier, as to any mob, so one in a full DNS set died
   within seconds by a nuclear .50's blast. Other mobs are as before.
@@ -18,6 +13,27 @@
 - NTM's ammo bags, the plain one and the infinite one, now take the mod's
   rounds (the rubber slug, the electroshock shell, the Duplex rounds and the
   nuclear .50), and guns reload them from the bag.
+
+## X1468
+
+- AI soldiers spawned with /armsai in a full DNS, FAU or euphemium set now
+  have the same invulnerability pool as a player in it: hits are called off
+  while it lasts, then a vulnerability window opens and the pool recovers.
+  Other mobs are unchanged.
+
+## X1466
+
+- The 5.56mm and 7.62mm Duplex Rounds now take small weapon steel casings in
+  the ammo press instead of small gunmetal casings. The rest of the recipe is
+  the same.
+- The 12 gauge electroshock shell now takes three tantalum capacitors and a
+  gold coil in the ammo press instead of a capacitor and a copper coil.
+
+## X1463
+
+- An AI soldier at the foot or top of a shaft its side climbs no longer goes
+  off to other cover while one of its own on the ladder is in its line: it
+  waits its turn and comes up with the rest.
 
 ## X1459
 
