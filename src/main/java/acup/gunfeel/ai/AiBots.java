@@ -623,7 +623,7 @@ public final class AiBots {
     static boolean foughtOn = true;
 
     /** one that fights: an AI mob, a player, a stand's target (not a cow) */
-    private static boolean fighter(LivingEntity e) {
+    static boolean fighter(LivingEntity e) {
         return get(e) != null || e instanceof Player || e.entityTags().contains(TARGET_TAG);
     }
 

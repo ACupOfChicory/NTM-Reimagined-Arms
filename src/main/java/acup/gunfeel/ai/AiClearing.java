@@ -89,6 +89,20 @@ public final class AiClearing {
         SWEEPS.remove(level);
     }
 
+    /**
+     * Whether the sweep of the building where the target was lost is over for good: no building there, or every room
+     * of it checked. False also with no sweep made yet, or one made before the target was lost there (NONE from step
+     * may be for a moment only: the rooms left have their two).
+     */
+    static boolean over(AiBot bot, ServerLevel level, TargetMemory.Contact c) {
+        Map<Long, Sweep> all = SWEEPS.get(level);
+        Sweep s = all == null ? null : all.get(key(bot, c.id));
+        if (s == null || c.lostTick > s.made) return false;
+        if (s.plan == null) return true;
+        for (boolean checked : s.checked) if (!checked) return false;
+        return true;
+    }
+
     private static long key(AiBot bot, int target) {
         return (long) AiSquads.team(bot).hashCode() << 32 | target & 0xFFFFFFFFL;
     }

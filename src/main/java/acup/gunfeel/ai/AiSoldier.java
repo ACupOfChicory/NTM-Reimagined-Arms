@@ -1911,30 +1911,39 @@ public final class AiSoldier implements AiBrain {
     /** a building a foe fell in is gone through this long after at most, ticks */
     static final int FOUGHT_MAX = 1200;
 
-    /**
-     * Knows of no one, a foe its squad knew of fell in a building (AiBot.fought): the room it fell in by the room drill
-     * (AiEntry: beside the way in, a grenade in where that is safe, in together), then the building's rooms
-     * (AiClearing), that building's only; false when that is over (all checked, too long ago) or there is none.
-     */
     /** whether this one goes through a building a foe fell in, the foe this one (AiClearing's and AiSquads' counts) */
     static boolean fights(AiBot b, int target) {
         return b.fought != null && b.fought.id == target && b.brain instanceof AiSoldier o && o.why == Why.FOUGHT;
     }
 
+    /**
+     * Knows of no one, a foe its squad knew of fell in a building (AiBot.fought): the room it fell in by the room drill
+     * (AiEntry: beside the way in, a grenade in where that is safe, in together), then the building's rooms
+     * (AiClearing), that building's only; false when that is over (all checked, too long ago) or there is none, and
+     * for this tick while the sweep has nothing for it (the rooms left have their two): the place kept.
+     */
     private boolean fought(AiBot bot, ServerLevel level, long tick) {
         TargetMemory.Contact c = bot.fought;
         if (c == null) return false;
-        if (tick - c.lostTick > FOUGHT_MAX) {
+        // too long ago, or its side's commander gave it a new order since the foe fell (one it had before, it was
+        // fighting under: the building gone through first)
+        if (tick - c.lostTick > FOUGHT_MAX || AiCommander.has(bot, tick) && AiCommander.givenSince(bot.order, c.lostTick)) {
             bot.fought = null;
             return false;
         }
         Vec3 door = AiEntry.on() ? AiEntry.step(this, bot, level, c, tick) : null;
         long room = door == null && AiClearing.on() ? AiClearing.step(bot, level, c, bot.clearedFor(c), tick) : AiClearing.NONE;
         if (door == null && room == AiClearing.NONE) {
-            // (a moment for the sweep's plan; then over)
-            if (tick - c.lostTick > FOUGHT_SETTLE) bot.fought = null;
+            // over for good with the sweep over (no building, every room checked), or nothing for it this long (the
+            // rooms left out of its reach); with no sweep to go by, a moment for the entry's plan, then over
+            if (idleOf != c) {
+                idleOf = c;
+                idleSince = tick;
+            }
+            if (AiClearing.on() ? AiClearing.over(bot, level, c) || tick - idleSince > FOUGHT_IDLE : tick - c.lostTick > FOUGHT_SETTLE) bot.fought = null;
             return false;
         }
+        idleOf = null;
         if (mode != Mode.SEARCH) {
             drop(bot);
             bot.mover.stop();
@@ -1949,7 +1958,7 @@ public final class AiSoldier implements AiBrain {
             bot.gunner.aim(door);
             return true;
         }
-        if (!bot.mover.goalIs(room)) {
+        if (!yields(bot, level, room, tick) && !bot.mover.goalIs(room)) {
             searchSpots++;
             bot.mover.costs(PathSearch.Cost.NONE);
             bot.mover.goTo(room, 0.6, WALK);
@@ -1961,8 +1970,65 @@ public final class AiSoldier implements AiBrain {
         return true;
     }
 
-    /** a building fought in with no entry nor sweep there yet this soon after: looked at again, not given up */
+    /** on the way to a room's cell this long without getting anywhere, one of its own by it: the one of the two stepping back, ticks */
+    static final int SWEEP_STUCK = 40, SWEEP_YIELD = 30;
+    static final double SWEEP_BACK = 2;
+    /** where it last got to on a sweep's way and when; stepping back to yieldCell till yieldUntil */
+    private double stuckX = Double.NaN, stuckZ;
+    private long stuckSince, yieldUntil = Long.MIN_VALUE, yieldCell;
+
+    /**
+     * Two of a side on their way through one doorway to the rooms beyond (AiClearing's cells, changing as more is seen
+     * through it, so the way is made again and never fails) stand pushing at each other before it for good: the one of
+     * the two with the greater id steps back off the way a moment, the other goes through. True while it steps back.
+     */
+    private boolean yields(AiBot bot, ServerLevel level, long room, long tick) {
+        Mob m = bot.mob;
+        if (tick < yieldUntil) {
+            if (!bot.mover.goalIs(yieldCell)) {
+                bot.mover.costs(PathSearch.Cost.NONE);
+                bot.mover.goTo(yieldCell, 0.5, WALK);
+            }
+            return true;
+        }
+        double dx = m.getX() - stuckX, dz = m.getZ() - stuckZ;
+        if (Double.isNaN(stuckX) || dx * dx + dz * dz > 0.25 || tick - stuckSince > SWEEP_STUCK * 4L) {
+            stuckX = m.getX();
+            stuckZ = m.getZ();
+            stuckSince = tick;
+            return false;
+        }
+        if (tick - stuckSince < SWEEP_STUCK || bot.mover.arrived()) return false;
+        AiBot by = null;
+        for (AiBot o : AiBots.bots(level))
+            if (o != bot && o.mob.isAlive() && o.mob.getId() < m.getId() && AiTeams.own(m, o.mob)
+                    && Math.abs(o.mob.getX() - m.getX()) < 1.2 && Math.abs(o.mob.getZ() - m.getZ()) < 1.2 && Math.abs(o.mob.getY() - m.getY()) < 1) {
+                by = o;
+                break;
+            }
+        if (by == null) return false;
+        // back from the room's cell it went to, away from it
+        double gx = BlockPos.getX(room) + 0.5 - m.getX(), gz = BlockPos.getZ(room) + 0.5 - m.getZ(), len = Math.sqrt(gx * gx + gz * gz);
+        if (len < 1e-6) return false;
+        yieldCell = BlockPos.asLong(net.minecraft.util.Mth.floor(m.getX() - gx / len * SWEEP_BACK), net.minecraft.util.Mth.floor(m.getY() + 0.2), net.minecraft.util.Mth.floor(m.getZ() - gz / len * SWEEP_BACK));
+        yieldUntil = tick + SWEEP_YIELD;
+        stuckSince = tick;
+        sweepYields++;
+        bot.mover.costs(PathSearch.Cost.NONE);
+        bot.mover.goTo(yieldCell, 0.5, WALK);
+        return true;
+    }
+
+    /** the stands: steps back to let one of its own through a doorway on a sweep (yields) */
+    public static int sweepYields;
+
+    /** a building fought in with no entry there yet this soon after (no sweeps, AiClearing off): looked at again, not given up */
     static final int FOUGHT_SETTLE = 40;
+    /** a building fought in whose sweep has had nothing for it this long on end: given up, ticks (the rooms left out of its reach) */
+    static final int FOUGHT_IDLE = 200;
+    /** the place fought in it had nothing to do at since idleSince (AiBot.fought), else null */
+    private TargetMemory.@Nullable Contact idleOf;
+    private long idleSince;
 
     /** slowly through the cells round where they were lost that it cannot see, nearest first */
     private void search(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
@@ -2014,7 +2080,7 @@ public final class AiSoldier implements AiBrain {
         // lost in a building: room after room, two to a room, a room checked not gone into again (AiClearing)
         long room = AiClearing.on() ? AiClearing.step(bot, level, c, cleared, tick) : AiClearing.NONE;
         if (room != AiClearing.NONE) {
-            if (!bot.mover.goalIs(room)) {
+            if (!yields(bot, level, room, tick) && !bot.mover.goalIs(room)) {
                 searchSpots++;
                 bot.mover.costs(PathSearch.Cost.NONE);
                 bot.mover.goTo(room, 0.6, WALK);
