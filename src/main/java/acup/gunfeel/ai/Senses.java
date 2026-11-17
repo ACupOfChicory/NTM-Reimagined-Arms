@@ -89,6 +89,18 @@ public final class Senses {
      * holds just that one: three rays at each of fifty foes every look cost a hundred AI mobs 4.7 ms a tick (KT5)
      */
     public static int look(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, Mob mob, LivingEntity target, AiProfile p, boolean whole) {
+        return look(voxels, smoke, mob, target, p, whole, false);
+    }
+
+    /**
+     * One looked for (AiEntry.primed: going into a room after its grenade, a foe in it): no slower in the corner of the
+     * eye, PRIMED_SHARE of the time straight ahead, PRIMED_MIN ticks at least (about the quarter second a man takes)
+     */
+    static final double PRIMED_SHARE = 0.5;
+    static final int PRIMED_MIN = 5;
+
+    /** as above; primed: one looked for (field of view, rays, veil, bearing as ever) */
+    public static int look(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, Mob mob, LivingEntity target, AiProfile p, boolean whole, boolean primed) {
         long t0 = System.nanoTime();
         looks++;
         try {
@@ -123,7 +135,8 @@ public final class Senses {
             }
             if (seen == 0) return -1;
             parts = seen;
-            int t = behind ? (int) Math.ceil(p.reactionTicks(d, false) * (creeping(target) ? CREEPING : BEHIND)) : p.reactionTicks(d, cos < COS_CENTRE);
+            int t = behind ? (int) Math.ceil(p.reactionTicks(d, false) * (creeping(target) ? CREEPING : BEHIND))
+                    : primed ? Math.max(PRIMED_MIN, (int) Math.round(p.reactionTicks(d, false) * PRIMED_SHARE)) : p.reactionTicks(d, cos < COS_CENTRE);
             double k = bearing(target) / (1 - thinnest / VEIL);
             // a line that grazes a block of grass is no veil
             return Math.abs(k - 1) < 1e-3 ? t : (int) Math.ceil(t * k);
