@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- An AI soldier reloading keeps its eyes and head on the threat instead of
+  looking down at the magazine, so its head stays where it sees and is shot
+  from.
+
 ## X1606
 
 - An AI soldier that comes into sight already running, or is put back on its
