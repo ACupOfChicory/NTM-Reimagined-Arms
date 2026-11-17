@@ -1,5 +1,15 @@
 # Changelog
 
+## X1547
+
+- An AI squad gathering beside a doorway no longer stands where a foe inside
+  the room can see it: a spot in view through the doorway is traded for one
+  further along the wall, out of sight, and the squad comes up to its spots
+  round the ground the room overlooks rather than across it.
+- An AI squad looking into a room from round its doorway now starts from the
+  spots furthest from it and closes in, the spot right by the doorway last,
+  instead of starting at the doorway's edge.
+
 ## X1538
 
 - AI soldiers no longer walk into the blast of their own squad's grenade

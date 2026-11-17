@@ -39,6 +39,9 @@ final class AiCheckSlice {
     private final int y;
     private final boolean entryOn = AiEntry.on, fragOn = AiEntry.frag, sliceOn = AiEntry.slice;
     private boolean started;
+    private final int stackMoved0 = AiEntry.stackMoved, stackSeen0 = AiEntry.stackSeen;
+    private final int goes0 = AiEntry.goes;
+    private final long goTicks0 = AiEntry.goTicks;
     private int round = -1, ticks;
     private final List<Mob> squad = new ArrayList<>(), held = new ArrayList<>();
     private final boolean[] in = new boolean[SQUAD], fell = new boolean[SQUAD];
@@ -223,6 +226,8 @@ final class AiCheckSlice {
     static final String[] CORNER = {"none in", "down", "known of", "not known of"};
 
     private boolean finish() {
+        check.out(String.format(Locale.ROOT, "     slice: places beside the way in moved out of sight of the room %d, left in it %d", AiEntry.stackMoved - stackMoved0, AiEntry.stackSeen - stackSeen0));
+        check.out(String.format(Locale.ROOT, "     slice: entries all gone in %d, ticks from in to all in their places %.1f a time", AiEntry.goes - goes0, AiEntry.goes == goes0 ? 0.0 : (AiEntry.goTicks - goTicks0) / (double) (AiEntry.goes - goes0)));
         AiEntry.on = entryOn;
         AiEntry.frag = fragOn;
         AiEntry.slice = sliceOn;
