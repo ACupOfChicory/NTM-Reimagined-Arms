@@ -538,6 +538,8 @@ neoForge {
             providers.gradleProperty("aiCheckWarPinned").orNull?.let { systemProperty("ntmgunfeel.checkAiWarPinned", it) }
             // -PaiWorld=<a world's folder> -PaiWorldAt=x,y,z,radius[,up]: that world (a copy) read as the AI reads it (AiCheckWorld)
             providers.gradleProperty("aiWorldAt").orNull?.let { systemProperty("ntmgunfeel.checkAiWorld", it) }
+            // -PaiLeadLineOff: a shot's line kept clear of its own where they stand, from the eye (AiBots.leadLine), the stand's "before"
+            if (providers.gradleProperty("aiLeadLineOff").isPresent) systemProperty("ntmgunfeel.aiLeadLineOff", "true")
             // -PaiLegs=<file>: the fighters' moves, tick by tick, for the legs' replay (AiLegsLog, BotLegsReplayTest)
             providers.gradleProperty("aiLegs").orNull?.let { systemProperty("ntmgunfeel.checkAiLegs", it) }
         }

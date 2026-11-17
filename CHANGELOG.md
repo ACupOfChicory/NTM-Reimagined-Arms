@@ -7,6 +7,34 @@
   noise: with no foe in sight and no one shooting at it, it steps to the
   doorway and throws, and one handed the grenade does too. Before, the
   squad often went in without one.
+
+## X1547
+
+- An AI squad gathering beside a doorway no longer stands where a foe inside
+  the room can see it: a spot in view through the doorway is traded for one
+  further along the wall, out of sight, and the squad comes up to its spots
+  round the ground the room overlooks rather than across it.
+- An AI squad looking into a room from round its doorway now starts from the
+  spots furthest from it and closes in, the spot right by the doorway last,
+  instead of starting at the doorway's edge.
+
+## X1538
+
+- AI soldiers no longer walk into the blast of their own squad's grenade
+  thrown into a room before an entry. Squad mates who are not part of that
+  entry and stand behind a wall from it wait there until it goes off,
+  instead of searching on along the wall into the line of the doorway. A
+  squad mate in the open now keeps clear of all of the blast's reach.
+
+## X1532
+
+- AI soldiers no longer now and then shoot one of their own who runs across
+  in front of the gun a few blocks off: before each shot they check where
+  that one will be when the bullet gets there, along the line the bullet
+  really takes from the gun's muzzle rather than from the eye.
+
+## X1525
+
 - An AI squad about to go into a room first looks into it from round the
   doorway, where there is room to: the ones beside it step out wide and
   close in bit by bit, guns on the edge of what comes into view by the
