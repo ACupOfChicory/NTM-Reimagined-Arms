@@ -1,25 +1,21 @@
 package acup.gunfeel.ammo;
 
-import com.hbm.handler.threading.TargetPoint;
 import com.hbm.main.Polaroid;
-import com.hbm.packet.PacketWire;
-import com.hbm.packet.toclient.MukePayload;
 
+import acup.gunfeel.nuke.MiniNukeCloud;
 import net.minecraft.server.level.ServerLevel;
 
 /**
- * The mod's mini nukes' cloud, one call for all (the nuclear .50). The mini nuke particles take it over once both are
- * in: the body becomes MiniNukeCloud.spawn(level, x, y, z, size, balefire), which sends this same MukePayload itself
- * where its cloud is off or out of the simulation distance. x, y, z: the blast's centre (as the Fat Mine's, whose
- * cloud is at its blast's centre too).
+ * The mod's mini nukes' cloud, one call for all (the nuclear .50): NTM's bombs' mushroom cloud sized to the blast
+ * (MiniNukeCloud), or NTM's own mini nuke particles where the cloud is off or out of the simulation distance. x, y, z:
+ * the blast's centre (as the Fat Mine's, whose cloud is at its blast's centre too).
  */
 public final class NuclearFx {
     private NuclearFx() {
     }
 
-    /** the cloud of a mini nuke's blast of ExplosionVNT size {@code size} at x, y, z; for now the Fat Mine's own */
+    /** the cloud of a mini nuke's blast of ExplosionVNT size {@code size} at x, y, z; balefire as the Fat Mine's */
     public static void miniNuke(ServerLevel level, double x, double y, double z, float size) {
-        PacketWire.sendToAllAround(new MukePayload(x, y, z, false, Polaroid.isBalefireDay() || level.getRandom().nextInt(100) == 0),
-                new TargetPoint(level, x, y, z, 250.0));
+        MiniNukeCloud.spawn(level, x, y, z, size, Polaroid.isBalefireDay() || level.getRandom().nextInt(100) == 0);
     }
 }

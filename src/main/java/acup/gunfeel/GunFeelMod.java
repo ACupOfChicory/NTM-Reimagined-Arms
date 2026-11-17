@@ -71,6 +71,8 @@ public final class GunFeelMod {
             acup.gunfeel.ai.client.AiDebugClient.init();
             if (Feature.MOB_AI.on()) acup.gunfeel.ai.client.AiVoiceClient.init();
             if (Feature.SUPPRESSION.on()) Suppression.init(modBus);
+            // the colours of the small nuclear blasts' clouds (MiniNukeCloud)
+            if (Feature.MINI_NUKE_CLOUD.on()) acup.gunfeel.nuke.MiniNukeCloud.registerPalettes();
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
                     net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> GunHitClient.clear());
         }
