@@ -34,7 +34,15 @@ public final class MiniNukeCloud {
     // a blast's radius (ExplosionVNT, NTM's MK5, ExplosionNukeSmall's params) counts for a muke this close, same tick
     static final double HINT_RANGE = 2;
 
-    private record Mark(Object level, double x, double y, double z, float size, long time) {
+    // the level held weakly: a world left to the menu is not kept by its last blast
+    private record Mark(java.lang.ref.WeakReference<Object> ref, double x, double y, double z, float size, long time) {
+        Mark(Object level, double x, double y, double z, float size, long time) {
+            this(new java.lang.ref.WeakReference<>(level), x, y, z, size, time);
+        }
+
+        boolean in(Object level) {
+            return ref.get() == level;
+        }
     }
 
     private static Mark hint, lastTiny;
@@ -70,7 +78,7 @@ public final class MiniNukeCloud {
 
     static float sizeAt(Object level, double x, double y, double z, long time) {
         Mark h = hint;
-        if (h == null || h.level != level || h.time != time) return DEFAULT_SIZE;
+        if (h == null || !h.in(level) || h.time != time) return DEFAULT_SIZE;
         double dx = h.x - x, dy = h.y - y, dz = h.z - z;
         return dx * dx + dy * dy + dz * dz <= HINT_RANGE * HINT_RANGE ? h.size : DEFAULT_SIZE;
     }
@@ -78,7 +86,7 @@ public final class MiniNukeCloud {
     // a tiny blast of a volley whose cloud is already there: true, and nothing to spawn
     static boolean joinsVolley(Object level, double x, double y, double z, long time) {
         Mark t = lastTiny;
-        if (t != null && t.level == level && time - t.time <= MERGE_TICKS && time >= t.time) {
+        if (t != null && t.in(level) && time - t.time <= MERGE_TICKS && time >= t.time) {
             double dx = t.x - x, dz = t.z - z;
             if (dx * dx + dz * dz <= MERGE_RANGE * MERGE_RANGE) return true;
         }

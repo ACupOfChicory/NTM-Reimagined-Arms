@@ -945,6 +945,7 @@ MINI_NUKE_CLOUD class com/hbm/blocks/bomb/BlockLandmineFat
 MINI_NUKE_CLOUD class com/hbm/entity/effect/EntityNukeTorex
 MINI_NUKE_CLOUD class com/hbm/entity/effect/EntityNukeTorex$Cloudlet
 MINI_NUKE_CLOUD class com/hbm/entity/effect/EntityNukeTorex$Palette
+MINI_NUKE_CLOUD class com/hbm/entity/mob/EntityCreeperNuclear
 MINI_NUKE_CLOUD class com/hbm/entity/projectile/EntityBulletBaseMK4
 MINI_NUKE_CLOUD class com/hbm/explosion/ExplosionNukeSmall$MukeParams
 MINI_NUKE_CLOUD class com/hbm/explosion/vanillant/ExplosionVNT
@@ -984,6 +985,10 @@ MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setPos (DDD)V
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setScale (F)Lcom/hbm/entity/effect/EntityNukeTorex;
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setTorexType (I)Lcom/hbm/entity/effect/EntityNukeTorex;
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet getScale ()F
+MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getX ()D
+MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getY ()D
+MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getZ ()D
+MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear isPowered ()Z
 MINI_NUKE_CLOUD method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 MINI_NUKE_CLOUD method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 MINI_NUKE_CLOUD method com/hbm/explosion/ExplosionNukeSmall explode (Lnet/minecraft/world/level/Level;DDDLcom/hbm/explosion/ExplosionNukeSmall$MukeParams;)V
