@@ -27,4 +27,16 @@ class AiCheckWarFlapsTest {
             last = k;
         }
     }
+
+    // the near pairs ready in time (AiCheckWar.leastByChance at READY_BEFORE 0.8): none needed of 1 or 2, half of 15
+    // as the check had before; the low tail worked out apart (2026-11-17)
+    @Test
+    void readyInTimeAsTheBinomialLowTail() {
+        assertEquals(0, AiCheckWar.leastByChance(1, AiCheckWar.READY_BEFORE));
+        assertEquals(0, AiCheckWar.leastByChance(2, AiCheckWar.READY_BEFORE));
+        assertEquals(1, AiCheckWar.leastByChance(3, AiCheckWar.READY_BEFORE));
+        assertEquals(5, AiCheckWar.leastByChance(10, AiCheckWar.READY_BEFORE));
+        assertEquals(8, AiCheckWar.leastByChance(15, AiCheckWar.READY_BEFORE));
+        assertEquals(12, AiCheckWar.leastByChance(20, AiCheckWar.READY_BEFORE));
+    }
 }
