@@ -1,0 +1,9 @@
+{
+  "values": [
+    {"id": "ntmgunfeel:ammo_g12_rubber_slug", "required": false},
+    {"id": "ntmgunfeel:ammo_g12_shock", "required": false},
+    {"id": "ntmgunfeel:ammo_r556_duplex", "required": false},
+    {"id": "ntmgunfeel:ammo_r762_duplex", "required": false},
+    {"id": "ntmgunfeel:ammo_bmg50_nuclear", "required": false}
+  ]
+}

@@ -52,10 +52,14 @@ import net.minecraft.world.phys.Vec3;
 //    one at 4 untouched (slowed, so the walk below is short); a cow is pushed 1.5 to 5 blocks back; the player hit by a mannequin's slug is slowed, its
 //    client confused, and holding the forward key it goes backwards then, forwards again after;
 //  - nuclear: three of the AMAT's shots at a stone wall 40 blocks off wear it out (wear = durability, not after two),
-//    the wall stands whole, a zombie by it is hurt.
+//    the wall stands whole, a zombie by it is hurt, the grass, a poppy, leaves and uranium ore before it laid waste (a log
+//    left); by the wall after them an AI soldier in DNS takes almost no
+//    radiation in 10 seconds (as a player in DNS), one bare and a plain vindicator in DNS take it as NTM gives a mob;
 // Lines "[new-ammo-stand] ..." in the log, PASS/FAIL in the report.
 final class NewAmmoStand {
     static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.newAmmoStand");
+    /** -PnewAmmoStand=short: the magazines (the bags with them) and the nuclear .50 only */
+    static final boolean SHORT = "short".equals(System.getProperty("ntmgunfeel.newAmmoStandMode"));
     private static final BlockPos O = new BlockPos(8, 100, 8);
     private static final double EX = 8.5, EZ = 8.5;
     /** the wall the nuclear rounds hit: z, half its width, its height */
@@ -69,6 +73,10 @@ final class NewAmmoStand {
     private static double zFrom;
     private static Vec3 cowAt;
     private static int wallBefore;
+    /** the radiation's mobs by the wall (nuclearRadiation), the dose there, how long they stand */
+    private static Mob radDns, radBare, radPlain;
+    private static double radDose;
+    private static final int RAD_TICKS = 200;
     private static double backZ, fwdZ;
 
     private NewAmmoStand() {
@@ -127,6 +135,7 @@ final class NewAmmoStand {
                 case 51 -> nuclearFire(1);
                 case 52 -> nuclearFire(2);
                 case 53 -> nuclearAfter();
+                case 54 -> nuclearRadiation();
                 case 60 -> {
                     onServer(p -> {
                         RubberServer.clear();
@@ -165,7 +174,49 @@ final class NewAmmoStand {
         takes("gun_amat_subtlety", NuclearBmg.config(), true);
         takes("gun_amat_penance", NuclearBmg.config(), true);
         takes("gun_m2", NuclearBmg.config(), false);
-        wait(5, 10);
+        ammoBag();
+        wait(5, SHORT ? 50 : 10);
+    }
+
+    // NTM's ammo bags, the plain one and the infinite one, take each of the mod's rounds (not a stick), and an AMAT with
+    // none left reloads the nuclear .50 from either: the plain bag gives its rounds up, the infinite one keeps them
+    private static void ammoBag() {
+        for (String bagId : new String[] {"ammo_bag", "ammo_bag_infinite"}) {
+            boolean infinite = bagId.endsWith("infinite");
+            String r = onServer(p -> {
+                ItemStack bag = new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", bagId)));
+                p.getInventory().clearContent();
+                // NTM opens a bag's contents only held (ItemStackContainer): in the off hand, the gun in the main one
+                p.setItemInHand(InteractionHand.OFF_HAND, bag);
+                var c = new com.hbm.inventory.ItemStackContainer(p, bag, com.hbm.items.tool.ItemAmmoBag.LAYOUT.slots());
+                var menu = new com.hbm.inventory.container.MenuItemBox(com.hbm.inventory.container.ModMenus.AMMO_BAG.get(), 0, p.getInventory(),
+                        com.hbm.items.tool.ItemAmmoBag.LAYOUT, c);
+                StringBuilder out = new StringBuilder();
+                for (String id : new String[] {"ammo_g12_rubber_slug", "ammo_g12_shock", "ammo_r556_duplex", "ammo_r762_duplex", "ammo_bmg50_nuclear"})
+                    out.append(menu.getSlot(0).mayPlace(new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("ntmgunfeel", id))))).append(' ');
+                out.append(menu.getSlot(0).mayPlace(new ItemStack(net.minecraft.world.item.Items.STICK))).append(' ');
+                menu.removed(p);
+                c.setItem(0, new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("ntmgunfeel", "ammo_bmg50_nuclear")), 4));
+                c.setChanged();
+                ItemStack gun = gun(p, "gun_amat", NuclearBmg.config(), 0);
+                ItemGunBaseNT g = (ItemGunBaseNT) gun.getItem();
+                var mag = g.getConfig(gun, 0).getReceivers(gun)[0].getMagazine(gun);
+                boolean can = mag.canReload(gun, p.getInventory());
+                mag.reloadAction(gun, p.getInventory());
+                int left = com.hbm.items.tool.ItemAmmoBag.contents(p.getOffhandItem()).getItem(0).getCount();
+                out.append(can).append(' ').append(mag.getAmount(gun, p.getInventory())).append(' ').append(left);
+                p.getInventory().clearContent();
+                return out.toString();
+            });
+            log("сумка {}: кладутся резиновый, шок, Duplex 5.56, 7.62, ядерный, палка / перезарядка, патронов в AMAT, в сумке осталось из 4: {}", bagId, r);
+            String[] q = r.split(" ");
+            check(q[0].equals("true") && q[1].equals("true") && q[2].equals("true") && q[3].equals("true") && q[4].equals("true") && q[5].equals("false"),
+                    "сумка " + bagId + ": берёт все наши патроны, палку нет (" + r + ")");
+            int got = Integer.parseInt(q[7]), left = Integer.parseInt(q[8]);
+            check(q[6].equals("true") && got > 0 && (infinite ? left == 4 : left == 4 - got),
+                    "сумка " + bagId + ": AMAT перезаряжается ядерным из сумки, " + (infinite ? "в сумке патроны не убывают" : "из сумки ушло столько, сколько зарядилось")
+                            + " (" + r + ")");
+        }
     }
 
     private static void takes(String gun, BulletConfig c, boolean want) {
@@ -429,6 +480,15 @@ final class NewAmmoStand {
                 ServerLevel level = (ServerLevel) p.level();
                 for (int x = -WALL_W; x <= WALL_W; x++) for (int y = 0; y < WALL_H; y++)
                     level.setBlock(O.offset(x, y, WALL_Z - 8), Blocks.STONE.defaultBlockState(), 3);
+                // before the wall what a nuke lays waste to (MiniWasteMutator): grass, a poppy, leaves, uranium ore; and
+                // a log it leaves (no wood burnt)
+                for (int x = -3; x <= 3; x++) for (int z = WALL_Z - 10; z <= WALL_Z - 9; z++)
+                    level.setBlock(O.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                level.setBlock(O.offset(-1, 0, WALL_Z - 9), Blocks.POPPY.defaultBlockState(), 3);
+                level.setBlock(O.offset(1, 0, WALL_Z - 9), Blocks.OAK_LEAVES.defaultBlockState()
+                        .setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 3);
+                level.setBlock(O.offset(3, 0, WALL_Z - 9), Blocks.OAK_LOG.defaultBlockState(), 3);
+                level.setBlock(O.offset(4, -1, WALL_Z - 9), block("ore_uranium").defaultBlockState(), 3);
                 p.teleportTo(level, EX, O.getY(), EZ, Set.of(), 0F, -2F, false);
                 gun(p, "gun_amat", NuclearBmg.config(), 7);
                 p.setHealth(p.getMaxHealth());
@@ -515,11 +575,72 @@ final class NewAmmoStand {
         log("ядерный: блоков стены {} -> {}, зомби у стены задет {}, игрок {}", wallBefore, now, hurt, f(hp));
         check(now == wallBefore, "ядерный: стена цела (" + wallBefore + " -> " + now + ")");
         check(hurt, "ядерный: зомби у стены задет взрывом");
+        String[] w = onServer(p -> {
+            var l = p.level();
+            int dead = 0;
+            for (int x = -3; x <= 3; x++) for (int z = WALL_Z - 10; z <= WALL_Z - 9; z++)
+                if (l.getBlockState(O.offset(x, -1, z)).is(block("waste_earth"))) dead++;
+            return new String[] {String.valueOf(dead), id(l.getBlockState(O.offset(-1, 0, WALL_Z - 9))), id(l.getBlockState(O.offset(1, 0, WALL_Z - 9))),
+                    id(l.getBlockState(O.offset(3, 0, WALL_Z - 9))), id(l.getBlockState(O.offset(4, -1, WALL_Z - 9)))};
+        });
+        log("ядерный: пустошь у стены: мёртвой земли {} из 14, мак -> {}, листва -> {}, бревно -> {}, урановая руда -> {}", w[0], w[1], w[2], w[3], w[4]);
+        check(Integer.parseInt(w[0]) >= 7, "ядерный: трава у стены стала мёртвой землёй (" + w[0] + " из 14)");
+        check(w[1].equals("minecraft:air") && w[2].equals("hbm:waste_leaves"), "ядерный: мак у стены убран, листва мёртвая (" + w[1] + ", " + w[2] + ")");
+        check(w[3].equals("minecraft:oak_log"), "ядерный: бревно у стены цело, не обгорело (" + w[3] + ")");
+        check(w[4].equals("hbm:ore_schrabidium") || w[4].equals("hbm:ore_uranium_scorched"),
+                "ядерный: урановая руда у стены стала шрабидиевой или обожжённой (" + w[4] + ")");
         onServer(p -> {
             if (guard.isAlive()) guard.discard();
+            // the radiation the three shots left by the wall: a soldier in DNS, one bare, a plain vindicator in DNS
+            ServerLevel level = (ServerLevel) p.level();
+            double z = O.getZ() + WALL_Z - 9.5;
+            radDns = mob(p, EntityTypes.VINDICATOR, EX - 2, z, true, 500);
+            radBare = mob(p, EntityTypes.VINDICATOR, EX, z, true, 500);
+            radPlain = mob(p, EntityTypes.VINDICATOR, EX + 2, z, true, 500);
+            for (Mob m : new Mob[] {radDns, radPlain}) dns(m);
+            acup.gunfeel.ai.AiBots.attach(radDns, acup.gunfeel.ai.AiProfile.SOLDIER);
+            acup.gunfeel.ai.AiBots.attach(radBare, acup.gunfeel.ai.AiProfile.SOLDIER);
+            radDose = com.hbm.handler.radiation.RadiationSystemNT.doseAt(level, radBare.blockPosition());
+            return null;
+        });
+        wait(RAD_TICKS, 54);
+    }
+
+    private static void dns(Mob m) {
+        for (var e : new Object[][] {{net.minecraft.world.entity.EquipmentSlot.HEAD, "dns_helmet"}, {net.minecraft.world.entity.EquipmentSlot.CHEST, "dns_plate"},
+                {net.minecraft.world.entity.EquipmentSlot.LEGS, "dns_legs"}, {net.minecraft.world.entity.EquipmentSlot.FEET, "dns_boots"}})
+            m.setItemSlot((net.minecraft.world.entity.EquipmentSlot) e[0],
+                    new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", (String) e[1]))));
+    }
+
+    // a soldier in DNS keeps the radiation out as a player in it would; one bare and a plain vindicator in DNS take it all
+    private static void nuclearRadiation() {
+        double[] r = onServer(p -> new double[] {rad(radDns), rad(radBare), rad(radPlain), radDns.isAlive() ? 1 : 0, radBare.isAlive() ? 1 : 0,
+                radPlain.isAlive() ? 1 : 0, com.hbm.util.ContaminationUtil.calculateRadiationMod(radDns),
+                com.hbm.util.ContaminationUtil.calculateRadiationMod(radPlain)});
+        log("ядерный: радиация у стены {} RAD/с; за {} тактов боец в DNS {} RAD (жив {}, множитель {}), боец без брони {} RAD (жив {}), "
+                + "поборник в DNS {} RAD (жив {}, множитель {})", f((float) radDose), RAD_TICKS, f((float) r[0]), r[3] > 0, r[6], f((float) r[1]),
+                r[4] > 0, f((float) r[2]), r[5] > 0, r[7]);
+        check(r[3] > 0 && r[0] < 1 && r[6] < 1e-4, "ядерный: боец ИИ в DNS у стены после 3 выстрелов жив и почти без радиации");
+        check(r[4] == 0 || r[1] > 100, "ядерный: боец ИИ без брони у стены облучён, как раньше");
+        check(r[5] == 0 || r[2] > 100, "ядерный: обычный поборник в DNS облучён, как у NTM (броня моба не в счёт)");
+        onServer(p -> {
+            for (Mob m : new Mob[] {radDns, radBare, radPlain}) if (m.isAlive()) m.discard();
             return null;
         });
         wait(5, 60);
+    }
+
+    private static net.minecraft.world.level.block.Block block(String id) {
+        return BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("hbm", id));
+    }
+
+    private static String id(net.minecraft.world.level.block.state.BlockState s) {
+        return BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();
+    }
+
+    private static double rad(Mob m) {
+        return com.hbm.extprop.HbmLivingProps.getRadiation(m);
     }
 
     private static int wall() {

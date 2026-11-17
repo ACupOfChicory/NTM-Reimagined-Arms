@@ -1,5 +1,37 @@
 # Changelog
 
+## X1490
+
+- An AI squad clearing the building where it shot down a foe no longer
+  drops the job when every room left already has two of its own in it for a
+  moment. It goes on until the building is checked or the time runs out.
+- An AI squad no longer throws a grenade into a room before going in when a
+  villager, a trader, a tamed pet or a named creature is in it or close
+  enough to be caught by the blast. It goes in without one. A wild animal
+  doesn't stop the grenade.
+- A squad that goes in after a foe it still knows is alive throws its grenade
+  as usual, even if that room was turned down for a grenade after an earlier
+  fight.
+- Two of a squad going through the same narrow doorway into a building no
+  longer push at each other in front of it for good. One steps back and lets
+  the other through.
+- A new order from the side's commander now calls a squad off clearing such a
+  building. An order it already had before the fight doesn't.
+
+## X1484
+
+- An AI soldier's armour now keeps radiation out as a player's does. NTM let
+  all of it through to a soldier, as to any mob, so one in a full DNS set died
+  within seconds by a nuclear .50's blast. Other mobs are as before.
+- The nuclear .50's blast now lays the ground waste as a nuke does, still
+  breaking no blocks: grass, podzol and mycelium in its reach die, leaves
+  turn dead, flowers, tall grass, saplings, crops, mushrooms and snow are
+  gone, and uranium ore turns to schrabidium or scorched uranium ore. Wood is
+  left unburnt.
+- NTM's ammo bags, the plain one and the infinite one, now take the mod's
+  rounds (the rubber slug, the electroshock shell, the Duplex rounds and the
+  nuclear .50), and guns reload them from the bag.
+
 ## X1476
 
 - The small nuclear blasts' shock wave now shows as a ring rolling out over

@@ -44,11 +44,27 @@ public final class AiEntry {
     static boolean frag = true;
     /** the stands: entries begun, grenades thrown in before one, throwers that stepped out and did not throw */
     public static int entries, frags, noThrow, noFragFought;
+    /** the stands: of frags, those into a room fought in (the entry weighed as one, no foe known alive gone after by it) */
+    public static int fragsFought;
     /** a room a foe fell in takes a grenade only this small (cells), every cell of it this near where it goes (blocks), none of its side this near where the foe fell nor in it */
     static final int FOUGHT_CELLS = 64;
     static final double FOUGHT_REACH = 6, FOUGHT_OWN = 4;
+    /** a room fought in: whether its grenade goes in, worked out again this often while they stack, ticks */
+    static final int FRAG_AGAIN = 10;
 
-    /** a grenade into a room fought in: a shut room the burst covers, and none of the thrower's side in it or by where the foe fell */
+    /**
+     * One a grenade into a room before an entry is kept from (after a foe known alive or into a room fought in): a
+     * villager or trader, a tamed pet, one given a name; no fighter (an AI mob, a player, a stand's target), not a wild animal (a cow in the
+     * barn does not shelter the one hiding there).
+     */
+    static boolean spared(net.minecraft.world.entity.LivingEntity e) {
+        if (AiBots.fighter(e)) return false;
+        return e instanceof net.minecraft.world.entity.npc.villager.AbstractVillager
+                || e instanceof net.minecraft.world.entity.OwnableEntity o && o.getOwnerReference() != null
+                || e.hasCustomName();
+    }
+
+    /** a grenade into a room fought in: a shut room the burst covers, and none of the thrower's side nor one to be spared in it or by where the foe fell */
     private static boolean fragFought(Op op, ServerLevel level, AiBot bot, long lost) {
         AiRooms.Plan plan = op.plan;
         if (plan == null || op.room < 0 || plan.size[op.room] > FOUGHT_CELLS) return false;
@@ -57,11 +73,20 @@ public final class AiEntry {
         Vec3 at = mid(lost, 0);
         double r = Math.max(FOUGHT_OWN, Math.sqrt(plan.size[op.room]) + FOUGHT_REACH);
         for (net.minecraft.world.entity.LivingEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(at, at).inflate(r))) {
-            if (!e.isAlive() || !AiTeams.own(bot.mob, e)) continue;
-            if (e.position().distanceTo(at) <= FOUGHT_OWN || plan.room(cell(e.getX(), e.getY(), e.getZ())) == op.room) return false;
+            if (!e.isAlive() || !AiTeams.own(bot.mob, e) && !spared(e)) continue;
+            boolean in = plan.room(cell(e.getX(), e.getY(), e.getZ())) == op.room;
+            if (in) return false;
+            // (the entry's own at their places beside the way in, a foe fallen by it: the throw itself keeps them out of its blast)
+            if (e.position().distanceTo(at) <= FOUGHT_OWN && !member(op, e)) return false;
         }
         return true;
     }
+
+    private static boolean member(Op op, net.minecraft.world.entity.LivingEntity e) {
+        for (AiBot m : op.members) if (m.mob == e) return true;
+        return false;
+    }
+
     /** the stands: those of an entry in its room while its grenade was out and not burst yet (in before their own blast) */
     public static int inBeforeBlast;
     /** the stands: those of an entry off their place beside the way in (OFF_PLACE) while its grenade was out, past WAIT_GRACE ticks of the wait */
@@ -87,7 +112,7 @@ public final class AiEntry {
      */
     static final double HE_SAFE = 9.5, POWDER_SAFE = 7;
     /** the stands: why a throw was not found: none lands in the room, one of the entry not behind the wall, another of its side in reach, a player */
-    public static final int[] why = new int[4];
+    public static final int[] why = new int[5];
 
     /** an opening this wide at most is gone into so; wider, it is no doorway */
     static final int WIDE = 2;
@@ -114,8 +139,18 @@ public final class AiEntry {
         String lostHow = "";
         Vec3 aim = Vec3.ZERO;
         double safe;
-        /** an entry into a room a foe fell in (no one known there now) whose grenade is not to go in: the room too big, or one of its side there */
-        boolean noFrag, placeSeen;
+        /**
+         * an entry into a room a foe fell in (no one known there now) whose grenade is not to go in: the room too big,
+         * one of its side or one to be spared there; worked out again every FRAG_AGAIN ticks while it stacks
+         */
+        boolean noFrag;
+        /** when noFrag was last worked out; when one of the side last went after a foe known of (alive) by this entry */
+        long fragSeen = Long.MIN_VALUE, liveAt = Long.MIN_VALUE;
+        /** its grenade (if one goes) is one into a room fought in (the stands) */
+        boolean fragPlace;
+        /** those to be spared by the room (spared), found at the tick sparedAt (safe) */
+        final List<net.minecraft.world.entity.LivingEntity> spared = new ArrayList<>(2);
+        long sparedAt = Long.MIN_VALUE;
         long[] slots = {}, inner = {};
         /** where each of the entry waits, by its number: {beside the way in, a grenade going in} */
         final List<long[]> places = new ArrayList<>(4);
@@ -234,13 +269,18 @@ public final class AiEntry {
                     }
             ops.put(key, op);
         }
-        // a room fought in (the foe known of fallen there): whether a grenade goes in, worked out once, on the entry it
-        // has (one made while the foe was alive, by AiSoldier's flank check, is the same entry)
-        if (c.place && !op.placeSeen && op.way != null) {
-            op.placeSeen = true;
-            if (op.phase == STACK) op.noFrag = !fragFought(op, level, bot, lost);
-            fate("a room fought in: " + (op.phase != STACK ? "its entry under way already (phase " + op.phase + ")" : op.noFrag ? "no grenade" : "a grenade may go in")
-                    + ", room cells " + (op.plan == null || op.room < 0 ? -1 : op.plan.size[op.room]));
+        // a foe known of (alive) gone after by this entry: its drill as ever, a grenade in where one goes (the entry is
+        // one a side, another target in the same room shares it)
+        if (!c.place) op.liveAt = tick;
+        // a room fought in (the foe known of fallen there): whether a grenade goes in, worked out again while they
+        // stack (those of its side or to be spared step in and out), on the entry it has (one made while the foe was
+        // alive, by AiSoldier's flank check, is the same entry)
+        else if (op.way != null && op.phase == STACK && (op.fragSeen == Long.MIN_VALUE || tick - op.fragSeen >= FRAG_AGAIN)) {
+            boolean first = op.fragSeen == Long.MIN_VALUE, no = !fragFought(op, level, bot, lost);
+            op.fragSeen = tick;
+            if (first || no != op.noFrag)
+                fate("a room fought in: " + (no ? "no grenade" : "a grenade may go in") + ", room cells " + (op.plan == null || op.room < 0 ? -1 : op.plan.size[op.room]));
+            op.noFrag = no;
         }
         return op;
     }
@@ -383,17 +423,22 @@ public final class AiEntry {
                 if (!(all && (op.members.size() >= Math.min(2, op.slots.length) || waited >= WAIT_SECOND) || waited >= STACK_MAX)) return;
                 entries++;
                 int[] w0 = why.clone();
-                op.thrower = all && !op.noFrag ? thrower(op, level, tick) : null;
-                if (op.noFrag) {
+                // (a foe known of gone after by it a moment ago, since the room was last weighed as one fought in: not a
+                // room fought in only)
+                boolean live = op.liveAt != Long.MIN_VALUE && op.liveAt >= op.fragSeen && tick - op.liveAt <= FRAG_AGAIN;
+                boolean noFrag = op.noFrag && !live;
+                op.fragPlace = op.fragSeen != Long.MIN_VALUE && !live;
+                op.thrower = all && !noFrag ? thrower(op, level, tick) : null;
+                if (noFrag) {
                     noFragFought++;
-                    fate("a room fought in, no grenade: too big, or one of its side there");
+                    fate("a room fought in, no grenade: too big, or one of its side or one to be spared there");
                 } else if (!all) {
                     unstacked++;
                     fate("in before all were beside it (" + op.members.size() + " there)");
                 } else if (op.thrower == null) {
                     noPlan++;
                     fate("no throw found: none in the room " + (why[0] - w0[0]) + ", one of it not behind the wall " + (why[1] - w0[1]) + ", another of its side " + (why[2] - w0[2])
-                            + ", a player " + (why[3] - w0[3]) + "; with a grenade " + armed(op));
+                            + ", a player " + (why[3] - w0[3]) + ", one to be spared " + (why[4] - w0[4]) + "; with a grenade " + armed(op));
                 }
                 phase(op, op.thrower != null ? FRAG : GO, tick);
                 if (op.thrower != null && firstThrower != null) firstThrower.accept(op.thrower);
@@ -461,7 +506,7 @@ public final class AiEntry {
         if (armed > 0 && !AiGrenades.planFree(level, tick) && tick - op.handing < HAND_MAX) return;
         op.thrower = armed > 0 ? thrower(op, level, tick) : null;
         // a soldier reloading or lying may be ready in a moment
-        if (op.thrower == null && armed > 0 && tick - op.handing < HAND_MAX && why[0] == op.why0[0] && why[1] == op.why0[1] && why[2] == op.why0[2] && why[3] == op.why0[3]) return;
+        if (op.thrower == null && armed > 0 && tick - op.handing < HAND_MAX && why[0] == op.why0[0] && why[1] == op.why0[1] && why[2] == op.why0[2] && why[3] == op.why0[3] && why[4] == op.why0[4]) return;
         op.handing = Long.MIN_VALUE;
         if (op.thrower != null) {
             handedOn++;
@@ -470,7 +515,7 @@ public final class AiEntry {
             return;
         }
         fate("thrower " + op.lostHow + ", in without one: " + (armed == 0 ? "none else with a grenade" : "no throw found: none in the room " + (why[0] - op.why0[0])
-                + ", one of it not behind the wall " + (why[1] - op.why0[1]) + ", another of its side " + (why[2] - op.why0[2]) + ", a player " + (why[3] - op.why0[3])));
+                + ", one of it not behind the wall " + (why[1] - op.why0[1]) + ", another of its side " + (why[2] - op.why0[2]) + ", a player " + (why[3] - op.why0[3]) + ", one to be spared " + (why[4] - op.why0[4])));
         phase(op, GO, tick);
     }
 
@@ -530,7 +575,8 @@ public final class AiEntry {
         }
         op.fragId = s.threwInto(bot, level, t, powder() ? EnumGrenadeFilling.POWDER : EnumGrenadeFilling.HE, tick).getId();
         frags++;
-        fate("thrown");
+        if (op.fragPlace) fragsFought++;
+        fate(op.fragPlace ? "thrown (a room fought in)" : "thrown");
         phase(op, WAIT, tick);
         go(bot, op.places.get(op.members.indexOf(bot))[1], 0.35);
     }
@@ -538,7 +584,8 @@ public final class AiEntry {
     /**
      * Whether a burst here harms none of the thrower's own: it is in the room (over one of its cells); those of the
      * entry are all of them off it behind the wall at their places beside the way in (AiGrenades.shielded, standing);
-     * any other of its side is out of its reach (op.safe) or all of it behind blocks from it where it is.
+     * any other of its side is out of its reach (op.safe) or all of it behind blocks from it where it is; none to be
+     * spared (spared) in the room, nor in its reach unless behind blocks.
      */
     private static boolean safe(Op op, ServerLevel level, VoxelRay.Source src, Mob thrower, Vec3 b) {
         AiRooms.Plan plan = op.plan;
@@ -566,6 +613,24 @@ public final class AiEntry {
                 why[3]++;
                 return false;
             }
+        // one to be spared (a villager, a tamed pet, one named: spared) in the room or in the blast's reach (those by
+        // the room found once a tick: a throw's plan asks here for many a point)
+        long now = level.getGameTime();
+        if (op.sparedAt != now) {
+            op.sparedAt = now;
+            op.spared.clear();
+            Vec3 mid = mid(plan.mid[op.room], 0);
+            double reach = Math.max(op.safe, FOUGHT_REACH) + Math.sqrt(plan.size[op.room]) + 2;
+            for (net.minecraft.world.entity.LivingEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(mid, mid).inflate(reach)))
+                if (e.isAlive() && spared(e)) op.spared.add(e);
+        }
+        for (net.minecraft.world.entity.LivingEntity e : op.spared) {
+            boolean in = plan.room(cell(e.getX(), e.getY(), e.getZ())) == op.room;
+            if (in || e.distanceToSqr(b) < s2 && !AiGrenades.shielded(src, e.getX(), e.getY(), e.getZ(), e.getBbHeight(), b)) {
+                why[4]++;
+                return false;
+            }
+        }
         return true;
     }
 
