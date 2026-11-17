@@ -514,6 +514,11 @@ final class AiCheckWar {
                     if (c > 0) covering++;
                     else StaffMove.offPlace(j, k -> offWhy.merge(k, 1, Integer::sum));
                     if (c > 1) inCover++;
+                    // the C3 trace: each look counted, its squad soldier by soldier
+                    if (dump != null) {
+                        String tag = c > 0 ? "OK" : "MISS";
+                        StaffMove.trace(j, now, b -> ours.indexOf(b.mob), s -> dump.println("M " + round + " " + ticks + " " + tag + " " + s));
+                    }
                 }
             }
         }
