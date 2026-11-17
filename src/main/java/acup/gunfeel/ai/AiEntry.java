@@ -425,7 +425,7 @@ public final class AiEntry {
         for (int i = 0; i < op.slots.length; i++)
             if (far[i] != op.slots[i] && far2[i] != far[i]) op.places.add(new long[] {far[i], far2[i]});
         op.inner = w.beside(room);
-        if (w.turn < 0 && hidden()) hide(op, level, plan, w, room);
+        if (hidden()) hide(op, level, plan, w, room);
         // looked at from beside it: the opening's cell at the far end from the room; before it, the cell a thrower steps
         // out to (at a trench's turn, the turn)
         long end = room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
