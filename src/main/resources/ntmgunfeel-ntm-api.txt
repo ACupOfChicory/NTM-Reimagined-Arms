@@ -1,3 +1,5 @@
+AMMO_BAG field com/hbm/inventory/container/ModMenus AMMO_BAG Lcom/hbm/registration/RegistryHandle;
+AMMO_BAG method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 AMMO_CHOICE class com/hbm/inventory/ItemStackContainer
 AMMO_CHOICE class com/hbm/items/weapon/sedna/BulletConfig
 AMMO_CHOICE class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -1090,6 +1092,7 @@ MOB_AI field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 MOB_AI field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
 MOB_AI method com/hbm/client/render/ArmorWorldRenderer$Bone name ()Ljava/lang/String;
 MOB_AI method com/hbm/entity/projectile/EntityThrowableNT setThrowableHeading (DDDFF)V
+MOB_AI method com/hbm/handler/HazmatRegistry getResistance (Lnet/minecraft/world/entity/LivingEntity;)F
 MOB_AI method com/hbm/interfaces/injected/IBufferBuilderExtension hbm$beginBlock (I)Z
 MOB_AI method com/hbm/interfaces/injected/IBufferBuilderExtension hbm$blockVertex (FFFIFFIIFFF)V
 MOB_AI method com/hbm/interfaces/injected/IBufferBuilderExtension hbm$endBlock ()V
@@ -1151,6 +1154,8 @@ NUCLEAR_BMG50 class com/hbm/entity/projectile/EntityBulletBaseMK4
 NUCLEAR_BMG50 class com/hbm/explosion/vanillant/ExplosionVNT
 NUCLEAR_BMG50 class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
 NUCLEAR_BMG50 class com/hbm/explosion/vanillant/standard/PlayerProcessorStandard
+NUCLEAR_BMG50 class com/hbm/inventory/ItemStackContainer
+NUCLEAR_BMG50 class com/hbm/inventory/container/MenuItemBox
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/BulletConfig
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/GunConfig
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/ItemGunBaseNT
@@ -1163,7 +1168,9 @@ NUCLEAR_BMG50 class com/hbm/particle/SpentCasing
 NUCLEAR_BMG50 class com/hbm/registration/RegistryHandle
 NUCLEAR_BMG50 field com/hbm/data/ExplosionData MINE_NUKE_DAMAGE Lcom/hbm/data/DataGroups$Param;
 NUCLEAR_BMG50 field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
+NUCLEAR_BMG50 field com/hbm/inventory/container/ModMenus AMMO_BAG Lcom/hbm/registration/RegistryHandle;
 NUCLEAR_BMG50 field com/hbm/items/EnumCasingType LARGE_STEEL Lcom/hbm/items/EnumCasingType;
+NUCLEAR_BMG50 field com/hbm/items/tool/ItemAmmoBag LAYOUT Lcom/hbm/inventory/container/MenuItemBox$Layout;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig damageMult F
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig id I
@@ -1193,6 +1200,17 @@ NUCLEAR_BMG50 method com/hbm/explosion/vanillant/ExplosionVNT setPlayerProcessor
 NUCLEAR_BMG50 method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth <init> (DF)V
 NUCLEAR_BMG50 method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth withRangeMod (F)Lcom/hbm/explosion/vanillant/standard/EntityProcessorCross;
 NUCLEAR_BMG50 method com/hbm/explosion/vanillant/standard/PlayerProcessorStandard <init> ()V
+NUCLEAR_BMG50 method com/hbm/extprop/HbmLivingProps getRadiation (Lnet/minecraft/world/entity/LivingEntity;)D
+NUCLEAR_BMG50 method com/hbm/handler/radiation/RadiationSystemNT doseAt (Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)D
+NUCLEAR_BMG50 method com/hbm/inventory/ItemStackContainer <init> (Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;I)V
+NUCLEAR_BMG50 method com/hbm/inventory/ItemStackContainer getItem (I)Lnet/minecraft/world/item/ItemStack;
+NUCLEAR_BMG50 method com/hbm/inventory/ItemStackContainer setChanged ()V
+NUCLEAR_BMG50 method com/hbm/inventory/ItemStackContainer setItem (ILnet/minecraft/world/item/ItemStack;)V
+NUCLEAR_BMG50 method com/hbm/inventory/container/MenuItemBox <init> (Lnet/minecraft/world/inventory/MenuType;ILnet/minecraft/world/entity/player/Inventory;Lcom/hbm/inventory/container/MenuItemBox$Layout;Lnet/minecraft/world/Container;)V
+NUCLEAR_BMG50 method com/hbm/inventory/container/MenuItemBox getSlot (I)Lnet/minecraft/world/inventory/Slot;
+NUCLEAR_BMG50 method com/hbm/inventory/container/MenuItemBox removed (Lnet/minecraft/world/entity/player/Player;)V
+NUCLEAR_BMG50 method com/hbm/inventory/container/MenuItemBox$Layout slots ()I
+NUCLEAR_BMG50 method com/hbm/items/tool/ItemAmmoBag contents (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/inventory/ItemStackContainer;
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/BulletConfig <init> ()V
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/BulletConfig setCasing (Lcom/hbm/items/EnumCasingType;I)Lcom/hbm/items/weapon/sedna/BulletConfig;
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/BulletConfig setCasing (Lcom/hbm/particle/SpentCasing;)Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -1218,8 +1236,10 @@ NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/factory/Lego clickReceiver (Lnet
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/factory/Lego doStandardFire (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;Lcom/hbm/render/anim/AnimationEnums$GunAnimation;IZ)V
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/factory/Lego getStandardWearSpread (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/GunConfig;I)F
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/factory/XFactoryCatapult incrementRad (Lnet/minecraft/world/level/Level;DDDF)V
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine canReload (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Z
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine reloadAction (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)V
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
 NUCLEAR_BMG50 method com/hbm/main/Polaroid isBalefireDay ()Z
@@ -1230,6 +1250,7 @@ NUCLEAR_BMG50 method com/hbm/particle/SpentCasing setScale (F)Lcom/hbm/particle/
 NUCLEAR_BMG50 method com/hbm/registration/NeoForgeRegistrar registerItem (Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Supplier;)Lcom/hbm/registration/RegistryHandle;
 NUCLEAR_BMG50 method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 NUCLEAR_BMG50 method com/hbm/saveddata/satellites/SatelliteDetector reportEvent (Lnet/minecraft/server/level/ServerLevel;ILcom/hbm/saveddata/satellites/SatelliteDetector$BurstIntensity;DD)V
+NUCLEAR_BMG50 method com/hbm/util/ContaminationUtil calculateRadiationMod (Lnet/minecraft/world/entity/LivingEntity;)D
 PRONE class com/hbm/client/Keybinds
 PRONE class com/hbm/entity/projectile/EntityBulletBaseMK4
 PRONE class com/hbm/items/weapon/sedna/ItemGunBaseNT

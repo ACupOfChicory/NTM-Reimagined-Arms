@@ -34,7 +34,7 @@ public enum Feature {
     PRONE_FIRE("prone_fire", List.of("MixinProneFireClick", "MixinProneFireDecider", "MixinProneFireKeys"), List.of("ProneFire", "ProneFireStand")),
     BALANCE("balance", List.of("MixinBalanceArmor", "MixinBlastGrenadeFilling", "MixinBalanceElectric", "MixinBalanceGunShot", "MixinBalanceGunBeam", "MixinBalanceFinalSub", "MixinBalanceFinalBeamSub", "MixinBalanceGunHit", "ReceiverAccess", "MixinBalanceGunTooltip", "MixinArmorAbilities", "MixinArmorEsp", "MixinBalanceShield", "MixinBalanceShieldTick", "MixinBalanceShieldFlask", "MixinBalanceSyringe", "MixinBalanceInsert", "MixinEuphImmunity", "MixinEuphEffects", "MixinRadonTomb", "MixinBalanceDns", "MixinBalanceImmunity"), List.of("BalanceArmor", "BalanceGuns", "ArmorAbilities", "BalanceKit", "EuphImmunity")),
     GUN_MECHANISMS("gun_mechanisms", List.of("MixinMechanismAutogen"), List.of("GunMechanisms", "MechanismCheck")),
-    MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy", "MixinAiSmoke", "MixinAiLeanShot", "MixinBotModel", "MixinBotSuitFit"), List.of("SuitBend", "AiGunner", "AiCommand", "AiKitCommand", "AiCheckKit", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil", "FightLook")),
+    MOB_AI("mob_ai", List.of("MixinAiFbi", "MixinAiDummy", "MixinAiSmoke", "MixinAiLeanShot", "MixinBotModel", "MixinBotSuitFit", "MixinAiRadiation"), List.of("SuitBend", "AiGunner", "AiCommand", "AiKitCommand", "AiCheckKit", "AiCheckSpread", "AiCheckAim", "AiCheckRecoil", "FightLook")),
     SUPPRESSION("suppression", List.of("MixinSuppressionBlast"), List.of("Suppression", "SuppressionServer", "SuppressionStand")),
     SHOCK("shock", List.of("MixinShockSpread"), List.of("ShockAmmo", "ShockServer", "ShockStand")),
     RUBBER_SLUG("rubber_slug", List.of(), List.of("RubberSlug", "RubberServer", "NewAmmo")),
@@ -43,7 +43,8 @@ public enum Feature {
     GUNSHOT_RANGE("gunshot_range", List.of("MixinGunshotRange"), List.of("GunshotRange")),
     CASINGS("casings", List.of("CasingInstanceAccess", "MixinCasingDraw"), List.of("CasingCull", "CasingInstances")),
     THERMAL_OUTLINES("thermal_outlines", List.of("MixinThermalEdges"), List.of("BoxEdges")),
-    MINI_NUKE_CLOUD("mini_nuke_cloud", List.of("MukePayloadAccess", "MixinMiniNukeSend", "MixinMiniNukeSize", "MixinMiniNukeParams", "MixinMiniNukeMk5", "MixinMiniNukeCreeper", "MixinMiniNukeTorex", "MixinMiniNukeFx"), List.of("MiniNukeCloud", "MiniNukeStand"));
+    MINI_NUKE_CLOUD("mini_nuke_cloud", List.of("MukePayloadAccess", "MixinMiniNukeSend", "MixinMiniNukeSize", "MixinMiniNukeParams", "MixinMiniNukeMk5", "MixinMiniNukeCreeper", "MixinMiniNukeTorex", "MixinMiniNukeFx"), List.of("MiniNukeCloud", "MiniNukeStand")),
+    AMMO_BAG("ammo_bag", List.of("MixinAmmoBagOurs"), List.of("AmmoBagOurs"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel

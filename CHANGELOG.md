@@ -1,5 +1,19 @@
 # Changelog
 
+## X1484
+
+- An AI soldier's armour now keeps radiation out as a player's does. NTM let
+  all of it through to a soldier, as to any mob, so one in a full DNS set died
+  within seconds by a nuclear .50's blast. Other mobs are as before.
+- The nuclear .50's blast now lays the ground waste as a nuke does, still
+  breaking no blocks: grass, podzol and mycelium in its reach die, leaves
+  turn dead, flowers, tall grass, saplings, crops, mushrooms and snow are
+  gone, and uranium ore turns to schrabidium or scorched uranium ore. Wood is
+  left unburnt.
+- NTM's ammo bags, the plain one and the infinite one, now take the mod's
+  rounds (the rubber slug, the electroshock shell, the Duplex rounds and the
+  nuclear .50), and guns reload them from the bag.
+
 ## X1476
 
 - The small nuclear blasts' shock wave now shows as a ring rolling out over

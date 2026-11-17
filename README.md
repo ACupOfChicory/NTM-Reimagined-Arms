@@ -91,15 +91,19 @@ page. They are alphas: expect bugs and back up your world.
 - A .50 BMG Nuclear Round for the AMAT rifles only (ammo press: two
   americium-242 nuggets, a schrabidium nugget, two TATB charges and a steel
   large casing give one). It does no damage of its own and goes off where it
-  hits as 80 % of NTM's Fat Mine, breaking no blocks; point blank as well. One
-  shot wears the rifle by a fixed share of its durability: an AMAT from new is
-  worn out in 3 shots, a Subtlety in 6, a Penance in 10. Wear spreads this
-  round's shots only a quarter as much as NTM's other rounds, so the last
-  shots before the rifle is worn out still go about where they are aimed. A
-  worn-out rifle no longer fires the nuclear round (it clicks as if empty),
-  and R does not swap them for another round while they are in it: take
-  another type from the ammo wheel (Y). Its other rounds it fires as NTM has
-  it, spread wide.
+  hits as 80 % of NTM's Fat Mine, breaking no blocks; point blank as well. In
+  its reach it lays the ground waste as a nuke does (grass and leaves dead,
+  plants and mushrooms gone, uranium ore to schrabidium or scorched ore) but
+  burns no wood. One shot wears the rifle by a fixed share of its durability:
+  an AMAT from new is worn out in 3 shots, a Subtlety in 6, a Penance in 10.
+  Wear spreads this round's shots only a quarter as much as NTM's other
+  rounds, so the last shots before the rifle is worn out still go about where
+  they are aimed. A worn-out rifle no longer fires the nuclear round (it
+  clicks as if empty), and R does not swap them for another round while they
+  are in it: take another type from the ammo wheel (Y). Its other rounds it
+  fires as NTM has it, spread wide.
+- These rounds go into NTM's ammo bags, the plain and the infinite one, as
+  NTM's own do, and guns reload them from the bag.
 
 ### Hits
 
