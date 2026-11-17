@@ -3988,6 +3988,7 @@ public final class BalanceCheck {
             }
             poolRound(kit);
         }
+        poolBots();
         STEPS.add(() -> keys("balance.immune.dns.mode", "formula", "balance.immune.fau.mode", "formula", "balance.immune.dns.pool", "40",
                 "balance.immune.fau.pool", "45", "balance.immune.dns.window", "15", "balance.immune.fau.window", "15", "balance.immune.dns.recover", "60",
                 "balance.immune.fau.recover", "60"));
@@ -3997,12 +3998,18 @@ public final class BalanceCheck {
 
     /** the mannequin and the target back in their places (a rocket throws both), the air between them clear */
     private static void homePool() {
+        homePool(L.target);
+    }
+
+    /** the same with {@code v} in the target's place; the target, when it is not {@code v}, out of the line of fire */
+    private static void homePool(LivingEntity v) {
         for (int x = -2; x <= 2; x++) for (int y = 0; y <= 3; y++) for (int z = -1; z <= 6; z++) level.setBlockAndUpdate(L.o.offset(x, y, z), Blocks.AIR.defaultBlockState());
         L.shooter.setHealth(L.shooter.getMaxHealth());
         L.shooter.setDeltaMovement(Vec3.ZERO);
         L.shooter.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5, 0F, 0F);
-        L.target.setDeltaMovement(Vec3.ZERO);
-        L.target.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+        v.setDeltaMovement(Vec3.ZERO);
+        v.snapTo(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
+        if (v != L.target) L.target.snapTo(L.o.getX() + 6.5, L.o.getY(), L.o.getZ() + 0.5 + DIST, 180F, 0F);
     }
 
     private static float roundPool, roundWindow, roundRecover;
@@ -4011,54 +4018,10 @@ public final class BalanceCheck {
     /** a small pool (4; AMAT takes about 3 of it a shot), a window of 3 s, a recovery of 3 s; then the radon gas */
     private static void poolRound(EuphImmunity.Kit kit) {
         String set = kit.set, k = kit.key;
-        STEPS.add(() -> {
-            // the window its own 3 s (balance.immune.hold 0): AMAT's clicks every second would hold it open
-            keys(k + ".mode", "pool", k + ".pool", "4", k + ".window", "3", k + ".recover", "3", "balance.immune.hold", "0");
+        smallRound(kit, set, () -> {
             begin(L.target);
             dress(L.target, set, false);
-            EuphImmunity.forget(L.target);
-            homePool();
-            roundPool = roundWindow = roundRecover = 0F;
-            ROUND_LOG.clear();
-            euphStop = false;
         });
-        wait(30);
-        for (int i = 0; i < 24; i++) {
-            STEPS.add(() -> {
-                pendingTag = null;
-                if (L.target.getHealth() <= 0F || euphStop) return;
-                String phase = EuphImmunity.describe(kit, L.target);
-                if (phase.startsWith("RECOVER")) euphStop = true;
-                // the window must not kill: what it takes is booked, the health put back
-                L.target.setHealth(L.target.getMaxHealth());
-                pendingHp = L.target.getHealth();
-                pendingPhase = phase;
-                pendingTag = "клик";
-                fire(L.shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
-            });
-            wait(SPACING - 1);
-            STEPS.add(() -> {
-                if (pendingTag == null) return;
-                float took = Math.max(0F, pendingHp - L.target.getHealth());
-                if (pendingPhase.startsWith("WINDOW")) roundWindow += took;
-                else if (pendingPhase.startsWith("RECOVER")) roundRecover += took;
-                else roundPool += took;
-                ROUND_LOG.add(pendingPhase + ": −" + f(took));
-                pendingTag = null;
-            });
-        }
-        STEPS.add(() -> {
-            line("#\tпул: " + set + ", пул 4: " + String.join("; ", ROUND_LOG));
-            check(roundPool == 0F && roundRecover == 0F && roundWindow > 0F && euphStop, "пул: " + set + ", пул 4 / окно 3 с / восст. 3 с: в пуле снято " + f(roundPool)
-                    + ", в окне " + f(roundWindow) + ", в восстановлении " + f(roundRecover) + " (ждали 0, > 0, 0; дошли до восстановления: " + euphStop + ")");
-            euphStop = false;
-        });
-        int[] seen = {0};
-        for (int t = 0; t < 120; t++) STEPS.add(() -> {
-            if (seen[0] == 0 && EuphImmunity.describe(kit, L.target).startsWith("POOL")) seen[0] = 1;
-        });
-        STEPS.add(() -> check(EuphImmunity.describe(kit, L.target).equals("POOL 4"), "пул: " + set + ": после восстановления пул полон: " + EuphImmunity.describe(kit, L.target)
-                + " (ждали POOL 4)"));
         // the radon gas: the pool takes nothing, the hits go through
         STEPS.add(() -> {
             keys(k + ".pool", "450", k + ".window", "15", k + ".recover", "60", "balance.immune.hold", "10");
@@ -4075,6 +4038,142 @@ public final class BalanceCheck {
             euphLostPool = 0F;
             L.target.setHealth(L.target.getMaxHealth());
         });
+    }
+
+    /**
+     * The small round of {@code kit} on the victim {@code put} sets up (begin, its full set): pool 4 → window →
+     * recovery → pool 4, by AMAT; {@code who} names it in the lines
+     */
+    private static void smallRound(EuphImmunity.Kit kit, String who, Runnable put) {
+        String set = who, k = kit.key;
+        STEPS.add(() -> {
+            // the window its own 3 s (balance.immune.hold 0): AMAT's clicks every second would hold it open
+            keys(k + ".mode", "pool", k + ".pool", "4", k + ".window", "3", k + ".recover", "3", "balance.immune.hold", "0");
+            put.run();
+            EuphImmunity.forget(L.victim);
+            homePool(L.victim);
+            roundPool = roundWindow = roundRecover = 0F;
+            ROUND_LOG.clear();
+            euphStop = false;
+        });
+        wait(30);
+        for (int i = 0; i < 24; i++) {
+            STEPS.add(() -> {
+                pendingTag = null;
+                if (L.victim.getHealth() <= 0F || euphStop) return;
+                String phase = EuphImmunity.describe(kit, L.victim);
+                if (phase.startsWith("RECOVER")) euphStop = true;
+                // the window must not kill: what it takes is booked, the health put back
+                L.victim.setHealth(L.victim.getMaxHealth());
+                pendingHp = L.victim.getHealth();
+                pendingPhase = phase;
+                pendingTag = "клик";
+                fire(L.shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+            });
+            wait(SPACING - 1);
+            STEPS.add(() -> {
+                if (pendingTag == null) return;
+                float took = Math.max(0F, pendingHp - L.victim.getHealth());
+                if (pendingPhase.startsWith("WINDOW")) roundWindow += took;
+                else if (pendingPhase.startsWith("RECOVER")) roundRecover += took;
+                else roundPool += took;
+                ROUND_LOG.add(pendingPhase + ": −" + f(took));
+                pendingTag = null;
+            });
+        }
+        STEPS.add(() -> {
+            line("#\tпул: " + set + ", пул 4: " + String.join("; ", ROUND_LOG));
+            check(roundPool == 0F && roundRecover == 0F && roundWindow > 0F && euphStop, "пул: " + set + ", пул 4 / окно 3 с / восст. 3 с: в пуле снято " + f(roundPool)
+                    + ", в окне " + f(roundWindow) + ", в восстановлении " + f(roundRecover) + " (ждали 0, > 0, 0; дошли до восстановления: " + euphStop + ")");
+            euphStop = false;
+        });
+        int[] seen = {0};
+        for (int t = 0; t < 120; t++) STEPS.add(() -> {
+            if (seen[0] == 0 && EuphImmunity.describe(kit, L.victim).startsWith("POOL")) seen[0] = 1;
+        });
+        STEPS.add(() -> check(EuphImmunity.describe(kit, L.victim).equals("POOL 4"), "пул: " + set + ": после восстановления пул полон: " + EuphImmunity.describe(kit, L.victim)
+                + " (ждали POOL 4)"));
+    }
+
+    /** the keys of euphemium's pool the soldiers' round changes, as they were before it */
+    private static final java.util.Map<String, String> BOT_KEYS = new java.util.HashMap<>();
+    private static final String[] EUPH_KEYS = {"balance.immune.mode", "balance.immune.pool", "balance.immune.window", "balance.immune.recover", "balance.immune.hold"};
+
+    /**
+     * Our AI's soldiers have the three pools too (owner 2026-11-17): a soldier (AiBots) in DNS, FAU and euphemium the
+     * small round; an FBI agent in DNS, not ours, none (AMAT goes through by the set's rating, no state)
+     */
+    private static void poolBots() {
+        line("#\t--- пул у бойцов ИИ (AiBots): DNS, FAU, евфемий; FBI в DNS — без пула");
+        STEPS.add(() -> {
+            BOT_KEYS.clear();
+            for (String n : EUPH_KEYS) if (KEYS.containsKey(n)) BOT_KEYS.put(n, KEYS.get(n));
+        });
+        for (EuphImmunity.Kit kit : EuphImmunity.Kit.values()) {
+            String who = "боец ИИ в " + kit.set;
+            smallRound(kit, who, () -> {
+                Mob bot = soldier();
+                begin(bot);
+                dress(bot, kit.set, false);
+                check(acup.gunfeel.ai.AiBots.get(bot) != null && EuphImmunity.kitOf(bot) == kit, "пул: " + who + ": боец ИИ, набор " + EuphImmunity.kitOf(bot));
+            });
+            STEPS.add(() -> {
+                L.victim.discard();
+                begin(L.target);
+            });
+        }
+        STEPS.add(() -> {
+            keys("balance.immune.dns.mode", "pool", "balance.immune.dns.pool", "4");
+            if (!(BuiltInRegistries.ENTITY_TYPE.getValue(FBI).create(level, EntitySpawnReason.COMMAND) instanceof Mob mob)) throw new IllegalStateException("no FBI agent");
+            mob.setNoAi(true);
+            level.addFreshEntity(mob);
+            for (EquipmentSlot slot : SLOTS) mob.setItemSlot(slot, ItemStack.EMPTY);
+            mob.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+            begin(mob);
+            dress(mob, "dns", false);
+            homePool(mob);
+            euphLostPool = 0F;
+        });
+        wait(5);
+        for (int i = 0; i < 2; i++) {
+            STEPS.add(() -> {
+                L.victim.setHealth(L.victim.getMaxHealth());
+                pendingHp = L.victim.getHealth();
+                fire(L.shooter, ModItems.GUN_AMAT.get(), XFactory50.bmg50_sm, EnumKeybind.GUN_PRIMARY);
+            });
+            wait(SPACING - 1);
+            STEPS.add(() -> euphLostPool += Math.max(0F, pendingHp - L.victim.getHealth()));
+        }
+        STEPS.add(() -> {
+            String pool = EuphImmunity.describe(EuphImmunity.Kit.DNS, L.victim);
+            check(euphLostPool > 0F && pool.equals("нет"), "пул: FBI в DNS (не боец ИИ): снято " + f(euphLostPool) + " HP за 2 выстрела AMAT, пул " + pool
+                    + " (ждали > 0, нет)");
+            euphLostPool = 0F;
+            L.victim.discard();
+            begin(L.target);
+            for (String n : EUPH_KEYS) {
+                if (BOT_KEYS.containsKey(n)) KEYS.put(n, BOT_KEYS.get(n));
+                else KEYS.remove(n);
+            }
+            keys("balanceArmor", "true");
+        });
+    }
+
+    /**
+     * one of our AI's soldiers in the target's place, still (no AI of its own, nothing in its hands), its armour off,
+     * 1000 health: a window's AMAT must not kill it (no damage cap for mobs here)
+     */
+    private static Mob soldier() {
+        List<Mob> made = acup.gunfeel.ai.AiSpawn.spawn(level, new Vec3(L.o.getX() + 0.5, L.o.getY(), L.o.getZ() + 0.5 + DIST), acup.gunfeel.ai.AiSpawn.Kind.DUMMY, 1, null);
+        if (made.isEmpty()) throw new IllegalStateException("no AI soldier");
+        Mob m = made.get(0);
+        m.setNoAi(true);
+        for (EquipmentSlot slot : SLOTS) m.setItemSlot(slot, ItemStack.EMPTY);
+        m.setItemSlot(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+        var hp = m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH);
+        if (hp != null) hp.setBaseValue(1000);
+        m.setHealth(m.getMaxHealth());
+        return m;
     }
 
     private static void plan1b() {
