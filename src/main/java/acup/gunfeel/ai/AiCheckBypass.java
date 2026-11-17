@@ -299,7 +299,7 @@ final class AiCheckBypass {
         AiHatch.bypassOn = true;
         AiHatch.forget(level);
         // by arm: rounds, left, down the shaft, in by the drift, fell in the shaft, ways round found, rounds with one in by the drift, rounds with one down the shaft
-        int[][] s = new int[3][17];
+        int[][] s = new int[3][18];
         for (int[] r : results) {
             int[] a = s[r[0]];
             a[0]++;
@@ -319,6 +319,7 @@ final class AiCheckBypass {
             a[14] += r[11] > 1 ? 1 : 0;
             a[15] += r[15] > 0 ? 1 : 0;
             a[16] += r[16];
+            a[17] += r[3] > 0 || r[9] == 0 ? 1 : 0;
         }
         String[] names = {"on, drift open", "on, drift shut", "off, drift open"};
         for (int k = 0; k < 3; k++)
@@ -343,7 +344,10 @@ final class AiCheckBypass {
             // entry is over; the other one there is a room cleared of foes not known of, AiClearing's, not the way in's)
             check.check(String.format(Locale.ROOT, "bypass: at the room's way in from the drift, its entry, a grenade in or the foe known of shot down first, in every round (handed over %d, entries %d, grenades %d, shot first %d of %d)",
                     on[15], on[11], on[12], on[16], on[0]), on[11] == on[0] && on[12] + on[16] == on[0]);
-            check.check(String.format(Locale.ROOT, "bypass: with a grenade in, the squad comes into the room in every such round (%d of %d)", on[6], on[12]), on[6] >= on[12]);
+            // (the foe known of shot down from the way in first: the room fought in is gone into after all, AiBots.fought)
+            // (or the room taken from its way in: the two below both down, the last by the grenade in, the round over before any went in)
+            check.check(String.format(Locale.ROOT, "bypass: the squad comes into the room by the drift, or puts the two below down from its way in, in every round (%d of %d; in it %d; the foe known of shot down first in %d)",
+                    on[17], on[0], on[6], on[16]), on[17] == on[0]);
             check.check(String.format(Locale.ROOT, "bypass: of the squad at most one a round fallen by the way in (%d in %d rounds)", on[13], on[0]), on[13] <= on[0]);
             check.check(String.format(Locale.ROOT, "bypass: the way round over by the room, no way down the shaft begun again (%d rounds)", on[14]), on[14] == 0);
         }

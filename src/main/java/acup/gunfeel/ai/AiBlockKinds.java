@@ -29,7 +29,10 @@ public final class AiBlockKinds {
             + " #c:end_stones #c:netherracks #c:obsidians minecraft:clay minecraft:calcite minecraft:dripstone_block minecraft:pointed_dripstone minecraft:moss_block"
             + " minecraft:magma_block minecraft:soul_sand minecraft:soul_soil minecraft:basalt minecraft:blackstone minecraft:smooth_basalt minecraft:amethyst_block"
             + " minecraft:budding_amethyst ~minecraft:(.*_)?sculk(_.*)? ~hbm:(stone_resource|stone_biome|ore|cluster|glyphid_base|basalt|sellafield|waste_).*";
-    static final String DWELLING_DEFAULT = "#minecraft:beds #c:workbenches";
+    // a hatch, a pane of glass, a lantern, a ladder: put there by someone (not a fence: an old mine's props have them; not
+    // glowstone nor a shroomlight: the Nether grows them; not a torch: caves are lit with them). A door: by its way (AiRooms.wild)
+    static final String DWELLING_DEFAULT = "#minecraft:beds #c:workbenches #minecraft:trapdoors ~minecraft:(.*_)?glass(_pane)? minecraft:lantern"
+            + " minecraft:soul_lantern minecraft:sea_lantern minecraft:ladder";
     static final String WILD_DEFAULT = "minecraft:spawner minecraft:trial_spawner minecraft:vault #minecraft:beehives ~minecraft:(.*_)?sculk(_.*)? minecraft:suspicious_sand"
             + " minecraft:suspicious_gravel ~hbm:glyphid.*";
 

@@ -7,8 +7,29 @@
   now rise as the mushroom cloud of NTM's nuclear bombs, sized to the blast,
   instead of their own flash and wave; a balefire one as the balefire bomb's
   green cloud. A Tiny Tot volley makes one cloud. They keep their own sound,
-  without the bombs' screen flash, sound and shake. Server key
-  `miniNukeCloud` (`false`: NTM's own).
+  without the bombs' screen flash, sound and shake. A blast past the
+  simulation distance, where the cloud would not show, keeps NTM's own.
+  Server key `miniNukeCloud` (`false`: NTM's own).
+
+## X1416
+
+- AI squads now take a room hollowed out of plain rock as a building when
+  someone has plainly lived in it: a door hung in its way in, a hatch, glass,
+  a lantern or a ladder. Such a room is entered and cleared like any other,
+  instead of searched as a cave. A door counts for the smaller side of it: a
+  room dug off a tunnel is a building, the tunnel is not. A hollow with no
+  such sign is a cave as before, and old mines and fortresses stay caves.
+  The cave right by an ancient city's walls reads as a building too.
+
+## X1412
+
+- An AI squad that shoots down an enemy it knew of inside a building no
+  longer stops there: those nearby clear that building all the same, as
+  there may be more inside. They stack up by the way in and go in together;
+  a grenade goes in first only if the room is small enough for it to cover
+  and none of their own side is in it. A new enemy in sight comes first.
+- An AI squad that had thrown a grenade into a room no longer waits beside
+  the way in for good when all of it took part in the entry.
 
 ## X1408
 

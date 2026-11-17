@@ -65,6 +65,7 @@ public final class AiThoughts {
         HOLD_RELOAD("reloads, watches where they went"),
         HOLD_KNEEL("no cover: down on a knee, watches where they went"),
         SEARCH("searches round where they went"),
+        FOUGHT("a building where a foe it knew of fell: in by the room drill and through its rooms, there may be more"),
         SEARCH_NONE("nothing left to search: watches"),
         FLANK("its squad's flanker: round the side, to cover that sees where they went"),
         SUPPRESS("one of its squad on the move: keeps where they went under fire"),
