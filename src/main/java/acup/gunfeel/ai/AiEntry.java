@@ -195,6 +195,11 @@ public final class AiEntry {
         Vec3 door = Vec3.ZERO;
         /** the stands: those of it counted in the room before its grenade burst */
         final List<AiBot> inEarly = new ArrayList<>(2), offEarly = new ArrayList<>(2);
+        /** going in: when each of it came through the way in (into the room or onto the way's cells) */
+        final Map<AiBot, Long> inAt = new HashMap<>(4);
+        /** one of it killed in there going in: when (the first), where its killer was; the tick the dead were last looked for */
+        long downIn = Long.MIN_VALUE, deadSeen = Long.MIN_VALUE;
+        @Nullable Vec3 killer;
     }
 
     private static final Map<ServerLevel, Map<Long, Op>> OPS = new WeakHashMap<>();
@@ -324,6 +329,103 @@ public final class AiEntry {
         return op;
     }
 
+    /**
+     * Going in, the first ENTER_AIM ticks after the way in: its gun and eyes on the dead corner of its side (corner),
+     * whatever it heard or was hit by from where it does not see (AiSoldier.decide; a foe in sight it fights). The
+     * stands (slice, X1589): of 49 killed in the room by one by the side wall, 17 were looking away as it came into
+     * sight (a noise, a hit, an answer had turned them), 21 had not noticed it, it fired first in 45.
+     */
+    static final int ENTER_AIM = 20;
+    /**
+     * One of it killed in there going in: those not in yet hold by the way in HOLD_AFTER ticks, their guns on where the
+     * shot came from (not in one by one after it into the same gun: the stands, the second killed 6 to 14 ticks after)
+     */
+    static final int HOLD_AFTER = 60;
+    /** when an entry last went in (GO) */
+    private static long goLast = Long.MIN_VALUE;
+    /** the stands: the corner looked at going in, holds by the way in after one killed in there */
+    public static int cornerAims, heldAfter;
+
+    /** where one going in looks (at its corner, or at the killer of one of it killed in there) and why */
+    record Look(Vec3 at, AiThoughts.Why why) {
+    }
+
+    /** one of an entry going in, this tick, no foe in its sight: where it looks (its corner, or its killed one's killer), or null */
+    static @Nullable Look entering(AiSoldier s, AiBot bot, ServerLevel level, long tick) {
+        if (goLast == Long.MIN_VALUE || tick < goLast || tick - goLast > GO_MAX + ENTER_AIM + HOLD_AFTER) return null;
+        Map<Long, Op> ops = OPS.get(level);
+        if (ops == null) return null;
+        for (Op op : ops.values()) {
+            if (op.phase != GO && op.phase != OVER || op.plan == null || tick - op.phaseAt > GO_MAX + ENTER_AIM + HOLD_AFTER) continue;
+            int i = op.members.indexOf(bot);
+            if (i < 0) continue;
+            try {
+                // (it may be of an older entry too, over: the next one's turn)
+                Look look = entering(op, op.plan, bot, i, tick);
+                if (look != null) return look;
+            } catch (RuntimeException e) {
+                AiRooms.fault("going in", op.lost, e);
+                phase(op, OVER, tick);
+            }
+        }
+        return null;
+    }
+
+    private static @Nullable Look entering(Op op, AiRooms.Plan plan, AiBot bot, int i, long tick) {
+        // who of it came through the way in, and one killed in there (looked at once a tick)
+        if (op.deadSeen != tick) watchIn(op, plan, tick);
+        Long in = op.inAt.get(bot);
+        if (in == null) {
+            // not in yet, one of it killed in there a moment ago: held by the way in, the gun on its killer
+            if (op.phase != GO || op.downIn == Long.MIN_VALUE || tick - op.downIn > HOLD_AFTER || op.killer == null) return null;
+            long at = place(op, i);
+            go(bot, at, 0.35, op.exposed);
+            if (bot.mover.goalIs(at) && bot.mover.arrived()) bot.stackUntil = tick + 5;
+            return new Look(op.killer, AiThoughts.Why.ENTRY_HELD);
+        }
+        // in: one of it killed in there, the gun on where the shot came from (the stands: one in the other corner,
+        // looking at its own, shot 6-16 ticks after the first)
+        if (op.downIn != Long.MIN_VALUE && tick - op.downIn <= HOLD_AFTER && op.killer != null) return new Look(op.killer, AiThoughts.Why.ENTRY_KILLER);
+        if (tick - in > ENTER_AIM) return null;
+        Vec3 at = corner(op, plan, i);
+        if (at == null) return null;
+        // on to its place inside as the entry has it (whatever turned its mind)
+        if (op.phase == GO && !op.done.contains(bot)) {
+            long to = op.inner.length > 0 ? op.inner[i % op.inner.length] : plan.mid[op.room];
+            go(bot, to, 0.5);
+        }
+        if (tick == in) cornerAims++;
+        return new Look(at, AiThoughts.Why.ENTRY_CORNER);
+    }
+
+    /** who of the entry came through the way in, and the first of it killed in there (once a tick, and before the dead leave it) */
+    private static void watchIn(Op op, AiRooms.Plan plan, long tick) {
+        op.deadSeen = tick;
+        for (AiBot m : op.members) {
+            if (!AiSquads.live(m)) fell(op, plan, m, tick);
+            else if (!op.inAt.containsKey(m) && through(op, plan, m)) op.inAt.put(m, tick);
+        }
+    }
+
+    private static void fell(Op op, AiRooms.Plan plan, AiBot m, long tick) {
+        if (op.downIn != Long.MIN_VALUE || !op.inAt.containsKey(m)) return;
+        op.downIn = tick;
+        var by = m.mob.getLastHurtByMob();
+        // (its killer not known, or down too: its side's corner, else where it fell)
+        op.killer = by != null && by.isAlive() ? by.getEyePosition() : corner(op, plan, op.members.indexOf(m));
+        if (op.killer == null) op.killer = m.mob.position().add(0, 1.1, 0);
+        if (op.phase == GO && op.inAt.size() < op.members.size()) heldAfter++;
+    }
+
+    /** whether it is through the way in: in the room, or on the way's own cells */
+    private static boolean through(Op op, AiRooms.Plan plan, AiBot b) {
+        long c = cell(b.mob.getX(), b.mob.getY(), b.mob.getZ());
+        if (plan.room(c) == op.room) return true;
+        AiRooms.Way w = op.way;
+        if (w != null) for (long x : w.cells) if (BlockPos.getX(x) == BlockPos.getX(c) && BlockPos.getZ(x) == BlockPos.getZ(c) && Math.abs(BlockPos.getY(x) - BlockPos.getY(c)) <= 1) return true;
+        return false;
+    }
+
     /** when an entry last went to its throw (FRAG): none for longer than a throw and a hand-over, none is throwing */
     private static long fragLast = Long.MIN_VALUE;
 
@@ -442,7 +544,7 @@ public final class AiEntry {
             if (bot.mover.arrived() || bot.mover.failed()) op.done.add(bot);
             // the dead corners by the wall with the opening, not seen from round it: the first two each to its own
             // (after its own grenade too: one it left alive may be there)
-            Vec3 at = slice() || op.fragId != -1 ? corner(op, plan, i) : null;
+            Vec3 at = corner(op, plan, i);
             if (at != null) return at;
         } else if (op.phase == FRAG && bot == op.thrower) frag(op, s, bot, level, tick);
         else {
@@ -531,6 +633,7 @@ public final class AiEntry {
 
     /** the entry's next part, when its time has come (whoever of it thinks first this tick) */
     private static void advance(Op op, ServerLevel level, long tick) {
+        if (op.plan != null && (op.phase == GO || op.phase == OVER) && tick - op.phaseAt <= GO_MAX + ENTER_AIM + HOLD_AFTER) watchIn(op, op.plan, tick);
         op.members.removeIf(b -> !AiSquads.live(b));
         switch (op.phase) {
             case STACK -> {
@@ -613,11 +716,11 @@ public final class AiEntry {
     }
 
     /**
-     * Going in after its own grenade, the first PRIMED ticks of it: one of it waits for a foe in there (one the blast
-     * did not finish, thrown into a corner it did not look at), and one in the room it sees is noticed as one looked
-     * for (Senses.look, primed): no slower in the corner of its eye, sooner, but not at once (a player there gets the
-     * time a man takes, Senses.PRIMED_MIN). The stands: a foe the blast left alive seen 10-12 ticks from the opening,
-     * not noticed in them, shot first.
+     * Going in, the first PRIMED ticks of it: one of it waits for a foe in there (one its grenade did not finish, one
+     * in a corner not seen from before the opening), and one in the room it sees is noticed as one looked for
+     * (Senses.look, primed): no slower in the corner of its eye, sooner, but not at once (a player there gets the time a
+     * man takes, Senses.PRIMED_MIN). The stands: a foe the blast left alive seen 10-12 ticks from the opening, not
+     * noticed in them, shot first; with no grenade (slice, X1589) 21 of 49 killed in the room had not noticed it.
      */
     static final int PRIMED = 100;
     public static final String PRIMED_KEY = "aiEntryPrimed";
@@ -625,13 +728,13 @@ public final class AiEntry {
     /** the stands: foes in the room noticed going in after its grenade, looking for them (whether or not the sooner did it) */
     public static int primedNoticed;
 
-    /** the room it goes into after its own grenade, now (PRIMED), its plan and room; else null */
+    /** the room it goes into, now (PRIMED), its plan and room; else null */
     static @Nullable Primed primed(AiBot bot, long tick) {
         if (!primedOn || !(bot.mob.level() instanceof ServerLevel level) || !on() || !ReaimTimes.flag(PRIMED_KEY, true)) return null;
         Map<Long, Op> ops = OPS.get(level);
         if (ops == null) return null;
         for (Op op : ops.values())
-            if (op.phase == GO && op.fragId != -1 && op.plan != null && tick - op.phaseAt <= PRIMED && op.members.contains(bot)) return new Primed(op.plan, op.room);
+            if (op.phase == GO && op.plan != null && tick - op.phaseAt <= PRIMED && op.members.contains(bot)) return new Primed(op.plan, op.room);
         return null;
     }
 
@@ -1000,7 +1103,12 @@ public final class AiEntry {
         }
     }
 
-    /** going in, the first two each to its side: the gun on the far corner along the wall the opening is in; else null */
+    /**
+     * going in, the first two each to its side: the gun on the dead corner of its side, the middle of the room's part
+     * not seen from before the opening (between the wall the opening is in, the side wall and the line at 45 degrees
+     * from the opening: two thirds of the way along the wall, a third as far in), not the corner's cell (one there stands
+     * off the wall: the stands, 30 degrees off its gun); else null
+     */
     private static @Nullable Vec3 corner(Op op, AiRooms.Plan plan, int i) {
         AiRooms.Way w = op.way;
         if (w == null || i >= 2 || op.inner.length == 0) return null;
@@ -1014,7 +1122,15 @@ public final class AiEntry {
             if (plan.room(n) != op.room) break;
             c = n;
         }
-        return c == start ? null : mid(c, 1.1);
+        if (c == start) return null;
+        double l = Math.abs(BlockPos.getX(c) - BlockPos.getX(start)) + Math.abs(BlockPos.getZ(c) - BlockPos.getZ(start));
+        double along = l * 2 / 3, deep = l / 3;
+        double x = BlockPos.getX(start) + 0.5 + lx * side * along, z = BlockPos.getZ(start) + 0.5 + lz * side * along;
+        if (plan.room(cell(x + Dirs.DX[in] * deep, BlockPos.getY(start), z + Dirs.DZ[in] * deep)) == op.room) {
+            x += Dirs.DX[in] * deep;
+            z += Dirs.DZ[in] * deep;
+        }
+        return new Vec3(x, BlockPos.getY(start) + 1.1, z);
     }
 
     /**
@@ -1146,6 +1262,7 @@ public final class AiEntry {
         op.phase = phase;
         op.phaseAt = tick;
         if (phase == FRAG) fragLast = tick;
+        if (phase == GO) goLast = tick;
     }
 
     /** a lost thrower's grenade to another of the entry: looked for as soon as a throw may be worked out this tick, for HAND_MAX at most */
