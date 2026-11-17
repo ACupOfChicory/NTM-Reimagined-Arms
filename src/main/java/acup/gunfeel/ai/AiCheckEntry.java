@@ -40,6 +40,8 @@ final class AiCheckEntry {
     private final ServerLevel level;
     private final int y;
     private boolean started;
+    /** AiEntry's count of those in before their own grenade burst, and its grenades thrown, at the stand's start */
+    private int early0, earlyFrags0, off0;
     private int round = -1, ticks, firstIn, entriesBefore, fragsBefore, noThrowBefore, ownBlast, blastKills;
     private final float[] health = new float[SQUAD];
     /** the shed: its floor under the roof, between its two walls; how long the four are left to it */
@@ -68,6 +70,9 @@ final class AiCheckEntry {
     boolean tick() {
         if (!started) {
             started = true;
+            early0 = AiEntry.inBeforeBlast;
+            off0 = AiEntry.offBeforeBlast;
+            earlyFrags0 = AiEntry.frags;
             friendly0 = AiBots.friendlyHits;
             AiBots.friendlyWhy.clear();
             for (int cx = X0 >> 4; cx <= (X0 + SIZE) >> 4; cx++)
@@ -325,6 +330,12 @@ final class AiCheckEntry {
         check.out(String.format(Locale.ROOT, "     entry, throws not found: none lands in the room %d, one of the entry not behind the wall %d, another of its side in reach %d, a player %d",
                 AiEntry.why[0], AiEntry.why[1], AiEntry.why[2], AiEntry.why[3]));
         check.check("entry: a grenade thrown in before an entry hurts none of the squad", sum[2][12] == 0);
+        check.out(String.format(Locale.ROOT, "     entry: those of an entry, its grenade out, in the room %d, off their place beside the way in %d; grenades thrown in %d",
+                AiEntry.inBeforeBlast - early0, AiEntry.offBeforeBlast - off0, AiEntry.frags - earlyFrags0));
+        // a trap (X1212): the code before it kept them so here too; its one fault, 1 trench run in 52, was not seen again
+        check.check(String.format(Locale.ROOT, "entry: an entry keeps its places beside the way in till its own grenade has burst (in the room %d, off them %d; %d grenades thrown in, 1 at least)",
+                AiEntry.inBeforeBlast - early0, AiEntry.offBeforeBlast - off0, AiEntry.frags - earlyFrags0),
+                AiEntry.inBeforeBlast == early0 && AiEntry.offBeforeBlast == off0 && AiEntry.frags > earlyFrags0);
         return true;
     }
 }
