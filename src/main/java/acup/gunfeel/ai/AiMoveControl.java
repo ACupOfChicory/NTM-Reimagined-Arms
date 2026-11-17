@@ -1,6 +1,7 @@
 package acup.gunfeel.ai;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.tags.BlockTags;
 
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Mob;
@@ -102,8 +103,15 @@ final class AiMoveControl extends MoveControl<Mob> {
         // the ground a step up is no step: it walked against the shaft's rim, slid back and climbed again, over and over)
         boolean off = dy > 0 && !column && !mob.onGround();
         if (Math.abs(dy) < (column || off ? LADDER_NEAR : LADDER_DY)) return;
-        // on its feet on a ladder's foot, the way on off it and down (a step down beside it): it walks
-        if (dy < 0 && !column && mob.onGround()) return;
+        // the same a little under it (the step up beside a shaft's floor, a ladder's top): on to it climbing as it goes
+        // (held still under it, it slid back under it each tick it walked: it bobbed in the column for good)
+        if (off && dy < LADDER_DY) {
+            mob.getJumpControl().jump();
+            return;
+        }
+        // on its feet on a ladder's foot, the way on off it and down (a step down beside it), or up a slab's height
+        // beside it (the game steps it up): it walks
+        if (!column && mob.onGround() && (dy < 0 || dy <= mob.maxUpStep())) return;
         mob.setXxa(0F);
         mob.setZza(0F);
         mob.setSpeed(0F);
@@ -122,6 +130,15 @@ final class AiMoveControl extends MoveControl<Mob> {
         // the game sets sideways steps only for its own strafing, and never takes them back
         if (operation != Operation.STRAFE) mob.setXxa(0F);
         super.tick();
+        // on its feet in a ladder's cell, its way on off it beside, not up: the game jumps a mob out of any block with a
+        // shape it stands in, the ladder's too, and on the ladder the jump is a climb (it rose, slid back on to its
+        // floor and again, in the shaft's column at its foot for good). It walks off as on the ground
+        // (not in water: there the jump asked before is its float up, FloatGoal)
+        if (operation == Operation.JUMPING && !jumps && mob.onGround() && mob.getInBlockState().is(BlockTags.CLIMBABLE) && wantedY - mob.getY() <= mob.maxUpStep()
+                && !mob.isInWater() && mob.getJumpControl() instanceof AiJumpControl j) {
+            j.cancel();
+            operation = Operation.WAIT;
+        }
         if (operation == Operation.JUMPING && !jumps) jumped();
         // jumping, the game pushes it on the way its body faces: facing away from its path (stepping back up a block
         // while it fires ahead) that took it off the step, and it jumped again and again where it stood. On the way
