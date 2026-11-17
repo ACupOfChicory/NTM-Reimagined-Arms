@@ -1,5 +1,13 @@
 # Changelog
 
+## X1459
+
+- AI squads change their orders less often for nothing. A squad flanking an
+  enemy whose way round is lost keeps its place while the enemy stays near;
+  a squad scouting for an enemy it then finds pushes on under the same order
+  instead of starting over; and a squad with a soldier down to his last
+  magazine is not sent forward again just before it falls back for rounds.
+
 ## X1456
 
 - An AI squad now falls back for rounds a magazine sooner: once most of its
