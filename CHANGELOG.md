@@ -8,6 +8,18 @@
   instead of searching on along the wall into the line of the doorway. A
   squad mate in the open now keeps clear of all of the blast's reach.
 
+## X1525
+
+- An AI squad about to go into a room first looks into it from round the
+  doorway, where there is room to: the ones beside it step out wide and
+  close in bit by bit, guns on the edge of what comes into view by the
+  doorway's wall, so a foe waiting by a side wall is found before anyone
+  walks in. A foe seen this way is fought or gets a grenade first; one
+  still there after the grenade gets another, or they hold beside the
+  doorway while it is in sight. A foe already known inside gets its grenade
+  before the look. Going in, the first two each take their own side, guns
+  on the corners beside the doorway (server key `aiEntrySlice`).
+
 ## X1514
 
 - The two bullets of a Duplex round now spread six times as wide: the
