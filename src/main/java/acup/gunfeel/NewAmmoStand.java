@@ -58,6 +58,8 @@ import net.minecraft.world.phys.Vec3;
 // Lines "[new-ammo-stand] ..." in the log, PASS/FAIL in the report.
 final class NewAmmoStand {
     static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.newAmmoStand");
+    /** -PnewAmmoStand=short: the magazines (the bags with them) and the nuclear .50 only */
+    static final boolean SHORT = "short".equals(System.getProperty("ntmgunfeel.newAmmoStandMode"));
     private static final BlockPos O = new BlockPos(8, 100, 8);
     private static final double EX = 8.5, EZ = 8.5;
     /** the wall the nuclear rounds hit: z, half its width, its height */
@@ -173,7 +175,7 @@ final class NewAmmoStand {
         takes("gun_amat_penance", NuclearBmg.config(), true);
         takes("gun_m2", NuclearBmg.config(), false);
         ammoBag();
-        wait(5, 10);
+        wait(5, SHORT ? 50 : 10);
     }
 
     // NTM's ammo bags, the plain one and the infinite one, take each of the mod's rounds (not a stick), and an AMAT with
