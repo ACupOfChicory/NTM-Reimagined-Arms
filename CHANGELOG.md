@@ -3,14 +3,20 @@
 ## Unreleased
 
 - An AI squad about to go into a room first looks into it from round the
-  doorway: the ones beside it step out wide and close in bit by bit, guns
-  on each part of the room as it comes into view, so a foe waiting by a
-  side wall is found before anyone walks in. Any foe seen this way is
-  fought or gets a grenade first. A foe already known inside gets its
-  grenade before the look. Where there is no room to step round the
-  doorway, the first in takes a quick look from in front of it. Going in,
-  the first two each take their own side, guns on the corners beside the
-  doorway.
+  doorway, where there is room to: the ones beside it step out wide and
+  close in bit by bit, guns on the edge of what comes into view by the
+  doorway's wall, so a foe waiting by a side wall is found before anyone
+  walks in. A foe seen this way is fought or gets a grenade first; one
+  still there after the grenade gets another, or they hold beside the
+  doorway while it is in sight. A foe already known inside gets its grenade
+  before the look. Going in, the first two each take their own side, guns
+  on the corners beside the doorway (server key `aiEntrySlice`).
+
+## X1514
+
+- The two bullets of a Duplex round now spread six times as wide: the
+  second goes about 20 milliradians off the first one's line instead of 3,
+  so at 50 blocks they land about a block apart.
 
 ## X1512
 

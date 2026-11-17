@@ -6,14 +6,15 @@ import java.util.function.DoubleSupplier;
  * The Duplex round's numbers and geometry (no Minecraft: the tests drive it). Two bullets a shot, out at once: the front
  * one as the gun throws it, the rear one a little behind it along the barrel and off its heading by a normal angle of
  * SIGMA radians each way (cut at CUT), so both go the same way, not as two shots nor as buckshot (owner 2026-11-17; the
- * M198's rear bullet ~1.8 mrad, made a little wider).
+ * M198's rear bullet ~1.8 mrad, made a little wider; six times that, 18 mrad cut at 42, owner 2026-11-17: "more
+ * spread" — about a block apart at 50).
  */
 public final class DuplexRule {
     private DuplexRule() {
     }
 
     /** the rear bullet's angle off the front one's heading: sigma each way, and the most, radians */
-    public static final double SIGMA = 0.003, CUT = 0.007;
+    public static final double SIGMA = 0.018, CUT = 0.042;
     /** how far behind the front bullet the rear one starts, blocks along the heading */
     public static final double BEHIND = 0.25;
     /** each bullet's damage: this share of the same gun's SP round */
