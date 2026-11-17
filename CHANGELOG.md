@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- An AI soldier at the foot or top of a shaft its side climbs no longer goes
+  off to other cover while one of its own on the ladder is in its line: it
+  waits its turn and comes up with the rest.
+
 ## X1456
 
 - An AI squad now falls back for rounds a magazine sooner: once most of its
@@ -16,9 +22,6 @@
 - The small nuclear blasts' mushroom cloud now starts hot, fiery orange (green
   for balefire) and greys as it cools, as a bomb's does, instead of grey from
   the start.
-- An AI soldier at the foot or top of a shaft its side climbs no longer goes
-  off to other cover while one of its own on the ladder is in its line: it
-  waits its turn and comes up with the rest.
 
 ## X1442
 
