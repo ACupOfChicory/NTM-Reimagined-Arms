@@ -440,6 +440,9 @@ final class AiCheckBunkerNtm {
         for (int i = 0; i < SQUAD; i++) {
             Mob m = atHub(free, i, "ntmbunker_outup");
             if (m == null) continue;
+            check.out(String.format(Locale.ROOT, "       up trace: #%d put at %.2f %.2f %.2f, health %.1f, in a wall %s, on rungs %s", m.getId(), m.getX(), m.getY(), m.getZ(), m.getHealth(), m.isInWall(),
+                    m.onClimbable()));
+            upHealth[squad.size()] = m.getHealth();
             squad.add(m);
             upped[i] = false;
             upDownTold[i] = false;
@@ -473,13 +476,16 @@ final class AiCheckBunkerNtm {
         for (int i = 0; i < squad.size(); i++) {
             Mob m = squad.get(i);
             float h = m.isAlive() ? m.getHealth() : 0;
-            if (rt <= 1) upHealth[i] = h;
             if (h < upHealth[i] && !upDownTold[i]) {
                 var by = m.getLastDamageSource();
                 check.out(String.format(Locale.ROOT, "       up trace, tick %d: #%d hurt %.1f (left %.1f) at %.2f %.2f %.2f by %s (%s), its fall %.1f, climbing %s", rt, m.getId(), upHealth[i] - h, h,
                         m.getX(), m.getY(), m.getZ(), by == null ? "?" : by.type().msgId(), by == null || by.getEntity() == null ? "-" : by.getEntity().getType().toShortString(), upFall[i],
                         m.onClimbable()));
-                if (h <= 0) upDownTold[i] = true;
+                if (h <= 0) {
+                    upDownTold[i] = true;
+                    check.out(String.format(Locale.ROOT, "       up trace, tick %d: #%d down; direct %s, source at %s", rt, m.getId(), by == null || by.getDirectEntity() == null ? "-" : by.getDirectEntity().getType().toShortString(),
+                            by == null || by.getSourcePosition() == null ? "-" : by.getSourcePosition().toString()));
+                }
             }
             upHealth[i] = h;
             upFall[i] = (float) m.fallDistance;
