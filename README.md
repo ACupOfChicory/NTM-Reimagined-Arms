@@ -95,8 +95,10 @@ page. They are alphas: expect bugs and back up your world.
   worn out in 3 shots, a Subtlety in 6, a Penance in 10. Wear spreads this
   round's shots only a quarter as much as NTM's other rounds, so the last
   shots before the rifle is worn out still go about where they are aimed. A
-  worn-out rifle no longer fires the nuclear round (it clicks as if empty);
-  its other rounds it fires as NTM has it, spread wide.
+  worn-out rifle no longer fires the nuclear round (it clicks as if empty),
+  and R does not swap them for another round while they are in it: take
+  another type from the ammo wheel (Y). Its other rounds it fires as NTM has
+  it, spread wide.
 
 ### Hits
 

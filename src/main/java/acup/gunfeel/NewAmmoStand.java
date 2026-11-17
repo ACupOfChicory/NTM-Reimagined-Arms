@@ -466,6 +466,23 @@ final class NewAmmoStand {
                 return new boolean[] {nuke, plain};
             });
             check(!can[0], "ядерный: изношенная AMAT ядерным не стреляет");
+            // a click as NTM takes it (Lego.clickReceiver, the gun idle): no bullet, no round used
+            String click = onServer(p -> {
+                ItemStack stack = p.getMainHandItem();
+                ItemGunBaseNT g = (ItemGunBaseNT) stack.getItem();
+                var ctx = new ItemGunBaseNT.LambdaContext(g.getConfig(stack, 0), p, p.getInventory(), 0);
+                var mag = ctx.config().getReceivers(stack)[0].getMagazine(stack);
+                ItemGunBaseNT.setState(stack, 0, ItemGunBaseNT.GunState.IDLE);
+                int had = mag.getAmount(stack, p.getInventory());
+                List<EntityBulletBaseMK4> before = bullets((ServerLevel) p.level(), p);
+                Lego.clickReceiver(stack, ctx, 0);
+                List<EntityBulletBaseMK4> made = bullets((ServerLevel) p.level(), p);
+                made.removeAll(before);
+                return had + " " + mag.getAmount(stack, p.getInventory()) + " " + made.size();
+            });
+            String[] c = click.split(" ");
+            log("ядерный: клик по изношенной AMAT: патронов {} -> {}, пуль {}", c[0], c[1], c[2]);
+            check(c[0].equals(c[1]) && c[2].equals("0"), "ядерный: клик по изношенной AMAT — ни пули, ни патрона (" + click + ")");
             check(can[1], "ядерный: изношенная AMAT обычным SP стреляет");
         }
         wait(40, 51 + n);

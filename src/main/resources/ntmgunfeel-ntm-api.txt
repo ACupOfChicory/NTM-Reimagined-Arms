@@ -326,7 +326,6 @@ CORE class com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling
 CORE class com/hbm/items/weapon/sedna/BulletConfig
 CORE class com/hbm/items/weapon/sedna/DamageSourceSedna
 CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT
-CORE class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 CORE class com/hbm/items/weapon/sedna/Receiver
 CORE class com/hbm/items/weapon/sedna/mags/IMagazine
 CORE class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
@@ -461,9 +460,7 @@ CORE field com/hbm/items/weapon/sedna/factory/XFactory40mm g40_demo Lcom/hbm/ite
 CORE field com/hbm/items/weapon/sedna/factory/XFactory40mm g40_he Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory44 m44_express Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_sm Lcom/hbm/items/weapon/sedna/BulletConfig;
-CORE field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory556mm r556_inc_ap Lcom/hbm/items/weapon/sedna/BulletConfig;
-CORE field com/hbm/items/weapon/sedna/factory/XFactory556mm r556_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory762mm energy_lacunae Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_du Lcom/hbm/items/weapon/sedna/BulletConfig;
 CORE field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_he Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -604,14 +601,12 @@ CORE method com/hbm/items/weapon/grenade/ItemGrenadeUniversal make (Lcom/hbm/ite
 CORE method com/hbm/items/weapon/grenade/ItemGrenadeUniversal make (Lcom/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell;Lcom/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling;Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;Lcom/hbm/items/weapon/grenade/ItemGrenadeExtra$EnumGrenadeExtra;)Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/items/weapon/sedna/BulletConfig ammoStack ()Lnet/minecraft/world/item/ItemStack;
 CORE method com/hbm/items/weapon/sedna/BulletConfig getDamage (Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/util/DamageClass;)Lnet/minecraft/world/damagesource/DamageSource;
-CORE method com/hbm/items/weapon/sedna/GunConfig getDurability (Lnet/minecraft/world/item/ItemStack;)F
 CORE method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
 CORE method com/hbm/items/weapon/sedna/GunConfig hasThermalSights (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getPrimary (Lnet/minecraft/world/item/ItemStack;I)Z
-CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT inventoryTick (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/EquipmentSlot;)V
@@ -621,19 +616,12 @@ CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsEquipped (Lnet/minecra
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setState (Lnet/minecraft/world/item/ItemStack;ILcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setTimer (Lnet/minecraft/world/item/ItemStack;II)V
 CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;I)V
-CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;I)V
-CORE method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext config ()Lcom/hbm/items/weapon/sedna/GunConfig;
 CORE method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F
-CORE method com/hbm/items/weapon/sedna/Receiver getCanFire (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
 CORE method com/hbm/items/weapon/sedna/Receiver getDelayAfterFire (Lnet/minecraft/world/item/ItemStack;)I
-CORE method com/hbm/items/weapon/sedna/Receiver getDurabilitySpread (Lnet/minecraft/world/item/ItemStack;)F
 CORE method com/hbm/items/weapon/sedna/Receiver getFireSound (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/Supplier;
 CORE method com/hbm/items/weapon/sedna/Receiver getFireVolume (Lnet/minecraft/world/item/ItemStack;)F
 CORE method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 CORE method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/world/item/ItemStack;)Z
-CORE method com/hbm/items/weapon/sedna/factory/Lego calcSpread (Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/Receiver;Lcom/hbm/items/weapon/sedna/BulletConfig;ZIZ)F
-CORE method com/hbm/items/weapon/sedna/factory/Lego doStandardFire (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;Lcom/hbm/render/anim/AnimationEnums$GunAnimation;IZ)V
-CORE method com/hbm/items/weapon/sedna/factory/Lego getStandardWearSpread (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/GunConfig;I)F
 CORE method com/hbm/items/weapon/sedna/factory/Lego standardExplode (Lcom/hbm/entity/projectile/EntityBulletBaseMK4;Lnet/minecraft/world/phys/HitResult;F)V
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 CORE method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
@@ -1094,6 +1082,7 @@ NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/GunConfig
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/ItemGunBaseNT
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/Receiver
+NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/mags/IMagazine
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/mags/MagazineBelt
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 NUCLEAR_BMG50 class com/hbm/packet/toclient/MukePayload
@@ -1102,18 +1091,26 @@ NUCLEAR_BMG50 class com/hbm/registration/RegistryHandle
 NUCLEAR_BMG50 field com/hbm/data/ExplosionData MINE_NUKE_DAMAGE Lcom/hbm/data/DataGroups$Param;
 NUCLEAR_BMG50 field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
 NUCLEAR_BMG50 field com/hbm/items/EnumCasingType LARGE_STEEL Lcom/hbm/items/EnumCasingType;
+NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
+NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig damageMult F
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig id I
+NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig spread F
+NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
+NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/factory/XFactory556mm r556_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/mags/MagazineBelt acceptedBullets Ljava/util/List;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
 NUCLEAR_BMG50 field com/hbm/particle/SpentCasing$CasingType BOTTLENECK Lcom/hbm/particle/SpentCasing$CasingType;
 NUCLEAR_BMG50 field com/hbm/saveddata/satellites/SatelliteDetector$BurstIntensity LOW Lcom/hbm/saveddata/satellites/SatelliteDetector$BurstIntensity;
 NUCLEAR_BMG50 field com/hbm/sound/ModSounds GUN_MINI_NUKE_EXPLOSION Lcom/hbm/registration/RegistryHandle;
 NUCLEAR_BMG50 method com/hbm/data/DataGroups$Param get ()Ljava/lang/Object;
+NUCLEAR_BMG50 method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;Lcom/hbm/items/weapon/sedna/BulletConfig;FFDDDDDD)V
 NUCLEAR_BMG50 method com/hbm/entity/projectile/EntityBulletBaseMK4 discard ()V
+NUCLEAR_BMG50 method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 NUCLEAR_BMG50 method com/hbm/entity/projectile/EntityBulletBaseMK4 getThrower ()Lnet/minecraft/world/entity/LivingEntity;
 NUCLEAR_BMG50 method com/hbm/entity/projectile/EntityBulletBaseMK4 isRemoved ()Z
 NUCLEAR_BMG50 method com/hbm/entity/projectile/EntityBulletBaseMK4 level ()Lnet/minecraft/world/level/Level;
+NUCLEAR_BMG50 method com/hbm/entity/projectile/EntityBulletBaseMK4 position ()Lnet/minecraft/world/phys/Vec3;
 NUCLEAR_BMG50 method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDF)V
 NUCLEAR_BMG50 method com/hbm/explosion/vanillant/ExplosionVNT explode ()V
 NUCLEAR_BMG50 method com/hbm/explosion/vanillant/ExplosionVNT setEntityProcessor (Lcom/hbm/explosion/vanillant/interfaces/IEntityProcessor;)Lcom/hbm/explosion/vanillant/ExplosionVNT;
@@ -1134,12 +1131,23 @@ NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/min
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/ItemGunBaseNT getWear (Lnet/minecraft/world/item/ItemStack;I)F
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/ItemGunBaseNT setState (Lnet/minecraft/world/item/ItemStack;ILcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;)V
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;I)V
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext config ()Lcom/hbm/items/weapon/sedna/GunConfig;
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext configIndex ()I
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext inventory ()Lnet/minecraft/world/Container;
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/Receiver getCanFire (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/Receiver getDurabilitySpread (Lnet/minecraft/world/item/ItemStack;)F
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/factory/Lego calcSpread (Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/Receiver;Lcom/hbm/items/weapon/sedna/BulletConfig;ZIZ)F
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/factory/Lego clickReceiver (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;I)V
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/factory/Lego doStandardFire (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;Lcom/hbm/render/anim/AnimationEnums$GunAnimation;IZ)V
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/factory/Lego getStandardWearSpread (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/GunConfig;I)F
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/factory/XFactoryCatapult incrementRad (Lnet/minecraft/world/level/Level;DDDF)V
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine getAmount (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)I
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
+NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
 NUCLEAR_BMG50 method com/hbm/main/Polaroid isBalefireDay ()Z
 NUCLEAR_BMG50 method com/hbm/packet/PacketWire sendToAllAround (Lcom/hbm/packet/threading/ThreadedPayload;Lcom/hbm/handler/threading/TargetPoint;)V
 NUCLEAR_BMG50 method com/hbm/packet/toclient/MukePayload <init> (DDDZZ)V

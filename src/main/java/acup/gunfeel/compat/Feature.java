@@ -39,7 +39,7 @@ public enum Feature {
     SHOCK("shock", List.of("MixinShockSpread"), List.of("ShockAmmo", "ShockServer", "ShockStand")),
     RUBBER_SLUG("rubber_slug", List.of(), List.of("RubberSlug", "RubberServer", "NewAmmo")),
     DUPLEX("duplex", List.of("MixinDuplexShot"), List.of("Duplex", "NewAmmo")),
-    NUCLEAR_BMG50("nuclear_bmg50", List.of("MixinNuclearWear", "MixinNuclearCanFire"), List.of("NuclearBmg", "NuclearFx", "NewAmmo")),
+    NUCLEAR_BMG50("nuclear_bmg50", List.of("MixinNuclearWear", "MixinNuclearCanFire"), List.of("NuclearBmg", "NuclearFx", "NewAmmo", "NewAmmoStand")),
     GUNSHOT_RANGE("gunshot_range", List.of("MixinGunshotRange"), List.of("GunshotRange")),
     CASINGS("casings", List.of("CasingInstanceAccess", "MixinCasingDraw"), List.of("CasingCull", "CasingInstances")),
     THERMAL_OUTLINES("thermal_outlines", List.of("MixinThermalEdges"), List.of("BoxEdges"));
