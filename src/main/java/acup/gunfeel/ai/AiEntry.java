@@ -639,8 +639,10 @@ public final class AiEntry {
             n.andNot(shown);
             if (n.isEmpty()) n = sees.get(q);
             shown.or(sees.get(q));
-            // (on the opening's line: the gun on the far end of what it shows, where the corners are)
-            if (side == 0) n = far(n, cells, mouth);
+            // (on the opening's line: the gun on the far end of what it shows, where the corners are; round it, on the edge
+            // of what it shows new nearest the wall the opening is in: one waiting by that wall comes into sight there,
+            // straight ahead, not in the corner of the eye)
+            n = side == 0 ? far(n, cells, mouth) : edge(n, cells, end, in);
             double sx = 0, sy = 0, sz = 0;
             for (int b = n.nextSetBit(0); b >= 0; b = n.nextSetBit(b + 1)) {
                 Vec3 t = mid(cells[b], 1.2);
@@ -658,6 +660,21 @@ public final class AiEntry {
         op.slicers.add(bot);
         op.arcs.add(arc);
         op.arcAims.add(aims);
+    }
+
+    /** of the cells seen, those nearest the wall the opening is in (the fewest steps in from it), alone */
+    private static java.util.BitSet edge(java.util.BitSet n, long[] cells, long end, int in) {
+        int least = Integer.MAX_VALUE;
+        for (int b = n.nextSetBit(0); b >= 0; b = n.nextSetBit(b + 1))
+            least = Math.min(least, depthIn(cells[b], end, in));
+        java.util.BitSet near = new java.util.BitSet();
+        for (int b = n.nextSetBit(0); b >= 0; b = n.nextSetBit(b + 1))
+            if (depthIn(cells[b], end, in) == least) near.set(b);
+        return near;
+    }
+
+    private static int depthIn(long c, long end, int in) {
+        return (BlockPos.getX(c) - BlockPos.getX(end)) * Dirs.DX[in] + (BlockPos.getZ(c) - BlockPos.getZ(end)) * Dirs.DZ[in];
     }
 
     /** of the cells seen, the one furthest to the side of the opening (a corner by its wall), alone */
