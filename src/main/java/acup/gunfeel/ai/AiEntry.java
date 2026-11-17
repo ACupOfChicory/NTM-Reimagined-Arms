@@ -542,7 +542,10 @@ public final class AiEntry {
     static final int EXPOSED_FAR = 6;
 
     private static void hide(Op op, ServerLevel level, AiRooms.Plan plan, AiRooms.Way w, int room) {
-        if (room < 0 || plan.size[room] > SLICE_CELLS) return;
+        if (room < 0 || plan.size[room] > SLICE_CELLS) {
+            fate("stack: the room too big to weigh what it sees (" + (room < 0 ? -1 : plan.size[room]) + " cells)");
+            return;
+        }
         long[] cells = plan.cells()[room];
         VoxelRay.Source src = AiBots.voxels(level);
         long end = room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
@@ -594,6 +597,9 @@ public final class AiEntry {
             if (least > 0) stackSeen++;
             taken.add(pl[0]);
         }
+        StringBuilder f = new StringBuilder("stack:");
+        for (long[] pl : op.places) f.append(' ').append(BlockPos.getX(pl[0])).append(' ').append(BlockPos.getZ(pl[0])).append(" seen by ").append(seen(src, cells, pl[0])).append(';');
+        fate(f + " before the opening dear " + dear.size());
     }
 
     /** a soldier may stand there: room for it, ground under it */
