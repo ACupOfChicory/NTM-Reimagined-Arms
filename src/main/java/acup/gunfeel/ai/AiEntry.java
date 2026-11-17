@@ -106,13 +106,8 @@ public final class AiEntry {
     /** the thrower has this long to step out and throw; a throw is worked out this often and this many times; ticks */
     static final int FRAG_MAX = 60, FRAG_EVERY = 5, FRAG_TRIES = 4;
     /**
-     * AiBunker's and AiHatch's grenades: their own not behind blocks are kept this far from the burst (the blast's
-     * reach, 7.5, and two more; it hurts out to twice that: HE_HURTS, a debt there).
-     */
-    static final double HE_SAFE = 9.5;
-    /**
      * The others of its side (not of the entry), and those to be spared, are kept this far from the burst unless all of
-     * them is behind blocks: as far as the filling's blast hurts a mob in NTM, twice its reach (he 15, AiGrenades.SAFE;
+     * them is behind blocks (AiBunker's and AiHatch's grenades too): as far as the filling's blast hurts a mob in NTM, twice its reach (he 15, AiGrenades.SAFE;
      * powder 10). A stand: one of the side 9.6 blocks off, in the open through the doorway, lost 9.5.
      */
     static final double HE_HURTS = AiGrenades.SAFE, POWDER_HURTS = 10;
@@ -380,6 +375,14 @@ public final class AiEntry {
             if (b == null) b = op.aim;
             if (m.distanceToSqr(b) < op.hurts * op.hurts && AiGrenades.shielded(AiBots.voxels(level), m.getX(), m.getY(), m.getZ(), m.getBbHeight(), b)) return true;
         }
+        return false;
+    }
+
+    /** whether it is one of an entry going on (or its thrower): not held by another's grenade (AiBunker.holds) */
+    static boolean going(AiBot bot, ServerLevel level) {
+        Map<Long, Op> ops = OPS.get(level);
+        if (ops == null) return false;
+        for (Op op : ops.values()) if (op.phase < OVER && (op.members.contains(bot) || op.thrower == bot)) return true;
         return false;
     }
 
