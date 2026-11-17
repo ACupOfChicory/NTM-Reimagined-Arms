@@ -481,6 +481,7 @@ public final class AiEntry {
                 if (!over && going) return;
                 for (AiBot b : op.slicers) if (AiSquads.live(b)) aimAtSeen(op, b);
                 if (!op.decided) decide(op, level, tick, true);
+                else if (op.sliceFoe) again(op, level, tick);
                 else phase(op, GO, tick);
             }
             default -> advanceRest(op, level, tick);
@@ -734,6 +735,36 @@ public final class AiEntry {
         return c == start ? null : mid(c, 1.1);
     }
 
+    /**
+     * the slicing after the grenade showed a foe in there alive: another grenade if one of them has one and a throw is
+     * found, else held by the way in while it is in their sight (not in at it)
+     */
+    private static void again(Op op, ServerLevel level, long tick) {
+        boolean armed = false;
+        for (AiBot b : op.members) armed |= b.grenades > 0;
+        op.thrower = armed ? thrower(op, level, tick) : null;
+        if (op.thrower != null) {
+            fate("the slicing showed a foe in there: a grenade again");
+            op.tries = 0;
+            op.handing = Long.MIN_VALUE;
+            phase(op, FRAG, tick);
+            return;
+        }
+        held++;
+        op.funnelAt = tick;
+        fate("the slicing showed a foe in there: held by the way in");
+        phase(op, HOLD, tick);
+    }
+
+    /** one of the entry has a foe in the room in its sight */
+    private static boolean inSight(Op op) {
+        if (op.plan == null) return false;
+        for (AiBot b : op.members)
+            for (TargetMemory.Contact c : b.memory.contacts())
+                if (c.state == TargetMemory.State.VISIBLE && op.plan.room(cell(c.x, c.y + 0.2, c.z)) == op.room) return true;
+        return false;
+    }
+
     /** after the stack (and its slicing): a grenade in, or in without one (or held by the way in) */
     private static void decide(Op op, ServerLevel level, long tick, boolean all) {
         op.decided = true;
@@ -805,6 +836,8 @@ public final class AiEntry {
                 if (g == null || g.isRemoved() || tick - op.phaseAt > AiGrenades.FUSE + 10) go(op, level, tick);
             }
             case HOLD -> {
+                // (a foe of the room in sight of one of them: still held)
+                if (inSight(op)) op.funnelAt = tick;
                 boolean stale = tick - op.funnelAt > HOLD_STALE, late = tick - op.phaseAt > HOLD_MAX;
                 if (late) heldOut++;
                 if (stale || late) {
