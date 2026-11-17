@@ -130,6 +130,9 @@ public final class BotAnimator {
     static final float KNOCK_PUSH = 0.45F;
     /** a step this long in a tick is no step: it was put there (a teleport), blocks */
     static final float TELEPORT = 1.5F;
+    /** ticks after it is first seen, seen again after a while or put somewhere: its speed and lean are its steps' */
+    static final float FRESH = 3F;
+    private float freshFor;
     /** ticks after a hit its push may still come in (the motion is sent after the hit, with the tick's moves) */
     static final float KNOCK_WAIT = 2F;
     /** the most the heading it is drawn at turns, radians a tick */
@@ -383,17 +386,23 @@ public final class BotAnimator {
         if (s > TELEPORT) {
             // put somewhere (a teleport, a ride): it stands where it is now
             speed = walk = gait = gaitVel = velX = velZ = velXv = velZv = tiltX = tiltZ = tiltXv = tiltZv = leanPace = leanPaceFor = 0F;
+            freshFor = 0F;
             return;
         }
-        float k = dt > 20F ? 1F : 1F - (float) Math.pow(1F - SPEED_FOLLOW, dt);
+        // first seen, seen again after a while or just put somewhere: it comes to the pace its steps go at once
+        // (followed from nought, a mob coming in at a run or put back on its way would be drawn walking slow, its
+        // feet sliding); a step short or none (a late packet) is followed as ever
+        freshFor = dt > 20F ? 0F : freshFor + dt;
+        boolean fresh = freshFor <= FRESH;
+        float k = fresh && s >= speed ? 1F : 1F - (float) Math.pow(1F - SPEED_FOLLOW, dt);
         // from a stand (the clips hardly in yet) the heading takes the way it goes at once
-        float stand = dt > 20F ? 1F : 1F - smooth((speed - BotPoser.MOVE_FROM) / (BotPoser.MOVE_FULL - BotPoser.MOVE_FROM));
+        float stand = fresh ? 1F : 1F - smooth((speed - BotPoser.MOVE_FROM) / (BotPoser.MOVE_FULL - BotPoser.MOVE_FROM));
         speed += (s - speed) * k;
-        weigh(dx, dz, bodyYaw, dt);
+        weigh(dx, dz, bodyYaw, dt, fresh);
         // the gait by the speed, over a few frames: the speed drawn wavers by a hundredth with the steps the client
         // gets, and from a jog to a sprint is a band of 0.015 (the run's lean and the clips would go over in a frame)
         float gaitTo = BotPoser.gaitOf(speed);
-        if (dt > 20F || Float.isNaN(gait)) {
+        if (fresh || Float.isNaN(gait)) {
             gait = gaitTo;
             gaitVel = 0F;
         } else {
@@ -401,12 +410,12 @@ public final class BotAnimator {
             gait = g[0];
             gaitVel = g[1];
         }
-        float kw = dt > 20F ? 1F : 1F - (float) Math.pow(1F - WALK_FOLLOW, dt);
+        float walkTo = Math.min(s * 4F, 1F), kw = fresh && walkTo >= walk ? 1F : 1F - (float) Math.pow(1F - WALK_FOLLOW, dt);
         float walkWas = walk;
-        walk += (Math.min(s * 4F, 1F) - walk) * kw;
+        walk += (walkTo - walk) * kw;
         if (dt <= 20F) {
             // on the run, fewer steps by the player's choice (Config.botRunGait tempo; vanilla's pace at a walk)
-            float on = dt * BotPoser.pace((walkWas + walk) / 2F * BotPoser.tempo(speed), speed, gait, heading, swap);
+            float on = dt * BotPoser.pace((walkWas + walk) / 2F * BotPoser.tempo(speed), speed, gait, heading, crouch, swap);
             if (s < BotPoser.MOVE_FROM) {
                 // only where it goes on faster than its fading walk would: a tick with no step in a run (a late
                 // packet) leaves the run's pace as it was
@@ -428,9 +437,9 @@ public final class BotAnimator {
     }
 
     /** the trunk's weight (tiltX, tiltZ) for the steps dx dz this frame, dt ticks after the last */
-    private void weigh(double dx, double dz, float bodyYaw, float dt) {
+    private void weigh(double dx, double dz, float bodyYaw, float dt, boolean first) {
         double step = Math.sqrt(dx * dx + dz * dz);
-        boolean fresh = dt > 20F || Float.isNaN(bodyYaw);
+        boolean fresh = first || Float.isNaN(bodyYaw);
         if (fresh || step > LEAN_PUT + 2.0 * Math.sqrt(velX * velX + velZ * velZ)) {
             // first seen (or after a long while) it goes on at the pace it has, upright; put somewhere it stands
             boolean going = fresh && step <= LEAN_PUT;
