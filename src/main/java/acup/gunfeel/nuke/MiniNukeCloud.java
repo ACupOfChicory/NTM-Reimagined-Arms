@@ -182,6 +182,43 @@ public final class MiniNukeCloud {
         return SHOCK_LIFE;
     }
 
+    // the ground laid waste round a small blast out to this many times its radius (within it the crater is bare), and
+    // the passes made (the stand)
+    static final float WASTE_TIMES = 2F;
+    public static int wastePasses;
+
+    public static float wasteRadius(float blast) {
+        return blast * WASTE_TIMES;
+    }
+
+    private static Mark lastWaste;
+
+    // NTM's muke packet (MixinMiniNukeSend, before the blast or after it): the ground round the blast laid waste as a
+    // nuke's is (MiniWasteMutator: grass, leaves and plants dead or gone, uranium ore to schrabidium; logs, planks,
+    // doors and coal left), out to wasteRadius of the blast that sent it; a Tiny Tot volley once. One more pass of NTM's
+    // rays, no harm and no sound. Server key miniNukeWaste (true)
+    public static void waste(ServerLevel level, double x, double y, double z, boolean tiny) {
+        if (!ReaimTimes.flag("miniNukeWaste", true)) return;
+        long time = level.getGameTime();
+        if (tiny) {
+            Mark t = lastWaste;
+            if (t != null && t.in(level) && time - t.time <= MERGE_TICKS && time >= t.time) {
+                double dx = t.x - x, dz = t.z - z;
+                if (dx * dx + dz * dz <= MERGE_RANGE * MERGE_RANGE) return;
+            }
+            lastWaste = new Mark(level, x, y, z, TINY_VOLLEY_SIZE, time);
+        }
+        float size = tiny ? TINY_VOLLEY_SIZE : sizeAt(level, x, y, z, time);
+        // (the pass is an ExplosionVNT too: the blast's radius it would leave for the cloud's size kept as it was)
+        Mark kept = hint;
+        try {
+            MiniWasteMutator.apply(new com.hbm.explosion.vanillant.ExplosionVNT(level, x, y, z, wasteRadius(size))).explode();
+        } finally {
+            hint = kept;
+        }
+        wastePasses++;
+    }
+
     // NTM's bomb at scale 1: its heat at the start (EntityNukeTorex.simulateTick: (int) (50 * s * s))
     static final double BOMB_HEAT = 50;
 

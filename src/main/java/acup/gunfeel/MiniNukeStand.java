@@ -114,7 +114,7 @@ final class MiniNukeStand {
         } catch (Exception e) {
             ClientSmoke.check(false, "мини-нюк: папка " + DIR + ": " + e);
         }
-        ROWS.add("scene\tmode\trep\tbase_ms\tframe_ms\tp95_ms\tfps\tclouds\tscale\tpuffs_max\ttop_blocks\tring_blocks\theat_1s\tr_1s\tg_1s\tb_1s\theat_3s\tr_3s\tg_3s\tb_3s\tring_05s\tring_1s\tring_2s\tring_3s\tpuffs_05s\tpuffs_1s\tpuffs_2s\tpuffs_3s\tmid_05s\tmid_1s\tmid_2s\tmid_3s\tband_05s\tband_1s\tband_2s\tband_3s\twaste_r20\tgrass_r20");
+        ROWS.add("scene\tmode\trep\tbase_ms\tframe_ms\tp95_ms\tfps\tclouds\tscale\tpuffs_max\ttop_blocks\tring_blocks\theat_1s\tr_1s\tg_1s\tb_1s\theat_3s\tr_3s\tg_3s\tb_3s\tring_05s\tring_1s\tring_2s\tring_3s\tpuffs_05s\tpuffs_1s\tpuffs_2s\tpuffs_3s\tmid_05s\tmid_1s\tmid_2s\tmid_3s\tband_05s\tband_1s\tband_2s\tband_3s\twaste_r10\tgrass_r10\twaste_r20\tgrass_r20\twaste_r30\tgrass_r30\twaste_passes");
         run = 0;
         phase = 0;
         last = System.nanoTime();
@@ -285,24 +285,26 @@ final class MiniNukeStand {
         puffs = Math.max(puffs, all);
     }
 
-    // the ground within 20 blocks of the blast as the run ends: blocks of NTM's waste earth and of grass left (the
+    // the ground round the blast as the run ends: blocks of NTM's waste earth and of grass left (the
     // ground is grass a block under Y; the crater's air neither)
     private static int[] ground() {
         var server = Minecraft.getInstance().getSingleplayerServer();
-        if (server == null) return new int[] {-1, -1};
+        if (server == null) return new int[6];
         return server.submit(() -> {
             ServerLevel level = server.overworld();
             BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-            int waste = 0, grass = 0;
-            for (int x = -20; x <= 20; x++) for (int z = -20; z <= 20; z++) {
-                if (x * x + z * z > 400) continue;
+            // waste and grass within 10, 10 to 20, 20 to 30 blocks
+            int[] n = new int[6];
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) {
+                int band = x * x + z * z <= 100 ? 0 : x * x + z * z <= 400 ? 1 : x * x + z * z <= 900 ? 2 : -1;
+                if (band < 0) continue;
                 for (int y = Y - 6; y < Y; y++) {
                     var b = level.getBlockState(p.set(x, y, z));
-                    if (b.is(Blocks.GRASS_BLOCK)) grass++;
-                    else if (net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b.getBlock()).getPath().equals("waste_earth")) waste++;
+                    if (b.is(Blocks.GRASS_BLOCK)) n[2 * band + 1]++;
+                    else if (net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b.getBlock()).getPath().equals("waste_earth")) n[2 * band]++;
                 }
             }
-            return new int[] {waste, grass};
+            return n;
         }).join();
     }
 
@@ -357,8 +359,8 @@ final class MiniNukeStand {
 
         String mode = modeB() ? "B" : "A";
         int[] g = ground();
-        ROWS.add(String.format(Locale.ROOT, "%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.0f\t%d\t%.3f\t%d\t%.1f\t%.1f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d", scene(), mode, rep(), baseMs, ms, p95,
-                ms > 0 ? 1000 / ms : 0, clouds, scale, puffs, top, ring, COLOUR[0], COLOUR[1], COLOUR[2], COLOUR[3], COLOUR[4], COLOUR[5], COLOUR[6], COLOUR[7], RING_R[0], RING_R[1], RING_R[2], RING_R[3], RING_N[0], RING_N[1], RING_N[2], RING_N[3], RING_MID[0], RING_MID[1], RING_MID[2], RING_MID[3], RING_BAND[0], RING_BAND[1], RING_BAND[2], RING_BAND[3], g[0], g[1]));
+        ROWS.add(String.format(Locale.ROOT, "%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.0f\t%d\t%.3f\t%d\t%.1f\t%.1f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d", scene(), mode, rep(), baseMs, ms, p95,
+                ms > 0 ? 1000 / ms : 0, clouds, scale, puffs, top, ring, COLOUR[0], COLOUR[1], COLOUR[2], COLOUR[3], COLOUR[4], COLOUR[5], COLOUR[6], COLOUR[7], RING_R[0], RING_R[1], RING_R[2], RING_R[3], RING_N[0], RING_N[1], RING_N[2], RING_N[3], RING_MID[0], RING_MID[1], RING_MID[2], RING_MID[3], RING_BAND[0], RING_BAND[1], RING_BAND[2], RING_BAND[3], g[0], g[1], g[2], g[3], g[4], g[5], MiniNukeCloud.wastePasses));
         GunFeel.LOGGER.info("[mininuke] {}", ROWS.getLast());
         if (modeB()) {
             if (scene().equals("far")) {
