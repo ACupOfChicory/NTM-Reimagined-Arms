@@ -197,6 +197,8 @@ public final class AiCommander {
         /** the pair's other (C4: pinning and going round, of the same group), its time up at due, the one going round there (or in a fight) at ready */
         @Nullable Job partner;
         long due = Long.MAX_VALUE, ready = Long.MIN_VALUE, pairedAt;
+        /** when the staff last gave it (to the squad, or to the parts of a squad split on the way) */
+        long givenAt = Long.MIN_VALUE;
         boolean late;
         /**
          * its squad's reports (C5, AiReports): made already (contact, out of rounds, there, cannot get through); losses
@@ -534,6 +536,8 @@ public final class AiCommander {
                 all++;
             }
             Job job = job(s, now);
+            // a squad split on the way: the squad before it with the same task (the plan gives them one)
+            int twin = job == null ? -1 : jobs.indexOf(job);
             jobs.add(job);
             int group = job == null ? -1 : groups.indexOf(match(job.ids, groups));
             // a group it gave up lately (none of it could get there): not again for AVOID
@@ -548,7 +552,7 @@ public final class AiCommander {
             own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), out * 2 > alive, job == null ? null : job.kind,
                     job == null ? 0 : afresh ? now - StaffPlan.KEEP : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE,
                     job == null || !reports() ? Long.MIN_VALUE : job.pinnedAt, job != null && job.pinnedAt != Long.MIN_VALUE && job.alive() < job.aliveAtPin,
-                    pair && job.partner != null && job.partner.alive() > 0 && !job.late));
+                    pair && job.partner != null && job.partner.alive() > 0 && !job.late, twin));
         }
         if (all == 0) return;
         sideX /= all;
@@ -850,9 +854,18 @@ public final class AiCommander {
         }
         job.faceX = t.faceX();
         job.faceZ = t.faceZ();
-        job.members = List.copyOf(s.bots);
-        Way way = t.kind() == StaffPlan.Kind.RESERVE ? null : way(level, team, s, t.x(), t.z());
+        // given to the other part of a split squad already this time round: its members are both parts
         int i = 0;
+        if (same && job.givenAt == now) {
+            List<AiBot> both = new ArrayList<>(job.members);
+            i = both.size();
+            for (AiBot b : s.bots) if (!both.contains(b)) both.add(b);
+            job.members = List.copyOf(both);
+            for (AiBot b : job.members) if (b.order != null && b.order.job == job) b.order.of = both.size();
+        } else job.members = List.copyOf(s.bots);
+        job.givenAt = now;
+        int of = job.members.size();
+        Way way = t.kind() == StaffPlan.Kind.RESERVE ? null : way(level, team, s, t.x(), t.z());
         for (AiBot b : s.bots) {
             Order o = b.order != null && b.order.job == job ? b.order : new Order();
             o.job = job;
@@ -863,7 +876,7 @@ public final class AiCommander {
             o.ids = ids;
             o.until = now + LASTS;
             o.slot = i++;
-            o.of = s.bots.size();
+            o.of = of;
             if (o.way != way && (way == null || o.walked != way)) {
                 o.way = way;
                 o.route = null;

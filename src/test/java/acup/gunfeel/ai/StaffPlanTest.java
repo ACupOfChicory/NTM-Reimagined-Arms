@@ -365,6 +365,37 @@ class StaffPlanTest {
         assertEquals(Kind.BACK, plan(List.of(back), List.of(group(0, 100, 3)))[0].kind());
     }
 
+    /** a squad: its task's kind, a pair's time, in a fight, the squad before it with the same task (-1: none) */
+    static Squad part(double x, double z, Kind kind, long due, boolean contact, int twin) {
+        return new Squad(x, z, 2, 2, 4, false, kind, NOW - 100, 0, false, -1, false, contact, due, Long.MIN_VALUE, false, false, twin);
+    }
+
+    @Test
+    void aSquadSplitOnTheWayKeepsOneTaskAndOnePlace() {
+        long due = NOW + 600;
+        // the one going round split in two (the squads made again as they move) and the one pinning: the second part
+        // goes round with the first, not to the reserve for want of room (PER squads to a group)
+        Task[] t = plan(List.of(part(0, 40, Kind.PIN, due, false, -1), part(60, 80, Kind.FLANK, due, false, -1), part(66, 90, Kind.FLANK, due, false, 1)),
+                List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(Kind.FLANK, t[1].kind());
+        assertEquals(t[1], t[2], "the second part: the first's task");
+        // the one pinning split: the one going round still goes round
+        t = plan(List.of(part(0, 40, Kind.PIN, due, false, -1), part(6, 44, Kind.PIN, due, false, 0), part(60, 80, Kind.FLANK, due, false, -1)),
+                List.of(group(0, 100, 3)));
+        assertEquals(Kind.FLANK, t[2].kind());
+        assertEquals(t[0], t[1]);
+        // the one going round ready (in a fight): both its parts advance
+        t = plan(List.of(part(0, 40, Kind.PIN, due, true, -1), part(60, 80, Kind.FLANK, due, true, -1), part(66, 90, Kind.FLANK, due, true, 1)),
+                List.of(group(0, 100, 3)));
+        assertEquals(Kind.ADVANCE, t[1].kind());
+        assertEquals(Kind.ADVANCE, t[2].kind());
+        // a squad of its own beside them still takes no room past PER: the reserve
+        t = plan(List.of(part(0, 40, Kind.PIN, due, false, -1), part(60, 80, Kind.FLANK, due, false, -1), part(66, 90, Kind.FLANK, due, false, 1),
+                new Squad(30, 60, 2, 2, 2, false, null, 0, -1, false)), List.of(group(0, 100, 3)));
+        assertEquals(Kind.RESERVE, t[3].kind());
+    }
+
     @Test
     void aPairWhoseOtherIsGoneIsNoHelpAnotherIsSent() {
         // its pair's other gone: a squad holding nearby goes round; one advancing is not taken off its advance
