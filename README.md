@@ -61,8 +61,8 @@ page. They are alphas: expect bugs and back up your world.
   against armour, next to the loaded one.
 - A 12 Gauge Electroshock Shell for NTM's 12 gauge shotguns (all but the
   Shredder), made in NTM's ammo press, at the tier of NTM's 10 gauge and 12
-  gauge magnum shells: a capacitor, a copper coil, smokeless powder and an
-  advanced buckshot casing give six. One round, about 2 damage. A
+  gauge magnum shells: three tantalum capacitors, a gold coil, smokeless powder
+  and an advanced buckshot casing give six. One round, about 2 damage. A
   hit shocks for 2 seconds, which then wear off smoothly over 3 more: the HUD
   (other mods' too, not the chat or menus) glitches and shakes, the view
   shakes and drifts on its own, and whoever was hit, an AI soldier or any mob

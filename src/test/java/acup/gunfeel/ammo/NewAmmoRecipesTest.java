@@ -60,6 +60,8 @@ class NewAmmoRecipesTest {
                 shape(read("r556_duplex")));
         assertEquals("[ A ][ B ][ C ] | A=4 #c:ingots/lead B=4 #hbm:dusts/any_smokeless C=2 hbm:casing_small_steel | 12 ntmgunfeel:ammo_r762_duplex",
                 shape(read("r762_duplex")));
+        assertEquals("[AB ][ C ][ D ] | A=3 hbm:circuit_capacitor_tantalium B=1 hbm:coil_gold C=1 #hbm:dusts/any_smokeless D=1 hbm:casing_buckshot_advanced | 6 ntmgunfeel:ammo_g12_shock",
+                shape(read("g12_shock")));
         assertEquals("[   ][AB ][CD ] | A=2 hbm:nugget_am242 B=1 hbm:nugget_schrabidium C=2 hbm:ball_tatb D=1 hbm:casing_large_steel | 1 ntmgunfeel:ammo_bmg50_nuclear",
                 shape(read("bmg50_nuclear")));
     }
