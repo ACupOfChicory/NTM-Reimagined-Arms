@@ -146,6 +146,7 @@ final class BotStand {
         step = 0;
         caseIndex = yawIndex = 0;
         until = now() + 40;
+        changed();
         if (SUITS) startSuits();
         if (BotHandStand.ENABLED) {
             step = 7;
@@ -193,10 +194,70 @@ final class BotStand {
         }
     }
 
+    // ---------------------------------------------------------------- the wait over a change
+
+    /**
+     * Server ticks from a change (a stance, a turn, a set worn) to the pose the server should have of it. The wait was
+     * 30 ticks of the client's clock, and under load that clock jumps ahead (two loadouts done in one second): the grid
+     * found the model not drawn yet, and the server took a pose drawn in the last set as the new one's (it marks a
+     * pose with what the mob wears when the pose comes, not when it was drawn), a shot past the helmet then on the head.
+     * Now a change waits for the fact: the client has a pose of the mob as it is now (ModelHits checks its gear and
+     * size), and the server has one it caught SETTLE of its own ticks after the change or later; and at least
+     * SETTLE_FRAMES frames and SETTLE_MIN_NS have gone by.
+     */
+    static final int SETTLE = 30, SETTLE_FRAMES = 20;
+    static final long SETTLE_MIN_NS = 500_000_000L, SETTLE_MAX_NS = 30_000_000_000L;
+    private static long changedAt, changedNs, waitedMostNs;
+    private static int changedFrames, waits;
+    /** a wait ran out (no poses at all, ModelHits off): the rest wait their frames only, not 30 s each */
+    private static boolean noPoses;
+
+    /** a change made (the server's side done): its wait from here */
+    private static void changed() {
+        changedAt = mc().getSingleplayerServer().overworld().getGameTime();
+        changedNs = System.nanoTime();
+        changedFrames = 0;
+    }
+
+    /** once a frame while a change waits: true when its pose has come (or after SETTLE_MAX_NS, a FAIL said) */
+    private static boolean settled() {
+        changedFrames++;
+        long ns = System.nanoTime() - changedNs;
+        if (ns < SETTLE_MIN_NS || changedFrames < SETTLE_FRAMES) return false;
+        Mob h = husk;
+        String agent = drawn(one), corpse = h == null ? null : drawn(h);
+        boolean ready = agent == null && corpse == null;
+        if (!ready && !noPoses && ns < SETTLE_MAX_NS) return false;
+        if (!ready && !noPoses) {
+            noPoses = true;
+            ClientSmoke.check(false, String.format(Locale.ROOT, "стенд: поза не пришла за %d с после смены (тик сервера %d): агент %s, кадавр %s;"
+                    + " дальше смены ждут только своих кадров", SETTLE_MAX_NS / 1_000_000_000L, changedAt, agent == null ? "есть" : agent,
+                    h == null ? "нет" : corpse == null ? "есть" : corpse));
+        }
+        waits++;
+        waitedMostNs = Math.max(waitedMostNs, ns);
+        return true;
+    }
+
+    /**
+     * null: the mob's pose has come on both sides; else what is missing. {@code server}: the server's mob itself (as
+     * watchPose has it: the server's entity table is not read from this thread). The stand's mobs have no AI, so no
+     * AiLean puts a pose of the server's own for them: what the server holds came from the client.
+     */
+    private static String drawn(Mob server) {
+        var level = mc().getSingleplayerServer().overworld();
+        var client = mc().level.getEntity(server.getId());
+        if (client == null) return "клиент не видит моба";
+        if (!ModelHits.hasPose(client)) return "у клиента нет позы";
+        if (!ModelHits.hasPose(server)) return "у сервера нет позы";
+        long caught = ModelHits.caught(level, server);
+        return caught >= changedAt + SETTLE ? null : "поза сервера с тика " + caught + ", нужна с " + (changedAt + SETTLE);
+    }
+
     // ---------------------------------------------------------------- 1. the hitbox takes the pose
 
     private static void poses() {
-        if (now() < until) {
+        if (!settled()) {
             if (phase == 1) watchPose();
             return;
         }
@@ -233,6 +294,7 @@ final class BotStand {
         }).join();
         long t = now();
         until = t + 30;
+        changed();
         phase = 1;
         watchFrames = watchGaps = 0;
         watchAge = 0;
@@ -443,12 +505,12 @@ final class BotStand {
             husk = h;
         }).join();
         loadout = 0;
-        until = now() + 30;
+        changed();
         ROWS.add("урон\tнабор\tпорядок\tчасть\tзона\tурон_выстрела\tвыстрелов_до_смерти\tDT/DR\tброня\tкарабин");
     }
 
     private static void damage() {
-        if (now() < until) return;
+        if (!settled()) return;
         var server = mc().getSingleplayerServer();
         var l = BotStandHits.LOADOUTS[loadout];
         armour(l);
@@ -517,9 +579,11 @@ final class BotStand {
         }).join();
         write();
         if (++loadout < BotStandHits.LOADOUTS.length) {
-            until = now() + 30;
+            changed();
             return;
         }
+        ClientSmoke.check(true, String.format(Locale.ROOT, "ожидание позы после смены, позы и урон (сведения): смен %d, дольше всех %.1f с",
+                waits, waitedMostNs / 1e9));
         startArmourPoses();
     }
 
@@ -627,7 +691,7 @@ final class BotStand {
                     (short) (action == AiPose.NONE ? 0 : 26), AiPose.FIGHT));
             m.setPose(cc.lying() ? Pose.SWIMMING : cc.stance() == AiPose.CROUCH ? Pose.CROUCHING : Pose.STANDING);
         }).join();
-        until = now() + 30;
+        changed();
     }
 
     /**
@@ -639,8 +703,9 @@ final class BotStand {
         Case c = POSED_CASES[posedCase];
         var seenBy = mc().level.getEntity(one.getId());
         Identifier asset = BotStandHits.layerAsset(l);
-        // a layer on the bent limbs, on every frame once the pose has come (an action's clip plays over the wait)
-        if (asset != null && seenBy != null && now() >= until - 25) {
+        // a layer on the bent limbs, on every frame once the pose has come (an action's clip plays over the wait): the
+        // client has drawn the mob as it is now, its armour models posed by it (not by the last case or set)
+        if (asset != null && seenBy != null && changedFrames >= SETTLE_FRAMES && ModelHits.hasPose(seenBy)) {
             try {
                 var seams = layerSeams(seenBy, asset);
                 posedLoose = Math.max(posedLoose, seams.loose());
@@ -649,7 +714,7 @@ final class BotStand {
                 ClientSmoke.check(false, "слой брони в позе: " + e);
             }
         }
-        if (now() < until) return;
+        if (!settled()) return;
         if (seenBy == null) ClientSmoke.check(false, "броня в позе " + l.name() + " " + c.name() + ": клиент не видит агента");
         else {
             if (asset != null) {
@@ -1180,7 +1245,7 @@ final class BotStand {
             Arrays.fill(SUIT_WORST, 0);
             STAND_HOLES.clear();
         }
-        until = now() + 30;
+        changed();
         suitFrame = 0;
     }
 
@@ -1189,7 +1254,7 @@ final class BotStand {
      * (SuitBendStand): bent, the skin stands out no more and no gap opens where the rigid mesh has none
      */
     private static void suits() {
-        if (now() < until) return;
+        if (suitFrame == 0 && !settled()) return;
         if (suitFrame == 0) {
             SuitBend.capture = new java.util.concurrent.ConcurrentHashMap<>();
             suitFrame = 1;
