@@ -312,6 +312,12 @@ public final class AiCommander {
         int idleLegs;
         /** at its task's place, stopped there (C2) */
         boolean stood;
+        /** looking through its area: on the way to a place in it till then (round a house's corner, out past the radius, it is still there) */
+        long lookUntil = Long.MIN_VALUE;
+        /** the room the area's middle is in (AiRooms, read in the area, again when the area moved on): places looked through only in it; OUTSIDE: anywhere */
+        AiRooms.@Nullable Plan rooms;
+        int room = AiRooms.OUTSIDE, roomY;
+        double roomX = Double.NaN, roomZ = Double.NaN;
         /**
          * its squad's bounds and rushes (C3): where it goes to or holds (the cover cell found, else none), whether
          * cover was found; for which of them (the mode's start, the turn) and where along the way that ended; where
@@ -1509,7 +1515,9 @@ public final class AiCommander {
         // in an area once it is within half the radius, out again past the whole of it; at a place (C2) within its
         // radius, away again past twice that
         boolean place = o.job != null && o.job.place();
-        boolean there = place ? d <= o.r || o.lastInside == tick - 1 && d <= o.r * 2 : d <= o.r * 0.5 || o.lastInside == tick - 1 && d <= o.r;
+        // (on its way to a place in the area it looks through: still there, though the way goes out past the radius)
+        boolean there = place ? d <= o.r || o.lastInside == tick - 1 && d <= o.r * 2
+                : d <= o.r * 0.5 || o.lastInside == tick - 1 && (d <= o.r || tick < o.lookUntil);
         bot.gunner.fire(false);
         if (!there) {
             o.stood = false;
@@ -1660,13 +1668,21 @@ public final class AiCommander {
                 o.badPlaces.add(new double[] {BlockPos.getX(bot.mover.goal()) + 0.5, BlockPos.getZ(bot.mover.goal()) + 0.5});
             }
             o.nextLeg = tick + LOOK_AGAIN;
+            o.lookUntil = tick + LOOK_AGAIN;
+            room(o, bot, level);
             var rng = bot.mob.getRandom();
             double px = o.x, pz = o.z;
-            for (int k = 0; k < PLACE_TRIES; k++) {
+            boolean found = false;
+            for (int k = 0; k < PLACE_TRIES && !found; k++) {
                 double a = rng.nextDouble() * Math.PI * 2, r = Math.sqrt(rng.nextDouble()) * o.r;
                 px = o.x + Math.cos(a) * r;
                 pz = o.z + Math.sin(a) * r;
-                if (!bad(o, px, pz)) break;
+                found = !bad(o, px, pz) && inRoom(o, px, pz);
+            }
+            // none in its room: the middle of the area
+            if (!found && o.room != AiRooms.OUTSIDE) {
+                px = o.x;
+                pz = o.z;
             }
             // no place to stand there: another soon
             if (!go(bot, level, px, pz, AiSoldier.WALK)) o.nextLeg = tick + 1;
@@ -1822,6 +1838,29 @@ public final class AiCommander {
         o.legTX = x;
         o.legTZ = z;
         o.legD = Math.hypot(x - bot.mob.getX(), z - bot.mob.getZ());
+    }
+
+    /**
+     * the area's middle in a room of a building (AiRooms, read from where it stands in the area, again when the area
+     * moved on: the same order kept for the group): the places it looks through are in that room only, none out past
+     * its walls that it gets to only by going out of the house
+     */
+    private static void room(Order o, AiBot bot, ServerLevel level) {
+        if (Math.hypot(o.roomX - o.x, o.roomZ - o.z) <= 1) return;
+        o.roomX = o.x;
+        o.roomZ = o.z;
+        o.rooms = null;
+        o.room = AiRooms.OUTSIDE;
+        o.roomY = Mth.floor(bot.mob.getY() + 0.2);
+        long mid = BlockPos.asLong(Mth.floor(o.x), o.roomY, Mth.floor(o.z));
+        AiRooms.Plan plan = AiRooms.of(TacticalMap.of(level), mid);
+        if (plan == null || plan.room(mid) == AiRooms.OUTSIDE) return;
+        o.rooms = plan;
+        o.room = plan.room(mid);
+    }
+
+    private static boolean inRoom(Order o, double x, double z) {
+        return o.rooms == null || o.rooms.room(BlockPos.asLong(Mth.floor(x), o.roomY, Mth.floor(z))) == o.room;
     }
 
     /** a place near one it could not get to */

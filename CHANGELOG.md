@@ -1,5 +1,11 @@
 # Changelog
 
+## X1505
+
+- AI soldiers looking through an area inside a house with a single doorway
+  no longer wander out of it round the corner and off across the field;
+  they look through the room the area is in.
+
 ## X1502
 
 - AI soldiers who see or hear one of their own shot down nearby now know
