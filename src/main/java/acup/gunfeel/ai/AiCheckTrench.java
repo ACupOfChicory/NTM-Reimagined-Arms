@@ -53,6 +53,8 @@ final class AiCheckTrench {
     private final ServerLevel level;
     private final int y;
     private boolean started;
+    /** AiEntry's count of those in before their own grenade burst, and its grenades thrown, at the stand's start */
+    private int early0, earlyFrags0, off0;
     private String who(net.minecraft.world.entity.Entity e, Mob hurt) {
         if (e == null) return "-";
         if (e == hurt) return "itself";
@@ -115,6 +117,9 @@ final class AiCheckTrench {
     boolean tick() {
         if (!started) {
             started = true;
+            early0 = AiEntry.inBeforeBlast;
+            off0 = AiEntry.offBeforeBlast;
+            earlyFrags0 = AiEntry.frags;
             for (int cx = X0 >> 4; cx <= (X0 + SIZE) >> 4; cx++)
                 for (int cz = Z0 >> 4; cz <= (Z0 + SIZE) >> 4; cz++) level.setChunkForced(cx, cz, true);
             AiBots.awake = true;
@@ -512,6 +517,12 @@ final class AiCheckTrench {
                 moveOff = n[2] == 0 ? RUN : (clearTicks[2] + (n[2] - cleared[2]) * (double) RUN) / n[2];
         check.check(String.format(Locale.ROOT, "trench: with trenches read a trench whose holders move is cleared sooner (at tick %.0f, %.0f before; one not cleared at %d)", moveOn, moveOff, RUN),
                 moveOn < moveOff);
+        check.out(String.format(Locale.ROOT, "     trench: those of an entry, its grenade out, in the room %d, off their place beside the way in %d; grenades thrown in %d",
+                AiEntry.inBeforeBlast - early0, AiEntry.offBeforeBlast - off0, AiEntry.frags - earlyFrags0));
+        // a trap (X1212): the code before it kept them so here too; its one fault, 1 trench run in 52, was not seen again
+        check.check(String.format(Locale.ROOT, "trench: an entry keeps its places beside the way in till its own grenade has burst (in the room %d, off them %d; %d grenades thrown in, 1 at least)",
+                AiEntry.inBeforeBlast - early0, AiEntry.offBeforeBlast - off0, AiEntry.frags - earlyFrags0),
+                AiEntry.inBeforeBlast == early0 && AiEntry.offBeforeBlast == off0 && AiEntry.frags > earlyFrags0);
         return true;
     }
 }

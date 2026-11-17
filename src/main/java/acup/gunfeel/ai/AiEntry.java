@@ -44,6 +44,12 @@ public final class AiEntry {
     static boolean frag = true;
     /** the stands: entries begun, grenades thrown in before one, throwers that stepped out and did not throw */
     public static int entries, frags, noThrow;
+    /** the stands: those of an entry in its room while its grenade was out and not burst yet (in before their own blast) */
+    public static int inBeforeBlast;
+    /** the stands: those of an entry off their place beside the way in (OFF_PLACE) while its grenade was out, past WAIT_GRACE ticks of the wait */
+    public static int offBeforeBlast;
+    static final double OFF_PLACE = 2.5;
+    static final int WAIT_GRACE = 20;
     /** the stands: entries gone in before all of them were beside the way in; all there, and none had a throw found from before it */
     public static int unstacked, noPlan;
     /** the stands: throwers lost before the throw (down, no way out before the opening, out of time) and handed on to another of it */
@@ -96,6 +102,8 @@ public final class AiEntry {
         double offX, offZ;
         final List<AiBot> members = new ArrayList<>(2), done = new ArrayList<>(2);
         Vec3 door = Vec3.ZERO;
+        /** the stands: those of it counted in the room before its grenade burst */
+        final List<AiBot> inEarly = new ArrayList<>(2), offEarly = new ArrayList<>(2);
     }
 
     private static final Map<ServerLevel, Map<Long, Op>> OPS = new WeakHashMap<>();
@@ -361,6 +369,23 @@ public final class AiEntry {
                 }
             }
             case WAIT -> {
+                // (the stands: one of it in the room before its own grenade has burst)
+                if (op.plan != null)
+                    for (AiBot b : op.members)
+                        if (!op.inEarly.contains(b) && op.plan.room(cell(b.mob.getX(), b.mob.getY(), b.mob.getZ())) == op.room) {
+                            op.inEarly.add(b);
+                            inBeforeBlast++;
+                        }
+                if (tick - op.phaseAt > WAIT_GRACE)
+                    for (int i = 0; i < op.members.size() && i < op.places.size(); i++) {
+                        AiBot b = op.members.get(i);
+                        long c = op.places.get(i)[1];
+                        double dx = b.mob.getX() - BlockPos.getX(c) - 0.5, dz = b.mob.getZ() - BlockPos.getZ(c) - 0.5;
+                        if (!op.offEarly.contains(b) && dx * dx + dz * dz > OFF_PLACE * OFF_PLACE) {
+                            op.offEarly.add(b);
+                            offBeforeBlast++;
+                        }
+                    }
                 Entity g = level.getEntity(op.fragId);
                 if (g == null || g.isRemoved() || tick - op.phaseAt > AiGrenades.FUSE + 10) phase(op, GO, tick);
             }

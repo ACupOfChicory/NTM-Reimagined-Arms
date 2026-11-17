@@ -74,6 +74,14 @@ final class AiCheckCommander {
     private final List<Mob> reserveMobs = new ArrayList<>();
     /** per losses' round: {help on, the mobs seen at, ours downed at, the reserve saw them at, most at the mobs, ours down, held in reserve, sent where the side loses soldiers, the reserve's size} */
     private final List<int[]> helps = new ArrayList<>();
+    /**
+     * shots by one of ours that knew of no one (no contact, nothing heard) this tick and the one before, as the teams'
+     * check counts them (X1217: its target downed, the trigger left down at that place); the case it is about: one of
+     * ours with an order answering a contact where it stands (Why.ANSWER) one tick, knowing of no one the next; answers so
+     */
+    private int blindShots, answeredThenNone, answeredOrdered;
+    private final java.util.Map<AiBot, Integer> shotsBefore = new java.util.HashMap<>();
+    private final java.util.Set<AiBot> knewNoOne = new java.util.HashSet<>(), answered = new java.util.HashSet<>();
 
     AiCheckCommander(AiCheck check, ServerLevel level, int y) {
         this.check = check;
@@ -115,6 +123,7 @@ final class AiCheckCommander {
         AiCommander.help = help();
         AiCommander.tasks = false;
         long now = level.getGameTime();
+        blind(now);
         if (losses()) return lossesTick(now);
         for (int g = 0; g < 2; g++) {
             if (seenAt[g] >= 0) continue;
@@ -143,6 +152,24 @@ final class AiCheckCommander {
         results.add(new int[] {on() ? 1 : 0, seenAt[0], seenAt[1], most[0], most[1], down(), AiCommander.orders - ordersBefore, AiCommander.reserve - reserveBefore,
                 AiCommander.gaveUp - gaveUpBefore});
         return next();
+    }
+
+    private void blind(long now) {
+        for (Mob m : ours) {
+            AiBot bot = AiBots.get(m);
+            if (bot == null || !m.isAlive() || !(bot.brain instanceof AiSoldier so)) continue;
+            int was = shotsBefore.getOrDefault(bot, bot.gunner.shots);
+            boolean noOne = bot.memory.contacts().isEmpty() && bot.memory.noise() == null;
+            if (bot.gunner.shots > was && noOne && knewNoOne.contains(bot)) blindShots += bot.gunner.shots - was;
+            shotsBefore.put(bot, bot.gunner.shots);
+            if (noOne) knewNoOne.add(bot);
+            else knewNoOne.remove(bot);
+            // its foes gone in the middle of its answer: the trigger was down at them the tick before
+            if (noOne && answered.contains(bot)) answeredThenNone++;
+            if (so.why == AiThoughts.Why.ANSWER && AiCommander.has(bot, now)) {
+                if (answered.add(bot)) answeredOrdered++;
+            } else answered.remove(bot);
+        }
     }
 
     private int down() {
@@ -281,6 +308,9 @@ final class AiCheckCommander {
         java.util.Arrays.fill(most, 0);
         lossAt = reserveSeen = -1;
         reserveMobs.clear();
+        shotsBefore.clear();
+        knewNoOne.clear();
+        answered.clear();
         AiCommander.on = on();
         AiCommander.help = help();
         // R5's orders, as with aiCommanderTasks off (the staff's tasks: the war's stand)
@@ -359,6 +389,11 @@ final class AiCheckCommander {
             }
         }
         check.out("     " + AiCommander.info());
+        // a trap: the case comes rarely here (0 to a few a run) and the code before X1217 fired at no one in it neither
+        check.out(String.format(Locale.ROOT, "     commander: shots by one of ours that knows of no one %d; with an order, answers of a contact where it stood %d, its foes gone in the middle of one %d",
+                blindShots, answeredOrdered, answeredThenNone));
+        check.check(String.format(Locale.ROOT, "commander: none of ours fires knowing of no one (%d; its foes gone in the middle of its answer with an order %d times)",
+                blindShots, answeredThenNone), blindShots == 0);
         check.check("commander: all rounds ran", results.size() == MAIN && helps.size() == ROUNDS - MAIN);
         check.check(String.format(Locale.ROOT, "commander: aiCommanderHelp off, the reserve is not sent where the side loses soldiers, no more than %d squads at the group"
                 + " (%d rounds; %d of all with no reserve, not counted)", AiCommander.PER, offHelps, noReserve), offHelps > 0 && helpOff);
