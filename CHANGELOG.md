@@ -1,5 +1,13 @@
 # Changelog
 
+## X1466
+
+- The 5.56mm and 7.62mm Duplex Rounds now take small weapon steel casings in
+  the ammo press instead of small gunmetal casings. The rest of the recipe is
+  the same.
+- The 12 gauge electroshock shell now takes three tantalum capacitors and a
+  gold coil in the ammo press instead of a capacitor and a copper coil.
+
 ## X1463
 
 - An AI soldier at the foot or top of a shaft its side climbs no longer goes

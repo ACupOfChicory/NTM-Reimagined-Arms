@@ -56,15 +56,18 @@ class NewAmmoRecipesTest {
                 shape(read("g12_rubber_slug_latex")));
         assertEquals("[ A ][ B ][ C ] | A=1 #c:ingots/rubber B=1 #hbm:dusts/any_smokeless C=1 hbm:casing_shotshell | 12 ntmgunfeel:ammo_g12_rubber_slug",
                 shape(read("g12_rubber_slug")));
-        assertEquals("[ A ][ B ][ C ] | A=4 #c:ingots/lead B=4 #hbm:dusts/any_smokeless C=2 hbm:casing_small | 16 ntmgunfeel:ammo_r556_duplex",
+        assertEquals("[ A ][ B ][ C ] | A=4 #c:ingots/lead B=4 #hbm:dusts/any_smokeless C=2 hbm:casing_small_steel | 16 ntmgunfeel:ammo_r556_duplex",
                 shape(read("r556_duplex")));
-        assertEquals("[ A ][ B ][ C ] | A=4 #c:ingots/lead B=4 #hbm:dusts/any_smokeless C=2 hbm:casing_small | 12 ntmgunfeel:ammo_r762_duplex",
+        assertEquals("[ A ][ B ][ C ] | A=4 #c:ingots/lead B=4 #hbm:dusts/any_smokeless C=2 hbm:casing_small_steel | 12 ntmgunfeel:ammo_r762_duplex",
                 shape(read("r762_duplex")));
+        assertEquals("[AB ][ C ][ D ] | A=3 hbm:circuit_capacitor_tantalium B=1 hbm:coil_gold C=1 #hbm:dusts/any_smokeless D=1 hbm:casing_buckshot_advanced | 6 ntmgunfeel:ammo_g12_shock",
+                shape(read("g12_shock")));
         assertEquals("[   ][AB ][CD ] | A=2 hbm:nugget_am242 B=1 hbm:nugget_schrabidium C=2 hbm:ball_tatb D=1 hbm:casing_large_steel | 1 ntmgunfeel:ammo_bmg50_nuclear",
                 shape(read("bmg50_nuclear")));
     }
 
-    // the Duplex: as NTM's SP round of the calibre, the bullets' lead and the powder doubled, as many rounds out
+    // the Duplex: as NTM's SP round of the calibre, the bullets' lead and the powder doubled, as many casings but of
+    // weapon steel, as many rounds out
     @Test
     void duplexIsTheSpWithTwiceTheBullet() throws Exception {
         try (ZipFile jar = ntm()) {
@@ -78,7 +81,10 @@ class NewAmmoRecipesTest {
                         dx.getAsJsonObject("key").getAsJsonObject("A").get("ingredient").getAsString());
                 assertEquals(2 * sp.getAsJsonObject("key").getAsJsonObject("B").get("count").getAsInt(),
                         dx.getAsJsonObject("key").getAsJsonObject("B").get("count").getAsInt());
-                assertEquals(sp.getAsJsonObject("key").getAsJsonObject("C").toString(), dx.getAsJsonObject("key").getAsJsonObject("C").toString());
+                assertEquals("hbm:casing_small", sp.getAsJsonObject("key").getAsJsonObject("C").get("ingredient").getAsString());
+                assertEquals("hbm:casing_small_steel", dx.getAsJsonObject("key").getAsJsonObject("C").get("ingredient").getAsString());
+                assertEquals(sp.getAsJsonObject("key").getAsJsonObject("C").get("count").getAsInt(),
+                        dx.getAsJsonObject("key").getAsJsonObject("C").get("count").getAsInt());
                 assertEquals(sp.getAsJsonArray("output_items").get(0).getAsJsonObject().get("count").getAsInt(),
                         dx.getAsJsonArray("output_items").get(0).getAsJsonObject().get("count").getAsInt());
             }

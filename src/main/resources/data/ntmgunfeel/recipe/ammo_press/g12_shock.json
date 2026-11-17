@@ -8,10 +8,11 @@
   ],
   "key": {
     "A": {
-      "ingredient": "hbm:circuit_capacitor"
+      "count": 3,
+      "ingredient": "hbm:circuit_capacitor_tantalium"
     },
     "B": {
-      "ingredient": "hbm:coil_copper"
+      "ingredient": "hbm:coil_gold"
     },
     "C": {
       "ingredient": "#hbm:dusts/any_smokeless"
