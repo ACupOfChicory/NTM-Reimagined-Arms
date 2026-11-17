@@ -1115,6 +1115,8 @@ MOB_AI method com/hbm/items/weapon/sedna/Receiver getDelayAfterFire (Lnet/minecr
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getHipfireSpread (Lnet/minecraft/world/item/ItemStack;)F
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getInnateSpread (Lnet/minecraft/world/item/ItemStack;)F
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+MOB_AI method com/hbm/items/weapon/sedna/Receiver getProjectileOffset (Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/phys/Vec3;
+MOB_AI method com/hbm/items/weapon/sedna/Receiver getProjectileOffsetScoped (Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/phys/Vec3;
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getRecoil (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiConsumer;
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getReloadBeginDuration (Lnet/minecraft/world/item/ItemStack;)I
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getReloadCockOnEmptyPost (Lnet/minecraft/world/item/ItemStack;)I
