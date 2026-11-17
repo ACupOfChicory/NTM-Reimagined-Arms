@@ -191,7 +191,38 @@ final class AiHatch {
         }
     }
 
-    private static final int GATHER = 0, FRAG = 1, DOWN = 2, OVER = 3, HELD = 4, CONTAIN = 5;
+    private static final int GATHER = 0, FRAG = 1, DOWN = 2, OVER = 3, HELD = 4, CONTAIN = 5, BYPASS = 6;
+    /**
+     * Another way to the foe than down this shaft (held, or too deep for a frag): a way found with BYPASS_COST on each
+     * cell of the shaft's column, none of them on it, at most BYPASS_TIMES as long as the way down it or BYPASS_MORE
+     * cells more. Then the squad's paths keep off the column for BYPASS_MEMORY (it searches on round), and none goes
+     * down it; shot at on the way round after BYPASS_GRACE, the way round is given up for the shaft again, once an op.
+     */
+    static final float BYPASS_COST = 1000F;
+    static final int BYPASS_TIMES = 3, BYPASS_MORE = 60, BYPASS_MEMORY = 2400, BYPASS_GRACE = 100;
+    /**
+     * the way round's search, nodes at most: the mover's MAX_NODES was all spent on the ground round the hatch (a way
+     * round sixty blocks off is a wide fan of cells), and the way down the shaft came back for want of more. Once an op
+     */
+    static final int BYPASS_NODES = 4 * AiMover.MAX_NODES;
+    /** the stands: ways round found (the shaft too deep, held), none (no way, too long), given up (shot at on it), begins put off by one */
+    public static int bypassDeep, bypassHeld, bypassDropped, bypassKept, bypassMissing;
+    /** the map about a way round not built yet: looked for again every BYPASS_AGAIN ticks, at most BYPASS_WAIT from the first look */
+    static final int BYPASS_AGAIN = 20, BYPASS_WAIT = 400;
+    /** one of it this near where the foe was lost, the way round is over: it searches from there, blocks */
+    static final double BYPASS_NEAR = 6;
+    /** map sections wanted at a time for a way round (the mover wants 8) */
+    static final int BYPASS_WANT = 32;
+    public static final int[] bypassNone = new int[2];
+    /** the stands: the last way round looked for, told */
+    static String bypassLast = "-";
+
+    /** a team's way round a shaft: its column, till when, since when */
+    private record Bypass(long top, int x, int z, int y0, int y1, long until, long made) {
+        boolean on(int cx, int cy, int cz) {
+            return cx == x && cz == z && cy >= y0 && cy <= y1;
+        }
+    }
     /**
      * Held at its foot (a foe there fires up the shaft at one on the ladder): none more sent; smoke down it first if one
      * of it has any (the cloud at the foot blinds them, then down one after another close, FAST_SPACING), else, or held
@@ -227,6 +258,12 @@ final class AiHatch {
         boolean first;
         long blastAt = Long.MIN_VALUE / 2, smokeAt = Long.MIN_VALUE, lastSign = Long.MIN_VALUE, signTick = Long.MIN_VALUE;
         int spacing = SPACING;
+        /** where the foe was lost, and the way there down the shaft's length in cells (a way round is weighed by it); a way round looked for */
+        long goal = Long.MIN_VALUE;
+        int through;
+        boolean bypassTried;
+        /** the map about a way round not built yet: the first look, and the next */
+        long bypassFirst = Long.MIN_VALUE, bypassNext = Long.MIN_VALUE;
 
         Op(String team, Shaft shaft, List<AiBot> members, @Nullable AiBot guard, long tick) {
             // (the others wait at shaft.back, BACK off the hatch: none stands over it when it is lifted)
@@ -251,6 +288,9 @@ final class AiHatch {
         final Map<Long, Long> held = new HashMap<>();
         /** of those, shafts that cost one going down, when: none goes down them again for COSTLY_MEMORY but under smoke */
         final Map<Long, Long> costly = new HashMap<>();
+        /** each team's way round a shaft, and the shaft it gave a way round up on (none round it again) */
+        final Map<String, Bypass> bypass = new HashMap<>();
+        final Map<String, Long> switched = new HashMap<>();
     }
 
     private static final Map<ServerLevel, PerLevel> LEVELS = new WeakHashMap<>();
@@ -326,7 +366,7 @@ final class AiHatch {
             return true;
         }
         // (held at the foot, one under the shaft's middle goes on down: back up is the longer way)
-        if (op == null || op.phase != DOWN && op.phase != HELD && op.phase != CONTAIN || !climbing(op, bot, tick)) return false;
+        if (op == null || op.phase != DOWN && op.phase != HELD && op.phase != CONTAIN && op.phase != BYPASS || !climbing(op, bot, tick)) return false;
         // (the foot held looked for here too: on the ladder they are in no search, and those up by the hatch may be
         // fighting down the shaft, so none of it may call step a while)
         if (op.phase == DOWN && op.signTick != tick) {
@@ -438,6 +478,13 @@ final class AiHatch {
     }
 
     private static @Nullable Op begin(PerLevel l, AiBot bot, ServerLevel level, String team, TargetMemory.Contact c, long tick) {
+        Bypass by = l.bypass.get(team);
+        if (by != null && tick >= by.until) l.bypass.remove(team);
+        else if (by != null) {
+            // going round a shaft: none down it (nor another: the foe is reached round)
+            bypassKept++;
+            return null;
+        }
         if (c.lostY > bot.mob.getY() - DEEP || AiWater.swims(bot.mob)) {
             none[0]++;
             return null;
@@ -484,6 +531,10 @@ final class AiHatch {
             if (guard == null) guard = members.get(members.size() - 1);
         }
         Op op = new Op(team, sh, members, guard, tick);
+        op.goal = goal;
+        op.through = r.cells.length;
+        // (a way round given up on this shaft once: none looked for again)
+        op.bypassTried = Long.valueOf(sh.top).equals(l.switched.get(team));
         l.ops.put(team, op);
         begun++;
         // found held a while ago: none goes down, they hold its hatch (and try again in a while)
@@ -519,6 +570,31 @@ final class AiHatch {
                 boolean all = true;
                 for (AiBot b : op.members) if (AiSquads.live(b) && !at(b, sh.back, GATHERED)) all = false;
                 if (all || tick - op.phaseAt > GATHER_MAX) {
+                    // too deep for a frag (smoke first, else one at a time): a way round first, if there is one (the
+                    // map about it not built yet: gathered a while longer, BYPASS_WAIT at most)
+                    if (deep(sh) && !op.bypassTried) {
+                        // (one look every BYPASS_AGAIN ticks for the op, not each of it each tick: a big search)
+                        if (tick < op.bypassNext) {
+                            s.moveFiring(bot, sh.back, AiSoldier.RUN, hatch, tick, "to the hatch of a shaft down to the foe", AiThoughts.Why.HATCH, RIM);
+                            return hatch;
+                        }
+                        op.bypassNext = tick + BYPASS_AGAIN;
+                        if (op.bypassFirst == Long.MIN_VALUE) op.bypassFirst = tick;
+                        long start = PathSearch.snap(TacticalMap.of(level), bot.mob.getX(), bot.mob.getY(), bot.mob.getZ());
+                        int found = start == Long.MIN_VALUE || op.goal == Long.MIN_VALUE ? 0 : bypassFind(of(level), level, op.team, sh, start, op.goal, op.through, tick);
+                        if (found > 0) {
+                            op.bypassTried = true;
+                            bypassDeep++;
+                            phase(op, BYPASS, tick);
+                            if (bot.brain instanceof AiSoldier so) so.note(bot, tick, "a foe under the ground down a deep shaft: the squad round by another way");
+                            return hatch;
+                        }
+                        if (found < 0 && tick - op.bypassFirst < BYPASS_WAIT) {
+                            s.moveFiring(bot, sh.back, AiSoldier.RUN, hatch, tick, "to the hatch of a shaft down to the foe", AiThoughts.Why.HATCH, RIM);
+                            return hatch;
+                        }
+                        op.bypassTried = true;
+                    }
                     phase(op, FRAG, tick);
                     op.thrower = thrower(op, level);
                     // too deep for a frag, the foe gone down this very shaft: smoke down first if one has any (it
@@ -565,6 +641,26 @@ final class AiHatch {
                 }
                 s.moveFiring(bot, sh.back, AiSoldier.RUN, hatch, tick, "off the hatch, its grenade going down", AiThoughts.Why.HATCH, RIM);
                 return hatch;
+            }
+            case BYPASS -> {
+                // the way round taken: those called back up the ladder (onLadder); the others on round it to where the
+                // foe was lost (their paths kept off the shaft: avoid), the search from there once one of it is near
+                Vec3 at = mid(op.goal, 1.1);
+                for (AiBot b : op.members)
+                    if (AiSquads.live(b) && b.mob.distanceToSqr(at) <= BYPASS_NEAR * BYPASS_NEAR) {
+                        // there: the search from here, its ways free again, and a way down another shaft may begin
+                        of(level).bypass.remove(op.team);
+                        phase(op, OVER, tick);
+                        return null;
+                    }
+                Bypass by = of(level).bypass.get(op.team);
+                if (by == null || tick - op.phaseAt > BYPASS_MEMORY) {
+                    phase(op, OVER, tick);
+                    return null;
+                }
+                if (op.downs.contains(bot) || climbing(op, bot, tick)) return null;
+                s.moveFiring(bot, op.goal, AiSoldier.WALK, at, tick, "round by another way to the foe under the ground", AiThoughts.Why.HATCH, BYPASS_NEAR / 2);
+                return at;
             }
             case HELD -> {
                 return held(op, s, bot, level, tick);
@@ -682,6 +778,74 @@ final class AiHatch {
         return -1;
     }
 
+    /**
+     * A way round the shaft for this team, from start to goal, BYPASS_COST on its column: found (and kept for the team)
+     * or not. A team that gave up a way round this shaft looks for none.
+     */
+    private static boolean bypass(PerLevel l, ServerLevel level, String team, Shaft sh, long start, long goal, int through, long tick) {
+        return bypassFind(l, level, team, sh, start, goal, through, tick) > 0;
+    }
+
+    /** as bypass: 1 found, 0 none, -1 none on the map as built so far (the sections missing wanted: soon again) */
+    private static int bypassFind(PerLevel l, ServerLevel level, String team, Shaft sh, long start, long goal, int through, long tick) {
+        if (!bypassOn || Long.valueOf(sh.top).equals(l.switched.get(team))) return 0;
+        Bypass by = new Bypass(sh.top, BlockPos.getX(sh.top), BlockPos.getZ(sh.top), BlockPos.getY(sh.foot) + 1, BlockPos.getY(sh.top) - 1, tick + BYPASS_MEMORY, tick);
+        PathSearch.Result r = PathSearch.find(TacticalMap.of(level), start, goal, 1.5, BYPASS_NODES, (x, y, z) -> by.on(x, y, z) ? BYPASS_COST : 0F, true);
+        boolean on = false;
+        for (long cell : r.cells) if (by.on(BlockPos.getX(cell), BlockPos.getY(cell), BlockPos.getZ(cell))) on = true;
+        bypassLast = String.format(java.util.Locale.ROOT, "reached %s, %d cells (down the shaft %d), %d expanded, on the column %s", r.reached, r.cells.length, through, r.expanded, on);
+        if ((!r.reached || on) && r.missing.length > 0) {
+            // the map round about not built yet (it is built about the mobs): what is missing wanted
+            TacticalMap map = TacticalMap.of(level);
+            int k = 0;
+            for (long key : r.missing) {
+                if (k++ >= BYPASS_WANT) break;
+                map.want(net.minecraft.core.SectionPos.sectionToBlockCoord(net.minecraft.core.SectionPos.x(key), 8), net.minecraft.core.SectionPos.sectionToBlockCoord(net.minecraft.core.SectionPos.y(key), 8),
+                        net.minecraft.core.SectionPos.sectionToBlockCoord(net.minecraft.core.SectionPos.z(key), 8), 8, 8);
+            }
+            bypassMissing++;
+            return -1;
+        }
+        if (!r.reached || on) {
+            bypassNone[0]++;
+            return 0;
+        }
+        if (r.cells.length > Math.max(BYPASS_TIMES * through, through + BYPASS_MORE)) {
+            bypassNone[1]++;
+            return 0;
+        }
+        l.bypass.put(team, by);
+        return 1;
+    }
+
+    /** off only for the stands' "before" (the shaft taken as it was) */
+    static boolean bypassOn = true;
+
+    /**
+     * AiMover's cost for one of a team going round a shaft: BYPASS_COST on its column. Shot at by someone after
+     * BYPASS_GRACE, away from the column (on its way round), the way round is given up: the shaft again, once.
+     */
+    static PathSearch.Cost avoid(AiBot bot, ServerLevel level, long tick) {
+        PerLevel l = LEVELS.get(level);
+        if (l == null || l.bypass.isEmpty()) return PathSearch.Cost.NONE;
+        String team = AiSquads.team(bot);
+        Bypass by = l.bypass.get(team);
+        if (by == null) return PathSearch.Cost.NONE;
+        if (tick >= by.until) {
+            l.bypass.remove(team);
+            return PathSearch.Cost.NONE;
+        }
+        double dx = bot.mob.getX() - by.x - 0.5, dz = bot.mob.getZ() - by.z - 0.5;
+        if (bot.memory.shotTick() > by.made + BYPASS_GRACE && dx * dx + dz * dz > 4) {
+            l.bypass.remove(team);
+            l.switched.put(team, by.top);
+            l.next.remove(team);
+            bypassDropped++;
+            return PathSearch.Cost.NONE;
+        }
+        return (x, y, z) -> by.on(x, y, z) ? BYPASS_COST : 0F;
+    }
+
     /** one of it sent down this shaft is fallen */
     private static boolean lost(Op op) {
         for (AiBot b : op.members) if (op.sent.containsKey(b) && !b.mob.isAlive()) return true;
@@ -707,6 +871,20 @@ final class AiHatch {
         double mid = (BlockPos.getY(op.shaft.top) + BlockPos.getY(op.shaft.foot)) / 2.0;
         for (AiBot b : op.members)
             if (op.sent.containsKey(b) && !op.downs.contains(b) && AiSquads.live(b) && b.mob.getY() > mid) op.backing.add(b);
+        // a way round it first (once): none more down it
+        if (!op.bypassTried) {
+            op.bypassTried = true;
+            AiBot from = null;
+            for (AiBot b : op.members) if (AiSquads.live(b) && !op.sent.containsKey(b)) from = from == null ? b : from;
+            if (from == null) for (AiBot b : op.backing) if (AiSquads.live(b)) from = b;
+            TacticalMap map = TacticalMap.of(level);
+            long start = from == null ? Long.MIN_VALUE : PathSearch.snap(map, from.mob.getX(), from.mob.getY(), from.mob.getZ());
+            if (start != Long.MIN_VALUE && op.goal != Long.MIN_VALUE && bypass(of(level), level, op.team, op.shaft, start, op.goal, op.through, tick)) {
+                bypassHeld++;
+                phase(op, BYPASS, tick);
+                return;
+            }
+        }
         if (op.smoked) {
             phase(op, CONTAIN, tick);
             contained++;

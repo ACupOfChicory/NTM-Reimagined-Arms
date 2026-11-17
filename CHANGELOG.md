@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- An AI squad after an enemy down a shaft that is too deep for a grenade, or
+  whose foot it finds held, now first looks for another way down to where
+  the enemy went, such as a sloping tunnel. If one is found that is at most
+  three times as long as the way down the shaft, or at most sixty blocks
+  longer, the squad goes round by it and no one climbs down the shaft; those
+  already on the upper half of the ladder climb back. If the squad is shot at
+  on the way round, it gives that way up and takes the shaft after all, once.
+
 ## X1389
 
 - AI squads: a squad that splits on the move keeps its one task — both parts go on together and take one

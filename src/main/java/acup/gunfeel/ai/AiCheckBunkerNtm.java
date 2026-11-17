@@ -321,8 +321,8 @@ final class AiCheckBunkerNtm {
             a[5] += AiHatch.contained - held0[2];
             a[6] += downs > 0 ? 1 : 0;
             a[7] += fellInShaft;
-            check.out(String.format(Locale.ROOT, "     bunkerntm %d: %s; the foot held %d (why %s), smoke down %d (first %d all told), held off %d; fallen in the shaft %d; the smoker's ticks %s", round, smokeRound() ? "a smoke each" : "no smoke",
-                    AiHatch.held - held0[0], java.util.Arrays.toString(AiHatch.heldWhy), AiHatch.smokedDown - held0[1], AiHatch.smokeFirst, AiHatch.contained - held0[2], fellInShaft, java.util.Arrays.toString(AiHatch.smokerTicks)));
+            check.out(String.format(Locale.ROOT, "     bunkerntm %d: %s; the foot held %d (why %s), smoke down %d (first %d all told), held off %d; fallen in the shaft %d; the smoker's ticks %s; ways round looked for on a map not built yet %d, none %s", round, smokeRound() ? "a smoke each" : "no smoke",
+                    AiHatch.held - held0[0], java.util.Arrays.toString(AiHatch.heldWhy), AiHatch.smokedDown - held0[1], AiHatch.smokeFirst, AiHatch.contained - held0[2], fellInShaft, java.util.Arrays.toString(AiHatch.smokerTicks), AiHatch.bypassMissing, java.util.Arrays.toString(AiHatch.bypassNone)));
         }
         check.out(String.format(Locale.ROOT, "     bunkerntm %d (%s): %d ticks; of the squad %d of %d left, %d got to the shaft's foot (the first at tick %d); in the hub %d of %d left;%s", round,
                 AiHatch.on ? "on" : "off", rt, left, squad.size(), downs, firstDown, in, inside.size(), where()));
