@@ -52,7 +52,8 @@ final class AiCheckBypass {
     /** how each of the squad came into the room: its mode and why then */
     private final String[] cameIn = new String[SQUAD];
     /** of the squad fallen in the passage by the room's way in this round; AiHatch's hand-overs to AiEntry as it began */
-    private int fellAtDoor, bypassEntry0;
+    private int fellAtDoor, bypassEntry0, matesDown0;
+    private final int held0 = AiEntry.held, heldOut0 = AiEntry.heldOut;
     /** the two below: when each was put down this round (-1 not), and by what (the first is the one the squad knows of) */
     private final int[] heldDown = new int[2];
     private final String[] heldBy = new String[2];
@@ -95,8 +96,17 @@ final class AiCheckBypass {
                 if (!fell[i]) {
                     fell[i] = true;
                     if (col && m.getY() < top() - 1 && m.getY() > floor() + 2) results.get(results.size() - 1)[4]++;
-                    // (in the passage or the way in itself)
-                    if (m.getY() < floor() + 3.5 && m.getZ() >= SZ + RZ + 0.5 && m.getX() >= DOOR_X - 0.5 && m.getX() <= DRIFT_X + 0.5) fellAtDoor++;
+                    if (byWayIn(m)) fellAtDoor++;
+                    // (who shot it, where it was, and whether it knew of that one from one of its own shot down before)
+                    var by = m.getLastDamageSource();
+                    var who = by == null ? null : by.getEntity();
+                    AiBot db = AiBots.get(m);
+                    TargetMemory.Contact kc = db == null || who == null ? null : db.memory.contact(who.getId());
+                    check.out(String.format(Locale.ROOT, "     bypass %d, fell at %d: %.1f %.1f %.1f %s%s, by %s %s; it knew of it %s",
+                            round + 1, ticks, m.getX(), m.getY(), m.getZ(), db != null && db.brain instanceof AiSoldier so ? so.mode() + "/" + so.why : "?",
+                            byWayIn(m) ? " (by the way in)" : "", by == null ? "?" : by.type().msgId(),
+                            who == null ? "-" : String.format(Locale.ROOT, "%s at %.1f %.1f", held.contains(who) ? "one below" : squad.contains(who) ? "its own" : "another", who.getX(), who.getZ()),
+                            kc == null ? "not" : kc.state + (kc.mateDown != Long.MIN_VALUE ? " (told " + (level.getGameTime() - kc.mateDown) + " ticks before)" : "")));
                 }
                 continue;
             }
@@ -125,6 +135,16 @@ final class AiCheckBypass {
             return false;
         }
         return finish();
+    }
+
+    /** this near the room's way in a fall inside is one going in by it, blocks (its rows by the wall it is in, not half the one next to it) */
+    static final double WAY_IN_NEAR = 3;
+
+    /** in the passage from the drift's foot, the way in itself, or in the room by it */
+    private boolean byWayIn(Mob m) {
+        if (m.getY() >= floor() + 3.5) return false;
+        if (m.getZ() >= SZ + RZ + 1 && m.getX() >= DOOR_X - 0.5 && m.getX() <= DRIFT_X + 0.5) return true;
+        return m.getZ() >= SZ - 0.5 && Math.hypot(m.getX() - DOOR_X - 0.5, m.getZ() - SZ - RZ - 1.5) <= WAY_IN_NEAR;
     }
 
     private String where() {
@@ -201,8 +221,9 @@ final class AiCheckBypass {
         none0 = AiHatch.bypassNone.clone();
         begun0 = AiHatch.begun;
         down0 = AiHatch.down;
-        results.add(new int[17]);
+        results.add(new int[18]);
         fellAtDoor = 0;
+        matesDown0 = AiBots.matesDownHeard;
         heldDown[0] = heldDown[1] = -1;
         heldBy[0] = heldBy[1] = "-";
         bypassEntry0 = AiHatch.bypassEntry;
@@ -265,6 +286,7 @@ final class AiCheckBypass {
         res[14] = fellAtDoor;
         res[15] = AiHatch.bypassEntry - bypassEntry0;
         // the one the squad knows of shot down by it from the way in before a grenade went in (the entry is over with it)
+        res[17] = AiBots.matesDownHeard - matesDown0;
         res[16] = heldDown[0] >= 0 && heldBy[0].contains("bullet") && AiEntry.frags - entry0[1] == 0 ? 1 : 0;
         check.out(String.format(Locale.ROOT, "     bypass %d (%s): %d ticks; of the squad %d of %d left, down the shaft %d, down the drift to the room's way in %d, in by the drift %d, fell in the shaft %d, the first in at %d;"
                 + " the two below %d left; ways round found %d (at the deep shaft %d, held %d), none (no way %d, too long %d), begins put off %d; ways down begun %d, down the ladder %d;%s",
@@ -299,7 +321,7 @@ final class AiCheckBypass {
         AiHatch.bypassOn = true;
         AiHatch.forget(level);
         // by arm: rounds, left, down the shaft, in by the drift, fell in the shaft, ways round found, rounds with one in by the drift, rounds with one down the shaft
-        int[][] s = new int[3][18];
+        int[][] s = new int[3][20];
         for (int[] r : results) {
             int[] a = s[r[0]];
             a[0]++;
@@ -320,6 +342,8 @@ final class AiCheckBypass {
             a[15] += r[15] > 0 ? 1 : 0;
             a[16] += r[16];
             a[17] += r[3] > 0 || r[9] == 0 ? 1 : 0;
+            a[18] = Math.max(a[18], r[14]);
+            a[19] += r[17];
         }
         String[] names = {"on, drift open", "on, drift shut", "off, drift open"};
         for (int k = 0; k < 3; k++)
@@ -338,8 +362,8 @@ final class AiCheckBypass {
             int[] off = s[2];
             check.check(String.format(Locale.ROOT, "bypass: with no way round looked for, the squad goes down the shaft in every round (%d of %d)", off[7], off[0]), off[7] == off[0]);
             // the room taken from the drift: handed over to AiEntry, a grenade in, in by it, none more by the way in
-            check.out(String.format(Locale.ROOT, "     bypass: on, drift open: handed over to the entry in %d rounds, entries in %d, a grenade in in %d; fallen by the way in %d; rounds with a way down begun again %d",
-                    on[15], on[11], on[12], on[13], on[14]));
+            check.out(String.format(Locale.ROOT, "     bypass: on, drift open: handed over to the entry in %d rounds, entries in %d, a grenade in in %d; fallen by the way in %d (at most %d a round); rounds with a way down begun again %d; told of a foe by one of theirs falling %d; entries held by the way in %d (in after their time %d)",
+                    on[15], on[11], on[12], on[13], on[18], on[14], on[19], AiEntry.held - held0, AiEntry.heldOut - heldOut0));
             // (a grenade in, or the one it knows of shot down from the way in first: then it knows of none in the room, and the
             // entry is over; the other one there is a room cleared of foes not known of, AiClearing's, not the way in's)
             check.check(String.format(Locale.ROOT, "bypass: at the room's way in from the drift, its entry, a grenade in or the foe known of shot down first, in every round (handed over %d, entries %d, grenades %d, shot first %d of %d)",
@@ -348,7 +372,10 @@ final class AiCheckBypass {
             // (or the room taken from its way in: the two below both down, the last by the grenade in, the round over before any went in)
             check.check(String.format(Locale.ROOT, "bypass: the squad comes into the room by the drift, or puts the two below down from its way in, in every round (%d of %d; in it %d; the foe known of shot down first in %d)",
                     on[17], on[0], on[6], on[16]), on[17] == on[0]);
-            check.check(String.format(Locale.ROOT, "bypass: of the squad at most one a round fallen by the way in (%d in %d rounds)", on[13], on[0]), on[13] <= on[0]);
+            // (by the way in: the passage, the opening, or the room within WAY_IN_NEAR of it: the ones shot going in)
+            // (one a round on the whole: the first in may meet one in there none knew of; a duel lost after to a foe lying in
+            // wait for it is no fault of theirs, walking in one after another to it is)
+            check.check(String.format(Locale.ROOT, "bypass: of the squad at most one a round fallen by the way in (%d in %d rounds, at most %d in one)", on[13], on[0], on[18]), on[13] <= on[0]);
             check.check(String.format(Locale.ROOT, "bypass: the way round over by the room, no way down the shaft begun again (%d rounds)", on[14]), on[14] == 0);
         }
         return true;

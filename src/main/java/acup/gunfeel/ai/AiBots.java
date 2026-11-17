@@ -558,6 +558,43 @@ public final class AiBots {
         // the nearest of its side calls it out
         if (nearest != null) AiVoice.say(level, nearest, AiVoice.Line.MAN_DOWN, tick);
         if (downTold()) told(level, l, victim, tick);
+        if (mateDown()) mateDown(l, victim, tick);
+    }
+
+    /** the server setting: one of a side shot down, those of it that saw or heard it fall know of the foe that did it, heard where it shot from */
+    public static final String MATE_DOWN_KEY = "aiMateDownHeard";
+    /** off only for the stands' "before" */
+    static boolean mateDown = true;
+    /** a fall seen this far off at most, blocks (in sight), or heard this near (round a corner, through a door) */
+    static final double MATE_SEEN = 16, MATE_HEARD = 8;
+    /** the stands: those told of a foe so */
+    public static int matesDownHeard;
+
+    static boolean mateDown() {
+        return mateDown && acup.gunfeel.ReaimTimes.flag(MATE_DOWN_KEY, true);
+    }
+
+    /**
+     * One of a side shot down by a foe (the mob that hit it last, else whom the game credits): each AI mob of its side
+     * that saw it fall (in sight within MATE_SEEN) or heard it (within MATE_HEARD) knows of that foe now, out of sight,
+     * where the shot was heard from: where it stands, with the ear's error (hear). Not where it can see through walls
+     * from: a sound's place, as a hurt one hears its own shooter. One already in its sight is left so.
+     */
+    private static void mateDown(PerLevel l, LivingEntity victim, long tick) {
+        LivingEntity by = victim.getLastHurtByMob();
+        if (by == null || !AiTeams.enemy(victim, by)) by = victim.getKillCredit();
+        if (by == null || by == victim || !by.isAlive() || !AiTeams.enemy(victim, by)) return;
+        for (AiBot b : l.bots.values()) {
+            Mob m = b.mob;
+            if (m == victim || m == by || !m.isAlive() || !AiTeams.own(m, victim) || !AiTeams.enemy(m, by)) continue;
+            double d = m.distanceTo(victim);
+            if (d > MATE_SEEN || d > MATE_HEARD && !m.hasLineOfSight(victim)) continue;
+            double sigma = Math.max(2, 0.15 * m.distanceTo(by));
+            var rng = m.getRandom();
+            b.memory.shotMate(by.getId(), by.getX() + rng.nextGaussian() * sigma, by.getY() + rng.nextGaussian() * Math.min(sigma, 2),
+                    by.getZ() + rng.nextGaussian() * sigma, tick);
+            matesDownHeard++;
+        }
     }
 
     /** the server setting: a foe seen to fall is no more gone after, by the one that saw it nor by its squad */

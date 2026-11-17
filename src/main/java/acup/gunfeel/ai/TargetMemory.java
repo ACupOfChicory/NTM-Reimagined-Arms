@@ -46,6 +46,8 @@ public final class TargetMemory {
         public long heardTick = Long.MIN_VALUE;
         /** no one known there now: where a foe its squad knew of fell in a building (AiBot.fought), its rooms gone through as a lost target's */
         public boolean place;
+        /** known by one of its side shot down by it (shotMate): a way in it covers (AiEntry holds by it); MIN_VALUE: not so */
+        public long mateDown = Long.MIN_VALUE;
 
         Contact(int id) {
             this.id = id;
@@ -211,6 +213,30 @@ public final class TargetMemory {
         only.z = only.lostZ = z;
         only.vx = only.vz = 0;
         only.lostTick = tick;
+    }
+
+    /**
+     * One of its side shot down by its side's foe that it saw or heard fall (AiBots.mateDown), the shot heard from x y z
+     * (the ear's error in it): that foe is known now, out of sight, lost there (the wait, the look out and the search
+     * start from there: a room it is in is gone into by the drill, AiEntry). One it sees now is left as it is.
+     */
+    public Contact shotMate(int id, double x, double y, double z, long tick) {
+        Contact c = contact(id);
+        if (c == null) {
+            if (contacts.size() >= MAX_CONTACTS) dropWeakest();
+            c = new Contact(id);
+            contacts.add(c);
+        } else if (c.state == State.VISIBLE) return c;
+        c.state = State.LOST;
+        c.place = false;
+        c.sightTicks = 0;
+        c.x = c.lostX = c.glimpseX = x;
+        c.y = c.lostY = y;
+        c.z = c.lostZ = c.glimpseZ = z;
+        c.vx = c.vz = 0;
+        c.lostTick = tick;
+        c.mateDown = tick;
+        return c;
     }
 
     /** a known target's state moves on with time: LOST to SEARCH to forgotten */
