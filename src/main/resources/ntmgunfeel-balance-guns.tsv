@@ -274,6 +274,27 @@ maresleg_broken	g12_shock	0.333	0	0	4
 spas12	g12_shock	0.5	0	0	4	
 autoshotgun	g12_shock	0.333	0	0	4	
 autoshotgun_sexy	g12_shock	0.25	0	0	9	
+# the mod's rubber slug (12 gauge): its hit is 6 HP before armour whatever the gun (RubberSlug), the mult is not used;
+# tier 3 by its recipe, the gun's when higher (its slug's line)
+maresleg	g12_rubber_slug	1.0	0	0	3	
+autoshotgun	g12_rubber_slug	1.0	0	0	4	
+maresleg_akimbo	g12_rubber_slug	1.0	0	0	4	
+maresleg_broken	g12_rubber_slug	1.0	0	0	4	
+spas12	g12_rubber_slug	1.0	0	0	4	
+autoshotgun_sexy	g12_rubber_slug	1.0	0	0	9	
+# the mod's Duplex rounds: each of the two bullets a shot is 0.7 of the same gun's SP (Duplex: BalanceFinal.hitAs), so its
+# line is the SP's: the same additions and tier
+carbine	r762_duplex	1.05	0	0	4	floor=0.68 from=6
+g3	r556_duplex	1.47	0	0	4	floor=0.66 from=6
+minigun	r762_duplex	1.5	0	0	5	floor=0.64 from=6
+minigun_dual	r762_duplex	1.312	0	0	5	floor=0.66 from=6
+g3_zebra	r556_duplex	2.951	0	0	6	floor=0.8 from=6
+mas36	r762_duplex	2	50	0.15	6	floor=0.38 from=6
+stg77	r556_duplex	1.911	0	0	6	floor=0.74 from=6
+# the mod's nuclear .50: no damage of its own, a blast (NuclearBmg); tier 6
+amat	bmg50_nuclear	1.0	0	0	6	
+amat_subtlety	bmg50_nuclear	1.0	0	0	6	
+amat_penance	bmg50_nuclear	1.0	0	0	6	
 # owner's decisions (section 21.5, end of balance-by-progression.md)
 autoshotgun_heretic	*	-	0	0	4	delay=12 auto=false mag=24
 am180	*	-	0	0	2	delay=3 mag=60

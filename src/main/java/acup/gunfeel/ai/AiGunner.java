@@ -537,6 +537,10 @@ public final class AiGunner {
             // on target as far as it knows: a kick it has not noticed yet left out
             on = AiAim.onTarget(skill, eye.x, eye.y, eye.z, sight.seenYaw, sight.seenPitch, aim.x, aim.y, aim.z, halfHeight);
         }
+        // a rubber slug's confusion swings the aim off (it fires all the same, as it believes it is on)
+        float[] off = acup.gunfeel.ammo.RubberServer.drift(mob);
+        y += off[0];
+        p = Math.clamp(p + off[1], -90F, 90F);
         face(y, p, skill);
         return on;
     }

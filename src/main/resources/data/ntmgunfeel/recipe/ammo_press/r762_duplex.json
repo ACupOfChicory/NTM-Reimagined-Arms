@@ -1,0 +1,29 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 7425,
+  "pattern": [
+    " A ",
+    " B ",
+    " C "
+  ],
+  "key": {
+    "A": {
+      "count": 4,
+      "ingredient": "#c:ingots/lead"
+    },
+    "B": {
+      "count": 4,
+      "ingredient": "#hbm:dusts/any_smokeless"
+    },
+    "C": {
+      "count": 2,
+      "ingredient": "hbm:casing_small"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:ammo_r762_duplex",
+      "count": 12
+    }
+  ]
+}
