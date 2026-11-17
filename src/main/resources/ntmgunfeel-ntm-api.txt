@@ -1012,6 +1012,7 @@ MINI_NUKE_CLOUD field com/hbm/entity/ModEntities NUKE_TOREX Lcom/hbm/registratio
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex cloudlets Ljava/util/List;
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex heat D
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex maxAge I
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet cloudletLife I
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorB D
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorG D
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorR D
@@ -1041,6 +1042,8 @@ MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setPos (DDD)V
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setScale (F)Lcom/hbm/entity/effect/EntityNukeTorex;
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setTorexType (I)Lcom/hbm/entity/effect/EntityNukeTorex;
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet getScale ()F
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet setMotion (D)Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet setScale (FF)Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;
 MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getX ()D
 MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getY ()D
 MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getZ ()D
@@ -1048,6 +1051,8 @@ MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear isPowered ()Z
 MINI_NUKE_CLOUD method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 MINI_NUKE_CLOUD method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 MINI_NUKE_CLOUD method com/hbm/explosion/ExplosionNukeSmall explode (Lnet/minecraft/world/level/Level;DDDLcom/hbm/explosion/ExplosionNukeSmall$MukeParams;)V
+MINI_NUKE_CLOUD method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDF)V
+MINI_NUKE_CLOUD method com/hbm/explosion/vanillant/ExplosionVNT explode ()V
 MINI_NUKE_CLOUD method com/hbm/handler/threading/TargetPoint <init> (Lnet/minecraft/server/level/ServerLevel;DDDD)V
 MINI_NUKE_CLOUD method com/hbm/handler/threading/TargetPoint level ()Lnet/minecraft/server/level/ServerLevel;
 MINI_NUKE_CLOUD method com/hbm/packet/PacketWire sendToAllAround (Lcom/hbm/packet/threading/ThreadedPayload;Lcom/hbm/handler/threading/TargetPoint;)V
