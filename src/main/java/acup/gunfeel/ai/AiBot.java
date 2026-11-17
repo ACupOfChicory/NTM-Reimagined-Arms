@@ -94,6 +94,9 @@ public final class AiBot {
     /** a player within aiRadius: it thinks; else it stands still */
     boolean active = true;
 
+    /** holding its place in its squad's bounds (C3): the tick it last held, and since when it holds (AiHold) */
+    long holdAt = Long.MIN_VALUE, holdSince = Long.MIN_VALUE;
+
     AiBot(Mob mob, AiProfile profile) {
         this.mob = mob;
         this.profile = profile;

@@ -127,6 +127,14 @@ public final class TacticalMap implements CellSource {
                 }
     }
 
+    /** the sections of a path being walked kept KEEP_TICKS from now (none built for it: only those the map has) */
+    public void keepWalked(long[] keys) {
+        for (long key : keys) {
+            Section s = sections.get(key);
+            if (s != null) s.usedUntil = Math.max(s.usedUntil, tick + KEEP_TICKS);
+        }
+    }
+
     // ------------------------------------------------------------------ reading
 
     /** published cells of a section, maybe built on an older map (see stamp), or null */

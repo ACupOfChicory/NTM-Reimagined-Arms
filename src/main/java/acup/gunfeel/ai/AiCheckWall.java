@@ -40,7 +40,7 @@ final class AiCheckWall {
     private final ServerLevel level;
     private final int y;
     private boolean started;
-    private int round = -1, ticks, gaveUp, inArea;
+    private int round = -1, ticks, gaveUp, gaveUpFails, inArea, lookedThrough;
     private final List<Mob> squad = new ArrayList<>();
     private final AiCommander.Order[] orders = new AiCommander.Order[SQUAD];
     private final int[] stand = new int[SQUAD], longest = new int[SQUAD];
@@ -82,11 +82,15 @@ final class AiCheckWall {
             Mob m = squad.get(i);
             AiBot b = AiBots.get(m);
             if (b == null || !m.isAlive()) continue;
-            // given up (AiCommander.giveUp): counted once, not ordered again
+            // given up (AiCommander.giveUp): counted once, not ordered again; after looking through the area GIVE_UP
+            // ticks and finding no one, as it is to be, told apart (not stuck at the house)
             if (b.orderFailed != null && b.orderFailedUntil > t) {
-                if (gaveUp < 0) {
+                AiCommander.Order g = orders[i];
+                boolean looked = g.inside > AiCommander.GIVE_UP;
+                if (looked && lookedThrough < 0) lookedThrough = ticks;
+                if (!looked && gaveUp < 0) {
                     gaveUp = ticks;
-                    AiCommander.Order g = orders[i];
+                    gaveUpFails = g.fails;
                     check.out(String.format(Locale.ROOT, "     wall, round %d: %d gave up at tick %d at %.1f %.1f: fails %d, legs with no way made %d, ticks in the area %d, nearest %.1f", round + 1, i, ticks,
                             m.getX(), m.getZ(), g.fails, g.idleLegs, g.inside, g.bestD));
                 }
@@ -123,7 +127,7 @@ final class AiCheckWall {
         if (ticks < RUN) return false;
         int most = 0;
         for (int l : longest) most = Math.max(most, l);
-        rounds.add(new int[] {place(round), now(round) ? 1 : 0, most, gaveUp, inArea, atWallTicks});
+        rounds.add(new int[] {place(round), now(round) ? 1 : 0, most, gaveUp, inArea, atWallTicks, gaveUpFails, lookedThrough});
         for (Mob m : squad) m.discard();
         squad.clear();
         if (round + 1 >= PLACES.length * 2) return finish();
@@ -138,7 +142,8 @@ final class AiCheckWall {
     private void start(int r) {
         round = r;
         ticks = 0;
-        gaveUp = inArea = -1;
+        gaveUp = inArea = lookedThrough = -1;
+        gaveUpFails = 0;
         atWallTicks = 0;
         AiMover.partTries = AiCommander.snap = AiCommander.unstuck = now(r);
         BlockState stone = Blocks.STONE.defaultBlockState(), air = Blocks.AIR.defaultBlockState(), wall = Blocks.STONE_BRICKS.defaultBlockState();
@@ -193,14 +198,17 @@ final class AiCheckWall {
         int[][] by = new int[PLACES.length * 2][];
         for (int[] r : rounds) {
             by[r[0] * 2 + r[1]] = r;
-            check.out(String.format(Locale.ROOT, "     wall, the area %s, %s: longest stand at the wall %d ticks, the squad's ticks at it %d, the place given up %s, in the area %s", PLACES[r[0]],
-                    r[1] == 1 ? "now" : "before", r[2], r[5], r[3] < 0 ? "never" : "at tick " + r[3], r[4] < 0 ? "never" : "at tick " + r[4]));
+            check.out(String.format(Locale.ROOT, "     wall, the area %s, %s: longest stand at the wall %d ticks, the squad's ticks at it %d, the place given up %s, in the area %s, looked through to the end %s", PLACES[r[0]],
+                    r[1] == 1 ? "now" : "before", r[2], r[5], r[3] < 0 ? "never" : "at tick " + r[3] + " (fails " + r[6] + ")", r[4] < 0 ? "never" : "at tick " + r[4],
+                    r[7] < 0 ? "never" : "at tick " + r[7]));
         }
         int[] shutNow = by[1], shutBefore = by[0], behind = by[3], door = by[5];
         // (none standing at it long is told above: before it was so too; the owner's was going round and round it, the
         // ticks at it and the place given up below)
+        // (not set against before: that gives the place up only by FAILS legs not walked in a row, its legs with no way
+        // made not counted then, and at times so at the start; a time to be sooner than it is none)
         check.check(String.format(Locale.ROOT, "wall: sent into a shut house, the squad gives the place up (at tick %d, %d before)", shutNow[3], shutBefore[3]),
-                shutNow[3] >= 0 && shutNow[3] <= RUN * 3 / 4 && (shutBefore[3] < 0 || shutNow[3] < shutBefore[3]));
+                shutNow[3] >= 0 && shutNow[3] <= RUN * 3 / 4);
         check.check(String.format(Locale.ROOT, "wall: sent into a shut house, the squad is at its wall less (%d ticks, %d before)", shutNow[5], shutBefore[5]), shutNow[5] < shutBefore[5]);
         check.check(String.format(Locale.ROOT, "wall: sent behind a house, it gets there round it (at tick %d, %d before)", behind[4], by[2][4]), behind[4] >= 0);
         check.check(String.format(Locale.ROOT, "wall: sent into a house with a doorway, it gets in (at tick %d, %d before)", door[4], by[4][4]), door[4] >= 0);

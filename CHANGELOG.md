@@ -1,6 +1,28 @@
 # Changelog
 
-## Unreleased
+## X1512
+
+- An AI soldier sent to stand near a spot, such as a squad gathering at a
+  hatch, no longer freezes a step short of it with the whole squad waiting
+  on it: it takes that last step.
+- An AI squad going a long way round, such as down a long tunnel, no longer
+  turns back halfway because the ground it was walking over was forgotten
+  under it.
+
+## X1510
+
+- An AI squad moving up in bounds keeps its covering half in place: a soldier
+  holding its spot facing the enemy is no longer shoved off it by its own
+  squad mates running past. They step around it instead. Players and other
+  mobs push it as before.
+
+## X1505
+
+- AI soldiers looking through an area inside a house with a single doorway
+  no longer wander out of it round the corner and off across the field;
+  they look through the room the area is in.
+
+## X1502
 
 - AI soldiers who see or hear one of their own shot down nearby now know
   roughly where the shot came from and keep their guns on that spot, so a
