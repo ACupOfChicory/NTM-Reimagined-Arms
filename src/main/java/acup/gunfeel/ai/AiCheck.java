@@ -150,11 +150,12 @@ public final class AiCheck {
             AiCheckFolly folly = new AiCheckFolly(check, check.level, Y);
             AiCheckCorner corner = new AiCheckCorner(check, check.level, Y);
             AiCheckHeard heard = new AiCheckHeard(check, check.level, Y);
+            AiCheckSlice slice = new AiCheckSlice(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
-            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed, took cover to fire from on a hill (and with height weighed), a side's staff in a war, went into a trench round its turns, crossed a river under fire by waves, took a bunker by its slit, went at NTM's underground bunker, went down a shaft through a hatch, went round a deep shaft held by another way in, sent by its staff into a house with no way in, the loudest shot among a hundred, went round the end of a wall at one holding it
-            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves", "hill", "hillheights", "war", "trench", "crossing", "alert", "bunker", "bunkerntm", "hatch", "bypass", "fought", "wall", "folly", "corner", "heard");
+            // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed, took cover to fire from on a hill (and with height weighed), a side's staff in a war, went into a trench round its turns, crossed a river under fire by waves, took a bunker by its slit, went at NTM's underground bunker, went down a shaft through a hatch, went round a deep shaft held by another way in, sent by its staff into a house with no way in, the loudest shot among a hundred, went round the end of a wall at one holding it, looked into a house from round its way in
+            List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves", "hill", "hillheights", "war", "trench", "crossing", "alert", "bunker", "bunkerntm", "hatch", "bypass", "fought", "wall", "folly", "corner", "heard", "slice");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
-                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick, leaves::tick, hill::tick, hillHeights::tick, war::tick, trench::tick, crossing::tick, alert::tick, bunker::tick, bunkerNtm::tick, hatch::tick, bypass::tick, fought::tick, wall::tick, folly::tick, corner::tick, heard::tick);
+                    aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick, leaves::tick, hill::tick, hillHeights::tick, war::tick, trench::tick, crossing::tick, alert::tick, bunker::tick, bunkerNtm::tick, hatch::tick, bypass::tick, fought::tick, wall::tick, folly::tick, corner::tick, heard::tick, slice::tick);
             // -Dntmgunfeel.checkAiStage=<name> (./gradlew runCheckAi -PaiStage=<name>): that stage alone
             // (a,b,c: those stages, in the check's own order)
             List<String> only = List.of(System.getProperty(STAGE_PROPERTY, "").split(",")).stream().map(String::trim).filter(x -> !x.isEmpty()).toList();
@@ -182,11 +183,14 @@ public final class AiCheck {
                         AiLegsLog.stage = names.get(at[0]);
                         if (legsIn.contains(names.get(at[0]))) AiLegsLog.begin();
                         AiGrenades.trace = true;
-                        AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel", "entry", "supply", "water", "trench", "bunker", "bunkerntm", "hatch", "bypass", "fought").contains(names.get(at[0]));
+                        AiGrenades.on = AiGrenades.dodgeOn = List.of("grenade", "battle", "duel", "entry", "supply", "water", "trench", "bunker", "bunkerntm", "hatch", "bypass", "fought", "slice").contains(names.get(at[0]));
                         // the commanders only in their own stage: the others' mobs know of no one by design
                         AiCommander.on = List.of("commander", "war", "wall").contains(names.get(at[0]));
                         AiVoice.reset();
                         AiVoice.counting = true;
+                        // the shots that hit their own traced in the entry (AiBots.friendTrace); suppressing fire counted
+                        AiBots.friendTrace = names.get(at[0]).equals("entry");
+                        AiSoldier.counting = true;
                     }
                     boolean counted = at[0] < stages.size() && legsIn.contains(names.get(at[0]));
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {
@@ -198,6 +202,9 @@ public final class AiCheck {
                         check.out(String.format(java.util.Locale.ROOT, "     pinned down in %s: %.1f%% of %d mob ticks (aiSuppression %s)", names.get(at[0]),
                                 AiBots.botTicks == 0 ? 0 : 100.0 * AiBots.pinnedTicks / AiBots.botTicks, AiBots.botTicks, AiUnderFire.on()));
                         AiBots.botTicks = AiBots.pinnedTicks = 0;
+                        check.out(String.format(java.util.Locale.ROOT, "     suppressing fire in %s: shots %d, ticks held for one of its own in the line %d (aiLeadLine %s)",
+                                names.get(at[0]), AiSoldier.suppressShots, AiSoldier.suppressHolds, AiBots.leadLine));
+                        AiSoldier.suppressShots = AiSoldier.suppressHolds = 0;
                         if (names.get(at[0]).equals("battle")) {
                             check.check("the battle: the mobs call out, no squad more than " + VOICE_SECOND + " lines a second",
                                     AiVoice.total() > 0 && AiVoice.mostASecond(AiVoice.heard) <= VOICE_SECOND);

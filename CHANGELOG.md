@@ -7,6 +7,72 @@
   standing still their feet stay planted while they turn and step round
   one at a time rather than sliding over the ground.
 
+## X1552
+
+- AI soldiers keep clear of the whole blast of a grenade one of their squad
+  throws in through a bunker's slit or drops down a shaft, not just its
+  nearest part. Squad mates behind a wall from the slit's grenade wait
+  there until it goes off instead of walking on into the open.
+
+## X1547
+
+- An AI squad gathering beside a doorway no longer stands where a foe inside
+  the room can see it: a spot in view through the doorway is traded for one
+  further along the wall, out of sight, and the squad comes up to its spots
+  round the ground the room overlooks rather than across it.
+- An AI squad looking into a room from round its doorway now starts from the
+  spots furthest from it and closes in, the spot right by the doorway last,
+  instead of starting at the doorway's edge.
+
+## X1538
+
+- AI soldiers no longer walk into the blast of their own squad's grenade
+  thrown into a room before an entry. Squad mates who are not part of that
+  entry and stand behind a wall from it wait there until it goes off,
+  instead of searching on along the wall into the line of the doorway. A
+  squad mate in the open now keeps clear of all of the blast's reach.
+
+## X1532
+
+- AI soldiers no longer now and then shoot one of their own who runs across
+  in front of the gun a few blocks off: before each shot they check where
+  that one will be when the bullet gets there, along the line the bullet
+  really takes from the gun's muzzle rather than from the eye.
+
+## X1525
+
+- An AI squad about to go into a room first looks into it from round the
+  doorway, where there is room to: the ones beside it step out wide and
+  close in bit by bit, guns on the edge of what comes into view by the
+  doorway's wall, so a foe waiting by a side wall is found before anyone
+  walks in. A foe seen this way is fought or gets a grenade first; one
+  still there after the grenade gets another, or they hold beside the
+  doorway while it is in sight. A foe already known inside gets its grenade
+  before the look. Going in, the first two each take their own side, guns
+  on the corners beside the doorway (server key `aiEntrySlice`).
+
+## X1514
+
+- The two bullets of a Duplex round now spread six times as wide: the
+  second goes about 20 milliradians off the first one's line instead of 3,
+  so at 50 blocks they land about a block apart.
+
+## X1512
+
+- An AI soldier sent to stand near a spot, such as a squad gathering at a
+  hatch, no longer freezes a step short of it with the whole squad waiting
+  on it: it takes that last step.
+- An AI squad going a long way round, such as down a long tunnel, no longer
+  turns back halfway because the ground it was walking over was forgotten
+  under it.
+
+## X1510
+
+- An AI squad moving up in bounds keeps its covering half in place: a soldier
+  holding its spot facing the enemy is no longer shoved off it by its own
+  squad mates running past. They step around it instead. Players and other
+  mobs push it as before.
+
 ## X1505
 
 - AI soldiers looking through an area inside a house with a single doorway

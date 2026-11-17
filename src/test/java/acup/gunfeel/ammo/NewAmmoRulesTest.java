@@ -101,10 +101,10 @@ class NewAmmoRulesTest {
             m1 += x * p;
             m2 += x * x * p;
         }
-        assertEquals(m1 / mass, sum / n, 0.00005);
-        assertEquals(Math.sqrt(m2 / mass), Math.sqrt(sumSq / n), 0.00005);
-        // 3 mrad each way, as the owner chose: about 3.45 mrad off on average
-        assertTrue(sum / n > 0.0033 && sum / n < 0.0036, "" + sum / n);
+        assertEquals(m1 / mass, sum / n, s / 60);
+        assertEquals(Math.sqrt(m2 / mass), Math.sqrt(sumSq / n), s / 60);
+        // 18 mrad each way, as the owner chose: about 20.7 mrad off on average
+        assertTrue(sum / n > 0.0198 && sum / n < 0.0216, "" + sum / n);
         assertTrue(most <= DuplexRule.CUT + 1e-9, "cut: " + most);
     }
 
