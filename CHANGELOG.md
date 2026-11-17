@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- An AI squad moving up in bounds keeps its covering half in place: a soldier
+  holding its spot facing the enemy is no longer shoved off it by its own
+  squad mates running past. They step around it instead. Players and other
+  mobs push it as before.
+
 ## X1494
 
 - The small nuclear blasts' shock ring now leaves the old smoke lying over

@@ -42,6 +42,8 @@ public final class AiHold {
 
     /** a push between a and b begins: the one of them that holds against one of its side, if any */
     public static void begin(Entity a, Entity b) {
+        // the server's alone: in single player the client's thread pushes its own copies at the same time
+        if (a.level().isClientSide()) return;
         shielded = null;
         // cheap first: only two mobs, then the bots' map
         if (!(a instanceof Mob) || !(b instanceof Mob)) return;
@@ -55,8 +57,8 @@ public final class AiHold {
         shielded = hx ? a : b;
     }
 
-    public static void end() {
-        shielded = null;
+    public static void end(Entity a) {
+        if (shielded != null && !a.level().isClientSide()) shielded = null;
     }
 
     /** this one is not pushed now */

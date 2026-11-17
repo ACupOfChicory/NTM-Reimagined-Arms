@@ -19,7 +19,7 @@ public abstract class MixinAiHoldPush {
 
     @Inject(method = "push(Lnet/minecraft/world/entity/Entity;)V", at = @At("RETURN"))
     private void gunfeel$holdEnd(Entity other, CallbackInfo ci) {
-        AiHold.end();
+        AiHold.end((Entity) (Object) this);
     }
 
     @Inject(method = "push(DDD)V", at = @At("HEAD"), cancellable = true)
