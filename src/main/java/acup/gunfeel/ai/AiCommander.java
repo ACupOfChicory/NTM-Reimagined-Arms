@@ -556,7 +556,7 @@ public final class AiCommander {
                 sz += b.mob.getZ() / s.bots.size();
                 if (!b.mob.isAlive()) continue;
                 alive++;
-                boolean empty = supply && !b.gunner.ammo.infinite() && b.gunner.ammo.reserve() <= 0 && b.gunner.capacity() > 0;
+                boolean empty = supply && red(b);
                 if (empty) out++;
                 strength += StaffPlan.weight(AiRole.of(b).ordinal()) * Math.min(1, b.mob.getHealth() / b.mob.getMaxHealth()) * (empty ? 0.3 : 1);
                 sideX += b.mob.getX();
@@ -1367,6 +1367,16 @@ public final class AiCommander {
      * a squad of the side reported (AiCrossing: an enemy across water, places to cross found): its staff looks at its
      * tasks again soon
      */
+    /**
+     * a soldier at "red" (the field manual's ammunition status): a magazine or none left besides the gun's. Most of a
+     * squad so, it is out (StaffPlan: back, as black was before) and says so (AMMO): one magazine sooner than empty, so
+     * that a squad running dry one soldier after another is not sent on just before it falls back (the short war's
+     * flaps, 2026-11-17). Its supplier fills one so as well (AiSupply.need)
+     */
+    static boolean red(AiBot b) {
+        return !b.gunner.ammo.infinite() && b.gunner.capacity() > 0 && b.gunner.ammo.reserve() <= b.gunner.capacity();
+    }
+
     public static void reported(ServerLevel level, String team) {
         Side side = LEVELS.computeIfAbsent(level, l -> new HashMap<>()).get(team);
         if (side == null) return;
@@ -1394,7 +1404,7 @@ public final class AiCommander {
                 x += b.mob.getX();
                 z += b.mob.getZ();
                 if (b.prone.suppressed() >= SUPPRESSED) held++;
-                if (!b.gunner.ammo.infinite() && b.gunner.ammo.reserve() <= 0 && b.gunner.capacity() > 0) empty++;
+                if (red(b)) empty++;
             }
             if (alive == 0) continue;
             x /= alive;
