@@ -28,6 +28,13 @@ public final class BotAnimation {
     public static volatile @Nullable Function<Mob, AiPose> standPose;
     public static volatile boolean standOff;
     public static volatile @Nullable BiConsumer<BotAnimator.Frame, BotPoser.Parts> standWatch;
+    /** Stands only (BotFeelStand): told of each posed bot with its render state (where it is drawn, its body's yaw). */
+    public static volatile @Nullable StandFeel standFeel;
+
+    public interface StandFeel {
+        void accept(BotAnimator.Frame f, BotPoser.Parts parts, HumanoidRenderState state);
+    }
+
     /** Stands only: no breathing, so two poses can be measured against each other to the millimetre. */
     public static volatile boolean standStill;
 
@@ -47,6 +54,12 @@ public final class BotAnimation {
         AiPose pose = stand != null ? stand.apply(mob) : AiPose.of(mob);
         BotAnimator.Frame frame = BotAnimator.frame(mob, pose, mob.level().getGameTime(), partial, state.isCrouching);
         data.gunfeel$setBot(frame);
+        // the body and the head as the animator turns them (springs, the head first): the hitbox is taken at this
+        // yaw too, and the server turns it to its own body (ModelHits.turnAngle)
+        if (!Float.isNaN(frame.bodyYaw())) {
+            state.bodyRot = frame.bodyYaw();
+            state.yRot = net.minecraft.util.Mth.wrapDegrees(frame.headYaw() - frame.bodyYaw());
+        }
         // its own walk for vanilla's swing as well (HumanoidModel.setupAnim): vanilla's kicks as it is hit
         if (!standStill) {
             state.walkAnimationSpeed = frame.walk();
@@ -111,5 +124,7 @@ public final class BotAnimation {
                 standStill ? 1F : state.walkAnimationSpeed, standStill ? 0F : state.walkAnimationPos));
         BiConsumer<BotAnimator.Frame, BotPoser.Parts> watch = standWatch;
         if (watch != null) watch.accept(f, parts);
+        StandFeel feel = standFeel;
+        if (feel != null) feel.accept(f, parts, state);
     }
 }

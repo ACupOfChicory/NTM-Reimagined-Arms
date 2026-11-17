@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## X1557
+
+- AI soldiers turn smoothly: their body comes round after the head and the
+  gun in an easy sweep instead of snapping a quarter turn at a time, and
+  standing still their feet stay planted while they turn and step round
+  one at a time rather than sliding over the ground.
+
+## X1552
 
 - AI soldiers waiting their turn while two of their squad go after a lost
   enemy a long way, such as up a deep shaft, no longer forget that enemy

@@ -151,6 +151,10 @@ final class BotStand {
             step = 7;
             BotHandStand.start(one);
         }
+        if (BotFeelStand.ENABLED) {
+            step = 8;
+            BotFeelStand.start(one);
+        }
     }
 
     private static Mob spawn(ServerLevel level, double x, double z, float yaw) {
@@ -178,6 +182,7 @@ final class BotStand {
                 case 5 -> armourPoses();
                 case 6 -> suits();
                 case 7 -> BotHandStand.frame();
+                case 8 -> BotFeelStand.frame();
                 default -> {
                 }
             }
