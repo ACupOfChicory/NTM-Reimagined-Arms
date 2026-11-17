@@ -418,6 +418,7 @@ public final class AiEntry {
         for (int i = 0; i < op.slots.length; i++)
             if (far[i] != op.slots[i] && far2[i] != far[i]) op.places.add(new long[] {far[i], far2[i]});
         op.inner = w.beside(room);
+        if (w.turn < 0 && hidden()) hide(op, level, plan, w, room);
         // looked at from beside it: the opening's cell at the far end from the room; before it, the cell a thrower steps
         // out to (at a trench's turn, the turn)
         long end = room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
@@ -508,6 +509,100 @@ public final class AiEntry {
     /** in: through the slicing first, if not done yet */
     private static void go(Op op, ServerLevel level, long tick) {
         if (!sliceNow(op, level, tick)) phase(op, GO, tick);
+    }
+
+    /**
+     * The stack out of sight of the room: a place beside the opening seen from a cell of it (a foe by the side wall
+     * across the room sees one flush with the wall beside an opening two wide, a slant through it) goes on along the
+     * wall away from it, STACK_OUT cells at most, to the first seen from none; none such, the least seen. Each place
+     * its own cell, none in the line from another's to the opening. Once, as the entry is made; glass hides nothing.
+     */
+    static final int STACK_OUT = 4;
+    public static final String STACK_KEY = "aiEntryStackHidden";
+    static boolean stackHidden = true;
+    /** the stands: places moved out of sight, places left in it (none out of it near enough) */
+    public static int stackMoved, stackSeen;
+    /** the stands: entries all of whose went in, and their ticks from in to all of them in their places there */
+    public static int goes;
+    public static long goTicks;
+
+    static boolean hidden() {
+        return stackHidden && ReaimTimes.flag(STACK_KEY, true);
+    }
+
+    private static void hide(Op op, ServerLevel level, AiRooms.Plan plan, AiRooms.Way w, int room) {
+        if (room < 0 || plan.size[room] > SLICE_CELLS) return;
+        long[] cells = plan.cells()[room];
+        VoxelRay.Source src = AiBots.voxels(level);
+        long end = room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
+        Vec3 mouth = mid(end, 1.1);
+        java.util.Set<Long> taken = new java.util.HashSet<>();
+        for (int i = 0; i < op.places.size(); i++) {
+            long[] pl = op.places.get(i);
+            int seen = seen(src, cells, pl[0]);
+            if (seen == 0 && taken.add(pl[0])) continue;
+            // on along the wall: the way from the place to the one behind it (else away from the opening)
+            int dx = Integer.signum(BlockPos.getX(pl[1]) - BlockPos.getX(pl[0])), dz = Integer.signum(BlockPos.getZ(pl[1]) - BlockPos.getZ(pl[0]));
+            if (dx == 0 && dz == 0) {
+                dx = Integer.signum(BlockPos.getX(pl[0]) - BlockPos.getX(end));
+                dz = Integer.signum(BlockPos.getZ(pl[0]) - BlockPos.getZ(end));
+                if (dx != 0 && dz != 0) dz = 0;
+            }
+            long best = taken.contains(pl[0]) ? Long.MIN_VALUE : pl[0], c = pl[0];
+            int least = taken.contains(pl[0]) ? Integer.MAX_VALUE : seen;
+            for (int k = 0; k < STACK_OUT && least > 0; k++) {
+                long n = BlockPos.offset(c, dx, 0, dz);
+                if (!stand(src, n) || plan.room(n) >= 0 && plan.room(n) == room) break;
+                c = n;
+                if (taken.contains(c) || inLine(op, i, c, mouth)) continue;
+                int sn = seen(src, cells, c);
+                if (sn < least) {
+                    least = sn;
+                    best = c;
+                }
+            }
+            if (best == Long.MIN_VALUE) continue;
+            if (best != pl[0]) {
+                long behind = BlockPos.offset(best, dx, 0, dz);
+                pl[0] = best;
+                pl[1] = stand(src, behind) ? behind : best;
+                stackMoved++;
+            }
+            if (least > 0) stackSeen++;
+            taken.add(pl[0]);
+        }
+    }
+
+    /** a soldier may stand there: room for it, ground under it */
+    private static boolean stand(VoxelRay.Source src, long c) {
+        int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+        return Voxel.open(src.voxel(x, y, z)) && Voxel.open(src.voxel(x, y + 1, z)) && !Voxel.open(src.voxel(x, y - 1, z));
+    }
+
+    /** the room's cells that see one standing there (its chest or head, from theirs) */
+    private static int seen(VoxelRay.Source src, long[] cells, long at) {
+        double ax = BlockPos.getX(at) + 0.5, ay = BlockPos.getY(at), az = BlockPos.getZ(at) + 0.5;
+        int n = 0;
+        for (long r : cells) {
+            double rx = BlockPos.getX(r) + 0.5, ry = BlockPos.getY(r), rz = BlockPos.getZ(r) + 0.5;
+            if (VoxelRay.clear(src, rx, ry + 1.5, rz, ax, ay + 1.5, az, Voxel.SIGHT) || VoxelRay.clear(src, rx, ry + 1.0, rz, ax, ay + 1.0, az, Voxel.SIGHT)) n++;
+        }
+        return n;
+    }
+
+    /** a place there would stand in the line from one of the places before it to the opening (its gun on it) */
+    private static boolean inLine(Op op, int upTo, long c, Vec3 mouth) {
+        double cx = BlockPos.getX(c) + 0.5, cz = BlockPos.getZ(c) + 0.5;
+        for (int j = 0; j < upTo; j++) {
+            long p = op.places.get(j)[0];
+            double px = BlockPos.getX(p) + 0.5, pz = BlockPos.getZ(p) + 0.5, vx = mouth.x - px, vz = mouth.z - pz, len = vx * vx + vz * vz;
+            if (len < 1e-6) continue;
+            double t = ((cx - px) * vx + (cz - pz) * vz) / len;
+            if (t <= 0 || t >= 1) continue;
+            double ox = px + vx * t - cx, oz = pz + vz * t - cz;
+            if (ox * ox + oz * oz < 0.5 * 0.5) return true;
+        }
+        return false;
     }
 
     static boolean slice() {
@@ -866,7 +961,14 @@ public final class AiEntry {
                 }
             }
             case GO -> {
-                if (op.done.containsAll(op.members) || tick - op.phaseAt > GO_MAX) phase(op, OVER, tick);
+                if (op.done.containsAll(op.members) || tick - op.phaseAt > GO_MAX) {
+                    // (the stands: from in to all of it there, those it went in with)
+                    if (op.done.containsAll(op.members) && !op.members.isEmpty()) {
+                        goTicks += tick - op.phaseAt;
+                        goes++;
+                    }
+                    phase(op, OVER, tick);
+                }
             }
             default -> {
             }
