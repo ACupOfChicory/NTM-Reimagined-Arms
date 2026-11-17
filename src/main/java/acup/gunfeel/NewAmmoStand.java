@@ -62,6 +62,7 @@ final class NewAmmoStand {
     private static final int WALL_Z = 48, WALL_W = 6, WALL_H = 6;
 
     private static int step, until;
+    private static boolean listening;
     private static Mob zombie, cow, guard;
     private static Mannequin shooter;
     private static float lossSp, lossDx;
@@ -87,6 +88,18 @@ final class NewAmmoStand {
             p.setGameMode(GameType.SURVIVAL);
             p.teleportTo(level, EX, O.getY(), EZ, Set.of(), 0F, 0F, false);
         }).join();
+        if (!listening) {
+            listening = true;
+            // every hurt of the player in the log: what, how much, from what distance of its source
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.living.LivingDamageEvent.Post.class, e -> {
+                if (!(e.getEntity() instanceof ServerPlayer p)) return;
+                var src = e.getSource();
+                Vec3 at = src.getSourcePosition();
+                log("игрок ранен на такте {}: {} ({}), {} HP, от источника {} бл, осталось {}", now(), src.getMsgId(),
+                        src.getDirectEntity() == null ? "-" : BuiltInRegistries.ENTITY_TYPE.getKey(src.getDirectEntity().getType()),
+                        f(e.getInflictedDamage()), at == null ? "-" : f(at.distanceTo(p.position())), f(p.getHealth()));
+            });
+        }
         step = 0;
         until = now() + 60;
     }
@@ -412,6 +425,7 @@ final class NewAmmoStand {
                     level.setBlock(O.offset(x, y, WALL_Z - 8), Blocks.STONE.defaultBlockState(), 3);
                 p.teleportTo(level, EX, O.getY(), EZ, Set.of(), 0F, -2F, false);
                 gun(p, "gun_amat", NuclearBmg.config(), 7);
+                p.setHealth(p.getMaxHealth());
                 guard = mob(p, EntityTypes.ZOMBIE, EX + 3, EZ + WALL_Z - 10, true, 0);
                 return null;
             });
