@@ -1,5 +1,11 @@
 # Changelog
 
+## X1424
+
+- AI squads going down a ladder shaft now get all the way to its floor and
+  step off the ladder, instead of hanging on the rungs above one another or
+  standing in the way at the foot.
+
 ## X1422
 
 - NTM's small nuclear blasts (the Fat Mine, the Fat Man's shells, the

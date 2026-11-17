@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.function.LongPredicate;
 
 import org.jspecify.annotations.Nullable;
 
@@ -70,8 +71,51 @@ final class AiHatch {
         }
         if (way <= 0)
             for (int y = y0; y > y0 - reach && y > level.getMinY(); y--) {
-                if (!rung(level, p.set(x, y - 1, z)) && walkable(map, x, y, z)) return BlockPos.asLong(x, y, z);
+                if (!rung(level, p.set(x, y - 1, z)) && walkable(map, x, y, z)) {
+                    // a cell beside its floor: the column's own is where the next comes down (one stood in it, the one
+                    // over it was sent there and hung on the ladder over it for good)
+                    long aside = besideFoot(BlockPos.asLong(x, y, z), c -> walkable(map, BlockPos.getX(c), BlockPos.getY(c), BlockPos.getZ(c)), Long.MIN_VALUE);
+                    return aside != Long.MIN_VALUE ? aside : BlockPos.asLong(x, y, z);
+                }
             }
+        return Long.MIN_VALUE;
+    }
+
+    /**
+     * A shaft's floor under a cell in its column: down its rungs to the cell over no rung, one to stand in (a path to a
+     * foe beside its foot ends a rung or two up the column, its goal near enough across and up); the cell itself if
+     * none within LADDER_REACH
+     */
+    static long floor(long foot, LongPredicate rung, LongPredicate stand) {
+        int x = BlockPos.getX(foot), z = BlockPos.getZ(foot);
+        for (int y = BlockPos.getY(foot); y > BlockPos.getY(foot) - LADDER_REACH; y--) {
+            if (!rung.test(BlockPos.asLong(x, y, z))) break;
+            if (!rung.test(BlockPos.asLong(x, y - 1, z))) return stand.test(BlockPos.asLong(x, y, z)) ? BlockPos.asLong(x, y, z) : foot;
+        }
+        return foot;
+    }
+
+    /**
+     * A cell to stand in beside a shaft's floor, off its column: on the floor's height first, else a step up or down;
+     * the nearest across to toward of them (MIN_VALUE: any, the sides in turn). MIN_VALUE: none
+     */
+    static long besideFoot(long floor, LongPredicate stand, long toward) {
+        int x = BlockPos.getX(floor), y = BlockPos.getY(floor), z = BlockPos.getZ(floor);
+        int[][] side = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        long best = Long.MIN_VALUE;
+        double bestD = Double.MAX_VALUE;
+        for (int dy : new int[] {0, 1, -1}) {
+            for (int[] d : side) {
+                long c = BlockPos.asLong(x + d[0], y + dy, z + d[1]);
+                if (!stand.test(c)) continue;
+                double e = toward == Long.MIN_VALUE ? 0 : Math.hypot(BlockPos.getX(c) - BlockPos.getX(toward), BlockPos.getZ(c) - BlockPos.getZ(toward));
+                if (e < bestD) {
+                    bestD = e;
+                    best = c;
+                }
+            }
+            if (best != Long.MIN_VALUE) return best;
+        }
         return Long.MIN_VALUE;
     }
 
@@ -336,7 +380,7 @@ final class AiHatch {
     }
 
     /** the first shaft on a path (run), its hatch: at its top cell (one shut is a floor walked onto) or over it, up to the rim's height */
-    static @Nullable Shaft shaft(ServerLevel level, long[] cells) {
+    static @Nullable Shaft shaft(ServerLevel level, long[] cells, long goal) {
         long[] r = run(cells);
         if (r == null) return null;
         long rim = r[0], top = r[1];
@@ -350,7 +394,18 @@ final class AiHatch {
         }
         // none down a hatch a hand cannot lift (an iron one), nor any while the AI opens no doors
         if (hatch != null && (!AiDoors.pass || !AiDoors.byHand(level.getBlockState(hatch)))) return null;
-        return new Shaft(rim, top, r[2], r[3], hatch, BlockPos.getY(top) - BlockPos.getY(r[2]) + 1, back(level, rim, top));
+        long foot = r[2], out = r[3];
+        // the way ending in the column (to a foe beside its foot): its foot the floor under it, its way out a cell beside
+        // that (its foot a rung or two up, they hung over it short of it; and the one holding the way out stood in the
+        // column, in the way of the next down)
+        if (BlockPos.getX(out) == BlockPos.getX(foot) && BlockPos.getZ(out) == BlockPos.getZ(foot)) {
+            TacticalMap map = TacticalMap.of(level);
+            LongPredicate stand = c -> walkable(map, BlockPos.getX(c), BlockPos.getY(c), BlockPos.getZ(c));
+            foot = floor(foot, c -> rung(level, BlockPos.of(c)), stand);
+            long aside = besideFoot(foot, stand, goal);
+            out = aside != Long.MIN_VALUE ? aside : foot;
+        }
+        return new Shaft(rim, top, foot, out, hatch, BlockPos.getY(top) - BlockPos.getY(foot) + 1, back(level, rim, top));
     }
 
     /**
@@ -521,7 +576,7 @@ final class AiHatch {
             else l.next.put(team, tick + AGAIN);
             return null;
         }
-        Shaft sh = shaft(level, r.cells);
+        Shaft sh = shaft(level, r.cells, goal);
         if (sh == null) {
             none[3]++;
             l.next.put(team, tick + AGAIN);
