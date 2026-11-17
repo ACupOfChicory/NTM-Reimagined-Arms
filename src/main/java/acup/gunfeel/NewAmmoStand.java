@@ -54,7 +54,7 @@ import net.minecraft.world.phys.Vec3;
 //  - nuclear: three of the AMAT's shots at a stone wall 40 blocks off wear it out (wear = durability, not after two),
 //    the wall stands whole, a zombie by it is hurt, the grass, a poppy, leaves and uranium ore before it laid waste (a log
 //    left); by the wall after them an AI soldier in DNS takes almost no
-//    radiation in 10 seconds (as a player in DNS), one bare and a plain husk in DNS take it as NTM gives a mob;
+//    radiation in 10 seconds (as a player in DNS), one bare and a plain vindicator in DNS take it as NTM gives a mob;
 // Lines "[new-ammo-stand] ..." in the log, PASS/FAIL in the report.
 final class NewAmmoStand {
     static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.newAmmoStand");
@@ -186,7 +186,8 @@ final class NewAmmoStand {
             String r = onServer(p -> {
                 ItemStack bag = new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", bagId)));
                 p.getInventory().clearContent();
-                p.getInventory().setItem(8, bag);
+                // NTM opens a bag's contents only held (ItemStackContainer): in the off hand, the gun in the main one
+                p.setItemInHand(InteractionHand.OFF_HAND, bag);
                 var c = new com.hbm.inventory.ItemStackContainer(p, bag, com.hbm.items.tool.ItemAmmoBag.LAYOUT.slots());
                 var menu = new com.hbm.inventory.container.MenuItemBox(com.hbm.inventory.container.ModMenus.AMMO_BAG.get(), 0, p.getInventory(),
                         com.hbm.items.tool.ItemAmmoBag.LAYOUT, c);
@@ -202,7 +203,7 @@ final class NewAmmoStand {
                 var mag = g.getConfig(gun, 0).getReceivers(gun)[0].getMagazine(gun);
                 boolean can = mag.canReload(gun, p.getInventory());
                 mag.reloadAction(gun, p.getInventory());
-                int left = com.hbm.items.tool.ItemAmmoBag.contents(p.getInventory().getItem(8)).getItem(0).getCount();
+                int left = com.hbm.items.tool.ItemAmmoBag.contents(p.getOffhandItem()).getItem(0).getCount();
                 out.append(can).append(' ').append(mag.getAmount(gun, p.getInventory())).append(' ').append(left);
                 p.getInventory().clearContent();
                 return out.toString();
@@ -590,12 +591,12 @@ final class NewAmmoStand {
                 "ядерный: урановая руда у стены стала шрабидиевой или обожжённой (" + w[4] + ")");
         onServer(p -> {
             if (guard.isAlive()) guard.discard();
-            // the radiation the three shots left by the wall: a soldier in DNS, one bare, a plain husk in DNS
+            // the radiation the three shots left by the wall: a soldier in DNS, one bare, a plain vindicator in DNS
             ServerLevel level = (ServerLevel) p.level();
             double z = O.getZ() + WALL_Z - 9.5;
-            radDns = mob(p, EntityTypes.HUSK, EX - 2, z, true, 500);
-            radBare = mob(p, EntityTypes.HUSK, EX, z, true, 500);
-            radPlain = mob(p, EntityTypes.HUSK, EX + 2, z, true, 500);
+            radDns = mob(p, EntityTypes.VINDICATOR, EX - 2, z, true, 500);
+            radBare = mob(p, EntityTypes.VINDICATOR, EX, z, true, 500);
+            radPlain = mob(p, EntityTypes.VINDICATOR, EX + 2, z, true, 500);
             for (Mob m : new Mob[] {radDns, radPlain}) dns(m);
             acup.gunfeel.ai.AiBots.attach(radDns, acup.gunfeel.ai.AiProfile.SOLDIER);
             acup.gunfeel.ai.AiBots.attach(radBare, acup.gunfeel.ai.AiProfile.SOLDIER);
@@ -612,17 +613,17 @@ final class NewAmmoStand {
                     new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", (String) e[1]))));
     }
 
-    // a soldier in DNS keeps the radiation out as a player in it would; one bare and a plain husk in DNS take it all
+    // a soldier in DNS keeps the radiation out as a player in it would; one bare and a plain vindicator in DNS take it all
     private static void nuclearRadiation() {
         double[] r = onServer(p -> new double[] {rad(radDns), rad(radBare), rad(radPlain), radDns.isAlive() ? 1 : 0, radBare.isAlive() ? 1 : 0,
                 radPlain.isAlive() ? 1 : 0, com.hbm.util.ContaminationUtil.calculateRadiationMod(radDns),
                 com.hbm.util.ContaminationUtil.calculateRadiationMod(radPlain)});
         log("ядерный: радиация у стены {} RAD/с; за {} тактов боец в DNS {} RAD (жив {}, множитель {}), боец без брони {} RAD (жив {}), "
-                + "хаск в DNS {} RAD (жив {}, множитель {})", f((float) radDose), RAD_TICKS, f((float) r[0]), r[3] > 0, r[6], f((float) r[1]),
+                + "поборник в DNS {} RAD (жив {}, множитель {})", f((float) radDose), RAD_TICKS, f((float) r[0]), r[3] > 0, r[6], f((float) r[1]),
                 r[4] > 0, f((float) r[2]), r[5] > 0, r[7]);
         check(r[3] > 0 && r[0] < 1 && r[6] < 1e-4, "ядерный: боец ИИ в DNS у стены после 3 выстрелов жив и почти без радиации");
         check(r[4] == 0 || r[1] > 100, "ядерный: боец ИИ без брони у стены облучён, как раньше");
-        check(r[5] == 0 || r[2] > 100, "ядерный: обычный хаск в DNS облучён, как у NTM (броня моба не в счёт)");
+        check(r[5] == 0 || r[2] > 100, "ядерный: обычный поборник в DNS облучён, как у NTM (броня моба не в счёт)");
         onServer(p -> {
             for (Mob m : new Mob[] {radDns, radBare, radPlain}) if (m.isAlive()) m.discard();
             return null;
