@@ -214,9 +214,9 @@ public final class AiCommander {
         @Nullable Job partner;
         long due = Long.MAX_VALUE, ready = Long.MIN_VALUE, pairedAt;
         /**
-     * a pair it was in (or the task it had before at the same group was in) undone before it was ready (C4): that
-     * pair's time (Long.MAX_VALUE: none), its other dead then
-     */
+         * a pair it was in (or the task it had before at the same group was in) undone before it was ready (C4): that
+         * pair's time (Long.MAX_VALUE: none), its other dead then
+         */
         long dueWas = Long.MAX_VALUE;
         boolean otherDead;
         /** when the staff last gave it (to the squad, or to the parts of a squad split on the way) */
@@ -984,8 +984,11 @@ public final class AiCommander {
                 : new Job(t.kind(), now, t.kind() == StaffPlan.Kind.BACK && had != null ? had.bots : List.copyOf(s.bots), ids);
         // a pair's time goes on with a new task at the same group (C4: the two changing over, one sent to scout the
         // group's place and back): a pair made with it again does not start the way round's time afresh
-        if (!same && had != null && g != null && g.any(had.ids))
-            job.dueWas = Math.min(had.dueWas, had.partner != null && had.ready == Long.MIN_VALUE ? had.due : Long.MAX_VALUE);
+        // (a pair whose time ran out is over: both advance, nothing handed on)
+        if (!same && had != null && g != null && g.any(had.ids)) {
+            job.dueWas = Math.min(had.dueWas, had.partner != null && had.ready == Long.MIN_VALUE && had.due > now ? had.due : Long.MAX_VALUE);
+            job.otherDead = had.otherDead;
+        }
         // its contact and its being pinned down go on with its new task (C5): not reported again, not forgotten
         if (!same && had != null) {
             job.saidContact = had.saidContact;
@@ -1833,8 +1836,11 @@ public final class AiCommander {
      */
     static long time(Job f, Job p, long fresh, long now) {
         long was = Math.min(f.dueWas, p.dueWas);
+        // the one whose other died paired with a new one not at its place yet (the new one pinning still on its way)
         boolean dead = f.otherDead || p.otherDead, grace = f.otherDead && !p.there || p.otherDead && !f.there;
+        // taken up by this pair: its time from now on is the pair's own (handed on while it is not over)
         f.otherDead = p.otherDead = false;
+        f.dueWas = p.dueWas = Long.MAX_VALUE;
         if (was == Long.MAX_VALUE) return fresh;
         pairedAgain++;
         if (dead) otherDied++;

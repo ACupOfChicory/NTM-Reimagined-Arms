@@ -28,9 +28,11 @@ class PairTimeTest {
         // sooner than that, its own
         round.dueWas = NOW + 2000;
         assertEquals(NOW + 900, AiCommander.time(round, job(StaffPlan.Kind.PIN), NOW + 900, NOW));
-        // its time up already, its other gone with its task: up now, both advance
+        // its time up already (its other gone with its task, alive): up now, both advance
         round.dueWas = NOW - 50;
         assertEquals(NOW - 50, AiCommander.time(round, job(StaffPlan.Kind.PIN), NOW + 900, NOW));
+        // taken up by that pair: a later pair of its has its own time
+        assertEquals(Long.MAX_VALUE, round.dueWas);
     }
 
     @Test
@@ -41,6 +43,7 @@ class PairTimeTest {
         assertEquals(NOW + AiCommander.PAIR_GRACE, AiCommander.time(round, pin, NOW + 900, NOW));
         assertEquals(false, round.otherDead, "once");
         // the new one at its place already: the time it had
+        round.dueWas = NOW - 50;
         round.otherDead = true;
         pin.there = true;
         assertEquals(NOW - 50, AiCommander.time(round, pin, NOW + 900, NOW));
