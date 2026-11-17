@@ -101,6 +101,13 @@ public final class AiCommander {
     /** a pair's one going round looked at for a fight this often, ticks (C4) */
     static final int COUPLE = 10;
     static final double DRIFT_STEP = 4, DRIFT_CLIMB = 3, DRIFT_STOP = 48;
+    /**
+     * asleep: a point of its way in water, or before a stretch over water, reached this near only (not REACHED: it
+     * would cut across beside the ford); no spread of the squad within DRIFT_WET of water; blocks
+     */
+    static final double DRIFT_AT_WATER = 1.5, DRIFT_WET = 8;
+    /** asleep, a step into deep water: a way round looked for over the blocks within DETOUR, DETOUR_AGAIN ticks apart at most */
+    static final int DETOUR = 12, DETOUR_AGAIN = 100;
     /** new ways a side asks for at most each time it gives its orders (the rest keep theirs or go straight till the next) */
     static final int WAYS = 3;
     static final int ROUTE_FAILS = 3;
@@ -171,6 +178,8 @@ public final class AiCommander {
     public static int joinedCrossing;
     /** the stands: steps the staff moved soldiers asleep, and those it could not (the ground, water, not loaded) */
     public static long drifted, driftBlocked;
+    /** of those it could not: into deep water; ways round found by the blocks (detour) */
+    public static long driftWater, detours;
     /** the stands: the game tick each side (by its team) was last given its orders */
     static final Map<String, Long> commandedAt = new HashMap<>();
 
@@ -245,6 +254,12 @@ public final class AiCommander {
         int inside, fails;
         /** its place in the squad, for a spread of the legs' ends */
         int slot, of;
+        /** asleep: a way round deep water over the blocks (x << 32 | z), the next of it, when it was looked for */
+        long @Nullable [] detour;
+        int detourAt;
+        long detourTick = Long.MIN_VALUE, detourFrom;
+        /** the point the way round was for */
+        double detourTX, detourTZ;
         /**
          * a crossing (the staff's task CROSS): the place on the near bank to go over from, how (null: not a crossing),
          * where to gather on the far bank
@@ -677,11 +692,13 @@ public final class AiCommander {
 
     /**
      * The soldiers asleep with a task, moved by the staff (C2b): a step along the way (straight where there is none),
-     * each to its own side of the point as awake (step), onto the middle of the block on the ground as the heightmap
-     * has it, in loaded chunks only; not onto water or lava, nor into deep water on the staff's map (a ford a block deep it wades), nor up or down more
-     * than DRIFT_CLIMB: then a step turned aside, one way then the other, and FAILS such in a row give the task up as
-     * awake. None once at the task's place (got there, as awake), nor within DRIFT_STOP of a group of the enemy. Woken
-     * (a player near), it goes on from where it is by its order as any other (step).
+     * each to its own side of the point as awake (step; by water nearly on it), onto the middle of the block on the
+     * ground as the heightmap has it, in loaded chunks only; not into deep water or lava (a ford a block deep it wades),
+     * nor up or down more than DRIFT_CLIMB. Deep water ahead: a way round it over the blocks (detour), followed; else,
+     * or the ground, a step turned aside, one way then the other, and FAILS such in a row give the task up as awake.
+     * A point of the way in water, or before a stretch over it, is reached on it (DRIFT_AT_WATER), not at REACHED: it
+     * goes into the ford where the way does. None once at the task's place (got there, as awake), nor within
+     * DRIFT_STOP of a group of the enemy. Woken (a player near), it goes on from where it is by its order as any other.
      */
     private static void drift(ServerLevel level, long now) {
         Map<String, List<Group>> groupsOf = new HashMap<>();
@@ -704,33 +721,82 @@ public final class AiCommander {
             if (o.route == null && !o.noRoute) takeUp(o, b);
             double tx = o.x, tz = o.z;
             HqGrid.Route way = o.route;
+            HqGrid grid = AiHqMap.of(level, team);
             if (way != null) {
-                while (o.at < way.size() - 1 && Math.hypot(way.x(o.at) - x, way.z(o.at) - z) <= REACHED) o.at++;
+                while (o.at < way.size() - 1 && Math.hypot(way.x(o.at) - x, way.z(o.at) - z) <= reached(grid, way, o.at)) o.at++;
                 if (o.at < way.size() - 1 || Math.hypot(way.x(o.at) - x, way.z(o.at) - z) > REACHED) {
                     tx = way.x(o.at);
                     tz = way.z(o.at);
                 }
             }
-            double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of > 1 ? 3 : 0;
+            // its own side of the point, not by water (a ford is narrow)
+            // (by water, or at a point to be reached on it: nearly on it)
+            boolean onIt = way != null && o.at < way.size() && reached(grid, way, o.at) < REACHED;
+            double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of <= 1 ? 0 : onIt || nearWater(grid, tx, tz) ? 1 : 3;
             tx += Math.cos(a) * spread;
             tz += Math.sin(a) * spread;
             double l = Math.hypot(tx - x, tz - z);
             if (l < 1e-3) continue;
+            // on a way round deep water found before: along it, while it is where the last step left it and goes for
+            // the same point (woken and moved meanwhile, or its way changed: dropped)
+            if (o.detour != null) {
+                long last = o.detourAt == 0 ? o.detourFrom : o.detour[o.detourAt - 1];
+                if (Math.abs((int) (last >> 32) - Mth.floor(x)) + Math.abs((int) last - Mth.floor(z)) > 2 || Math.hypot(o.detourTX - tx, o.detourTZ - tz) > 2) o.detour = null;
+            }
+            if (o.detour != null) {
+                int k = Math.min(o.detour.length - 1, o.detourAt + (int) DRIFT_STEP - 1);
+                long n = o.detour[k];
+                int dx = (int) (n >> 32), dz = (int) n;
+                if (level.hasChunk(dx >> 4, dz >> 4)) {
+                    o.detourAt = k + 1;
+                    if (o.detourAt >= o.detour.length) o.detour = null;
+                    double turn = Math.atan2(dz + 0.5 - z, dx + 0.5 - x);
+                    b.mob.snapTo(dx + 0.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, dx, dz), dz + 0.5, (float) Math.toDegrees(Math.atan2(-Math.cos(turn), Math.sin(turn))), 0F);
+                    b.mob.setYHeadRot(b.mob.getYRot());
+                    o.fails = 0;
+                    drifted++;
+                }
+                continue;
+            }
             // the step turned aside after one that could not be made, one way then the other
             double along = Math.atan2(tz - z, tx - x) + (o.fails == 0 ? 0 : (o.fails % 2 == 1 ? 1 : -1) * Math.PI / 4 * ((o.fails + 1) / 2));
             double step = Math.min(DRIFT_STEP, l);
             int bx = Mth.floor(x + Math.cos(along) * step), bz = Mth.floor(z + Math.sin(along) * step);
+            // its point within the block it stands on (a step to it goes nowhere): reached, on to the next
+            if (bx == Mth.floor(x) && bz == Mth.floor(z) && o.fails == 0) {
+                if (way != null && o.at < way.size() - 1) o.at++;
+                continue;
+            }
             // a chunk not loaded: it waits there
             if (!level.hasChunk(bx >> 4, bz >> 4)) continue;
             int ny = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
-            HqGrid grid = AiHqMap.of(level, team);
-            int ci = grid == null ? -1 : grid.cellX(bx + 0.5), ck = grid == null ? -1 : grid.cellZ(bz + 0.5);
-            boolean deep = ci >= 0 && ck >= 0 && grid.known[HqGrid.index(ci, ck)] && grid.deep[HqGrid.index(ci, ck)] >= 0.5;
             // into water a block deep (a ford) it wades; deeper water, or any other liquid, it does not go into
             var fluid = level.getFluidState(new BlockPos(bx, ny - 1, bz));
             boolean wet = !fluid.isEmpty() && (!fluid.is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(new BlockPos(bx, ny - 2, bz)).isEmpty());
-            if (deep || wet || Math.abs(ny - b.mob.getY()) > DRIFT_CLIMB) {
+            // (by the block itself, not the staff's map's cell: a ford in a cell mostly deep)
+            if (wet || Math.abs(ny - b.mob.getY()) > DRIFT_CLIMB) {
                 driftBlocked++;
+                if (wet) driftWater++;
+                // deep water ahead: a way round it over the blocks (by the ford), now and then at most
+                if (wet && (o.detourTick == Long.MIN_VALUE || now - o.detourTick >= DETOUR_AGAIN)) {
+                    o.detourTick = now;
+                    long[] path = detour(level, Mth.floor(x), Mth.floor(z), Mth.floor(b.mob.getY()), tx, tz);
+                    if (path != null) {
+                        detours++;
+                        o.detour = path;
+                        o.detourAt = 0;
+                        o.detourFrom = (long) Mth.floor(x) << 32 | Mth.floor(z) & 0xFFFFFFFFL;
+                        o.detourTX = tx;
+                        o.detourTZ = tz;
+                        continue;
+                    }
+                    // no nearer to it by the blocks, its point within REACHED (one in deep water it cannot stand on): on to the next
+                    if (way != null && o.at < way.size() - 1 && Math.hypot(way.x(o.at) - x, way.z(o.at) - z) <= REACHED) {
+                        o.at++;
+                        o.fails = 0;
+                        continue;
+                    }
+                }
                 if (++o.fails >= FAILS) giveUp(b, o, now);
                 continue;
             }
@@ -739,6 +805,79 @@ public final class AiCommander {
             b.mob.setYHeadRot(b.mob.getYRot());
             drifted++;
         }
+    }
+
+    /** asleep, a point of its way: reached within REACHED, or DRIFT_AT_WATER when it or the stretch on from it is over water */
+    private static double reached(@Nullable HqGrid grid, HqGrid.Route way, int at) {
+        if (grid == null) return REACHED;
+        double x = way.x(at), z = way.z(at);
+        if (StaffCross.water(grid, x, z) > 0) return DRIFT_AT_WATER;
+        if (at + 1 < way.size()) {
+            double nx = way.x(at + 1), nz = way.z(at + 1), len = Math.hypot(nx - x, nz - z);
+            for (double t = 2; t < len; t += 2)
+                if (StaffCross.water(grid, x + (nx - x) * t / len, z + (nz - z) * t / len) > 0) return DRIFT_AT_WATER;
+        }
+        return REACHED;
+    }
+
+    /** water on the staff's map within DRIFT_WET of x, z (no spread of the squad there) */
+    private static boolean nearWater(@Nullable HqGrid grid, double x, double z) {
+        if (grid == null) return false;
+        for (int i = -1; i <= 1; i++)
+            for (int k = -1; k <= 1; k++)
+                if (StaffCross.water(grid, x + i * DRIFT_WET, z + k * DRIFT_WET) > 0) return true;
+        return false;
+    }
+
+    /**
+     * asleep, deep water in its step: a way over the blocks within DETOUR of it (dry ground, or water a block deep: a
+     * ford; up or down DRIFT_CLIMB at most a step) to the one nearest to tx, tz; null: none nearer by 2 at least.
+     * The blocks it goes by after its own, x << 32 | z.
+     */
+    static long @Nullable [] detour(ServerLevel level, int x0, int z0, int y0, double tx, double tz) {
+        int side = DETOUR * 2 + 1;
+        int[] from = new int[side * side], ys = new int[side * side];
+        java.util.Arrays.fill(from, -2);
+        int start = DETOUR * side + DETOUR;
+        from[start] = -1;
+        ys[start] = y0;
+        int[] queue = new int[side * side];
+        int head = 0, tail = 0, best = start;
+        queue[tail++] = start;
+        double bestD = Math.hypot(x0 + 0.5 - tx, z0 + 0.5 - tz);
+        double startD = bestD;
+        while (head < tail) {
+            int c = queue[head++];
+            int cx = c % side, cz = c / side;
+            for (int d = 0; d < 4; d++) {
+                int nx = cx + (d == 0 ? 1 : d == 1 ? -1 : 0), nz = cz + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                if (nx < 0 || nz < 0 || nx >= side || nz >= side) continue;
+                int n = nz * side + nx;
+                if (from[n] != -2) continue;
+                int bx = x0 + nx - DETOUR, bz = z0 + nz - DETOUR;
+                from[n] = -3;
+                if (!level.hasChunk(bx >> 4, bz >> 4)) continue;
+                int ny = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+                if (Math.abs(ny - ys[c]) > DRIFT_CLIMB) continue;
+                var fluid = level.getFluidState(new BlockPos(bx, ny - 1, bz));
+                if (!fluid.isEmpty() && (!fluid.is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(new BlockPos(bx, ny - 2, bz)).isEmpty())) continue;
+                from[n] = c;
+                ys[n] = ny;
+                queue[tail++] = n;
+                double dd = Math.hypot(bx + 0.5 - tx, bz + 0.5 - tz);
+                if (dd < bestD) {
+                    bestD = dd;
+                    best = n;
+                }
+            }
+        }
+        if (best == start || startD - bestD < 2) return null;
+        int len = 0;
+        for (int c = best; c != start; c = from[c]) len++;
+        long[] path = new long[len];
+        for (int c = best, i = len - 1; c != start; c = from[c], i--)
+            path[i] = (long) (x0 + c % side - DETOUR) << 32 | (z0 + c / side - DETOUR) & 0xFFFFFFFFL;
+        return path;
     }
 
     /**

@@ -8,6 +8,12 @@
   or firing out round its cover, it steps out at a side it can see the place
   from, where its cover has more than one.
 
+## X1375
+
+- AI squads moved by their staff while far from every player now cross a river
+  by its ford. Before, they could stop at the bank beside the ford, trying to
+  go straight over deep water, and stay there until a player came near.
+
 ## X1368
 
 - An AI squad going down a shaft after an enemy no longer climbs down it one
