@@ -322,6 +322,39 @@ public final class AiEntry {
         return op;
     }
 
+    /** when an entry last went to its throw (FRAG): none for longer than a throw and a hand-over, none is throwing */
+    private static long fragLast = Long.MIN_VALUE;
+
+    /**
+     * One of an entry going to its throw (FRAG), this tick, a foe not in its sight (AiSoldier.decide): the throw through,
+     * whatever else it heard or lost sight of; where it looks, or null (not one of such an entry, or not its thrower now).
+     * A sound or a foe gone from sight turned its mind to them and none led it to the opening: the grenade was given up
+     * at FRAG_MAX, handed on to one that never got the opening either, and in they went with none, into the foe's fire.
+     * Each of the entry moves it on (a lost thrower's grenade handed on); its thrower steps out and throws, unless shot
+     * at since its throw began.
+     */
+    static @Nullable Vec3 throwing(AiSoldier s, AiBot bot, ServerLevel level, long tick) {
+        if (fragLast == Long.MIN_VALUE || tick < fragLast || tick - fragLast > FRAG_MAX + HAND_MAX + 20) return null;
+        Map<Long, Op> ops = OPS.get(level);
+        if (ops == null) return null;
+        for (Op op : ops.values()) {
+            if (op.phase != FRAG || !op.members.contains(bot) || tick - op.made > ENTRY_MAX) continue;
+            try {
+                advance(op, level, tick);
+                // (shot at since its throw began: not out into that fire; it takes cover as ever, and at FRAG_MAX the
+                // grenade goes to another of it)
+                if (op.phase != FRAG || op.thrower != bot || bot.memory.shotTick() >= op.phaseAt) return null;
+                frag(op, s, bot, level, tick);
+                return op.door;
+            } catch (RuntimeException e) {
+                AiRooms.fault("an entry's throw", op.lost, e);
+                phase(op, OVER, tick);
+                return null;
+            }
+        }
+        return null;
+    }
+
     /**
      * One of an entry whose grenade is thrown and not burst yet: its place beside the way in, out of the blast, kept
      * whatever it sees (one in sight of a foe round the turn would step into the blast to fight); else null.
@@ -876,6 +909,7 @@ public final class AiEntry {
     private static void phase(Op op, int phase, long tick) {
         op.phase = phase;
         op.phaseAt = tick;
+        if (phase == FRAG) fragLast = tick;
     }
 
     /** a lost thrower's grenade to another of the entry: looked for as soon as a throw may be worked out this tick, for HAND_MAX at most */

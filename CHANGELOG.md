@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The AI soldier sent to throw a grenade into a room before the squad goes
+  in no longer forgets it the moment it fires at something or hears a
+  noise: with no foe in sight and no one shooting at it, it steps to the
+  doorway and throws, and one handed the grenade does too. Before, the
+  squad often went in without one.
 - An AI squad about to go into a room first looks into it from round the
   doorway, where there is room to: the ones beside it step out wide and
   close in bit by bit, guns on the edge of what comes into view by the
