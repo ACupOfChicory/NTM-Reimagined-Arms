@@ -253,7 +253,7 @@ final class AiCheckWar {
     private int pairsAcross, pairsAcrossAll;
     private int farWoke = -1, farMost;
     private double farNearest = Double.MAX_VALUE;
-    private long drifted0, driftBlocked0;
+    private long drifted0, driftBlocked0, driftWater0, detours0;
     /** the far round: those seen asleep (a new mob is awake till AiBots looks first: a wake counts after a sleep) */
     private final java.util.Set<Integer> slept = new java.util.HashSet<>();
     private HqGrid dumped;
@@ -536,6 +536,8 @@ final class AiCheckWar {
         slept.clear();
         drifted0 = AiCommander.drifted;
         driftBlocked0 = AiCommander.driftBlocked;
+        driftWater0 = AiCommander.driftWater;
+        detours0 = AiCommander.detours;
         for (int s = 0; s < SQUADS; s++)
             for (int i = 0; i < EACH; i++) ours.add(spawn(X0 + SQUAD_X[s] + (i - 1) * 2, Z0 + CAMP_Z, A, 0F));
         player = new FakePlayer(level, new GameProfile(UUID.fromString("6a1b2c3d-0000-4000-8000-c7c7c7c7e0ff"), "armsai_warfar"));
@@ -821,8 +823,8 @@ final class AiCheckWar {
         if (dump != null) dump.close();
         long drifted = AiCommander.drifted - drifted0, blocked = AiCommander.driftBlocked - driftBlocked0;
         check.out(String.format(Locale.ROOT, "     war, far (C2b): the side asleep %.0f blocks off the player (aiRadius %.0f); the first woke at tick %d, %d of %d awake at most, the nearest %.0f"
-                + " blocks off; %d steps the staff moved them asleep, %d it could not", Math.hypot(FAR_X - SQUAD_X[0], FAR_Z - CAMP_Z), AiBots.radius(), farWoke, farMost,
-                SQUADS * EACH, farNearest, drifted, blocked));
+                + " blocks off; %d steps the staff moved them asleep, %d it could not (into deep water %d; ways round it over the blocks %d)", Math.hypot(FAR_X - SQUAD_X[0], FAR_Z - CAMP_Z),
+                AiBots.radius(), farWoke, farMost, SQUADS * EACH, farNearest, drifted, blocked, AiCommander.driftWater - driftWater0, AiCommander.detours - detours0));
         check.check(String.format(Locale.ROOT, "war: far (C2b), the staff moves its squads asleep till they wake near the player: %d of %d woke (half at least), the first at tick %d"
                 + " (%d at most)", farMost, SQUADS * EACH, farWoke, FAR_RUN), drifted > 0 && farMost * 2 >= SQUADS * EACH);
         AiCommander.on = true;
