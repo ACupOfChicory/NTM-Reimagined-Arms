@@ -76,7 +76,7 @@ final class AiCheckEntry {
         var box = new net.minecraft.world.phys.AABB(X0, y - 4, Z0, X0 + SIZE, y + 12, Z0 + SIZE);
         for (var g : level.getEntitiesOfClass(com.hbm.entity.grenade.EntityGrenadeUniversal.class, box)) {
             Vec3 b = AiGrenades.predicted(level, g);
-            String now = String.format(Locale.ROOT, "last seen round tick %d, age %d, at %.2f %.2f %.2f moving %.2f %.2f %.2f, to burst at %s", ticks, g.tickCount, g.getX(), g.getY() - y,
+            String now = String.format(Locale.ROOT, "last seen round tick %d, age %d, at %.2f %.2f %.2f moving %.2f %.2f %.2f, to burst at %s", ticks, ((net.minecraft.world.entity.Entity) g).tickCount, g.getX(), g.getY() - y,
                     g.getZ(), g.getDeltaMovement().x, g.getDeltaMovement().y, g.getDeltaMovement().z, b == null ? "?" : String.format(Locale.ROOT, "%.2f %.2f %.2f", b.x, b.y - y, b.z));
             String[] s = nades.get(g.getId());
             if (s != null) {
@@ -86,7 +86,7 @@ final class AiCheckEntry {
             var o = g.getOwner();
             String who = o == null ? "none" : String.format(Locale.ROOT, "#%d at %.2f %.2f %.2f %s", o.getId(), o.getX(), o.getY() - y, o.getZ(),
                     o instanceof Mob om && AiBots.get(om) instanceof AiBot ob ? soldier(ob) : o.getType().toShortString());
-            nades.put(g.getId(), new String[] {String.format(Locale.ROOT, "grenade #%d first seen round tick %d, age %d, at %.2f %.2f %.2f, %s %s %s %s timer %d, by %s", g.getId(), ticks, g.tickCount,
+            nades.put(g.getId(), new String[] {String.format(Locale.ROOT, "grenade #%d first seen round tick %d, age %d, at %.2f %.2f %.2f, %s %s %s %s timer %d, by %s", g.getId(), ticks, ((net.minecraft.world.entity.Entity) g).tickCount,
                     g.getX(), g.getY() - y, g.getZ(), g.getShell(), g.getFilling(), g.getFuze(), g.getExtra(), g.getTimer(), who), now});
         }
         StringBuilder sb = new StringBuilder(String.format(Locale.ROOT, "t%d:", ticks));
