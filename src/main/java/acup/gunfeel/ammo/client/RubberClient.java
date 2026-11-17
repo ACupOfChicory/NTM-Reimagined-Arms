@@ -17,7 +17,8 @@ import net.neoforged.neoforge.common.NeoForge;
  * A rubber slug's confusion on this player's client (RubberPayload): for its ticks the movement's actions are swapped
  * after the keys were read (MovementInputUpdateEvent: the player's own bindings are taken already, and a controller's
  * stick swaps too): forward and back, left and right, jump and sneak. Sprint, attack and use stay as they are. A boat or
- * a horse reads the same input, so it steers the other way too. Late among the mods: the input as they left it.
+ * a horse reads the same input, so it steers the other way too; riding, jump and sneak are not swapped (sneak would
+ * dismount). Late among the mods: the input as they left it.
  */
 public final class RubberClient {
     private RubberClient() {
@@ -50,7 +51,9 @@ public final class RubberClient {
         ClientInput in = e.getInput();
         Input k = in.keyPresses;
         boolean[] s = RubberRule.swapped(k.forward(), k.backward(), k.left(), k.right(), k.jump(), k.shift());
-        in.keyPresses = new Input(s[0], s[1], s[2], s[3], s[4], s[5], k.sprint());
+        // riding (a boat, a minecart, a horse) the jump stays a jump: sneak would throw the player off
+        boolean riding = e.getEntity().isPassenger();
+        in.keyPresses = new Input(s[0], s[1], s[2], s[3], riding ? k.jump() : s[4], riding ? k.shift() : s[5], k.sprint());
         ClientInputAccess a = (ClientInputAccess) in;
         Vec2 v = a.gunfeel$moveVector();
         a.gunfeel$setMoveVector(new Vec2(-v.x, -v.y));

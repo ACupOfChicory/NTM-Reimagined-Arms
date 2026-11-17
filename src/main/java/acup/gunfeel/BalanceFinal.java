@@ -84,10 +84,18 @@ public final class BalanceFinal {
      */
     public static float shareOf(Entity projectile, LivingEntity shooter, com.hbm.items.weapon.sedna.BulletConfig from,
             com.hbm.items.weapon.sedna.BulletConfig as, float share) {
-        if (projectile == null || shooter == null || shooter.level().isClientSide() || !BalanceGuns.on() || BalanceGuns.gunOf(shooter) == null)
-            return share;
+        if (projectile == null || shooter == null || shooter.level().isClientSide() || !BalanceGuns.on()) return share;
+        net.minecraft.world.item.Item gunItem = BalanceGuns.gunOf(shooter);
+        if (gunItem == null) return share;
+        // hitAs's own, but a table failing leaves the share (hitAs would give the whole damage: two bullets of a full SP)
         try {
-            return hitAs(projectile, shooter, from, as, share);
+            String gun = gunName(gunItem);
+            String id = gun + "." + ammoName(as);
+            if (on() && gun != null && state().pairs().containsKey(id)) {
+                PAIR.put(projectile, id);
+                SHARE.put(projectile, share);
+            }
+            return share * BalanceGuns.as(gunItem, from, as);
         } catch (RuntimeException | LinkageError e) {
             return share;
         }

@@ -27,6 +27,13 @@ public abstract class MixinDuplexShot {
         Duplex.shotStart();
     }
 
+    // and none held after it (a bullet left unpaired is not kept)
+    @Inject(method = "doStandardFire", at = @At("RETURN"), require = 1)
+    private static void gunfeel$duplexEnd(ItemStack stack, ItemGunBaseNT.LambdaContext ctx, GunAnimation anim, int receiver, boolean calcWear,
+            CallbackInfo ci) {
+        Duplex.shotStart();
+    }
+
     @WrapOperation(method = "doStandardFire", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/Level;addFreshEntity(Lnet/minecraft/world/entity/Entity;)Z"),
             require = 1)
     private static boolean gunfeel$duplexRear(Level level, Entity e, Operation<Boolean> op) {

@@ -652,6 +652,7 @@ DUPLEX class com/hbm/entity/projectile/EntityBulletBaseMK4
 DUPLEX class com/hbm/items/weapon/sedna/BulletConfig
 DUPLEX class com/hbm/items/weapon/sedna/ItemGunBaseNT
 DUPLEX class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+DUPLEX class com/hbm/items/weapon/sedna/mags/MagazineBelt
 DUPLEX class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 DUPLEX class com/hbm/registration/RegistryHandle
 DUPLEX class com/hbm/render/anim/AnimationEnums$GunAnimation
@@ -669,6 +670,7 @@ DUPLEX field com/hbm/items/weapon/sedna/BulletConfig id I
 DUPLEX field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
 DUPLEX field com/hbm/items/weapon/sedna/factory/XFactory556mm r556_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 DUPLEX field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
+DUPLEX field com/hbm/items/weapon/sedna/mags/MagazineBelt acceptedBullets Ljava/util/List;
 DUPLEX field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
 DUPLEX method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
 DUPLEX method com/hbm/entity/projectile/EntityBulletBaseMK4 getRandom ()Lnet/minecraft/util/RandomSource;
@@ -1079,6 +1081,7 @@ NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/BulletConfig
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/GunConfig
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/ItemGunBaseNT
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/mags/MagazineBelt
 NUCLEAR_BMG50 class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 NUCLEAR_BMG50 class com/hbm/packet/toclient/MukePayload
 NUCLEAR_BMG50 class com/hbm/particle/SpentCasing
@@ -1088,6 +1091,7 @@ NUCLEAR_BMG50 field com/hbm/entity/projectile/EntityBulletBaseMK4 tickCount I
 NUCLEAR_BMG50 field com/hbm/items/EnumCasingType LARGE_STEEL Lcom/hbm/items/EnumCasingType;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig id I
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
+NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/mags/MagazineBelt acceptedBullets Ljava/util/List;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
 NUCLEAR_BMG50 field com/hbm/particle/SpentCasing$CasingType BOTTLENECK Lcom/hbm/particle/SpentCasing$CasingType;
 NUCLEAR_BMG50 field com/hbm/saveddata/satellites/SatelliteDetector$BurstIntensity LOW Lcom/hbm/saveddata/satellites/SatelliteDetector$BurstIntensity;
@@ -1212,6 +1216,7 @@ RICOCHET_SOUND class com/hbm/entity/projectile/EntityBulletBaseMK4
 RUBBER_SLUG class com/hbm/entity/projectile/EntityBulletBaseMK4
 RUBBER_SLUG class com/hbm/items/weapon/sedna/BulletConfig
 RUBBER_SLUG class com/hbm/items/weapon/sedna/ItemGunBaseNT
+RUBBER_SLUG class com/hbm/items/weapon/sedna/mags/MagazineBelt
 RUBBER_SLUG class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 RUBBER_SLUG class com/hbm/particle/SpentCasing
 RUBBER_SLUG class com/hbm/registration/RegistryHandle
@@ -1222,6 +1227,7 @@ RUBBER_SLUG field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_ENTITY
 RUBBER_SLUG field com/hbm/items/weapon/sedna/BulletConfig id I
 RUBBER_SLUG field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
 RUBBER_SLUG field com/hbm/items/weapon/sedna/factory/XFactory12ga g12 Lcom/hbm/items/weapon/sedna/BulletConfig;
+RUBBER_SLUG field com/hbm/items/weapon/sedna/mags/MagazineBelt acceptedBullets Ljava/util/List;
 RUBBER_SLUG field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
 RUBBER_SLUG field com/hbm/particle/SpentCasing$CasingType SHOTGUN Lcom/hbm/particle/SpentCasing$CasingType;
 RUBBER_SLUG method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;

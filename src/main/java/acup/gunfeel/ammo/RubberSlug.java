@@ -58,10 +58,16 @@ public final class RubberSlug {
                         .register("12GA_RUBBER"));
         config.onEntityHit = (bullet, hit) -> {
             LivingEntity target = hit instanceof EntityHitResult eh && eh.getEntity() instanceof LivingEntity l ? l : null;
+            float before = target == null ? Float.NaN : target.getHealth() + target.getAbsorptionAmount();
             // its own damage whatever the gun and the table: armour and the part hit after, as for any bullet
             if (target != null) bullet.damage = RubberRule.DAMAGE;
             BulletConfig.LAMBDA_STANDARD_ENTITY_HIT.accept(bullet, hit);
-            if (target != null) RubberServer.hit(bullet, target);
+            // the hit landed: it took health off, or found one at the floor already (it takes nothing there) not
+            // behind a shield nor out of harm's way; a hit that did no harm (a shield, no PvP, a claim) does nothing more
+            if (target == null) return;
+            boolean landed = target.getHealth() + target.getAbsorptionAmount() < before
+                    || (target.getHealth() <= RubberRule.FLOOR + 1e-3F && !target.isBlocking() && !target.isInvulnerable());
+            if (landed) RubberServer.hit(bullet, target);
         };
         int mags = NewAmmo.addTo(config, g -> true, accepted -> accepted.contains(XFactory12ga.g12));
         DebugLog.LOGGER.info("The 12 gauge rubber slug: config {}, in {} magazines", config.id, mags);

@@ -7,6 +7,7 @@ import com.hbm.items.weapon.sedna.BulletConfig;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
 import com.hbm.items.weapon.sedna.Receiver;
 import com.hbm.items.weapon.sedna.mags.IMagazine;
+import com.hbm.items.weapon.sedna.mags.MagazineBelt;
 import com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase;
 import com.hbm.registration.NeoForgeRegistrar;
 import com.hbm.registration.RegistryHandle;
@@ -55,8 +56,11 @@ public final class NewAmmo {
             for (int c = 0; c < g.getConfigCount(); c++) {
                 for (Receiver rec : g.getConfig(stack, c).getReceivers(stack)) {
                     IMagazine<?> mag = rec.getMagazine(stack);
-                    if (mag instanceof MagazineSingleTypeBase s && takes.test(s.acceptedBullets) && !s.acceptedBullets.contains(config)) {
-                        s.acceptedBullets.add(config);
+                    // a single type's magazine or a belt (the miniguns'): both keep their list of rounds
+                    List<BulletConfig> acc = mag instanceof MagazineSingleTypeBase s ? s.acceptedBullets
+                            : mag instanceof MagazineBelt b ? b.acceptedBullets : null;
+                    if (acc != null && takes.test(acc) && !acc.contains(config)) {
+                        acc.add(config);
                         n++;
                     }
                 }
