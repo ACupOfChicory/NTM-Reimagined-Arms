@@ -12,6 +12,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -936,6 +937,22 @@ public final class AiSoldier implements AiBrain {
             event(bot, tick, "friend in the line too long: other cover");
             return;
         }
+        // on its way to cover it got nowhere a while (the way shut, stuck at a step) and one of its own keeps it from
+        // firing all that time: other cover, as from cover (the stands: two foes side by side a block from a squad,
+        // each holding fire for the other 1600 ticks)
+        long still = mode == Mode.TO_COVER && !bot.mover.arrived() ? still(bot, tick) : 0;
+        if (still > BLOCKED_MOVE && g.blockedTicks > BLOCKED_MOVE && AiSquads.mayMove(bot)
+                && bot.mob.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0) {
+            g.blockedTicks = 0;
+            g.fire(false);
+            unreachable.add(spot.cell());
+            drop(bot);
+            shifts++;
+            nextQuery = tick;
+            stillX = Double.NaN;
+            event(bot, tick, "friend in the line, stuck on its way to cover: other cover");
+            return;
+        }
         if (!bot.mover.arrived() && mode == Mode.TO_COVER) {
             // on its way: near, in sight, it walks there firing (as a player backs off shooting); else it runs, holding fire
             boolean near = dist <= skill.answerNear() * NEAR_WALK;
@@ -1390,6 +1407,25 @@ public final class AiSoldier implements AiBrain {
         return mean - spread + bot.mob.getRandom().nextInt(2 * spread + 1);
     }
 
+    /** where it last moved from, and when: how long it has kept within STILL_REACH of there (still) */
+    private double stillX = Double.NaN, stillZ;
+    private long stillSince, lastStillAsk;
+    /** a mob that keeps within this of where it was, blocks across, gets nowhere */
+    static final double STILL_REACH = 0.5;
+    /** a gap this long between asks (ticks) starts the count over: a new way to cover */
+    static final int STILL_GAP = 10;
+
+    /** ticks it has kept within STILL_REACH of one place, asked each tick on its way (a gap of STILL_GAP starts it over) */
+    private long still(AiBot bot, long tick) {
+        double dx = bot.mob.getX() - stillX, dz = bot.mob.getZ() - stillZ;
+        if (Double.isNaN(stillX) || dx * dx + dz * dz > STILL_REACH * STILL_REACH || tick - lastStillAsk > STILL_GAP) {
+            stillX = bot.mob.getX();
+            stillZ = bot.mob.getZ();
+            stillSince = tick;
+        }
+        lastStillAsk = tick;
+        return tick - stillSince;
+    }
     /** a step and a half to the left or right of the line to at, to a cell the map has */
     private void sidestep(AiBot bot, ServerLevel level, Vec3 at) {
         double dx = at.x - bot.mob.getX(), dz = at.z - bot.mob.getZ(), len = Math.hypot(dx, dz);
@@ -2193,18 +2229,24 @@ public final class AiSoldier implements AiBrain {
 
     /**
      * On a ladder with nothing to do (an order or a search over while it climbed, a drill not its own): on the way it
-     * went to the ladder's end, off it (left on a rung it hung there, halfway up or down a long shaft, for good).
-     * Whether it goes so
+     * went to the ladder's end, off it (left on a rung it hung there, halfway up or down a long shaft, for good). On
+     * its feet at a shaft's foot, the rungs over its head: a step aside off the column (it stood there, the next of its
+     * own hung on the ladder over it). Whether it goes so
      */
     private boolean offLadderIdle(AiBot bot, long tick) {
         Mob m = bot.mob;
-        if (!m.onClimbable() || m.onGround()) return false;
+        // (a shaft's rungs over it, two at least: not a vine or a ladder on a wall it stands by)
+        boolean foot = m.onGround() && m.level().getBlockState(m.blockPosition().above()).is(net.minecraft.tags.BlockTags.CLIMBABLE)
+                && m.level().getBlockState(m.blockPosition().above(2)).is(net.minecraft.tags.BlockTags.CLIMBABLE);
+        if (!m.onClimbable() || m.onGround() && !foot) return false;
         if (mode == Mode.IDLE && why == Why.OFF_LADDER && bot.mover.goal() != Long.MIN_VALUE && !bot.mover.failed() && !bot.mover.noWay()) return true;
         if (tick < offLadderNext) return false;
         // an end a step or two off first (at the foot pushed up a rung by its own: not back up the whole shaft), else on
         // the way it went
-        long off = AiHatch.offLadder((ServerLevel) m.level(), m, 0, OFF_LADDER_NEAR);
-        if (off == Long.MIN_VALUE) off = AiHatch.offLadder((ServerLevel) m.level(), m, climbWay, OFF_LADDER_REACH);
+        long off = AiHatch.offLadder((ServerLevel) m.level(), m, foot ? -1 : 0, OFF_LADDER_NEAR);
+        if (off == Long.MIN_VALUE && !foot) off = AiHatch.offLadder((ServerLevel) m.level(), m, climbWay, OFF_LADDER_REACH);
+        // (none beside a shaft's floor walled in: its own cell is no way off, it stood there sent to it for good)
+        if (foot && off == m.blockPosition().asLong()) off = Long.MIN_VALUE;
         if (off == Long.MIN_VALUE) {
             offLadderNext = tick + OFF_LADDER_AGAIN;
             return false;

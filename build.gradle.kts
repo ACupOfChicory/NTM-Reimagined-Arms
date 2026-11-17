@@ -148,6 +148,8 @@ neoForge {
             systemProperty("ntmgunfeel.suppressionStand",providers.gradleProperty("suppressionStand").isPresent.toString())
             // -PshockStand: the 12 gauge shock shell, its window, spread, immunity, the AI bot and the HUD's glitch (ShockStand)
             systemProperty("ntmgunfeel.shockStand",providers.gradleProperty("shockStand").isPresent.toString())
+            // -PnewAmmoStand: the rubber slug, the Duplex rounds and the nuclear .50 in the game (NewAmmoStand)
+            systemProperty("ntmgunfeel.newAmmoStand",providers.gradleProperty("newAmmoStand").isPresent.toString())
             // -PgunHitStand: a player hit by an NTM gun, no knockback nor tilt by default (GunHitStand)
             systemProperty("ntmgunfeel.gunHitStand",providers.gradleProperty("gunHitStand").isPresent.toString())
             // -PproneFireStand: no shot while crawling, for a player and a mannequin (ProneFireStand)
@@ -165,6 +167,10 @@ neoForge {
             // -PsmokeStand=<dir>: smoke clouds measured, frame times and screenshots there (SmokeCloudStand);
             // -PstandSize=1920x1080 the window, -PsmokeBackend=vulkan the renderer
             systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
+            // -PminiNukeStand=<dir>: NTM's small nuclear blasts, its particles against the bombs' cloud (MiniNukeStand)
+            systemProperty("ntmgunfeel.miniNukeStand",providers.gradleProperty("miniNukeStand").orElse("").get())
+            // -PminiNukeScenes=mine,bmg50: only these scenes
+            systemProperty("ntmgunfeel.miniNukeScenes",providers.gradleProperty("miniNukeScenes").orElse("").get())
             // -PgasStand=<dir>: the GL-54's gas grenades in numbers: HP, doses, filter, K, cell counts, the pit, the server's cost (GasStand)
             systemProperty("ntmgunfeel.gasStand",providers.gradleProperty("gasStand").orElse("").get())
             // -PgasStandVis (with -PgasStand): only the gases' looks, the scenarios are skipped
@@ -186,7 +192,7 @@ neoForge {
             // -PsmokeFabulous: the stand runs with improved transparency (the transparency chain) on
             systemProperty("ntmgunfeel.smokeFabulous",providers.gradleProperty("smokeFabulous").isPresent.toString())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("gasStand").isPresent || providers.gradleProperty("gl54Stand").isPresent || providers.gradleProperty("fragStand").isPresent || providers.gradleProperty("gl54ReflexStand").isPresent || providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("miniNukeStand").isPresent || providers.gradleProperty("gasStand").isPresent || providers.gradleProperty("gl54Stand").isPresent || providers.gradleProperty("fragStand").isPresent || providers.gradleProperty("gl54ReflexStand").isPresent || providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)

@@ -47,6 +47,17 @@ class BalanceGunsRuleTest {
             if (ammo.equals("g12") && f[head.indexOf("type")].equals("BULLET") && list.stream().noneMatch(x -> x.name().equals("g12_shock")))
                 list.add(new BalanceGunsRule.Ammo("g12_shock", Float.parseFloat(f[head.indexOf("baseDamage")]) * acup.gunfeel.shock.ShockAmmo.DAMAGE_MULT
                         * Float.parseFloat(f[head.indexOf("split")]), 1F));
+            // the mod's rubber slug goes there too (RubberSlug), the Duplex where the SP of its calibre goes (Duplex: two
+            // bullets), the nuclear .50 in the AMAT rifles only (NuclearBmg: no damage of its own)
+            if (ammo.equals("g12") && f[head.indexOf("type")].equals("BULLET") && list.stream().noneMatch(x -> x.name().equals("g12_rubber_slug")))
+                list.add(new BalanceGunsRule.Ammo("g12_rubber_slug", Float.parseFloat(f[head.indexOf("baseDamage")]) * 0.2F
+                        * Float.parseFloat(f[head.indexOf("split")]), 1F));
+            for (String sp : List.of("r556_sp", "r762_sp")) {
+                String dx = sp.replace("_sp", "_duplex");
+                if (ammo.equals(sp) && list.stream().noneMatch(x -> x.name().equals(dx))) list.add(new BalanceGunsRule.Ammo(dx, click * 2F, pellets * 2F));
+            }
+            if (ammo.equals("bmg50_sp") && List.of("amat", "amat_subtlety", "amat_penance").contains(gun) && list.stream().noneMatch(x -> x.name().equals("bmg50_nuclear")))
+                list.add(new BalanceGunsRule.Ammo("bmg50_nuclear", 0F, 1F));
         }
         return out;
     }
@@ -68,7 +79,7 @@ class BalanceGunsRuleTest {
         }
         for (String g : t.guns().keySet()) assertTrue(guns.containsKey(g), "no gun " + g);
         // v4: every ammo of a gun in the table has its own pair, none made up (the coordinator, 2026-11-10)
-        assertEquals(262, t.pairs().values().stream().mapToInt(Map::size).sum());
+        assertEquals(278, t.pairs().values().stream().mapToInt(Map::size).sum());
         for (String g : t.pairs().keySet())
             for (var a : guns.get(g)) assertEquals("table", r(g, a.name()).from(), g + " " + a.name());
     }

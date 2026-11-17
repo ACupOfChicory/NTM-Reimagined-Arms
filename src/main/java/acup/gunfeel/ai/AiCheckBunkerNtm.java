@@ -60,6 +60,14 @@ final class AiCheckBunkerNtm {
     private final double[] yLate = new double[SQUAD];
     /** the stands: of the squad still on its way down the shaft as a round ran out (one after another, it takes long) */
     private int climbingAtEnd;
+    /**
+     * the shaft's foot cleared, off rounds and on: ticks of the squad in its column within 2*SQUAD of its floor once one
+     * got there, and of the squad there as a round ran out (still a while: none coming down) hanging on the ladder or
+     * standing on the floor under one of its own in the shaft
+     */
+    private final int[] columnTicks = new int[2], columnAtEnd = new int[2];
+    /** the ladder's lowest rung (the shaft's floor) */
+    private long ladderFoot = Long.MIN_VALUE;
     /** per round, off ones and on ones: got under the ground, the hub taken, of the squad left, rounds */
     private final int[][] sums = new int[2][4];
     private final boolean hatchOn = AiHatch.on;
@@ -121,6 +129,9 @@ final class AiCheckBunkerNtm {
                 if (m.getY() < ground - 2 && m.getY() >= BlockPos.getY(hub) + 2) fellInShaft++;
             }
         }
+        if (firstDown >= 0)
+            for (Mob m : squad)
+                if (inColumn(m)) columnTicks[AiHatch.on ? 1 : 0]++;
         for (int i = 0; i < squad.size(); i++) {
             Mob m = squad.get(i);
             if (!m.isAlive() || under[i]) continue;
@@ -180,6 +191,7 @@ final class AiCheckBunkerNtm {
             return;
         }
         hatch = top;
+        ladderFoot = foot;
         StringBuilder col = new StringBuilder();
         for (int yy = BlockPos.getY(top) - 1; yy <= BlockPos.getY(top) + 3; yy++)
             col.append(' ').append(yy).append('=').append(BuiltInRegistries.BLOCK.getKey(level.getBlockState(new BlockPos(BlockPos.getX(top), yy, BlockPos.getZ(top))).getBlock()).getPath());
@@ -292,6 +304,23 @@ final class AiCheckBunkerNtm {
         return where.toString();
     }
 
+    /** alive in the shaft's column at its foot or over it on the ladder within 2*SQUAD of its floor */
+    private boolean inColumn(Mob m) {
+        return m.isAlive() && ladderFoot != Long.MIN_VALUE && m.getBlockX() == BlockPos.getX(ladderFoot) && m.getBlockZ() == BlockPos.getZ(ladderFoot)
+                && m.getY() < BlockPos.getY(ladderFoot) + 2 * SQUAD;
+    }
+
+    /** hanging on the ladder over the shaft's floor, or standing on it with one of its own over it in the shaft (in the way down) */
+    private boolean inTheWay(Mob m) {
+        if (!m.onGround()) return true;
+        for (Mob o : squad)
+            if (o != m && o.isAlive() && o.getBlockX() == m.getBlockX() && o.getBlockZ() == m.getBlockZ() && o.getY() > m.getY() + 1 && o.getY() < ground - 1) return true;
+        return false;
+    }
+
+    /** rounds some of the squad got to the shaft's foot in, and of them those nobody fell in (the stands: a fight a block apart, 1600 ticks of nobody firing) */
+    private int atFoot, noLoss;
+
     /** a round over: counted, its mobs taken away, the hatch shut again */
     private void endRound(int rt) {
         long left = squad.stream().filter(Mob::isAlive).count(), in = inside.stream().filter(Mob::isAlive).count();
@@ -308,9 +337,15 @@ final class AiCheckBunkerNtm {
                     if (i < yLate.length && Math.abs(m.getY() - yLate[i]) > 1) climbingAtEnd++;
                     else hung[k]++;
                 }
+                if (inColumn(m) && i < yLate.length && Math.abs(m.getY() - yLate[i]) <= 1 && inTheWay(m)) columnAtEnd[k]++;
             }
         if (k == 1 && AiHatch.down > hatchDown0) ladderRounds++;
         if (downs > 0) footRounds[k]++;
+        // the fight at the foot, close: a round some got down in and nobody fell on either side
+        if (downs > 0) {
+            atFoot++;
+            if (left == squad.size() && in == inside.size()) noLoss++;
+        }
         if (k == 1) {
             int[] a = arms[smokeRound() ? 0 : 1];
             a[0]++;
@@ -406,6 +441,7 @@ final class AiCheckBunkerNtm {
         check.out(String.format(Locale.ROOT, "     bunkerntm: %d ticks; of the squad %d of %d left, %d got to the shaft's foot (the first at tick %d); in the hub %d of %d left; the squad at the end:%s",
                 ticks, squad.stream().filter(Mob::isAlive).count(), squad.size(), downs, firstDown, inside.stream().filter(Mob::isAlive).count(), inside.size(), where));
         AiHatch.on = hatchOn;
+        check.out(String.format(Locale.ROOT, "     bunkerntm: at the foot, close: of %d rounds some got down in, nobody fell in %d", atFoot, noLoss));
         check.out(String.format(Locale.ROOT, "     bunkerntm: rounds off: got under %d, the hub taken %d, of the squad left %d, of %d rounds; on: got under %d, the hub taken %d, of the squad left %d, of %d rounds",
                 sums[0][0], sums[0][1], sums[0][2], sums[0][3], sums[1][0], sums[1][1], sums[1][2], sums[1][3]));
         check.out(String.format(Locale.ROOT, "     bunkerntm: ways down a shaft begun %d, grenades down %d, none %d (too deep %d), down the ladder %d; none found: not under %d, no cell %d, no way %d, no shaft %d", AiHatch.begun - hatch0[0],
@@ -416,6 +452,10 @@ final class AiCheckBunkerNtm {
             check.out(String.format(Locale.ROOT, "     bunkerntm: with the way down a shaft to the shaft's foot %d of %d (before %d); of the squad left %d (%d before)", sums[1][0], SQUAD * sums[1][3], sums[0][0],
                     sums[1][2], sums[0][2]));
             check.check(String.format(Locale.ROOT, "bunkerntm: none hangs halfway down the shaft as a round runs out (%d, %d before; on its way down still %d)", hung[1], hung[0], climbingAtEnd), hung[0] == 0 && hung[1] == 0);
+            // (down, they go on off the ladder: one standing in the column kept the next hanging on the ladder over it)
+            check.out(String.format(Locale.ROOT, "     bunkerntm: in the shaft's column at its foot once one got there, ticks of the squad: on %d, off %d", columnTicks[1], columnTicks[0]));
+            check.check(String.format(Locale.ROOT, "bunkerntm: the shaft's foot cleared: none of the squad stands in its column at the foot or hangs over it as a round runs out (on %d, off %d)",
+                    columnAtEnd[1], columnAtEnd[0]), columnAtEnd[0] == 0 && columnAtEnd[1] == 0);
             // (down by the drill itself counted: one shot off the ladder, or slow under fire, goes on as it may, uncounted)
             check.out(String.format(Locale.ROOT, "     bunkerntm: with it down the ladder by the drill in %d of %d rounds", ladderRounds, sums[1][3]));
             // (with the way down off, under fire from the hub up the shaft they come off the ladder at its top, X1309: so

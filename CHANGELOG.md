@@ -1,5 +1,71 @@
 # Changelog
 
+## X1442
+
+- The new rounds now have tracers. Both bullets of a Duplex round draw the
+  tracer of their calibre's SP round and leave its bullet holes. The nuclear
+  .50 draws the .50 SP's tracer, and the rubber slug draws the 12 gauge
+  slug's. Neither leaves a hole. In water a Duplex bullet acts like its SP
+  round, and the rubber slug like the slug.
+- The 12 gauge electroshock shell now draws the slug's tracer too. It
+  leaves no bullet holes.
+
+## X1437
+
+- An AI soldier now notices an enemy right at its back, within about a block
+  and a half, even one standing silent: a little slower than one in front of
+  it, and a player crouching still there much slower, so one can still lie
+  low behind it a while. A block between them hides as before. Two foes no
+  longer stand a block apart for good with nobody firing.
+- An AI soldier on its way to cover that gets nowhere while one of its own
+  keeps it from firing now looks for other cover instead of standing there.
+
+## X1434
+
+- Three new rounds for NTM's guns, made in NTM's ammo press:
+  - **12 Gauge Rubber Slug** for NTM's 12 gauge shotguns (all but the
+    Shredder): latex, smokeless powder and a shotshell casing give six, rubber
+    in place of the latex twelve. A hit does 6 damage to one with no armour,
+    less through armour as any bullet, and never takes anyone below 4 health:
+    it cannot kill. It pushes the one hit back about 3 blocks (less from afar,
+    heavy mobs not at all). A player hit is slowed by 60 % for 1.5 seconds and
+    has their movement mixed up for 4: forward and back, left and right, jump
+    and sneak swap (whatever keys they are bound to; sprint, attack and use
+    stay). An AI soldier hit is slowed as well and its aim swings off for 4
+    seconds. An undead mob (not a boss) runs from the shooter for 4 seconds
+    and cannot be frightened again for 10 more.
+  - **5.56mm and 7.62mm Duplex Rounds**, wherever NTM's soft point round of
+    the calibre goes: twice the lead and powder of it, as many rounds. A shot
+    fires two bullets at once, the second just behind the first and a few
+    milliradians off its line, so both go the same way. Each bullet goes
+    through things as the soft point does and does 70 % of its damage.
+  - **.50 BMG Nuclear Round** for the AMAT rifles only (the AMAT, the
+    Subtlety and the Penance): two americium-242 nuggets, a schrabidium
+    nugget, two TATB charges and a steel large casing give one. It does no
+    damage of its own: wherever it hits, at any range and point blank too, it
+    goes off as a mini nuke a little smaller than NTM's Fat Mine (80 % of its
+    blast and radiation), which breaks no blocks. It wears the rifle out from
+    new in 3 shots (AMAT), 6 (Subtlety) or 10 (Penance); wear spreads its
+    shots a quarter as much as other rounds', and a worn-out rifle does not
+    fire it at all (other rounds it still fires).
+
+## X1424
+
+- AI squads going down a ladder shaft now get all the way to its floor and
+  step off the ladder, instead of hanging on the rungs above one another or
+  standing in the way at the foot.
+
+## X1422
+
+- NTM's small nuclear blasts (the Fat Mine, the Fat Man's shells, the
+  artillery mini nuke, the nuclear creeper, the nuclear grenade and the rest)
+  now rise as the mushroom cloud of NTM's nuclear bombs, sized to the blast,
+  instead of their own flash and wave; a balefire one as the balefire bomb's
+  green cloud. A Tiny Tot volley makes one cloud. They keep their own sound,
+  without the bombs' screen flash, sound and shake. A blast past the
+  simulation distance, where the cloud would not show, keeps NTM's own.
+  Server key `miniNukeCloud` (`false`: NTM's own).
+
 ## X1416
 
 - AI squads now take a room hollowed out of plain rock as a building when

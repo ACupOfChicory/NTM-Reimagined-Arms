@@ -36,6 +36,13 @@ public final class GunFeelMod {
             acup.gunfeel.shock.ShockAmmo.register(modBus);
             if (dist.isClient()) acup.gunfeel.shock.client.ShockClient.init(modBus);
         }
+        // the mod's other rounds for NTM's guns: the 12 gauge rubber slug, the Duplex 5.56 and 7.62, the nuclear .50
+        if (Feature.RUBBER_SLUG.on()) {
+            acup.gunfeel.ammo.RubberSlug.register(modBus);
+            if (dist.isClient()) acup.gunfeel.ammo.client.RubberClient.init();
+        }
+        if (Feature.DUPLEX.on()) acup.gunfeel.ammo.Duplex.register(modBus);
+        if (Feature.NUCLEAR_BMG50.on()) acup.gunfeel.ammo.NuclearBmg.register(modBus);
         GunWeight.register();
         acup.gunfeel.ai.AiPose.register(modBus);
         BalanceRecipes.register(modBus);
@@ -64,6 +71,8 @@ public final class GunFeelMod {
             acup.gunfeel.ai.client.AiDebugClient.init();
             if (Feature.MOB_AI.on()) acup.gunfeel.ai.client.AiVoiceClient.init();
             if (Feature.SUPPRESSION.on()) Suppression.init(modBus);
+            // the colours of the small nuclear blasts' clouds (MiniNukeCloud)
+            if (Feature.MINI_NUKE_CLOUD.on()) acup.gunfeel.nuke.MiniNukeCloud.registerPalettes();
             net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
                     net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut.class, e -> GunHitClient.clear());
         }
@@ -194,6 +203,9 @@ public final class GunFeelMod {
                     if (Feature.SHOCK.on()) ctx.enqueueWork(() -> acup.gunfeel.shock.client.ShockClient.mark(p));
                 });
                 r.playToClient(GunHitPayload.TYPE, GunHitPayload.CODEC, (p, ctx) -> ctx.enqueueWork(GunHitClient::receive));
+                r.playToClient(acup.gunfeel.ammo.RubberPayload.TYPE, acup.gunfeel.ammo.RubberPayload.CODEC, (p, ctx) -> {
+                    if (Feature.RUBBER_SLUG.on()) ctx.enqueueWork(() -> acup.gunfeel.ammo.client.RubberClient.confuse(p));
+                });
                 r.playToClient(acup.gunfeel.gl54.PressLayoutsPayload.TYPE, acup.gunfeel.gl54.PressLayoutsPayload.CODEC,
                         (p, ctx) -> ctx.enqueueWork(() -> {
                             if (Feature.GL54.on()) acup.gunfeel.gl54.PressSync.receive(p);
@@ -221,6 +233,7 @@ public final class GunFeelMod {
                 r.playToClient(acup.gunfeel.shock.ShockPayloads.Shock.TYPE, acup.gunfeel.shock.ShockPayloads.Shock.CODEC);
                 r.playToClient(acup.gunfeel.shock.ShockPayloads.Mark.TYPE, acup.gunfeel.shock.ShockPayloads.Mark.CODEC);
                 r.playToClient(GunHitPayload.TYPE, GunHitPayload.CODEC);
+                r.playToClient(acup.gunfeel.ammo.RubberPayload.TYPE, acup.gunfeel.ammo.RubberPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);
                 acup.gunfeel.gas.GasSetup.payloads(r, false);
                 r.playToClient(acup.gunfeel.ai.AiCellsPayload.TYPE, acup.gunfeel.ai.AiCellsPayload.CODEC);

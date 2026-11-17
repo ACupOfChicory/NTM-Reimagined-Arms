@@ -12,7 +12,8 @@ import net.minecraft.world.phys.Vec3;
  * its eyes to the target's head, chest or legs that no hiding block crosses (glass, bars and fences do not hide; leaves
  * and grass veil it some way, {@link #VEIL}) and no thick smoke ({@link SmokeClouds#opticalDepth} past 3, about 5% let
  * through); and which of the three it sees (it aims at what it sees). How long it takes to notice: the distance, the
- * corner of the eye, the veil, the target lying, crouching or running. Nothing else: no light level yet.
+ * corner of the eye, the veil, the target lying, crouching or running. Nothing else: no light level yet. One close
+ * by ({@link #NEAR}) is noticed out of its field of view too, behind its back, more slowly ({@link #BEHIND}).
  */
 public final class Senses {
     /** the middle of the field of view, where a target is noticed fastest: 30 degrees off the look */
@@ -36,6 +37,19 @@ public final class Senses {
     static final double VEIL = 9, MAX_VEIL = 8.5;
     /** grass, block for block, as a share of leaves: it hides little (the owner's word) */
     static final double GRASS = 0.15;
+    /**
+     * One this close, blocks between its box and the mob's, is noticed wherever the mob looks (a rustle, a shadow at its
+     * back): the stands had a squad stand 1.1 blocks before two silent foes, its back to them, 1600 ticks
+     */
+    static final double NEAR = 1.5;
+    /**
+     * the time to notice one at its back, as a share of its time straight ahead; a player crouching still there, so
+     * much longer (one may still creep up behind)
+     */
+    static final double BEHIND = 1.5, CREEPING = 3;
+    /** slower than this (blocks over its last tick) one keeps still */
+    static final double STILL_PACE = 0.01;
+
     /** the time to notice one lying, crouching, running, as a share of the time for one standing or walking */
     static final double LYING = 1.75, CROUCHING = 1.3, RUNNING = 0.75;
     /** faster than this (blocks over its last tick) a mob runs: a player walks at 0.216 */
@@ -91,7 +105,8 @@ public final class Senses {
             double d = Math.sqrt(d2);
             Vec3 view = mob.getViewVector(1F);
             double cos = (dx * view.x + dy * view.y + dz * view.z) / d;
-            if (cos < p.cosHalfFov()) return -1;
+            boolean behind = cos < p.cosHalfFov();
+            if (behind && !near(mob, target)) return -1;
             boolean smoky = smoke != null && !smoke.isEmpty();
             int seen = 0;
             double thinnest = MAX_VEIL;
@@ -108,13 +123,28 @@ public final class Senses {
             }
             if (seen == 0) return -1;
             parts = seen;
-            int t = p.reactionTicks(d, cos < COS_CENTRE);
+            int t = behind ? (int) Math.ceil(p.reactionTicks(d, false) * (creeping(target) ? CREEPING : BEHIND)) : p.reactionTicks(d, cos < COS_CENTRE);
             double k = bearing(target) / (1 - thinnest / VEIL);
             // a line that grazes a block of grass is no veil
             return Math.abs(k - 1) < 1e-3 ? t : (int) Math.ceil(t * k);
         } finally {
             nanos += System.nanoTime() - t0;
         }
+    }
+
+    /** whether the target's box is within {@link #NEAR} of the mob's */
+    static boolean near(Mob mob, LivingEntity target) {
+        net.minecraft.world.phys.AABB a = mob.getBoundingBox(), b = target.getBoundingBox();
+        double dx = Math.max(0, Math.max(a.minX - b.maxX, b.minX - a.maxX)), dy = Math.max(0, Math.max(a.minY - b.maxY, b.minY - a.maxY)),
+                dz = Math.max(0, Math.max(a.minZ - b.maxZ, b.minZ - a.maxZ));
+        return dx * dx + dy * dy + dz * dz <= NEAR * NEAR;
+    }
+
+    /** a player crouching and keeping still: one creeping up */
+    static boolean creeping(LivingEntity target) {
+        if (!(target instanceof net.minecraft.world.entity.player.Player) || target.getPose() != net.minecraft.world.entity.Pose.CROUCHING) return false;
+        Vec3 mv = ((acup.gunfeel.mixin.mc.EntityAccess) target).gunfeel$lastKnownSpeed();
+        return mv.x * mv.x + mv.z * mv.z < STILL_PACE * STILL_PACE;
     }
 
     /** whether a point is in plain sight from the eye (blocks, a veil past {@link #PLAIN} and smoke only, no field of view) */
