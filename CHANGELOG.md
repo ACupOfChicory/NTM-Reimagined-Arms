@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers who see or hear one of their own shot down nearby now know
+  roughly where the shot came from and keep their guns on that spot, so a
+  squad going into a room is far less likely to walk in one after another
+  to a foe waiting by the doorway. With no grenade to throw in first, they
+  hold beside the doorway while that foe is about.
+
 ## X1490
 
 - An AI squad clearing the building where it shot down a foe no longer

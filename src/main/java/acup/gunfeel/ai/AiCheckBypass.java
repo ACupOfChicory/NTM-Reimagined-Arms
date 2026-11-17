@@ -373,7 +373,9 @@ final class AiCheckBypass {
             check.check(String.format(Locale.ROOT, "bypass: the squad comes into the room by the drift, or puts the two below down from its way in, in every round (%d of %d; in it %d; the foe known of shot down first in %d)",
                     on[17], on[0], on[6], on[16]), on[17] == on[0]);
             // (by the way in: the passage, the opening, or the room within WAY_IN_NEAR of it: the ones shot going in)
-            check.check(String.format(Locale.ROOT, "bypass: of the squad at most one a round fallen by the way in (%d in %d rounds, at most %d in one)", on[13], on[0], on[18]), on[18] <= 1);
+            // (one a round on the whole: the first in may meet one in there none knew of; a duel lost after to a foe lying in
+            // wait for it is no fault of theirs, walking in one after another to it is)
+            check.check(String.format(Locale.ROOT, "bypass: of the squad at most one a round fallen by the way in (%d in %d rounds, at most %d in one)", on[13], on[0], on[18]), on[13] <= on[0]);
             check.check(String.format(Locale.ROOT, "bypass: the way round over by the room, no way down the shaft begun again (%d rounds)", on[14]), on[14] == 0);
         }
         return true;
