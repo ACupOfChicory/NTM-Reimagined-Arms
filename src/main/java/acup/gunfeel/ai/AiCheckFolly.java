@@ -48,7 +48,7 @@ final class AiCheckFolly {
     private final List<Vec3> from = new ArrayList<>();
     private long last;
     private double warmSum, afterSum, afterMax, firstMax;
-    private int warmN, afterN, heard, shots;
+    private int warmN, afterN, heard, shots, busyNear, busyFar;
     private final List<String> lines = new ArrayList<>();
     final List<double[]> results = new ArrayList<>();
 
@@ -99,7 +99,16 @@ final class AiCheckFolly {
             if (t <= 40) firstMax = Math.max(firstMax, ms);
         }
         if (t >= 0 && shots < SHOTS[round] && t % SERIES_EVERY == 0) shoot();
-        if (t == 100) lines.add(String.format(Locale.ROOT, "about something at 100 ticks %d", busy()));
+        if (t == 100) {
+            lines.add(String.format(Locale.ROOT, "about something at 100 ticks %d", busy()));
+            // the groups within the rifle's 80 blocks (the first two, 30 and 60 out) and those further
+            busyNear = busyFar = 0;
+            for (int i = 0; i < mobs.size(); i++)
+                if (AiBots.get(mobs.get(i)) instanceof AiBot b && b.brain instanceof AiSoldier so && so.mode() != AiSoldier.Mode.IDLE) {
+                    if (i < 2 * EACH) busyNear++;
+                    else busyFar++;
+                }
+        }
         if (t < AFTER + SERIES_EVERY * (SHOTS[round] - 1)) return false;
         end();
         if (round + 1 < GUNS.length) start(round + 1);
@@ -202,6 +211,10 @@ final class AiCheckFolly {
         // hundred heard, X1274 + gunshotRange: 4 to 7 ms the most after it, a rifle's 10 to 11), none run to it
         if (round == 0) check.check(String.format(Locale.ROOT, "the loudest shot: a rifle's shot is heard by those within its 80 blocks alone (%d of %d)",
                 heard, mobs.size()), heard == 2 * EACH);
+        // and those who heard it turn to it (out of sight of it, 30 and 60 blocks off: with NTM's own range, 16 blocks to a
+        // carbine or a Henry, gunshotRange 0, none hears it, none turns)
+        if (round == 0) check.check(String.format(Locale.ROOT, "the loudest shot: those within a rifle's reach who heard it are about it 100 ticks after, the rest idle (%d of %d near, %d further)",
+                busyNear, 2 * EACH, busyFar), busyNear == 2 * EACH && busyFar == 0);
         else check.check(String.format(Locale.ROOT, "the loudest shot: Folly x%d is heard by all, the server's tick at most %.0f ms after it (%.1f), no group runs to it (%d of %d)",
                 SHOTS[round], FIRST_MOST, firstMax, towards, GROUPS), heard == mobs.size() && firstMax <= FIRST_MOST && towards == 0);
         for (Mob m : mobs) m.discard();

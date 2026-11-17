@@ -164,6 +164,12 @@ final class AiHatch {
 
     /** the stands: ways down begun, grenades down, none thrown (a deep shaft, its own in reach, none with one), soldiers down */
     public static int begun, frags, noFrag, deepNoFrag, down;
+    /** the stands: shafts found held at their foot (by why: one of it hurt or down on the ladder from under, a foe seen
+     * or heard at the foot, the first down put down there), smoke dropped down, ways down held off (none goes down) */
+    public static final int[] heldWhy = new int[3];
+    public static int held, smokedDown, contained, smokeFirst;
+    /** the stands: the smoker's ticks on its way to drop it, at the rim, at it with one of its own over the hatch, the hatch shut */
+    public static final int[] smokerTicks = new int[4];
     /** the stands: looks for a way down that found none: the foe not under it, no cell, no way there, no shaft on it */
     public static final int[] none = new int[4];
     /** the stands: each look for a way down that found no way there, as words (trace on) */
@@ -185,7 +191,18 @@ final class AiHatch {
         }
     }
 
-    private static final int GATHER = 0, FRAG = 1, DOWN = 2, OVER = 3;
+    private static final int GATHER = 0, FRAG = 1, DOWN = 2, OVER = 3, HELD = 4, CONTAIN = 5;
+    /**
+     * Held at its foot (a foe there fires up the shaft at one on the ladder): none more sent; smoke down it first if one
+     * of it has any (the cloud at the foot blinds them, then down one after another close, FAST_SPACING), else, or held
+     * again under the smoke, none goes down (CONTAIN): two watch the hatch from beside it, the others off it, CONTAIN_MAX
+     * with nothing more from the foot and they try again. Known only by its own senses. Ticks; blocks
+     */
+    /** a foe or a shot this near the foot across is at it, blocks; a loud sound this near in time to its own frag's burst is that, ticks */
+    static final int FOOT_NEAR = 8, OWN_BLAST = 5;
+    /** a shaft that cost one of a squad going down: none down it again for this long, ticks (five minutes) */
+    static final int COSTLY_MEMORY = 6000;
+    static final int SMOKE_MAX = 200, SMOKE_SETTLE = 30, CONTAIN_MAX = 1200, HELD_MEMORY = 1200, HEARD_RECENT = 40, FAST_SPACING = 2;
 
     private static final class Op {
         final String team;
@@ -201,6 +218,15 @@ final class AiHatch {
         final Map<AiBot, Long> sent = new HashMap<>();
         @Nullable AiBot thrower, holder;
         final Set<AiBot> downs = new HashSet<>();
+        /** sent and called back up the ladder (the foot held, it was over the shaft's middle) */
+        final Set<AiBot> backing = new HashSet<>();
+        /** the smoke's: dropped down this shaft already, by whom, when; the last tick a sign of the foot held came */
+        boolean smoked;
+        @Nullable AiBot smoker;
+        /** the smoke goes down first (none held yet): the shaft too deep for a frag */
+        boolean first;
+        long blastAt = Long.MIN_VALUE / 2, smokeAt = Long.MIN_VALUE, lastSign = Long.MIN_VALUE, signTick = Long.MIN_VALUE;
+        int spacing = SPACING;
 
         Op(String team, Shaft shaft, List<AiBot> members, @Nullable AiBot guard, long tick) {
             // (the others wait at shaft.back, BACK off the hatch: none stands over it when it is lifted)
@@ -221,6 +247,10 @@ final class AiHatch {
     private static final class PerLevel {
         final Map<String, Op> ops = new HashMap<>();
         final Map<String, Long> next = new HashMap<>();
+        /** shafts found held at their foot (by the top's cell), when last: a way down there begins held */
+        final Map<Long, Long> held = new HashMap<>();
+        /** of those, shafts that cost one going down, when: none goes down them again for COSTLY_MEMORY but under smoke */
+        final Map<Long, Long> costly = new HashMap<>();
     }
 
     private static final Map<ServerLevel, PerLevel> LEVELS = new WeakHashMap<>();
@@ -268,6 +298,9 @@ final class AiHatch {
         long[] r = run(cells);
         if (r == null) return null;
         long rim = r[0], top = r[1];
+        // the way come onto the shaft from straight over it (its hatch walked onto): the rim beside it instead, else
+        // they gathered, dropped the smoke and watched from over the hatch, in the fire up the shaft
+        if (BlockPos.getX(rim) == BlockPos.getX(top) && BlockPos.getZ(rim) == BlockPos.getZ(top)) rim = beside(level, rim, top);
         BlockPos hatch = null;
         for (int y = BlockPos.getY(top); y <= Math.max(BlockPos.getY(rim), BlockPos.getY(top) + 1); y++) {
             BlockPos p = new BlockPos(BlockPos.getX(top), y, BlockPos.getZ(top));
@@ -287,7 +320,23 @@ final class AiHatch {
         if (!on()) return false;
         PerLevel l = LEVELS.get(level);
         Op op = l == null ? null : l.ops.get(AiSquads.team(bot));
-        if (op == null || op.phase != DOWN || !climbing(op, bot, tick)) return false;
+        if (op != null && op.backing.contains(bot) && bot.mob.onClimbable() && AiSquads.live(bot)) {
+            // called back up: up it whatever it sees, as down (on a ladder there is no cover)
+            s.moveFiring(bot, op.shaft.back, AiSoldier.RUN, op.shaft.mid(), tick, "back up the ladder: the shaft's foot is held", AiThoughts.Why.HATCH, RIM);
+            return true;
+        }
+        // (held at the foot, one under the shaft's middle goes on down: back up is the longer way)
+        if (op == null || op.phase != DOWN && op.phase != HELD && op.phase != CONTAIN || !climbing(op, bot, tick)) return false;
+        // (the foot held looked for here too: on the ladder they are in no search, and those up by the hatch may be
+        // fighting down the shaft, so none of it may call step a while)
+        if (op.phase == DOWN && op.signTick != tick) {
+            op.signTick = tick;
+            int why = sign(op, level, tick);
+            if (why >= 0) {
+                hold(op, why, level, tick);
+                if (!climbing(op, bot, tick)) return false;
+            }
+        }
         Shaft sh = op.shaft;
         if (at(bot, sh.out, 1.0) || bot.mob.onGround() && bot.mob.getY() < BlockPos.getY(sh.foot) + 0.5) {
             down++;
@@ -303,7 +352,7 @@ final class AiHatch {
     /** sent down the ladder, not at its foot yet, not given up on */
     private static boolean climbing(Op op, AiBot b, long tick) {
         Long sent = op.sent.get(b);
-        return sent != null && !op.downs.contains(b) && tick - sent <= CLIMB_BASE + CLIMB_RUNG * op.shaft.rungs;
+        return sent != null && !op.downs.contains(b) && !op.backing.contains(b) && tick - sent <= CLIMB_BASE + CLIMB_RUNG * op.shaft.rungs;
     }
 
     private static boolean anyClimbing(Op op, long tick) {
@@ -322,6 +371,17 @@ final class AiHatch {
     private static boolean looksDown(AiBot b, Shaft sh) {
         for (TargetMemory.Contact k : b.memory.contacts()) if (down(sh, k)) return true;
         return false;
+    }
+
+    /** a cell to stand on beside the shaft's top about the rim's height (the rim itself if none) */
+    private static long beside(ServerLevel level, long rim, long top) {
+        TacticalMap map = TacticalMap.of(level);
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] d : dirs) {
+            long c = PathSearch.snap(map, BlockPos.getX(top) + d[0] + 0.5, BlockPos.getY(rim), BlockPos.getZ(top) + d[1] + 0.5);
+            if (c != Long.MIN_VALUE && (BlockPos.getX(c) != BlockPos.getX(top) || BlockPos.getZ(c) != BlockPos.getZ(top)) && Math.abs(BlockPos.getY(c) - BlockPos.getY(rim)) <= 1) return c;
+        }
+        return rim;
     }
 
     /** where the others wait while the grenade goes down: BACK blocks off the shaft out past its rim (the rim if no cell there) */
@@ -426,6 +486,16 @@ final class AiHatch {
         Op op = new Op(team, sh, members, guard, tick);
         l.ops.put(team, op);
         begun++;
+        // found held a while ago: none goes down, they hold its hatch (and try again in a while)
+        Long was = l.held.get(sh.top);
+        Long cost = l.costly.get(sh.top);
+        boolean smoke = false;
+        for (AiBot b : members) if (AiSquads.live(b) && b.smokes > 0) smoke = true;
+        if (!smoke && (was != null && tick - was < HELD_MEMORY || cost != null && tick - cost < COSTLY_MEMORY)) {
+            op.lastSign = was;
+            phase(op, CONTAIN, tick);
+            contained++;
+        }
         if (bot.brain instanceof AiSoldier so) so.note(bot, tick, "a foe under the ground down a shaft: the squad to its hatch");
         return op;
     }
@@ -451,6 +521,13 @@ final class AiHatch {
                 if (all || tick - op.phaseAt > GATHER_MAX) {
                     phase(op, FRAG, tick);
                     op.thrower = thrower(op, level);
+                    // too deep for a frag, the foe gone down this very shaft: smoke down first if one has any (it
+                    // bursts where it lands, at the foot however deep), then down close under it
+                    if (op.thrower == null && deep(sh) && smokeFirst(op)) {
+                        op.first = true;
+                        smokeFirst++;
+                        phase(op, HELD, tick);
+                    }
                 }
                 // gathered off the shaft, none over the hatch (lifted, it is a hole)
                 s.moveFiring(bot, sh.back, AiSoldier.RUN, hatch, tick, "to the hatch of a shaft down to the foe", AiThoughts.Why.HATCH, RIM);
@@ -460,7 +537,8 @@ final class AiHatch {
                 AiBot t = op.thrower;
                 Entity g = op.fragId < 0 ? null : level.getEntity(op.fragId);
                 if (t == null || !AiSquads.live(t) || op.fragId >= 0 && (g == null || g.isRemoved()) || tick - op.phaseAt > FRAG_MAX + AiGrenades.FUSE) {
-                    phase(op, DOWN, tick);
+                    if (op.fragId >= 0) op.blastAt = tick;
+                    toDown(op, level, tick);
                     return hatch;
                 }
                 if (bot == t && op.fragId < 0) {
@@ -483,12 +561,26 @@ final class AiHatch {
                     return hatch;
                 }
                 if (op.fragId < 0 && tick - op.phaseAt > FRAG_MAX) {
-                    phase(op, DOWN, tick);
+                    toDown(op, level, tick);
                 }
                 s.moveFiring(bot, sh.back, AiSoldier.RUN, hatch, tick, "off the hatch, its grenade going down", AiThoughts.Why.HATCH, RIM);
                 return hatch;
             }
+            case HELD -> {
+                return held(op, s, bot, level, tick);
+            }
+            case CONTAIN -> {
+                return contain(op, s, bot, level, tick);
+            }
             case DOWN -> {
+                if (op.signTick != tick) {
+                    op.signTick = tick;
+                    int why = sign(op, level, tick);
+                    if (why >= 0) {
+                        hold(op, why, level, tick);
+                        return hatch;
+                    }
+                }
                 List<AiBot> order = op.order();
                 if (op.guard != null) order.add(op.guard);
                 AiBot last = null;
@@ -519,7 +611,8 @@ final class AiHatch {
                     }
                 }
                 // the next one down once the one before is SPACING rungs under the top (or down, or fallen)
-                if (last == null || op.downs.contains(last) || last.mob.getY() <= BlockPos.getY(sh.top) + 1 - SPACING)
+                boolean single = op.smokeAt == Long.MIN_VALUE && deep(sh) && (op.holder == null || !op.holder.mob.isAlive());
+                if (last == null || op.downs.contains(last) || !single && last.mob.getY() <= BlockPos.getY(sh.top) + 1 - op.spacing)
                     for (AiBot b : order)
                         if (!op.sent.containsKey(b) && AiSquads.live(b)) {
                             op.sent.put(b, tick);
@@ -549,6 +642,208 @@ final class AiHatch {
                 return null;
             }
         }
+    }
+
+    /** on from the grenade (or none) to going down: held already at the foot (seen, heard), they hold instead */
+    private static void toDown(Op op, ServerLevel level, long tick) {
+        int why = sign(op, level, tick);
+        if (why >= 0) hold(op, why, level, tick);
+        else phase(op, DOWN, tick);
+    }
+
+    /**
+     * A sign, by its own senses, that the shaft's foot is held, or -1: (0) one of it on the ladder hurt by someone
+     * under it, or down there; (1) one of it up by the hatch sees a foe at the foot, or heard a shot there just now; (2)
+     * the first at the foot put down before the next is down
+     */
+    static int sign(Op op, ServerLevel level, long tick) {
+        Shaft sh = op.shaft;
+        double fx = BlockPos.getX(sh.foot) + 0.5, fy = BlockPos.getY(sh.foot), fz = BlockPos.getZ(sh.foot) + 0.5;
+        for (AiBot b : op.members) {
+            Long sent = op.sent.get(b);
+            boolean onIt = sent != null && !op.downs.contains(b) && !op.backing.contains(b);
+            if (onIt) {
+                if (!b.mob.isAlive()) return 0;
+                var n = b.memory.noise();
+                if (b.memory.shotTick() >= tick - 1 && n != null && n.hurt && n.y < b.mob.getY()) return 0;
+                continue;
+            }
+            if (sent != null || !AiSquads.live(b)) continue;
+            for (TargetMemory.Contact k : b.memory.contacts())
+                if (k.state == TargetMemory.State.VISIBLE && near(k.x, k.y, k.z, fx, fy, fz)) return 1;
+            var n = b.memory.noise();
+            if (n != null && n.loud && tick - n.tick <= HEARD_RECENT && Math.abs(n.tick - op.blastAt) > OWN_BLAST && near(n.x, n.y, n.z, fx, fy, fz)) return 1;
+        }
+        if (op.holder != null && op.smokeAt == Long.MIN_VALUE && op.holder.mob.isAlive() && op.holder.memory.shotTick() >= tick - HEARD_RECENT
+                && op.downs.size() < op.members.size() && op.downs.size() <= 1) return 2;
+        if (op.holder != null && !op.holder.mob.isAlive() && op.downs.size() < op.members.size()) {
+            for (AiBot b : op.members) if (b != op.holder && AiSquads.live(b) && !op.downs.contains(b)) return 2;
+        }
+        return -1;
+    }
+
+    /** one of it sent down this shaft is fallen */
+    private static boolean lost(Op op) {
+        for (AiBot b : op.members) if (op.sent.containsKey(b) && !b.mob.isAlive()) return true;
+        return false;
+    }
+
+    /** at the shaft's foot: this near it across, not over it more than a few blocks */
+    private static boolean near(double x, double y, double z, double fx, double fy, double fz) {
+        double dx = x - fx, dz = z - fz;
+        return y <= fy + 3 && dx * dx + dz * dz <= FOOT_NEAR * FOOT_NEAR;
+    }
+
+    /** the foot found held: none more sent, those on the upper half of the ladder back up it; smoke down, else they hold */
+    private static void hold(Op op, int why, ServerLevel level, long tick) {
+        held++;
+        heldWhy[why]++;
+        op.lastSign = tick;
+        // (the fallen on the ladder and a fallen holder told once: else the same sign came every tick, for good)
+        for (AiBot b : op.members) if (op.sent.containsKey(b) && !op.downs.contains(b) && !b.mob.isAlive()) op.downs.add(b);
+        if (op.holder != null && !op.holder.mob.isAlive()) op.holder = null;
+        of(level).held.put(op.shaft.top, tick);
+        if (lost(op)) of(level).costly.put(op.shaft.top, tick);
+        double mid = (BlockPos.getY(op.shaft.top) + BlockPos.getY(op.shaft.foot)) / 2.0;
+        for (AiBot b : op.members)
+            if (op.sent.containsKey(b) && !op.downs.contains(b) && AiSquads.live(b) && b.mob.getY() > mid) op.backing.add(b);
+        if (op.smoked) {
+            phase(op, CONTAIN, tick);
+            contained++;
+            return;
+        }
+        op.smoker = null;
+        for (AiBot b : op.members)
+            if (AiSquads.live(b) && b.smokes > 0 && !op.sent.containsKey(b) && !overColumn(op.shaft, b)) {
+                op.smoker = b;
+                break;
+            }
+        if (op.smoker == null) {
+            op.smoked = true;
+            phase(op, CONTAIN, tick);
+            contained++;
+        } else phase(op, HELD, tick);
+    }
+
+    /** held, smoke going down: the one with it to the rim and drops it down the middle; the others off the hatch */
+    private static @Nullable Vec3 held(Op op, AiSoldier s, AiBot bot, ServerLevel level, long tick) {
+        Shaft sh = op.shaft;
+        Vec3 hatch = sh.mid();
+        if (op.smokeAt != Long.MIN_VALUE ? tick - op.smokeAt >= SMOKE_SETTLE : tick - op.phaseAt > SMOKE_MAX || op.smoker == null || !AiSquads.live(op.smoker)) {
+            if (op.smokeAt == Long.MIN_VALUE && op.first) {
+                // no smoke got down: down without it, one at a time
+                op.first = false;
+                phase(op, DOWN, tick);
+                return hatch;
+            }
+            op.smoked = true;
+            if (op.smokeAt == Long.MIN_VALUE) {
+                phase(op, CONTAIN, tick);
+                contained++;
+                return hatch;
+            }
+            // down under the cloud, close one after another; those called back go again
+            for (AiBot b : op.backing) op.sent.remove(b);
+            op.backing.clear();
+            op.spacing = FAST_SPACING;
+            phase(op, DOWN, tick);
+            return hatch;
+        }
+        if (op.backing.contains(bot)) {
+            s.moveFiring(bot, sh.back, AiSoldier.RUN, hatch, tick, "back up the ladder: the shaft's foot is held", AiThoughts.Why.HATCH, RIM);
+            return hatch;
+        }
+        if (bot == op.smoker && op.smokeAt == Long.MIN_VALUE) {
+            smokerTicks[0]++;
+            s.moveFiring(bot, sh.rim, AiSoldier.RUN, hatch, tick, op.first ? "at the hatch, smoke down the shaft: too deep for a grenade" : "at the hatch, smoke down the shaft: its foot is held",
+                    AiThoughts.Why.HATCH, overColumn(sh, bot) ? 0.2 : 0.6);
+            // (at the rim's edge by the hatch it is over the hatch itself: the others are what keeps it from the drop,
+            // and it steps back to the rim's middle first)
+            boolean self = overColumn(sh, bot), rimmed = at(bot, sh.rim, self ? 0.3 : 0.8) && !self, overIt = rimmed && overOthers(op, bot);
+            if (rimmed) smokerTicks[1]++;
+            if (overIt) smokerTicks[2]++;
+            if (rimmed && !overIt && bot.smokes > 0) {
+                if (sh.hatch != null) AiDoors.open(level, bot.mob, sh.hatch);
+                if (sh.hatch != null && !level.getBlockState(sh.hatch).getValue(TrapDoorBlock.OPEN)) smokerTicks[3]++;
+                if (sh.hatch == null || level.getBlockState(sh.hatch).getValue(TrapDoorBlock.OPEN)) {
+                    Vec3 burst = mid(sh.foot, 0.2);
+                    AiGrenades.Throw down = new AiGrenades.Throw(bot.mob.getYRot(), 90F, burst, DROP_FORCE);
+                    Entity thrown = AiGrenades.launch(level, bot.mob, down, AiSmoke.item(bot.mob.getYRot()), DROP_FORCE);
+                    thrown.setPos(hatch.x, Math.max(hatch.y, thrown.getY()), hatch.z);
+                    thrown.setOldPosAndRot();
+                    AiSmoke.thrown++;
+                    bot.smokes--;
+                    AiAdapter.keepSmokes(bot);
+                    op.smokeAt = tick;
+                    smokedDown++;
+                }
+            }
+            return hatch;
+        }
+        if (op.downs.contains(bot) || op.sent.containsKey(bot)) return null;
+        s.moveFiring(bot, sh.back, AiSoldier.RUN, hatch, tick, "off the hatch, smoke going down the shaft", AiThoughts.Why.HATCH, RIM);
+        return hatch;
+    }
+
+    /**
+     * None goes down: two of it watch the hatch from beside it (not over it, in the fire up the shaft), the others off
+     * it; CONTAIN_MAX with nothing more from the foot, and they try again (one after another, as at first)
+     */
+    private static @Nullable Vec3 contain(Op op, AiSoldier s, AiBot bot, ServerLevel level, long tick) {
+        Shaft sh = op.shaft;
+        Vec3 hatch = sh.mid();
+        if (op.signTick != tick) {
+            op.signTick = tick;
+            if (sign(op, level, tick) >= 0) {
+                op.lastSign = tick;
+                of(level).held.put(sh.top, tick);
+                for (AiBot b : op.members) if (op.sent.containsKey(b) && !op.downs.contains(b) && !b.mob.isAlive()) op.downs.add(b);
+                if (op.holder != null && !op.holder.mob.isAlive()) op.holder = null;
+            }
+        }
+        // (the shaft cost one of it already: none more goes down it, they hold the hatch till the op is over)
+        if (!lost(op) && tick - op.lastSign >= CONTAIN_MAX) {
+            for (AiBot b : op.backing) op.sent.remove(b);
+            op.backing.clear();
+            op.spacing = SPACING;
+            phase(op, DOWN, tick);
+            return hatch;
+        }
+        if (op.downs.contains(bot) || op.sent.containsKey(bot) && !op.backing.contains(bot)) return null;
+        AiBot second = null;
+        for (AiBot b : op.members)
+            if (b != op.guard && AiSquads.live(b) && !op.downs.contains(b) && !op.sent.containsKey(b)) {
+                second = b;
+                break;
+            }
+        boolean watch = bot == op.guard || bot == second || op.guard == null && bot == op.members.get(0);
+        if (watch && !op.backing.contains(bot)) {
+            s.moveFiring(bot, sh.rim, AiSoldier.WALK, hatch, tick, "beside the hatch, watching the shaft: its foot is held", AiThoughts.Why.HATCH, 0.8);
+            return hatch;
+        }
+        s.moveFiring(bot, sh.back, AiSoldier.RUN, hatch, tick, op.backing.contains(bot) ? "back up the ladder: the shaft's foot is held" : "off the hatch, its foot held: none goes down",
+                AiThoughts.Why.HATCH, RIM);
+        return hatch;
+    }
+
+    /** too deep for a frag down it: it bursts in the air (the fuse out before the foot) */
+    static boolean deep(Shaft sh) {
+        return fallTicks(BlockPos.getY(sh.top) + 1.5 - BlockPos.getY(sh.foot)) + FUSE_LEFT > AiGrenades.FUSE;
+    }
+
+    /** the smoke first: one of it (not the guard, not over the hatch) has some, and one of it lost the foe down this shaft */
+    private static boolean smokeFirst(Op op) {
+        if (!AiSmoke.on || !AiSmoke.ready() || !acup.gunfeel.smoke.SmokeClouds.enabled()) return false;
+        boolean lost = false;
+        for (AiBot b : op.members) if (AiSquads.live(b) && looksDown(b, op.shaft)) lost = true;
+        if (!lost) return false;
+        op.smoker = null;
+        for (AiBot b : op.members)
+            if (b != op.guard && AiSquads.live(b) && b.smokes > 0 && !overColumn(op.shaft, b)) {
+                op.smoker = b;
+                return true;
+            }
+        return false;
     }
 
     /** the one to drop a grenade down, or null: none down this shaft (too deep for the fuse, its own in reach, none with one) */
@@ -598,6 +893,12 @@ final class AiHatch {
     /** one of its side stands over the shaft (on its hatch shut): lifted, the hatch would drop it down */
     private static boolean over(Op op, ServerLevel level) {
         for (AiBot b : op.members) if (AiSquads.live(b) && overColumn(op.shaft, b)) return true;
+        return false;
+    }
+
+    /** one of it but this one over the hatch */
+    private static boolean overOthers(Op op, AiBot but) {
+        for (AiBot b : op.members) if (b != but && AiSquads.live(b) && overColumn(op.shaft, b)) return true;
         return false;
     }
 
