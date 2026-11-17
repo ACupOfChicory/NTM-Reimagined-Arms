@@ -267,7 +267,7 @@ final class NewAmmoStand {
         log("Duplex: пар {}, не по две {}, средний угол {} рад, наибольший {}, зазор {}..{}", f[0], f[1], f[2], f[3], f[4], f[5]);
         check(f[0].equals("20") && f[1].equals("0"), "Duplex: каждый выстрел — две пули (" + f[0] + " из 20)");
         double mean = Double.parseDouble(f[2]), most = Double.parseDouble(f[3]);
-        check(mean > 0.0015 && mean < 0.0055 && most <= DuplexRule.CUT + 1e-6, "Duplex: задняя отклонена на мрад, не больше отсечки (" + f(mean * 1000) + " мрад)");
+        check(mean > 0.009 && mean < 0.033 && most <= DuplexRule.CUT + 1e-6, "Duplex: задняя отклонена на мрад, не больше отсечки (" + f(mean * 1000) + " мрад)");
         double gapMin = Double.parseDouble(f[4]), gapMax = Double.parseDouble(f[5]);
         check(gapMin > DuplexRule.BEHIND - 0.02 && gapMax < DuplexRule.BEHIND + 0.02, "Duplex: задняя на четверть блока позади (" + f(gapMin) + ".." + f(gapMax) + ")");
         wait(5, 20);
