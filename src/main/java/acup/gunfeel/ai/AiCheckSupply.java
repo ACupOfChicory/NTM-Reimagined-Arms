@@ -28,9 +28,14 @@ import net.minecraft.world.phys.Vec3;
  * supplier against four with a magazine each besides. Counted: the share of ours' ticks falling back, who is left.
  */
 final class AiCheckSupply {
-    static final int X0 = 920, Z0 = 4, SIZE = 48, QUIET = 500, FIGHT = 2400, QUIET_ROUNDS = 4, FALLEN_ROUNDS = 2, FIGHT_ROUNDS = 12, OUT_ROUNDS = 4, ROUNDS = 22, OUT_TICKS = 1200, SQUAD = 4, SIDE = 5;
+    static final int X0 = 920, Z0 = 4, SIZE = 48, QUIET = 500, FIGHT = 2400, QUIET_ROUNDS = 4, FALLEN_ROUNDS = 2, FIGHT_ROUNDS = 12, OUT_ROUNDS = 4, RED_ROUNDS = 2, ROUNDS = 24, OUT_TICKS = 1200, RED_TICKS = 2400, SQUAD = 4, SIDE = 5;
     /** the supplier falls at this tick of a round of the fallen */
     static final int FALLS = 20;
+    /**
+     * the red rounds: back no longer than its staff's wait for rounds (AiCommander.RED_WAIT) and this, with its supplier
+     * or without (with: most often a few hundred ticks; one of it at red split off from its supplier waits the time out); ticks
+     */
+    static final int RED_SLACK = 200;
     static final Identifier GUN = Identifier.fromNamespaceAndPath("hbm", "gun_carbine");
     static final double[][] QUIET_AT = {{940.5, 26.5}, {944.5, 24.5}, {947.5, 29.5}, {943.5, 31.5}};
     static final int[][] WALLS = {{930, 18, 933}, {938, 18, 941}, {947, 18, 950}, {955, 18, 958}, {930, 34, 933}, {938, 34, 941}, {947, 34, 950}, {955, 34, 958},
@@ -41,7 +46,9 @@ final class AiCheckSupply {
     private final int y;
     private boolean started;
     private int round = -1, ticks;
-    private final List<Mob> ours = new ArrayList<>(), theirs = new ArrayList<>();
+    private final List<Mob> ours = new ArrayList<>(), theirs = new ArrayList<>(), full = new ArrayList<>();
+    /** the red rounds: the first and the last look with one of ours falling back, ours at red at the last look (the supplier aside) */
+    private int firstBack, lastBack, redEnd;
     private int runsBefore, gaveUpBefore, magsBefore, grenadesBefore, smokesBefore, leftBefore, takenBefore, outsBefore;
     private long ourTicks, shortTicks, noGrenadeTicks, dryTicks, fallTicks;
     private int supplierTicks;
@@ -57,7 +64,7 @@ final class AiCheckSupply {
     }
 
     private boolean fight() {
-        return round >= QUIET_ROUNDS + FALLEN_ROUNDS && !out();
+        return round >= QUIET_ROUNDS + FALLEN_ROUNDS && !out() && !red();
     }
 
     /** the supplier is put down at the start: the others take its stock up */
@@ -67,12 +74,20 @@ final class AiCheckSupply {
 
     /** ours have nothing besides what is in their guns, and no supplier: aiSupplyOut off and on */
     private boolean out() {
-        return round >= QUIET_ROUNDS + FALLEN_ROUNDS + FIGHT_ROUNDS;
+        return round >= QUIET_ROUNDS + FALLEN_ROUNDS + FIGHT_ROUNDS && !red();
     }
 
-    /** the kind of this round, as kept in the results: quiet 0, fight 1, fallen 2, out 3 */
+    /**
+     * the red rounds: a squad of four with a magazine each besides its gun's (AiCommander.red), with its supplier and
+     * without; another squad of the side, full, far off for it to fall back to; no foe
+     */
+    private boolean red() {
+        return round >= QUIET_ROUNDS + FALLEN_ROUNDS + FIGHT_ROUNDS + OUT_ROUNDS;
+    }
+
+    /** the kind of this round, as kept in the results: quiet 0, fight 1, fallen 2, out 3, red 4 */
     private int kind() {
-        return out() ? 3 : fight() ? 1 : fallen() ? 2 : 0;
+        return red() ? 4 : out() ? 3 : fight() ? 1 : fallen() ? 2 : 0;
     }
 
     boolean tick() {
@@ -94,13 +109,27 @@ final class AiCheckSupply {
             if (b == null) continue;
             ourTicks++;
             if (m == ours.get(0)) supplierTicks++;
-            if (!b.gunner.ammo.infinite() && b.gunner.ammo.reserve() < b.gunner.capacity()) shortTicks++;
+            if (AiCommander.red(b)) shortTicks++;
             if (b.grenades <= 0) noGrenadeTicks++;
             if (b.gunner.dry()) dryTicks++;
             if (b.confidence.fallsBack(level.getGameTime())) fallTicks++;
         }
         for (Mob m : theirs) if (m.isAlive()) foes++;
-        boolean over = fight() ? ticks >= FIGHT || left == 0 || foes == 0 : out() ? ticks >= OUT_TICKS || left == 0 || foes == 0 : ticks >= (fallen() ? 2 * QUIET : QUIET);
+        if (red() && ticks % 10 == 0) {
+            long now = level.getGameTime();
+            boolean back = false;
+            int atRed = 0;
+            for (Mob m : ours) {
+                AiBot b = AiBots.get(m);
+                if (b == null || !m.isAlive()) continue;
+                if (AiCommander.has(b, now) && b.order.job != null && b.order.job.kind == StaffPlan.Kind.BACK) back = true;
+                if (b.assigned != AiRole.SUPPLIER && AiCommander.red(b)) atRed++;
+            }
+            if (back && firstBack < 0) firstBack = ticks;
+            if (back) lastBack = ticks;
+            redEnd = atRed;
+        }
+        boolean over = red() ? ticks >= RED_TICKS || left == 0 : fight() ? ticks >= FIGHT || left == 0 || foes == 0 : out() ? ticks >= OUT_TICKS || left == 0 || foes == 0 : ticks >= (fallen() ? 2 * QUIET : QUIET);
         if (!over) return false;
         int withMag = 0, withGrenade = 0, withSmoke = 0, thrown = 0, stock = 0, heirs = 0, fallBacks = 0;
         for (Mob m : ours) {
@@ -118,7 +147,7 @@ final class AiCheckSupply {
                 continue;
             }
             if (!m.isAlive()) continue;
-            if (b.gunner.ammo.reserve() >= b.gunner.capacity()) withMag++;
+            if (!AiCommander.red(b)) withMag++;
             if (b.grenades > 0) withGrenade++;
             if (b.smokes > 0) withSmoke++;
         }
@@ -126,7 +155,7 @@ final class AiCheckSupply {
         results.add(new int[] {round % 2, kind(), left, foes, ticks, withMag, withGrenade, withSmoke, AiSupply.runs - runsBefore, AiSupply.gaveUp - gaveUpBefore,
                 AiSupply.mags - magsBefore, AiSupply.grenades - grenadesBefore, AiSupply.smokes - smokesBefore, (int) (1000 * shortTicks / n), (int) (1000 * noGrenadeTicks / n),
                 (int) (1000 * dryTicks / n), thrown, stock, heirs, AiSupply.left - leftBefore, AiSupply.taken - takenBefore,
-                (int) (1000L * fallTicks / n), fallBacks, ourOuts() - outsBefore});
+                (int) (1000L * fallTicks / n), fallBacks, ourOuts() - outsBefore, firstBack, lastBack, redEnd, 0});
         if (fight()) {
             StringBuilder why = new StringBuilder();
             String[] names = {"not free itself", "no squad", "none short", "one short out in sight", "too far", "given to lately"};
@@ -135,8 +164,10 @@ final class AiCheckSupply {
         }
         for (Mob m : ours) m.discard();
         for (Mob m : theirs) m.discard();
+        for (Mob m : full) m.discard();
         ours.clear();
         theirs.clear();
+        full.clear();
         if (round + 1 >= ROUNDS) return finish();
         start(round + 1);
         return false;
@@ -177,16 +208,25 @@ final class AiCheckSupply {
         round = r;
         ticks = 0;
         ourTicks = shortTicks = noGrenadeTicks = dryTicks = fallTicks = 0;
+        firstBack = lastBack = redEnd = -1;
         supplierTicks = 0;
         System.arraycopy(AiSupply.idle, 0, idleBefore, 0, 6);
-        AiSupply.on = out() || r % 2 == 1;
-        AiSupply.outOn = !out() || r % 2 == 1;
+        AiSupply.on = red() || out() || r % 2 == 1;
+        AiSupply.outOn = red() || !out() || r % 2 == 1;
         AiSquads.on = true;
         AiSquads.offTeams.clear();
+        // the staff (off in this stage) with its tasks for the red rounds: its squads' falling back is what they look at
+        AiCommander.on = red();
+        AiCommander.tasks = true;
+        AiCommander.forget(level);
         AiSquads.forget(level);
         AiSupply.forget(level);
-        build(fight() || out());
-        if (out()) {
+        build(fight() || out() || red());
+        if (red()) {
+            // the first the supplier (with its supplier) or one more at red; the full squad NEAR and more off
+            for (int i = 0; i < SQUAD; i++) ours.add(spawn(926.5 + i * 3, Z0 + 46.5, "supply_a", 180F, i == 0 && r % 2 == 1 ? AiAdapter.RESERVE_MAGS : 1, 1, 1));
+            for (int i = 0; i < SQUAD; i++) full.add(spawn(955.5 + i * 3, Z0 + 8.5, "supply_a", 180F, AiAdapter.RESERVE_MAGS, 1, 1));
+        } else if (out()) {
             // no supplier: ours with nothing besides their guns', theirs with a magazine each
             for (int i = 0; i < SQUAD; i++) {
                 ours.add(spawn(936.5 + i * 6, Z0 + 40.5, "supply_a", 180F, 0, 0, 0));
@@ -202,7 +242,7 @@ final class AiCheckSupply {
             }
         }
         // the first of ours is the supplier, by word, in both rounds (off: a role's name and no more)
-        AiBot supplier = out() ? null : AiBots.get(ours.get(0));
+        AiBot supplier = out() || red() && r % 2 == 0 ? null : AiBots.get(ours.get(0));
         if (supplier != null) {
             AiRole.assign(supplier, AiRole.SUPPLIER);
             supplier.supply = null;
@@ -233,16 +273,20 @@ final class AiCheckSupply {
     }
 
     private boolean finish() {
+        AiCommander.on = false;
         AiSupply.on = true;
         AiSupply.outOn = true;
         String[] names = {"aiSupply off (before)", "aiSupply on"}, outNames = {"aiSupplyOut off (before)", "aiSupplyOut on"};
-        double[][][] sum = new double[4][2][24];
-        int[][] n = new int[4][2];
+        double[][][] sum = new double[5][2][28];
+        int[][] n = new int[5][2];
         for (int i = 0; i < results.size(); i++) {
             int[] r = results.get(i);
             n[r[1]][r[0]]++;
             for (int k = 2; k < r.length; k++) sum[r[1]][r[0]][k] += r[k];
-            if (r[1] == 3)
+            if (r[1] == 4)
+                check.out(String.format(Locale.ROOT, "     supply, round %d, a squad at red, %s: falling back from tick %d to %d, at red at the end %d; handed over %d magazines",
+                        i + 1, r[0] == 1 ? "with its supplier" : "no supplier", r[24], r[25], r[26], r[10]));
+            else if (r[1] == 3)
                 check.out(String.format(Locale.ROOT, "     supply, round %d, four out of rounds against four, %s: left %d of ours, %d of theirs, %d ticks; ours falling back %.1f%% of their ticks,"
                         + " fell back %d times; dry %.1f%%; the squad found out of rounds %d times", i + 1, outNames[r[0]], r[2], r[3], r[4], r[21] / 10.0, r[22], r[15] / 10.0, r[23]));
             else if (r[1] == 2)
@@ -290,6 +334,18 @@ final class AiCheckSupply {
         double fallOn = oOn[21] / Math.max(1, n[3][1]) / 1000, fallOff = oOff[21] / Math.max(1, n[3][0]) / 1000;
         check.check(String.format(Locale.ROOT, "supply: a squad with nothing besides its guns' and no supplier falls back (falling back %.1f%% of the ticks with aiSupplyOut on, %.1f%% off;"
                 + " found out of rounds %d times on, %d off)", 100 * fallOn, 100 * fallOff, (int) oOn[23], (int) oOff[23]), oOn[23] > 0 && oOff[23] == 0 && fallOn >= fallOff + 0.1);
+        int[] withS = null, without = null;
+        for (int[] r : results) if (r[1] == 4) {
+            if (r[0] == 1) withS = r;
+            else without = r;
+        }
+        check.check(String.format(Locale.ROOT, "supply: a squad at red with its supplier falls back, is filled (a portion each of the three at least) and is back no longer than %d ticks,"
+                + " none at red at the end (%s)", AiCommander.RED_WAIT + RED_SLACK,
+                withS == null ? "not run" : "back from " + withS[24] + " to " + withS[25] + ", " + withS[10] + " magazines, at red " + withS[26]),
+                withS != null && withS[24] >= 0 && withS[25] - withS[24] <= AiCommander.RED_WAIT + RED_SLACK && withS[10] >= 3 * AiSupply.PORTION && withS[26] == 0);
+        check.check(String.format(Locale.ROOT, "supply: a squad at red with no supplier falls back, and %d ticks on fights with what it has, back no more for it (%s)",
+                AiCommander.RED_WAIT + RED_SLACK, without == null ? "not run" : "back from " + without[24] + " to " + without[25]),
+                without != null && without[24] >= 0 && without[25] - without[24] <= AiCommander.RED_WAIT + RED_SLACK);
         return true;
     }
 }

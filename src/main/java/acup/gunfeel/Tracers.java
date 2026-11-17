@@ -539,7 +539,12 @@ public final class Tracers {
         try {
             Field f = RenderBulletMK4.class.getDeclaredField("RENDERERS");
             f.setAccessible(true);
-            RenderBulletMK4.Tracer tracer = ((Map<BulletConfig, RenderBulletMK4.Tracer>) f.get(null)).get(config);
+            Map<BulletConfig, RenderBulletMK4.Tracer> renderers = (Map<BulletConfig, RenderBulletMK4.Tracer>) f.get(null);
+            RenderBulletMK4.Tracer tracer = renderers.get(config);
+            // a round of the mod's (a config NTM did not make, so none of its own): its lookalike's, NTM's too (drawn by
+            // NTM with ours off)
+            BulletConfig like = acup.gunfeel.ammo.NewAmmo.lookalike(config);
+            if (tracer == null && like != config && (tracer = renderers.get(like)) != null) RenderBulletMK4.setRenderer(config, tracer);
             if (tracer != null) {
                 RenderBulletMK4.State state = new RenderBulletMK4.State();
                 state.config = config;
@@ -871,7 +876,7 @@ public final class Tracers {
                 // ours, BulletFx.ricochetSound); the bullet flies on mirrored on the face's axis unless that was its last
                 if (TestLog.client) TestLog.c(s.id, "ricochet", "block", level.getBlockState(block.getBlockPos()), "pos", block.getBlockPos(),
                         "material", TestLog.material(level, block.getBlockPos()), "result", "bounced", "bounce", s.ricochets + 1);
-                if (Config.bulletHoles) {
+                if (holes(s.config)) {
                     scratch = vel.normalize();
                     try {
                         addHole(level, block, s.config, vel.normalize());
@@ -1156,7 +1161,7 @@ public final class Tracers {
         // a plain round: a hit of a bullet this client does not fly itself (NTM's old bullet, LegacyBullets), its
         // hole and its particles and sound as a tracer's hit has them
         if(!ExplosiveAmmo.heavy(config)) { hit(level,hit,config,packet.direction().normalize(),false);return; }
-        if(!Config.bulletHoles)return;
+        if(!holes(config))return;
         PENDING.addLast(new Pending(level,hit,config,packet.direction(),null,packet.shot(),0));
     }
     static int pendingHoles() { return PENDING.size(); }
@@ -1219,6 +1224,11 @@ public final class Tracers {
     }
     private static final long HOLE_BUDGET_NS = 3_000_000L;
 
+    // whether a hit of this round leaves a hole (the rubber slug and the nuclear .50 none: NewAmmo.noHole)
+    private static boolean holes(BulletConfig config) {
+        return Config.bulletHoles && !acup.gunfeel.ammo.NewAmmo.noHole(config);
+    }
+
     private static void addHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir) {
         PENDING.addLast(new Pending(level, hit, config, dir, scratch, TestLog.shot(), 0));
     }
@@ -1230,11 +1240,11 @@ public final class Tracers {
         BlockState state = level.getBlockState(hit.getBlockPos());
         boolean machine = Cells.ruleState(level, hit.getBlockPos(), state) != state
                 || state.getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL;
-        if (Config.bulletHoles && machine) {
+        if (holes(config) && machine) {
             PENDING.addLast(new Pending(level, hit, config, dir, scratch, TestLog.shot(), explosive ? 2 : 1));
             return;
         }
-        if (Config.bulletHoles) addHole(level, hit, config, dir);
+        if (holes(config)) addHole(level, hit, config, dir);
         long px = Perf.start();
         BulletFx.blockHit(level, hit, dir, explosive);
         Perf.add(Perf.FX, px);

@@ -1,6 +1,17 @@
 # Changelog
 
-## Unreleased
+## X1456
+
+- An AI squad now falls back for rounds a magazine sooner: once most of its
+  soldiers have one magazine or none left besides the one in the gun, not
+  only once they are empty. Squads running dry one soldier after another are
+  no longer sent forward just before they turn back. Its supplier now tops up
+  a soldier with one magazine left too, and the squad goes back into the
+  fight once none of it is short. A soldier left short with no rounds brought
+  for about a minute fights with what it has, so a squad without a supplier
+  does not stand back for good.
+
+## X1448
 
 - The small nuclear blasts' mushroom cloud now starts hot, fiery orange (green
   for balefire) and greys as it cools, as a bomb's does, instead of grey from
@@ -8,6 +19,16 @@
 - An AI soldier at the foot or top of a shaft its side climbs no longer goes
   off to other cover while one of its own on the ladder is in its line: it
   waits its turn and comes up with the rest.
+
+## X1442
+
+- The new rounds now have tracers. Both bullets of a Duplex round draw the
+  tracer of their calibre's SP round and leave its bullet holes. The nuclear
+  .50 draws the .50 SP's tracer, and the rubber slug draws the 12 gauge
+  slug's. Neither leaves a hole. In water a Duplex bullet acts like its SP
+  round, and the rubber slug like the slug.
+- The 12 gauge electroshock shell now draws the slug's tracer too. It
+  leaves no bullet holes.
 
 ## X1437
 

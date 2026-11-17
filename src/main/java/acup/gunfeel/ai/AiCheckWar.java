@@ -293,6 +293,8 @@ final class AiCheckWar {
     /** the staff's tasks counted already: a squad's change once, not once for each of it */
     private final java.util.Set<AiCommander.Job> changeCounted = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     private final long[] changesOf = new long[MODES], flapsOf = new long[MODES];
+    /** with the staff's tasks: soldiers' looks, and of them falling back (BACK) */
+    private long tasksLooks, backLooks;
     private final java.util.Map<String, Integer> flapKinds = new java.util.TreeMap<>();
     /** the pinned round's fire begun (the side knows of the player: a task for its group) */
     private boolean pinFire;
@@ -463,6 +465,11 @@ final class AiCheckWar {
             AiBot b = AiBots.get(m);
             if (b == null || !m.isAlive()) continue;
             alive++;
+            // with the staff's tasks: falling back (BACK: losses, rounds at red, broken contact)
+            if (mode() >= TASKS) {
+                tasksLooks++;
+                if (AiCommander.has(b, now) && b.order.job != null && b.order.job.kind == StaffPlan.Kind.BACK) backLooks++;
+            }
             if (b.memory.focus(m.getX(), m.getZ()) == null && !AiCommander.has(b, now)) {
                 idle++;
                 // why (a soldier waiting for its squad's way has its order already: never here)
@@ -1090,6 +1097,8 @@ final class AiCheckWar {
                 kinds, AiCommander.askedN, AiCommander.askedN == 0 ? 0 : (double) AiCommander.askedLag / AiCommander.askedN, AiCommander.askedMost, AiCommander.broke));
         StringBuilder fl = new StringBuilder();
         for (int on = TASKS; on < MODES; on++) if (changesOf[on] > 0) fl.append(String.format(Locale.ROOT, " %s %d of %d;", MODE_NAMES[on], flapsOf[on], changesOf[on]));
+        check.out(String.format(Locale.ROOT, "     war, with the staff's tasks, the soldiers falling back (BACK) %.1f%% of their time (%d looks)",
+                tasksLooks == 0 ? 0 : 100.0 * backLooks / tasksLooks, tasksLooks));
         check.out("     war, task changes within " + FLAP + " ticks by mode:" + fl + " by kind " + flapKinds);
         // flaps were there before C5 (C4b's war, 60 rounds: 110 of 1032 changes, FLAPS_BEFORE: scouting to advancing,
         // falling back out of rounds and back); the reports' answers (most orders now) add none to speak of

@@ -10,7 +10,7 @@ import net.minecraft.core.BlockPos;
 /**
  * The squad's supplier (stage 5, R1; the owner, 2026-11-14: "a role of the one that hands out supplies"). A soldier
  * with the role (AiRole.SUPPLIER: by word, or one of those spawned by number) carries a stock besides its own:
- * magazines, grenades, smoke grenades. Now and then it looks who of its squad is short: less than a magazine besides
+ * magazines, grenades, smoke grenades. Now and then it looks who of its squad is short: a magazine or less besides
  * the gun's, or no grenade, or no smoke grenade. It goes to the one most in need within REACH, while it is not pinned
  * down itself, no one it sees is near, and the other is not out in sight of one: runs up, hands a portion over, and
  * is a rifleman again. One it has given to is not given to again for AGAIN ticks; a run takes RUN_MAX ticks at most.
@@ -254,7 +254,8 @@ public final class AiSupply {
     static double need(AiBot b, int[] stock) {
         double need = 0;
         AiAmmo ammo = b.gunner.ammo;
-        if (stock[0] > 0 && !ammo.infinite() && b.gunner.capacity() > 0 && ammo.reserve() < b.gunner.capacity()) need += 2;
+        // a magazine or none besides the gun's: short (AiCommander.red: its squad would fall back for it)
+        if (stock[0] > 0 && !ammo.infinite() && b.gunner.capacity() > 0 && ammo.reserve() <= b.gunner.capacity()) need += 2;
         if (stock[1] > 0 && b.grenades <= 0 && AiGrenades.stock() > 0) need += 1;
         if (stock[2] > 0 && b.smokes <= 0 && AiSmoke.stock() > 0) need += 0.5;
         return need;
@@ -372,7 +373,7 @@ public final class AiSupply {
     private static void hand(AiSoldier s, AiBot bot, AiBot to, int[] stock, long tick) {
         StringBuilder what = new StringBuilder();
         AiAmmo ammo = to.gunner.ammo;
-        if (stock[0] > 0 && !ammo.infinite() && to.gunner.capacity() > 0 && ammo.reserve() < to.gunner.capacity()) {
+        if (stock[0] > 0 && !ammo.infinite() && to.gunner.capacity() > 0 && ammo.reserve() <= to.gunner.capacity()) {
             int n = Math.min(PORTION, stock[0]);
             ammo.give(to.gunner.capacity() * n);
             AiAdapter.keep(to);

@@ -20,8 +20,8 @@ import org.jspecify.annotations.Nullable;
  * <li>else it advances (scouts).
  * </ul>
  * PER squads to a group at most; more where the side loses soldiers to it (R5b: the group's room). A squad that lost
- * more than half of it, or most of which is out of rounds, falls back: from the nearest group to the nearest squad of
- * its own side not falling back, or BACK blocks away from the group. With no group at all, each free squad scouts a
+ * more than half of it, or most of which is at red (a magazine or none left besides the gun's: AiCommander.red),
+ * falls back: from the nearest group to the nearest squad of its own side not falling back, or BACK blocks away from the group. With no group at all, each free squad scouts a
  * sector of the ring round the side's middle (RING blocks off), one after another as the side's sector turns. Any
  * other squad left is the reserve and stays where it is. A squad keeps its task KEEP ticks at least while its group is
  * still there (falling back aside); one that went round and got there advances next. A pair (C4) keeps its tasks till
@@ -357,7 +357,7 @@ final class StaffPlan {
         return o.kind == null || o.group < 0 || o.kind == Kind.HOLD || o.kind == Kind.RESERVE || o.kind == Kind.SCOUT;
     }
 
-    /** lost more than half of it, or most of it out of rounds */
+    /** lost more than half of it, or most of it at red (a magazine or none left; AiCommander.red) */
     static boolean breaks(Squad s) {
         return s.out || s.was > 0 && s.alive * 2 < s.was;
     }
