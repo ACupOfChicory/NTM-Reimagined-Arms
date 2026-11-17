@@ -49,6 +49,8 @@ public final class AiAdapter {
         }
         ((AiNavigation) mob.getNavigation()).gunfeel$setAiOwned(true);
         if (!(mob.getMoveControl() instanceof AiMoveControl)) ((MobGoalsAccess) mob).gunfeel$setMoveControl(new AiMoveControl(mob));
+        // (a mob's own jump of its kind kept as it is: its legs then jump as the game has them)
+        if (mob.getJumpControl().getClass() == net.minecraft.world.entity.ai.control.JumpControl.class) ((MobGoalsAccess) mob).gunfeel$setJumpControl(new AiJumpControl(mob));
         mob.setTarget(null);
         if (bot.brain == null) bot.brain = new AiSoldier();
         int kept = mob.getPersistentData().getIntOr(AMMO_KEY, Integer.MIN_VALUE);

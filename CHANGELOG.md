@@ -5,10 +5,27 @@
 - An AI soldier now notices an enemy right at its back, within about a block
   and a half, even one standing silent: a little slower than one in front of
   it, and a player crouching still there much slower, so one can still lie
-  low behind it a while. A block between them hides as before. Two foes no longer stand
-  a block apart for good with nobody firing.
+  low behind it a while. A block between them hides as before. Two foes no
+  longer stand a block apart for good with nobody firing.
 - An AI soldier on its way to cover that gets nowhere while one of its own
   keeps it from firing now looks for other cover instead of standing there.
+
+## X1424
+
+- AI squads going down a ladder shaft now get all the way to its floor and
+  step off the ladder, instead of hanging on the rungs above one another or
+  standing in the way at the foot.
+
+## X1422
+
+- NTM's small nuclear blasts (the Fat Mine, the Fat Man's shells, the
+  artillery mini nuke, the nuclear creeper, the nuclear grenade and the rest)
+  now rise as the mushroom cloud of NTM's nuclear bombs, sized to the blast,
+  instead of their own flash and wave; a balefire one as the balefire bomb's
+  green cloud. A Tiny Tot volley makes one cloud. They keep their own sound,
+  without the bombs' screen flash, sound and shake. A blast past the
+  simulation distance, where the cloud would not show, keeps NTM's own.
+  Server key `miniNukeCloud` (`false`: NTM's own).
 
 ## X1416
 

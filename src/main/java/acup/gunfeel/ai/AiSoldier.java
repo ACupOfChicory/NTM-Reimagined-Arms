@@ -2229,18 +2229,24 @@ public final class AiSoldier implements AiBrain {
 
     /**
      * On a ladder with nothing to do (an order or a search over while it climbed, a drill not its own): on the way it
-     * went to the ladder's end, off it (left on a rung it hung there, halfway up or down a long shaft, for good).
-     * Whether it goes so
+     * went to the ladder's end, off it (left on a rung it hung there, halfway up or down a long shaft, for good). On
+     * its feet at a shaft's foot, the rungs over its head: a step aside off the column (it stood there, the next of its
+     * own hung on the ladder over it). Whether it goes so
      */
     private boolean offLadderIdle(AiBot bot, long tick) {
         Mob m = bot.mob;
-        if (!m.onClimbable() || m.onGround()) return false;
+        // (a shaft's rungs over it, two at least: not a vine or a ladder on a wall it stands by)
+        boolean foot = m.onGround() && m.level().getBlockState(m.blockPosition().above()).is(net.minecraft.tags.BlockTags.CLIMBABLE)
+                && m.level().getBlockState(m.blockPosition().above(2)).is(net.minecraft.tags.BlockTags.CLIMBABLE);
+        if (!m.onClimbable() || m.onGround() && !foot) return false;
         if (mode == Mode.IDLE && why == Why.OFF_LADDER && bot.mover.goal() != Long.MIN_VALUE && !bot.mover.failed() && !bot.mover.noWay()) return true;
         if (tick < offLadderNext) return false;
         // an end a step or two off first (at the foot pushed up a rung by its own: not back up the whole shaft), else on
         // the way it went
-        long off = AiHatch.offLadder((ServerLevel) m.level(), m, 0, OFF_LADDER_NEAR);
-        if (off == Long.MIN_VALUE) off = AiHatch.offLadder((ServerLevel) m.level(), m, climbWay, OFF_LADDER_REACH);
+        long off = AiHatch.offLadder((ServerLevel) m.level(), m, foot ? -1 : 0, OFF_LADDER_NEAR);
+        if (off == Long.MIN_VALUE && !foot) off = AiHatch.offLadder((ServerLevel) m.level(), m, climbWay, OFF_LADDER_REACH);
+        // (none beside a shaft's floor walled in: its own cell is no way off, it stood there sent to it for good)
+        if (foot && off == m.blockPosition().asLong()) off = Long.MIN_VALUE;
         if (off == Long.MIN_VALUE) {
             offLadderNext = tick + OFF_LADDER_AGAIN;
             return false;

@@ -941,6 +941,62 @@ MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDI)Lcom/hbm/r
 MARESLEG method com/hbm/render/anim/BusAnimationSequence addPos (DDDILcom/hbm/render/anim/BusAnimationKeyframe$IType;)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence hold (I)Lcom/hbm/render/anim/BusAnimationSequence;
 MARESLEG method com/hbm/render/anim/BusAnimationSequence setPos (DDD)Lcom/hbm/render/anim/BusAnimationSequence;
+MINI_NUKE_CLOUD class com/hbm/blocks/bomb/BlockLandmineFat
+MINI_NUKE_CLOUD class com/hbm/entity/effect/EntityNukeTorex
+MINI_NUKE_CLOUD class com/hbm/entity/effect/EntityNukeTorex$Cloudlet
+MINI_NUKE_CLOUD class com/hbm/entity/effect/EntityNukeTorex$Palette
+MINI_NUKE_CLOUD class com/hbm/entity/mob/EntityCreeperNuclear
+MINI_NUKE_CLOUD class com/hbm/entity/projectile/EntityBulletBaseMK4
+MINI_NUKE_CLOUD class com/hbm/explosion/ExplosionNukeSmall$MukeParams
+MINI_NUKE_CLOUD class com/hbm/explosion/vanillant/ExplosionVNT
+MINI_NUKE_CLOUD class com/hbm/handler/threading/TargetPoint
+MINI_NUKE_CLOUD class com/hbm/items/weapon/sedna/BulletConfig
+MINI_NUKE_CLOUD class com/hbm/packet/threading/ThreadedPayload
+MINI_NUKE_CLOUD class com/hbm/packet/toclient/MukePayload
+MINI_NUKE_CLOUD field com/hbm/blocks/ModBlocks MINE_FAT Lcom/hbm/registration/RegistryHandle;
+MINI_NUKE_CLOUD field com/hbm/entity/ModEntities NUKE_TOREX Lcom/hbm/registration/RegistryHandle;
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex cloudlets Ljava/util/List;
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorB D
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorG D
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorR D
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet posX D
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet posY D
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet posZ D
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet type Lcom/hbm/entity/effect/EntityNukeTorex$TorexType;
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$TorexType SHOCK Lcom/hbm/entity/effect/EntityNukeTorex$TorexType;
+MINI_NUKE_CLOUD field com/hbm/explosion/ExplosionNukeSmall PARAMS_MEDIUM Lcom/hbm/explosion/ExplosionNukeSmall$MukeParams;
+MINI_NUKE_CLOUD field com/hbm/explosion/ExplosionNukeSmall$MukeParams blastRadius F
+MINI_NUKE_CLOUD field com/hbm/explosion/vanillant/ExplosionVNT posX D
+MINI_NUKE_CLOUD field com/hbm/explosion/vanillant/ExplosionVNT posY D
+MINI_NUKE_CLOUD field com/hbm/explosion/vanillant/ExplosionVNT posZ D
+MINI_NUKE_CLOUD field com/hbm/explosion/vanillant/ExplosionVNT size F
+MINI_NUKE_CLOUD field com/hbm/explosion/vanillant/ExplosionVNT world Lnet/minecraft/world/level/Level;
+MINI_NUKE_CLOUD field com/hbm/items/weapon/sedna/factory/XFactoryCatapult LAMBDA_NUKE_STANDARD Ljava/util/function/BiConsumer;
+MINI_NUKE_CLOUD field com/hbm/items/weapon/sedna/factory/XFactoryCatapult LAMBDA_NUKE_TINYTOT Ljava/util/function/BiConsumer;
+MINI_NUKE_CLOUD field com/hbm/items/weapon/sedna/factory/XFactoryCatapult nuke_standard Lcom/hbm/items/weapon/sedna/BulletConfig;
+MINI_NUKE_CLOUD field com/hbm/items/weapon/sedna/factory/XFactoryCatapult nuke_tots Lcom/hbm/items/weapon/sedna/BulletConfig;
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex <init> (Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;)V
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex getScaleVal ()D
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex getTorexType ()B
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex getX ()D
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex getZ ()D
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex registerPalette (ILcom/hbm/entity/effect/EntityNukeTorex$Palette;)V
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setPos (DDD)V
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setScale (F)Lcom/hbm/entity/effect/EntityNukeTorex;
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setTorexType (I)Lcom/hbm/entity/effect/EntityNukeTorex;
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet getScale ()F
+MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getX ()D
+MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getY ()D
+MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getZ ()D
+MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear isPowered ()Z
+MINI_NUKE_CLOUD method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
+MINI_NUKE_CLOUD method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
+MINI_NUKE_CLOUD method com/hbm/explosion/ExplosionNukeSmall explode (Lnet/minecraft/world/level/Level;DDDLcom/hbm/explosion/ExplosionNukeSmall$MukeParams;)V
+MINI_NUKE_CLOUD method com/hbm/handler/threading/TargetPoint <init> (Lnet/minecraft/server/level/ServerLevel;DDDD)V
+MINI_NUKE_CLOUD method com/hbm/handler/threading/TargetPoint level ()Lnet/minecraft/server/level/ServerLevel;
+MINI_NUKE_CLOUD method com/hbm/packet/PacketWire sendToAllAround (Lcom/hbm/packet/threading/ThreadedPayload;Lcom/hbm/handler/threading/TargetPoint;)V
+MINI_NUKE_CLOUD method com/hbm/packet/toclient/MukePayload <init> (DDDZZ)V
+MINI_NUKE_CLOUD method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 MOB_AI class com/hbm/client/render/ArmorWorldRenderer$Bone
 MOB_AI class com/hbm/entity/grenade/EntityGrenadeUniversal
 MOB_AI class com/hbm/entity/projectile/EntityThrowableNT

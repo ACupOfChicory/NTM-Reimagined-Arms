@@ -37,6 +37,7 @@
   "ntmgunfeel.feature.thermal_outlines": "Thermal outlines drawn faster",
   "ntmgunfeel.feature.shock": "12 gauge shock shell",
   "ntmgunfeel.feature.gunshot_range": "Gunshot range by gun",
+  "ntmgunfeel.feature.mini_nuke_cloud": "Small nuclear blasts drawn as the bombs' cloud",
   "ntmgunfeel.feature.prone_fire": "No shot while crawling",
   "ntmgunfeel.feature.mob_ai": "Mob AI",
   "ntmgunfeel.feature.balance": "Armour balance",
