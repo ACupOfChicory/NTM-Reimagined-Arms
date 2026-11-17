@@ -330,6 +330,9 @@ public final class AiCommander {
         /** its half of the squad's bounds, for which of them (the mode's start) */
         int coverTurn, half;
         boolean covered;
+        /** the stands' C3 trace: the tick of its last step by its squad's mode (StaffMove.leg), and whether that was a hold */
+        long moveAt = Long.MIN_VALUE;
+        boolean moveHold;
     }
 
     /** a side's own: its next orders */
@@ -1595,6 +1598,8 @@ public final class AiCommander {
                     } else {
                         StaffMove.Leg leg = moves ? StaffMove.leg(bot, level, o, way, tick, coverStuck) : null;
                         if (leg != null) {
+                            o.moveAt = tick;
+                            o.moveHold = leg.hold();
                             leg(bot, level, o, leg, stuck, o.at != was, tick);
                             return true;
                         }
@@ -1715,6 +1720,7 @@ public final class AiCommander {
         o.legD = Double.MAX_VALUE;
         if (leg.low() && bot.brain instanceof AiSoldier s) s.crouch(true);
         if (leg.hold()) {
+            AiHold.held(bot, tick);
             if (bot.mover.goal() != Long.MIN_VALUE) bot.mover.stop();
             StaffMove.face(bot, o);
             return;

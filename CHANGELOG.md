@@ -1,5 +1,27 @@
 # Changelog
 
+## X1514
+
+- The two bullets of a Duplex round now spread six times as wide: the
+  second goes about 20 milliradians off the first one's line instead of 3,
+  so at 50 blocks they land about a block apart.
+
+## X1512
+
+- An AI soldier sent to stand near a spot, such as a squad gathering at a
+  hatch, no longer freezes a step short of it with the whole squad waiting
+  on it: it takes that last step.
+- An AI squad going a long way round, such as down a long tunnel, no longer
+  turns back halfway because the ground it was walking over was forgotten
+  under it.
+
+## X1510
+
+- An AI squad moving up in bounds keeps its covering half in place: a soldier
+  holding its spot facing the enemy is no longer shoved off it by its own
+  squad mates running past. They step around it instead. Players and other
+  mobs push it as before.
+
 ## X1505
 
 - AI soldiers looking through an area inside a house with a single doorway
