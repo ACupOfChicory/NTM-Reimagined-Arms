@@ -7,6 +7,13 @@
   good, and while they are stuck one of their squad waiting its turn goes
   up in their place.
 
+## X1575
+
+- AI soldiers break into a run and slow from it smoothly, without a jolt
+  of the legs as they go from a jog to a sprint and back, and a hit pushes
+  their body away from the shot for a moment: hit from the side they sway
+  aside, their head still where they look from.
+
 ## X1567
 
 - The AI soldier sent to throw a grenade into a room before the squad goes
