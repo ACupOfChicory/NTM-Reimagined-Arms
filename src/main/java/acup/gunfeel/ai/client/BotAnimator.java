@@ -61,16 +61,25 @@ public final class BotAnimator {
      * @param bodyYaw the body's yaw as drawn, degrees ({@link #turn}), or NaN for the game's own
      * @param headYaw the head's, the same
      * @param feet    where the feet stand on the floor, standing ({@link #feet}), or null: where the pose puts them
+     * @param gait    which gait it goes at, 0 a walk .. 1 a jog .. 2 a sprint (BotPoser.gaitOf), going to the speed's
+     *                over a few frames (GAIT_SPRING); NaN: the speed's own
+     * @param kick    a hit's push to the trunk now (BotImpulse.sample: its turn about the neck, rad, and the hips', px),
+     *                or null: none
      */
     public record Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits,
             float idleSec, int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert,
-            float air, float dashed, float bodyYaw, float headYaw, @Nullable Feet feet) {
+            float air, float dashed, float bodyYaw, float headYaw, @Nullable Feet feet, float gait, float @Nullable [] kick) {
+        /** the gait it goes at (BotPoser.gaitShares) */
+        public float gaitPace() {
+            return Float.isNaN(gait) ? BotPoser.gaitOf(speed) : gait;
+        }
+
         /** with no turn of its own (the game's body and head) and its feet where the pose puts them */
         public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
                 int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert, float air,
                 float dashed) {
             this(crouch, lean, arms, act, fading, hits, idleSec, entity, speed, heading, deathSec, walk, walkPos, alert, air,
-                    dashed, Float.NaN, Float.NaN, null);
+                    dashed, Float.NaN, Float.NaN, null, Float.NaN, null);
         }
 
         /** a frame made by hand: in a dash while its action shows */
@@ -190,6 +199,21 @@ public final class BotAnimator {
 
     /** the speed and heading it is drawn at (Frame) */
     float speed, heading;
+    /** hits' pushes to the trunk; the health and the motion (blocks a tick) it had last frame; the push sampled */
+    final BotImpulse impulse = new BotImpulse();
+    private float lastHealth = Float.NaN;
+    private double motionX, motionZ;
+    private final float[] kickNow = new float[6];
+    /** blocks a tick: a change of the motion less than this with a hit is no push (from the front) */
+    static final float PUSHED = 0.02F;
+    /** the gait drawn (Frame.gait) and how fast it changes, a second */
+    float gait = Float.NaN;
+    private float gaitVel;
+    /**
+     * how fast the gait drawn goes to the speed's (a critically damped spring, 1/s): half way in some 0.14 s, as the
+     * body turns calm (BODY_SPRING)
+     */
+    static final float GAIT_SPRING = 12F;
     /**
      * Its walk: vanilla's (the swing's speed follows 4 times the step, a block a tick at most, by 0.4 a tick; its
      * place goes on by that speed), worked out frame by frame. Not vanilla's own: a hit sets that to 1.5 at once, in
@@ -228,9 +252,26 @@ public final class BotAnimator {
             if (e.deathTime > 0 || e.getSwimAmount(partial) > 0F || e.isPassenger()) stand = 0F;
             var at = e.getPosition(partial);
             a.feet(at.x, at.z, stand, own);
+            // a hit's push to the trunk (BotImpulse): as the health it took shows (twice its share of all, as a
+            // flinch's), the way the push it got goes: the motion the game sent with it less the motion it had (its own
+            // run), from the front with none (the way it faces is mostly the foe's)
+            float health = e.getHealth();
+            var motion = e.getDeltaMovement();
+            if (health < a.lastHealth && e.hurtTime > 0 && e.deathTime <= 0) {
+                double px = motion.x - a.motionX, pz = motion.z - a.motionZ;
+                if (px * px + pz * pz < PUSHED * PUSHED) px = pz = 0.0;
+                float[] way = toModel(px, pz, a.bodyYaw);
+                a.impulse.hit(way[0], 0F, way[1], Float.NaN, Float.NaN, Float.NaN, 2F * (a.lastHealth - health) / e.getMaxHealth(),
+                        (float) (own / 20.0));
+            }
+            a.lastHealth = health;
+            a.motionX = motion.x;
+            a.motionZ = motion.z;
+            // a new array only while a push shows: the frame keeps it
+            float[] kick = a.impulse.sample((float) (own / 20.0), a.kickNow) ? a.kickNow.clone() : null;
             return new Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
                     a.speed, a.heading, death, a.walk, a.walkPos, f.alert(), a.air, f.dashed(), Mth.wrapDegrees(a.bodyYaw),
-                    Mth.wrapDegrees(a.headYaw), a.feetOut.snapshot());
+                    Mth.wrapDegrees(a.headYaw), a.feetOut.snapshot(), a.gait, kick);
         }
     }
 
@@ -279,26 +320,37 @@ public final class BotAnimator {
         move(dx, dz, bodyYaw, now, null);
     }
 
-    /** ... {@code gait}: a stand's gait clips in place of the mod's, each at its own pace (BotPoser.pace) */
-    void move(double dx, double dz, float bodyYaw, double now, @Nullable BotGaitOverride gait) {
+    /** ... {@code swap}: a stand's gait clips in place of the mod's, each at its own pace (BotPoser.pace) */
+    void move(double dx, double dz, float bodyYaw, double now, @Nullable BotGaitOverride swap) {
         float dt = Double.isNaN(movedAt) ? Float.POSITIVE_INFINITY : (float) Math.max(0.0, now - movedAt);
         movedAt = now;
         float s = (float) Math.sqrt(dx * dx + dz * dz);
         if (s > TELEPORT) {
             // put somewhere (a teleport, a ride): it stands where it is now
-            speed = walk = 0F;
+            speed = walk = gait = gaitVel = 0F;
             return;
         }
         float k = dt > 20F ? 1F : 1F - (float) Math.pow(1F - SPEED_FOLLOW, dt);
         // from a stand (the clips hardly in yet) the heading takes the way it goes at once
         float stand = dt > 20F ? 1F : 1F - smooth((speed - BotPoser.MOVE_FROM) / (BotPoser.MOVE_FULL - BotPoser.MOVE_FROM));
         speed += (s - speed) * k;
+        // the gait by the speed, over a few frames: the speed drawn wavers by a hundredth with the steps the client
+        // gets, and from a jog to a sprint is a band of 0.015 (the run's lean and the clips would go over in a frame)
+        float gaitTo = BotPoser.gaitOf(speed);
+        if (dt > 20F || Float.isNaN(gait)) {
+            gait = gaitTo;
+            gaitVel = 0F;
+        } else {
+            float[] g = spring(gait, gaitVel, gaitTo, GAIT_SPRING, dt / 20F);
+            gait = g[0];
+            gaitVel = g[1];
+        }
         float kw = dt > 20F ? 1F : 1F - (float) Math.pow(1F - WALK_FOLLOW, dt);
         float walkWas = walk;
         walk += (Math.min(s * 4F, 1F) - walk) * kw;
         if (dt <= 20F) {
             // on the run, fewer steps by the player's choice (Config.botRunGait tempo; vanilla's pace at a walk)
-            float on = dt * BotPoser.pace((walkWas + walk) / 2F * BotPoser.tempo(speed), speed, heading, gait);
+            float on = dt * BotPoser.pace((walkWas + walk) / 2F * BotPoser.tempo(speed), speed, gait, heading, swap);
             if (s < BotPoser.MOVE_FROM) {
                 // only where it goes on faster than its fading walk would: a tick with no step in a run (a late
                 // packet) leaves the run's pace as it was

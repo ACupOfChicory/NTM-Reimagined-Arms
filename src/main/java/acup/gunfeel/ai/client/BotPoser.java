@@ -112,9 +112,14 @@ public final class BotPoser {
      * the mob goes along (speed, blocks a tick), so its foot down stands
      */
     static float pace(float own, float speed, float heading, @Nullable BotGaitOverride o) {
+        return pace(own, speed, gaitOf(speed), heading, o);
+    }
+
+    /** ... at a gait drawn of its own (Frame.gait) */
+    static float pace(float own, float speed, float gait, float heading, @Nullable BotGaitOverride o) {
         if (o == null) return own;
         String[] names = { o.walk(), o.jog(), o.sprint() };
-        float[] at = { o.walkSpeed(), o.jogSpeed(), o.sprintSpeed() }, ws = gaitWeights(speed, heading);
+        float[] at = { o.walkSpeed(), o.jogSpeed(), o.sprintSpeed() }, ws = gaitShares(gait, heading);
         float out = own;
         for (int i = 0; i < 3; i++) {
             BotClip clip = names[i] == null || at[i] <= 0F || ws[i] <= 0F ? null : BotClips.get(names[i]);
@@ -248,7 +253,7 @@ public final class BotPoser {
         // across the chest; in a fight walking or standing, ready along the look as vanilla has it
         float move = upright * (1F - BotAnimator.smooth(f.crouch()))
                 * BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM));
-        float[] gw = gaitWeights(f.speed(), f.heading());
+        float[] gw = gaitShares(f.gaitPace(), f.heading());
         // a stand's gait clips in place of the mod's (BotGalleryStand; null for every mob out of one): their share of
         // the gait going ahead
         BotGaitOverride o = BotGaitOverride.of(f.entity());
@@ -286,7 +291,7 @@ public final class BotPoser {
 
         // on the move: the legs from the clips (crouching: vanilla's crouched legs, the clips' would lower the hips
         // and the eye the server keeps)
-        if (move > 0F) gait(p, f.speed(), f.heading(), walkPos, move, a, o);
+        if (move > 0F) gait(p, f.speed(), f.gaitPace(), f.heading(), walkPos, move, a, o);
 
         // the knees, slower than the clips: vanilla swings straight legs (xRot cos(pos 0.6662) 1.4 speed); a leg
         // swinging forward lifts its foot. The elbows: bent a little with no gun, more as it walks; with a gun the
@@ -420,9 +425,32 @@ public final class BotPoser {
                 part.x += shift;
         }
 
-        // 7. standing, the feet where they stand on the floor (BotAnimator.feet): the body turns, leans and sways over
+        // 7. a hit's push (BotImpulse): the trunk turned about the neck, the hips and the legs' roots under it, the head
+        // where it is (the server's eye); upright and alive only
+        kick(p, f.kick(), upright * (1F - dead));
+
+        // 8. standing, the feet where they stand on the floor (BotAnimator.feet): the body turns, leans and sways over
         // them, and a foot steps when it must
         lock(p, f.feet());
+    }
+
+    /**
+     * A hit's push w of the way: kick[0..2] added to the trunk's turn, the legs' roots moved as the body's bottom goes
+     * from where the pose's own turn has it (BotImpulse.hips: the pose's trunk may be bent or twisted already)
+     */
+    static void kick(Parts p, float @Nullable [] kick, float w) {
+        if (kick == null || w <= 0F) return;
+        float[] was = new float[6], now = new float[6];
+        BotImpulse.hips(p.body.xRot, p.body.yRot, p.body.zRot, was);
+        p.body.xRot += kick[0] * w;
+        p.body.yRot += kick[1] * w;
+        p.body.zRot += kick[2] * w;
+        BotImpulse.hips(p.body.xRot, p.body.yRot, p.body.zRot, now);
+        for (ModelPart leg : new ModelPart[] { p.rightLeg, p.leftLeg }) {
+            leg.x += now[3] - was[3];
+            leg.y += now[4] - was[4];
+            leg.z += now[5] - was[5];
+        }
     }
 
     /**
@@ -645,16 +673,21 @@ public final class BotPoser {
 
     /** ... with a stand's clips in place of the mod's ({@code o}, BotGaitOverride), played at their own stride */
     static void gait(Parts p, float speed, float heading, float walkPos, float w, float[] a, @Nullable BotGaitOverride o) {
+        gait(p, speed, gaitOf(speed), heading, walkPos, w, a, o);
+    }
+
+    /** ... at a gait drawn of its own (Frame.gait) */
+    static void gait(Parts p, float speed, float gait, float heading, float walkPos, float w, float[] a, @Nullable BotGaitOverride o) {
         float u = walkPos / CYCLE;
         float[][] acc = new float[LEGS.length][3];
         float total = 0F;
         String[] names = gaitClips(heading);
+        float[] ws = gaitShares(gait, heading);
         if (o != null) {
             if (o.walk() != null) names[0] = o.walk();
             if (o.jog() != null) names[1] = o.jog();
             if (o.sprint() != null) names[2] = o.sprint();
         }
-        float[] ws = gaitWeights(speed, heading);
         for (int i = 0; i < names.length; i++) {
             if (ws[i] <= 1e-4F) continue;
             BotClip clip = BotClips.get(names[i]);
@@ -744,10 +777,23 @@ public final class BotPoser {
 
     /** each of gaitClips' weights at this speed and heading, summing to 1 */
     public static float[] gaitWeights(float speed, float heading) {
+        return gaitShares(gaitOf(speed), heading);
+    }
+
+    /**
+     * the gait at this speed: 0 a walk .. 1 a jog (JOG_FROM .. JOG_FULL) .. 2 a sprint (SPRINT_FROM .. SPRINT_FULL),
+     * the bands apart
+     */
+    public static float gaitOf(float speed) {
+        return BotAnimator.smooth((speed - JOG_FROM) / (JOG_FULL - JOG_FROM))
+                + BotAnimator.smooth((speed - SPRINT_FROM) / (SPRINT_FULL - SPRINT_FROM));
+    }
+
+    /** each of gaitClips' weights at this gait (gaitOf) and heading, summing to 1 */
+    public static float[] gaitShares(float gait, float heading) {
         float c = Mth.cos(heading), s = Mth.sin(heading);
         float ahead = Math.max(c, 0F), back = Math.max(-c, 0F), side = Math.abs(s), sum = ahead + back + side;
-        float jog = BotAnimator.smooth((speed - JOG_FROM) / (JOG_FULL - JOG_FROM));
-        float sprint = BotAnimator.smooth((speed - SPRINT_FROM) / (SPRINT_FULL - SPRINT_FROM));
+        float jog = Mth.clamp(gait, 0F, 1F), sprint = Mth.clamp(gait - 1F, 0F, 1F);
         return new float[] { ahead / sum * (1F - jog), ahead / sum * jog * (1F - sprint), ahead / sum * jog * sprint, back / sum, side / sum };
     }
 
