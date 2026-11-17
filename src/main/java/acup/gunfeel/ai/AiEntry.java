@@ -622,7 +622,7 @@ public final class AiEntry {
     static final int PRIMED = 100;
     public static final String PRIMED_KEY = "aiEntryPrimed";
     static boolean primedOn = true;
-    /** the stands: foes noticed so, going in */
+    /** the stands: foes in the room noticed going in after its grenade, looking for them (whether or not the sooner did it) */
     public static int primedNoticed;
 
     /** the room it goes into after its own grenade, now (PRIMED), its plan and room; else null */

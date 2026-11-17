@@ -136,10 +136,12 @@ public final class Senses {
             if (seen == 0) return -1;
             parts = seen;
             int t = behind ? (int) Math.ceil(p.reactionTicks(d, false) * (creeping(target) ? CREEPING : BEHIND))
-                    : primed ? Math.max(PRIMED_MIN, (int) Math.round(p.reactionTicks(d, false) * PRIMED_SHARE)) : p.reactionTicks(d, cos < COS_CENTRE);
+                    : primed ? (int) Math.round(p.reactionTicks(d, false) * PRIMED_SHARE) : p.reactionTicks(d, cos < COS_CENTRE);
             double k = bearing(target) / (1 - thinnest / VEIL);
             // a line that grazes a block of grass is no veil
-            return Math.abs(k - 1) < 1e-3 ? t : (int) Math.ceil(t * k);
+            int n = Math.abs(k - 1) < 1e-3 ? t : (int) Math.ceil(t * k);
+            // (one looked for: its least after all, one running too)
+            return primed && !behind ? Math.max(PRIMED_MIN, n) : n;
         } finally {
             nanos += System.nanoTime() - t0;
         }

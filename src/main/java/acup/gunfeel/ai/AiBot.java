@@ -158,10 +158,12 @@ public final class AiBot {
             boolean focus = t.getId() == memory.focusId;
             boolean looked = primed != null && primed.in(t);
             int notice = Senses.look(voxels, smoke, mob, t, eyes(), focus, looked);
+            TargetMemory.Contact was = looked ? memory.contact(t.getId()) : null;
+            // (one it knew of is noticed again in half the time: one looked for, its least kept even so)
+            if (looked && notice >= 0 && was != null && was.state != TargetMemory.State.GLIMPSED) notice = Math.max(notice, 2 * Senses.PRIMED_MIN);
             // of one it does not aim at it saw one part, not which ones: all of it, as far as aiming goes (the chest,
             // with the wide band), till it deals with them and sees them whole
             if (notice >= 0) {
-                TargetMemory.Contact was = looked ? memory.contact(t.getId()) : null;
                 boolean before = was != null && was.state == TargetMemory.State.VISIBLE;
                 TargetMemory.Contact c = memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice);
                 c.parts = focus ? Senses.parts : Senses.WHOLE;
