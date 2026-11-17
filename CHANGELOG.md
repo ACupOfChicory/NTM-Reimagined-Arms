@@ -15,6 +15,9 @@
   turn dead, flowers, tall grass, saplings, crops, mushrooms and snow are
   gone, and uranium ore turns to schrabidium or scorched uranium ore. Wood is
   left unburnt.
+- NTM's ammo bags, the plain one and the infinite one, now take the mod's
+  rounds (the rubber slug, the electroshock shell, the Duplex rounds and the
+  nuclear .50), and guns reload them from the bag.
 
 ## X1459
 

@@ -172,7 +172,48 @@ final class NewAmmoStand {
         takes("gun_amat_subtlety", NuclearBmg.config(), true);
         takes("gun_amat_penance", NuclearBmg.config(), true);
         takes("gun_m2", NuclearBmg.config(), false);
+        ammoBag();
         wait(5, 10);
+    }
+
+    // NTM's ammo bags, the plain one and the infinite one, take each of the mod's rounds (not a stick), and an AMAT with
+    // none left reloads the nuclear .50 from either: the plain bag gives its rounds up, the infinite one keeps them
+    private static void ammoBag() {
+        for (String bagId : new String[] {"ammo_bag", "ammo_bag_infinite"}) {
+            boolean infinite = bagId.endsWith("infinite");
+            String r = onServer(p -> {
+                ItemStack bag = new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", bagId)));
+                p.getInventory().clearContent();
+                p.getInventory().setItem(8, bag);
+                var c = new com.hbm.inventory.ItemStackContainer(p, bag, com.hbm.items.tool.ItemAmmoBag.LAYOUT.slots());
+                var menu = new com.hbm.inventory.container.MenuItemBox(com.hbm.inventory.container.ModMenus.AMMO_BAG.get(), 0, p.getInventory(),
+                        com.hbm.items.tool.ItemAmmoBag.LAYOUT, c);
+                StringBuilder out = new StringBuilder();
+                for (String id : new String[] {"ammo_g12_rubber_slug", "ammo_g12_shock", "ammo_r556_duplex", "ammo_r762_duplex", "ammo_bmg50_nuclear"})
+                    out.append(menu.getSlot(0).mayPlace(new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("ntmgunfeel", id))))).append(' ');
+                out.append(menu.getSlot(0).mayPlace(new ItemStack(net.minecraft.world.item.Items.STICK))).append(' ');
+                menu.removed(p);
+                c.setItem(0, new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("ntmgunfeel", "ammo_bmg50_nuclear")), 4));
+                c.setChanged();
+                ItemStack gun = gun(p, "gun_amat", NuclearBmg.config(), 0);
+                ItemGunBaseNT g = (ItemGunBaseNT) gun.getItem();
+                var mag = g.getConfig(gun, 0).getReceivers(gun)[0].getMagazine(gun);
+                boolean can = mag.canReload(gun, p.getInventory());
+                mag.reloadAction(gun, p.getInventory());
+                int left = com.hbm.items.tool.ItemAmmoBag.contents(p.getInventory().getItem(8)).getItem(0).getCount();
+                out.append(can).append(' ').append(mag.getAmount(gun, p.getInventory())).append(' ').append(left);
+                p.getInventory().clearContent();
+                return out.toString();
+            });
+            log("сумка {}: кладутся резиновый, шок, Duplex 5.56, 7.62, ядерный, палка / перезарядка, патронов в AMAT, в сумке осталось из 4: {}", bagId, r);
+            String[] q = r.split(" ");
+            check(q[0].equals("true") && q[1].equals("true") && q[2].equals("true") && q[3].equals("true") && q[4].equals("true") && q[5].equals("false"),
+                    "сумка " + bagId + ": берёт все наши патроны, палку нет (" + r + ")");
+            int got = Integer.parseInt(q[7]), left = Integer.parseInt(q[8]);
+            check(q[6].equals("true") && got > 0 && (infinite ? left == 4 : left == 4 - got),
+                    "сумка " + bagId + ": AMAT перезаряжается ядерным из сумки, " + (infinite ? "в сумке патроны не убывают" : "из сумки ушло столько, сколько зарядилось")
+                            + " (" + r + ")");
+        }
     }
 
     private static void takes(String gun, BulletConfig c, boolean want) {

@@ -102,6 +102,8 @@ page. They are alphas: expect bugs and back up your world.
   clicks as if empty), and R does not swap them for another round while they
   are in it: take another type from the ammo wheel (Y). Its other rounds it
   fires as NTM has it, spread wide.
+- These rounds go into NTM's ammo bags, the plain and the infinite one, as
+  NTM's own do, and guns reload them from the bag.
 
 ### Hits
 
