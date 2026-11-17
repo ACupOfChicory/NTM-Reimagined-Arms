@@ -148,10 +148,75 @@ public final class MiniNukeCloud {
         return type == MINI || type == MINI_BALE;
     }
 
-    // the ticks a small cloud's shock ring grows (1.5 blocks a tick, NTM's bombs: 150 at any size): to about four
-    // times the blast's radius
+    // the ticks a small cloud's shock ring grows (1.5 blocks a tick as a bomb's, NTM's bombs: 150 at any size): to
+    // five times the blast's radius
     public static int shockTicks(double scale) {
-        return (int) Math.max(8, Math.min(150, Math.round(scale / SCALE_PER_BLOCK * 4 / 1.5)));
+        return (int) Math.max(8, Math.min(150, Math.round(scale / SCALE_PER_BLOCK * 5 / 1.5)));
+    }
+
+    // a shock ring puff's width and height at least, blocks: NTM's are the scale times 5 and 2, half a block at a Fat
+    // Mine's: specks of smoke on the ground, no ring to see (a bomb's are 5 blocks and more)
+    static final float SHOCK_WIDE = 2.5F, SHOCK_HIGH = 1F;
+
+    public static float shockWidth(float ntm) {
+        return Math.max(SHOCK_WIDE, ntm);
+    }
+
+    public static float shockHeight(float ntm) {
+        return Math.max(SHOCK_HIGH, ntm);
+    }
+
+    // NTM's shock ring is laid down a tick at a time at 1.5 blocks a tick more, its puffs going out at the scale times
+    // 0.25 a tick (still at a small one's) and living up to 400 ticks: under scale 1 the ring left behind fills its
+    // disc, smoke all over the ground and no ring to see. A small cloud's puffs ride the ring out at its own pace and
+    // live SHOCK_LIFE ticks: a band at its edge, the ground behind it clear
+    static final double SHOCK_PACE = 1.5;
+    static final int SHOCK_LIFE = 10;
+
+    // the motion NTM's shock puff is given (its own speed: the scale times 0.25) for it to go out SHOCK_PACE a tick
+    public static double shockMotion(double scale) {
+        return SHOCK_PACE / Math.max(1e-3, scale * 0.25);
+    }
+
+    public static int shockLife() {
+        return SHOCK_LIFE;
+    }
+
+    // the ground laid waste round a small blast out to this many times its radius (within it the crater is bare), and
+    // the passes made (the stand)
+    static final float WASTE_TIMES = 2F;
+    public static int wastePasses;
+
+    public static float wasteRadius(float blast) {
+        return blast * WASTE_TIMES;
+    }
+
+    private static Mark lastWaste;
+
+    // NTM's muke packet (MixinMiniNukeSend, before the blast or after it): the ground round the blast laid waste as a
+    // nuke's is (MiniWasteMutator: grass, leaves and plants dead or gone, uranium ore to schrabidium; logs, planks,
+    // doors and coal left), out to wasteRadius of the blast that sent it; a Tiny Tot volley once. One more pass of NTM's
+    // rays, no harm and no sound. Server key miniNukeWaste (true)
+    public static void waste(ServerLevel level, double x, double y, double z, boolean tiny) {
+        if (!ReaimTimes.flag("miniNukeWaste", true)) return;
+        long time = level.getGameTime();
+        if (tiny) {
+            Mark t = lastWaste;
+            if (t != null && t.in(level) && time - t.time <= MERGE_TICKS && time >= t.time) {
+                double dx = t.x - x, dz = t.z - z;
+                if (dx * dx + dz * dz <= MERGE_RANGE * MERGE_RANGE) return;
+            }
+            lastWaste = new Mark(level, x, y, z, TINY_VOLLEY_SIZE, time);
+        }
+        float size = tiny ? TINY_VOLLEY_SIZE : sizeAt(level, x, y, z, time);
+        // (the pass is an ExplosionVNT too: the blast's radius it would leave for the cloud's size kept as it was)
+        Mark kept = hint;
+        try {
+            MiniWasteMutator.apply(new com.hbm.explosion.vanillant.ExplosionVNT(level, x, y, z, wasteRadius(size))).explode();
+        } finally {
+            hint = kept;
+        }
+        wastePasses++;
     }
 
     // NTM's bomb at scale 1: its heat at the start (EntityNukeTorex.simulateTick: (int) (50 * s * s))
@@ -167,9 +232,11 @@ public final class MiniNukeCloud {
         return Math.max(1e-3, scale * scale * cooled);
     }
 
-    // the shock ring's puffs a tick at most (NTM's bombs: 100), fewer for a smaller cloud
+    // the shock ring's puffs a tick at most (NTM's bombs: 100), 60 at least: fewer and a ring is a spot
+    static final int SHOCK_PUFFS = 60;
+
     public static int shockPuffs(double scale) {
-        return (int) Math.max(8, Math.min(100, Math.round(100 * scale / 0.25)));
+        return (int) Math.max(SHOCK_PUFFS, Math.min(100, Math.round(100 * scale / 0.25)));
     }
 
     // client: the colours of NTM's types 0 and 1 (EntityNukeTorex.Cloudlet.updateColor) under the mod's two types
