@@ -133,6 +133,8 @@ public final class AiEntry {
      */
     static final int SLICE_POINTS = 4, SLICE_DWELL = 10, SLICE_MAX = 160, SLICE_NEW = 2;
     static final double SLICE_FAR = 6;
+    /** where none is off the opening's line, a look from on it (off: the stands found it costs more than it shows) */
+    static final boolean SLICE_LINE = false;
     /** the server setting: the opening looked into from round it before they go in */
     public static final String SLICE_KEY = "aiEntrySlice";
     /** off only for the stands' "before" */
@@ -519,9 +521,8 @@ public final class AiEntry {
      * The slicing's places for those of the stack at each end of the opening (one a side): from where on the outer
      * side, SLICE_FAR blocks off at most, the room's cells are seen through it, picked so each shows SLICE_NEW or more
      * none before did, gone through from the widest angle to the nearest the opening's line; the gun at each on what it
-     * shows first. Where none is off the opening's line (a passage along the wall it is in), the head of the stack looks
-     * in from the one place on it that shows most, a moment. False when there is none to do (a turn, a big room, nothing
-     * seen from round it).
+     * shows first. Where none is off the opening's line (a passage along the wall it is in): none (SLICE_LINE). False
+     * when there is none to do (a turn, a big room, nothing seen from round it).
      */
     private static boolean slice(Op op, ServerLevel level) {
         AiRooms.Plan plan = op.plan;
@@ -540,7 +541,9 @@ public final class AiEntry {
             sides[side + 1] = true;
             arc(op, level, b, side, SLICE_POINTS);
         }
-        if (op.slicers.isEmpty()) arc(op, level, op.members.get(0), 0, 1);
+        // (none off the opening's line, as in a passage along its wall: none, not a look from the line, the lane of fire of
+        // those in there; looked into so on the stands, more fell by it, none in there was seen more)
+        if (op.slicers.isEmpty() && SLICE_LINE) arc(op, level, op.members.get(0), 0, 1);
         op.arcAt = new int[op.slicers.size()];
         op.arcSince = new long[op.slicers.size()];
         java.util.Arrays.fill(op.arcSince, Long.MIN_VALUE);
