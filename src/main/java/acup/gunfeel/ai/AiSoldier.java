@@ -574,7 +574,7 @@ public final class AiSoldier implements AiBrain {
         else if (c != null && c.state == TargetMemory.State.SEARCH) {
             // waiting its turn while two of its side search for it: it keeps it in mind meanwhile (not one holding
             // back, nor one kept back for another reason: those forget it as before)
-            if (!bot.confidence.holdsBack(tick) && AiSquads.othersHunt(bot, c.id)) bot.memory.keep(c, tick);
+            if (!bot.confidence.holdsBack(tick) && AiSquads.othersHunt(bot, c.id)) bot.memory.waitKeep(c, tick);
             hold(bot, level, c, tick);
         }
         // knows of no one, a foe it knew of fallen in a building a moment ago: in and through its rooms (there may be more)

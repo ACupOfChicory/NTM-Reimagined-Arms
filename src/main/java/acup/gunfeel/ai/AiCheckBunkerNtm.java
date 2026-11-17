@@ -262,6 +262,8 @@ final class AiCheckBunkerNtm {
                 for (int dy = -1; dy <= 1; dy++) {
                     BlockPos feet = new BlockPos(bx + dx, by + dy, bz + dz);
                     if (level.getBlockState(feet.below()).getCollisionShape(level, feet.below()).isEmpty()) continue;
+                    // (not in the ladder's column: the next of its own would hang on the rungs over it)
+                    if (level.getBlockState(feet).is(net.minecraft.tags.BlockTags.CLIMBABLE)) continue;
                     double x = feet.getX() + 0.5, z = feet.getZ() + 0.5;
                     if (!level.noCollision(new net.minecraft.world.phys.AABB(x - 0.3, feet.getY(), z - 0.3, x + 0.3, feet.getY() + 1.95, z + 0.3))) continue;
                     out.add(new Vec3(x, feet.getY(), z));
