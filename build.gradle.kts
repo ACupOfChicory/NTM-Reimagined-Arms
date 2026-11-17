@@ -295,6 +295,8 @@ neoForge {
             providers.gradleProperty("suitBendStand").orNull?.let { systemProperty("ntmgunfeel.suitBendStand",it.ifEmpty { "all" }) }
             // -PbotHandStand: only the layer armour at the hands, the agent against the player (BotHandStand)
             if(providers.gradleProperty("botHandStand").isPresent) systemProperty("ntmgunfeel.botHandStand","true")
+            // -PbotFeelStand: only how the body moves, frame by frame (BotFeelStand): <name>-feel.tsv, <name>-feel-ticks.tsv
+            if(providers.gradleProperty("botFeelStand").isPresent) systemProperty("ntmgunfeel.botFeelStand","true")
             systemProperty("ntmgunfeel.suitBendNoBand",providers.gradleProperty("suitBendNoBand").isPresent.toString())
             // -PbotStandJfr: a flight recording of the run beside its table
             if(providers.gradleProperty("botStandJfr").isPresent) jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/ai/bot-stand/$label.jfr").path},settings=profile,dumponexit=true")
