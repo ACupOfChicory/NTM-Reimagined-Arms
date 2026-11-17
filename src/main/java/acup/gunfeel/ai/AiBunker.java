@@ -604,12 +604,13 @@ public final class AiBunker {
 
     /**
      * Whether a burst here harms none of the thrower's own: in the bunker's room; the thrower back at its place beside
-     * the slit, all of it behind the wall from there; any other of its side out of its reach or behind blocks.
+     * the slit, all of it behind the wall from there; any other of its side out of the reach its blast hurts in
+     * (AiEntry.HE_HURTS) or behind blocks (and held there till the burst: holds).
      */
     private static boolean safe(Op op, ServerLevel level, VoxelRay.Source src, Mob thrower, Vec3 b) {
         if (op.plan.room(BlockPos.asLong(Mth.floor(b.x), op.slit.y, Mth.floor(b.z))) == AiRooms.OUTSIDE) return false;
         if (!shielded(src, op.side, thrower, b)) return false;
-        double s2 = AiEntry.HE_SAFE * AiEntry.HE_SAFE;
+        double s2 = AiEntry.HE_HURTS * AiEntry.HE_HURTS;
         for (AiBot o : AiBots.bots(level)) {
             if (o.mob == thrower || !o.mob.isAlive() || !AiTeams.own(thrower, o.mob)) continue;
             if (o.mob.distanceToSqr(b) < s2 && !AiGrenades.shielded(src, o.mob.getX(), o.mob.getY(), o.mob.getZ(), o.mob.getBbHeight(), b)) return false;
@@ -624,6 +625,27 @@ public final class AiBunker {
         return AiGrenades.shielded(src, BlockPos.getX(cell) + 0.5, BlockPos.getY(cell), BlockPos.getZ(cell) + 0.5, m.getDimensions(Pose.STANDING).height(), burst, false);
     }
 
+    /**
+     * Another of the side of a thrower at a slit whose grenade is in, not burst yet (not the thrower, nor one of an
+     * entry or a way down a shaft going on): in the reach its blast hurts in, all of it behind blocks from the burst
+     * where it stands, in no slit's wedge (there it steps aside: aside). It stays there till the burst, as by an
+     * entry's grenade (AiEntry.holds); in the open there it runs (keeps, AiSoldier.dodge).
+     */
+    static boolean holds(AiBot bot, ServerLevel level) {
+        PerLevel l = LEVELS.get(level);
+        if (l == null || l.ops.isEmpty()) return false;
+        Op op = l.ops.get(AiSquads.team(bot));
+        if (op == null || op.phase != WAIT || op.thrower == bot || AiEntry.going(bot, level) || AiHatch.going(bot)) return false;
+        Entity g = level.getEntity(op.fragId);
+        if (g == null || g.isRemoved()) return false;
+        Vec3 b = AiGrenades.predicted(level, g);
+        if (b == null && op.ready != null) b = op.ready.burst();
+        if (b == null) return false;
+        Mob m = bot.mob;
+        return m.distanceToSqr(b) < AiEntry.HE_HURTS * AiEntry.HE_HURTS && AiGrenades.shielded(AiBots.voxels(level), m.getX(), m.getY(), m.getZ(), m.getBbHeight(), b)
+                && !inWedge(level, bot, level.getGameTime());
+    }
+
     /** whether this is its side's grenade in through a slit and it the thrower (back beside the slit) or out of its harm: it does not run */
     static boolean keeps(ServerLevel level, AiBot bot, int grenade, Vec3 burst, VoxelRay.Source src) {
         PerLevel l = LEVELS.get(level);
@@ -631,7 +653,7 @@ public final class AiBunker {
         for (Op op : l.ops.values()) {
             if (op.fragId != grenade) continue;
             if (op.thrower == bot) return bot.mob.distanceToSqr(mid(op.side, 0)) < 0.5 && shielded(src, op.side, bot.mob, burst);
-            return bot.mob.distanceToSqr(burst) >= AiEntry.HE_SAFE * AiEntry.HE_SAFE
+            return bot.mob.distanceToSqr(burst) >= AiEntry.HE_HURTS * AiEntry.HE_HURTS
                     || AiGrenades.shielded(src, bot.mob.getX(), bot.mob.getY(), bot.mob.getZ(), bot.mob.getBbHeight(), burst);
         }
         return false;

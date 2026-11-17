@@ -8,6 +8,20 @@
   doorway and throws, and one handed the grenade does too. Before, the
   squad often went in without one.
 
+## X1557
+
+- AI soldiers turn smoothly: their body comes round after the head and the
+  gun in an easy sweep instead of snapping a quarter turn at a time, and
+  standing still their feet stay planted while they turn and step round
+  one at a time rather than sliding over the ground.
+
+## X1552
+
+- AI soldiers keep clear of the whole blast of a grenade one of their squad
+  throws in through a bunker's slit or drops down a shaft, not just its
+  nearest part. Squad mates behind a wall from the slit's grenade wait
+  there until it goes off instead of walking on into the open.
+
 ## X1547
 
 - An AI squad gathering beside a doorway no longer stands where a foe inside

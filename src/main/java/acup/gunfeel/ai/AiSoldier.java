@@ -522,8 +522,9 @@ public final class AiSoldier implements AiBrain {
             shelter(bot, shelter, c, tick);
             return;
         }
-        // another of its side's entry's grenade out, it behind blocks from the burst in its reach: it stays where it is (AiEntry)
-        if (AiEntry.on() && AiEntry.holds(bot, level)) {
+        // another of its side's entry's grenade out (or one in through a bunker's slit), it behind blocks from the burst in its
+        // reach: it stays where it is (AiEntry, AiBunker)
+        if (AiEntry.on() && AiEntry.holds(bot, level) || AiBunker.holds(bot, level)) {
             shelter(bot, Long.MIN_VALUE, c, tick);
             return;
         }
