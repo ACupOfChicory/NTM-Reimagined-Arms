@@ -1,5 +1,12 @@
 # Changelog
 
+## X1403
+
+- An AI squad that has gone round a held shaft by another way now takes the
+  room at the end of it by its room drill: it stacks up beside the way in,
+  throws a grenade in and goes in together, instead of walking into the
+  doorway one after another.
+
 ## X1401
 
 - AI squads: a pinning-and-flanking pair that is made again (the squads swapping roles, one sent to scout and

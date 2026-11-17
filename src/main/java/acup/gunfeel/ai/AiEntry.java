@@ -183,6 +183,18 @@ public final class AiEntry {
         }
     }
 
+    /** whether an entry has (or would have) a way into the room the target was lost in: it goes in by its drill (AiHatch's way round hands over here) */
+    static boolean wayIn(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
+        if (!on()) return false;
+        try {
+            Op op = find(bot, level, c, tick);
+            return op.way != null && op.phase != OVER;
+        } catch (RuntimeException e) {
+            failed(bot, level, c, tick, e);
+            return false;
+        }
+    }
+
     private static Op find(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
         Map<Long, Op> ops = OPS.computeIfAbsent(level, l -> new HashMap<>());
         long key = key(bot, c), lost = cell(c.lostX, c.lostY, c.lostZ);
