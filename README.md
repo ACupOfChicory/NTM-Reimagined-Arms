@@ -355,7 +355,10 @@ page. They are alphas: expect bugs and back up your world.
   One of them steps out before the doorway first and throws a grenade in,
   then steps back behind the wall; they go in after it bursts. It is thrown
   only where the burst reaches none of their own (server keys
-  `aiEntryGrenade`, `aiEntryGrenadeFilling`).
+  `aiEntryGrenade`, `aiEntryGrenadeFilling`). Before going in they look in
+  from round the doorway where there is room to, stepping out wide and
+  closing in, guns on the edge of what comes into view by the doorway's wall
+  (server key `aiEntrySlice`).
 - They point at a target they call out, wave their own on, put a hand to a
   door they open and hold the gun close beside a doorway (server key
   `aiGestures`).
