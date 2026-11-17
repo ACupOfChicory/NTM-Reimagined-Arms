@@ -31,8 +31,11 @@ final class AiCheckSupply {
     static final int X0 = 920, Z0 = 4, SIZE = 48, QUIET = 500, FIGHT = 2400, QUIET_ROUNDS = 4, FALLEN_ROUNDS = 2, FIGHT_ROUNDS = 12, OUT_ROUNDS = 4, RED_ROUNDS = 2, ROUNDS = 24, OUT_TICKS = 1200, RED_TICKS = 2400, SQUAD = 4, SIDE = 5;
     /** the supplier falls at this tick of a round of the fallen */
     static final int FALLS = 20;
-    /** the red rounds: back with its supplier, sent on again (none at red) this soon at most; without, its staff's wait and this; ticks */
-    static final int SUPPLIED = 1000, RED_SLACK = 200;
+    /**
+     * the red rounds: back no longer than its staff's wait for rounds (AiCommander.RED_WAIT) and this, with its supplier
+     * or without (with: most often a few hundred ticks; one of it at red split off from its supplier waits the time out); ticks
+     */
+    static final int RED_SLACK = 200;
     static final Identifier GUN = Identifier.fromNamespaceAndPath("hbm", "gun_carbine");
     static final double[][] QUIET_AT = {{940.5, 26.5}, {944.5, 24.5}, {947.5, 29.5}, {943.5, 31.5}};
     static final int[][] WALLS = {{930, 18, 933}, {938, 18, 941}, {947, 18, 950}, {955, 18, 958}, {930, 34, 933}, {938, 34, 941}, {947, 34, 950}, {955, 34, 958},
@@ -44,8 +47,8 @@ final class AiCheckSupply {
     private boolean started;
     private int round = -1, ticks;
     private final List<Mob> ours = new ArrayList<>(), theirs = new ArrayList<>(), full = new ArrayList<>();
-    /** the red rounds: first look falling back, first after it not, at red then (the supplier aside), back again after */
-    private int firstBack, exitAt, redAtExit, backAgain;
+    /** the red rounds: the first and the last look with one of ours falling back, ours at red at the last look (the supplier aside) */
+    private int firstBack, lastBack, redEnd;
     private int runsBefore, gaveUpBefore, magsBefore, grenadesBefore, smokesBefore, leftBefore, takenBefore, outsBefore;
     private long ourTicks, shortTicks, noGrenadeTicks, dryTicks, fallTicks;
     private int supplierTicks;
@@ -123,10 +126,8 @@ final class AiCheckSupply {
                 if (b.assigned != AiRole.SUPPLIER && AiCommander.red(b)) atRed++;
             }
             if (back && firstBack < 0) firstBack = ticks;
-            else if (!back && firstBack >= 0 && exitAt < 0) {
-                exitAt = ticks;
-                redAtExit = atRed;
-            } else if (back && exitAt >= 0 && backAgain < 0) backAgain = ticks;
+            if (back) lastBack = ticks;
+            redEnd = atRed;
         }
         boolean over = red() ? ticks >= RED_TICKS || left == 0 : fight() ? ticks >= FIGHT || left == 0 || foes == 0 : out() ? ticks >= OUT_TICKS || left == 0 || foes == 0 : ticks >= (fallen() ? 2 * QUIET : QUIET);
         if (!over) return false;
@@ -154,7 +155,7 @@ final class AiCheckSupply {
         results.add(new int[] {round % 2, kind(), left, foes, ticks, withMag, withGrenade, withSmoke, AiSupply.runs - runsBefore, AiSupply.gaveUp - gaveUpBefore,
                 AiSupply.mags - magsBefore, AiSupply.grenades - grenadesBefore, AiSupply.smokes - smokesBefore, (int) (1000 * shortTicks / n), (int) (1000 * noGrenadeTicks / n),
                 (int) (1000 * dryTicks / n), thrown, stock, heirs, AiSupply.left - leftBefore, AiSupply.taken - takenBefore,
-                (int) (1000L * fallTicks / n), fallBacks, ourOuts() - outsBefore, firstBack, exitAt, redAtExit, backAgain});
+                (int) (1000L * fallTicks / n), fallBacks, ourOuts() - outsBefore, firstBack, lastBack, redEnd, 0});
         if (fight()) {
             StringBuilder why = new StringBuilder();
             String[] names = {"not free itself", "no squad", "none short", "one short out in sight", "too far", "given to lately"};
@@ -207,7 +208,7 @@ final class AiCheckSupply {
         round = r;
         ticks = 0;
         ourTicks = shortTicks = noGrenadeTicks = dryTicks = fallTicks = 0;
-        firstBack = exitAt = redAtExit = backAgain = -1;
+        firstBack = lastBack = redEnd = -1;
         supplierTicks = 0;
         System.arraycopy(AiSupply.idle, 0, idleBefore, 0, 6);
         AiSupply.on = red() || out() || r % 2 == 1;
@@ -283,8 +284,8 @@ final class AiCheckSupply {
             n[r[1]][r[0]]++;
             for (int k = 2; k < r.length; k++) sum[r[1]][r[0]][k] += r[k];
             if (r[1] == 4)
-                check.out(String.format(Locale.ROOT, "     supply, round %d, a squad at red, %s: falling back from tick %d, sent on again at %d (at red then %d), back again at %d;"
-                        + " handed over %d magazines", i + 1, r[0] == 1 ? "with its supplier" : "no supplier", r[24], r[25], r[26], r[27], r[10]));
+                check.out(String.format(Locale.ROOT, "     supply, round %d, a squad at red, %s: falling back from tick %d to %d, at red at the end %d; handed over %d magazines",
+                        i + 1, r[0] == 1 ? "with its supplier" : "no supplier", r[24], r[25], r[26], r[10]));
             else if (r[1] == 3)
                 check.out(String.format(Locale.ROOT, "     supply, round %d, four out of rounds against four, %s: left %d of ours, %d of theirs, %d ticks; ours falling back %.1f%% of their ticks,"
                         + " fell back %d times; dry %.1f%%; the squad found out of rounds %d times", i + 1, outNames[r[0]], r[2], r[3], r[4], r[21] / 10.0, r[22], r[15] / 10.0, r[23]));
@@ -338,12 +339,13 @@ final class AiCheckSupply {
             if (r[0] == 1) withS = r;
             else without = r;
         }
-        check.check(String.format(Locale.ROOT, "supply: a squad at red with its supplier falls back, is filled and is sent on again within %d ticks, none of it at red then (%s)", SUPPLIED,
-                withS == null ? "not run" : "back at " + withS[24] + ", on at " + withS[25] + ", at red " + withS[26]),
-                withS != null && withS[24] >= 0 && withS[25] >= 0 && withS[25] - withS[24] <= SUPPLIED && withS[26] == 0);
-        check.check(String.format(Locale.ROOT, "supply: a squad at red with no supplier falls back and within %d ticks fights with what it has, not back again for it (%s)",
-                AiCommander.RED_WAIT + RED_SLACK, without == null ? "not run" : "back at " + without[24] + ", on at " + without[25] + ", back again at " + without[27]),
-                without != null && without[24] >= 0 && without[25] >= 0 && without[25] - without[24] <= AiCommander.RED_WAIT + RED_SLACK && without[27] < 0);
+        check.check(String.format(Locale.ROOT, "supply: a squad at red with its supplier falls back, is filled (a portion each of the three at least) and is back no longer than %d ticks,"
+                + " none at red at the end (%s)", AiCommander.RED_WAIT + RED_SLACK,
+                withS == null ? "not run" : "back from " + withS[24] + " to " + withS[25] + ", " + withS[10] + " magazines, at red " + withS[26]),
+                withS != null && withS[24] >= 0 && withS[25] - withS[24] <= AiCommander.RED_WAIT + RED_SLACK && withS[10] >= 3 * AiSupply.PORTION && withS[26] == 0);
+        check.check(String.format(Locale.ROOT, "supply: a squad at red with no supplier falls back, and %d ticks on fights with what it has, back no more for it (%s)",
+                AiCommander.RED_WAIT + RED_SLACK, without == null ? "not run" : "back from " + without[24] + " to " + without[25]),
+                without != null && without[24] >= 0 && without[25] - without[24] <= AiCommander.RED_WAIT + RED_SLACK);
         return true;
     }
 }

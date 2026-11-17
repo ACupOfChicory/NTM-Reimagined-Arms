@@ -49,6 +49,8 @@ public final class AiBot {
     /** the group of enemies it gave up looking for (its members' ids), not again before this tick */
     int @Nullable [] orderFailed;
     long orderFailedUntil = Long.MIN_VALUE;
+    /** at red (AiCommander.red) since, as its staff last looked; Long.MIN_VALUE: not */
+    long redFrom = Long.MIN_VALUE;
     /** the fallen supplier's stock it goes for (AiSupply) */
     AiSupply.@Nullable Left supplyFetch;
     long supplyAt, supplyNext = Long.MIN_VALUE;

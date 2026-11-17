@@ -63,7 +63,7 @@ public final class AiCommander {
     static final int LOOK = 20, ASKED_GAP = 20, PIN_AFTER = 60, PIN_QUIET = 100;
     /** one that broke contact stays back this long after it was pinned down (C5), ticks */
     static final int REST = 1200;
-    /** a squad back for its rounds with none brought it this long fights with what it has (AiCommander.red); ticks */
+    /** a soldier at red with none brought it this long fights with what it has: its squad not out for it; ticks */
     static final int RED_WAIT = 1200;
     static final float SUPPRESSED = 0.5F;
     /** a report's answer (the orders given again after it): ticks in all, how many, the longest (the stands') */
@@ -229,8 +229,6 @@ public final class AiCommander {
          * reported (1 a third, 2 half); pinned down: most of it suppressed since, pinned since (reported), alive then
          */
         boolean saidContact, saidAmmo, saidThere, saidBlocked;
-        /** out of rounds (most of it at red) since; Long.MIN_VALUE: not */
-        long redFrom = Long.MIN_VALUE;
         /** falling back pinned down (C5): it breaks contact, smoke first (AiSoldier) */
         boolean breaking;
         /** given to help a squad of its side pinned down by the same group (C5: going round it or pinning it too) */
@@ -560,7 +558,13 @@ public final class AiCommander {
                 sz += b.mob.getZ() / s.bots.size();
                 if (!b.mob.isAlive()) continue;
                 alive++;
-                if (supply && red(b)) out++;
+                if (!supply || !red(b)) b.redFrom = Long.MIN_VALUE;
+                else {
+                    // at red, and none brought it RED_WAIT: it fights with what it has (its squad is not out for it,
+                    // however the squads are made again meanwhile)
+                    if (b.redFrom == Long.MIN_VALUE) b.redFrom = now;
+                    if (now - b.redFrom < RED_WAIT) out++;
+                }
                 // its strength: one with no round besides its gun's at a third (red, a magazine left, still fights)
                 boolean empty = supply && !b.gunner.ammo.infinite() && b.gunner.ammo.reserve() <= 0 && b.gunner.capacity() > 0;
                 strength += StaffPlan.weight(AiRole.of(b).ordinal()) * Math.min(1, b.mob.getHealth() / b.mob.getMaxHealth()) * (empty ? 0.3 : 1);
@@ -569,15 +573,9 @@ public final class AiCommander {
                 all++;
             }
             Job job = job(s, now);
-            // out of rounds: most of it at red; once so, till none of it is (one filled by its supplier is no reason to
-            // send it on while the rest are still at red: it would only fall back again). With no rounds brought it
-            // RED_WAIT, it fights with what it has: not out for them again till none of it is at red
-            boolean outOf = out * 2 > alive;
-            if (job != null) {
-                if (out == 0) job.redFrom = Long.MIN_VALUE;
-                else if (job.redFrom == Long.MIN_VALUE && outOf) job.redFrom = now;
-                outOf = job.redFrom != Long.MIN_VALUE && now - job.redFrom < RED_WAIT;
-            }
+            // out of rounds: most of it at red; once back, till none of it is (one filled by its supplier is no reason
+            // to send it on while the rest are still at red: it would only fall back again)
+            boolean outOf = out * 2 > alive || out > 0 && job != null && job.kind == StaffPlan.Kind.BACK;
             // a squad split on the way: the squad before it with the same task (the plan gives them one)
             int twin = job == null ? -1 : jobs.indexOf(job);
             jobs.add(job);
@@ -1008,7 +1006,6 @@ public final class AiCommander {
             job.saidContact = had.saidContact;
             job.noFoeFrom = had.noFoeFrom;
             job.saidAmmo = had.saidAmmo;
-            job.redFrom = had.redFrom;
             // falling back, the losses counted from the same soldiers
             if (job.bots == had.bots) job.saidLosses = had.saidLosses;
             job.pinFrom = had.pinFrom;
