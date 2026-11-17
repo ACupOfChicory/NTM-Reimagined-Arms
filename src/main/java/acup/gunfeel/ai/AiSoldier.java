@@ -498,6 +498,8 @@ public final class AiSoldier implements AiBrain {
         // on its side's way down a shaft, on the ladder: on down whatever it sees, firing (no cover on a ladder) (AiHatch)
         if (AiHatch.onLadder(this, bot, level, tick)) return;
         TargetMemory.Contact c = bot.memory.focus(bot.mob.getX(), bot.mob.getZ());
+        // a new foe in sight: the building fought in before is no more what it goes after
+        if (c != null && c.state == TargetMemory.State.VISIBLE) bot.fought = null;
         TargetMemory.Noise n = bot.memory.noise();
         // a burst at the place for those on the move goes on only while the decision below is that again
         boolean wasSuppressing = suppressing;
@@ -558,6 +560,11 @@ public final class AiSoldier implements AiBrain {
         else if (c != null && c.state == TargetMemory.State.SEARCH && (mode == Mode.SEARCH || AiSquads.mayHunt(bot, c.id) && !bot.confidence.holdsBack(tick)))
             search(bot, level, c, tick);
         else if (c != null && c.state == TargetMemory.State.SEARCH) hold(bot, level, c, tick);
+        // knows of no one, a foe it knew of fallen in a building a moment ago: in and through its rooms (there may be more)
+        // (as one going after a lost target: no more than HUNTERS of its side, its base of fire, marksman, grenadier and
+        // one holding back stay)
+        else if (c == null && bot.fought != null && !bot.confidence.holdsBack(tick) && (why == Why.FOUGHT || AiSquads.mayHunt(bot, bot.fought.id)) && fought(bot, level, tick)) {
+        }
         else if (n != null) alert(bot, level, n, tick);
         // knows of no one: its side's commander's order, if it has one (AiCommander)
         else if (ordered(bot, level, tick)) {
@@ -1900,6 +1907,62 @@ public final class AiSoldier implements AiBrain {
             bot.gunner.fire(true);
         } else bot.gunner.fire(false);
     }
+
+    /** a building a foe fell in is gone through this long after at most, ticks */
+    static final int FOUGHT_MAX = 1200;
+
+    /**
+     * Knows of no one, a foe its squad knew of fell in a building (AiBot.fought): the room it fell in by the room drill
+     * (AiEntry: beside the way in, a grenade in where that is safe, in together), then the building's rooms
+     * (AiClearing), that building's only; false when that is over (all checked, too long ago) or there is none.
+     */
+    /** whether this one goes through a building a foe fell in, the foe this one (AiClearing's and AiSquads' counts) */
+    static boolean fights(AiBot b, int target) {
+        return b.fought != null && b.fought.id == target && b.brain instanceof AiSoldier o && o.why == Why.FOUGHT;
+    }
+
+    private boolean fought(AiBot bot, ServerLevel level, long tick) {
+        TargetMemory.Contact c = bot.fought;
+        if (c == null) return false;
+        if (tick - c.lostTick > FOUGHT_MAX) {
+            bot.fought = null;
+            return false;
+        }
+        Vec3 door = AiEntry.on() ? AiEntry.step(this, bot, level, c, tick) : null;
+        long room = door == null && AiClearing.on() ? AiClearing.step(bot, level, c, bot.clearedFor(c), tick) : AiClearing.NONE;
+        if (door == null && room == AiClearing.NONE) {
+            // (a moment for the sweep's plan; then over)
+            if (tick - c.lostTick > FOUGHT_SETTLE) bot.fought = null;
+            return false;
+        }
+        if (mode != Mode.SEARCH) {
+            drop(bot);
+            bot.mover.stop();
+            searchCell = Long.MIN_VALUE;
+        }
+        mode(Mode.SEARCH, tick);
+        why = Why.FOUGHT;
+        bot.gunner.fire(false);
+        if (door != null) {
+            searchCell = Long.MIN_VALUE;
+            watch = door;
+            bot.gunner.aim(door);
+            return true;
+        }
+        if (!bot.mover.goalIs(room)) {
+            searchSpots++;
+            bot.mover.costs(PathSearch.Cost.NONE);
+            bot.mover.goTo(room, 0.6, WALK);
+        }
+        searchCell = room;
+        Vec3 way = AiClearing.door(bot, level, c);
+        watch = way != null ? way : new Vec3(BlockPos.getX(room) + 0.5, BlockPos.getY(room) + 1.1, BlockPos.getZ(room) + 0.5);
+        bot.gunner.aim(watch);
+        return true;
+    }
+
+    /** a building fought in with no entry nor sweep there yet this soon after: looked at again, not given up */
+    static final int FOUGHT_SETTLE = 40;
 
     /** slowly through the cells round where they were lost that it cannot see, nearest first */
     private void search(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {

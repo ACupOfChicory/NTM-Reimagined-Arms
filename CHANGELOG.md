@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- An AI squad that shoots down an enemy it knew of inside a building no
+  longer stops there: those nearby clear that building all the same, as
+  there may be more inside. They stack up by the way in and go in together;
+  a grenade goes in first only if the room is small enough for it to cover
+  and none of their own side is in it. A new enemy in sight comes first.
+- An AI squad that had thrown a grenade into a room no longer waits beside
+  the way in for good when all of it took part in the entry.
+
 ## X1408
 
 - An AI soldier that lost sight of an enemy no longer forgets it while it
