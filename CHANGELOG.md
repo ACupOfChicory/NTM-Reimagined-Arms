@@ -7,6 +7,9 @@
   the same.
 - The 12 gauge electroshock shell now takes three tantalum capacitors and a
   gold coil in the ammo press instead of a capacitor and a copper coil.
+- An AI soldier's armour now keeps radiation out as a player's does. NTM let
+  all of it through to a soldier, as to any mob, so one in a full DNS set died
+  within seconds by a nuclear .50's blast. Other mobs are as before.
 
 ## X1459
 

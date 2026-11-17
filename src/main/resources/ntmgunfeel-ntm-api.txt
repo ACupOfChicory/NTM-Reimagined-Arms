@@ -1075,6 +1075,7 @@ MOB_AI field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 MOB_AI field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
 MOB_AI method com/hbm/client/render/ArmorWorldRenderer$Bone name ()Ljava/lang/String;
 MOB_AI method com/hbm/entity/projectile/EntityThrowableNT setThrowableHeading (DDDFF)V
+MOB_AI method com/hbm/handler/HazmatRegistry getResistance (Lnet/minecraft/world/entity/LivingEntity;)F
 MOB_AI method com/hbm/interfaces/injected/IBufferBuilderExtension hbm$beginBlock (I)Z
 MOB_AI method com/hbm/interfaces/injected/IBufferBuilderExtension hbm$blockVertex (FFFIFFIIFFF)V
 MOB_AI method com/hbm/interfaces/injected/IBufferBuilderExtension hbm$endBlock ()V
@@ -1178,6 +1179,8 @@ NUCLEAR_BMG50 method com/hbm/explosion/vanillant/ExplosionVNT setPlayerProcessor
 NUCLEAR_BMG50 method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth <init> (DF)V
 NUCLEAR_BMG50 method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth withRangeMod (F)Lcom/hbm/explosion/vanillant/standard/EntityProcessorCross;
 NUCLEAR_BMG50 method com/hbm/explosion/vanillant/standard/PlayerProcessorStandard <init> ()V
+NUCLEAR_BMG50 method com/hbm/extprop/HbmLivingProps getRadiation (Lnet/minecraft/world/entity/LivingEntity;)D
+NUCLEAR_BMG50 method com/hbm/handler/radiation/RadiationSystemNT doseAt (Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;)D
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/BulletConfig <init> ()V
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/BulletConfig setCasing (Lcom/hbm/items/EnumCasingType;I)Lcom/hbm/items/weapon/sedna/BulletConfig;
 NUCLEAR_BMG50 method com/hbm/items/weapon/sedna/BulletConfig setCasing (Lcom/hbm/particle/SpentCasing;)Lcom/hbm/items/weapon/sedna/BulletConfig;
@@ -1215,6 +1218,7 @@ NUCLEAR_BMG50 method com/hbm/particle/SpentCasing setScale (F)Lcom/hbm/particle/
 NUCLEAR_BMG50 method com/hbm/registration/NeoForgeRegistrar registerItem (Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Supplier;)Lcom/hbm/registration/RegistryHandle;
 NUCLEAR_BMG50 method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 NUCLEAR_BMG50 method com/hbm/saveddata/satellites/SatelliteDetector reportEvent (Lnet/minecraft/server/level/ServerLevel;ILcom/hbm/saveddata/satellites/SatelliteDetector$BurstIntensity;DD)V
+NUCLEAR_BMG50 method com/hbm/util/ContaminationUtil calculateRadiationMod (Lnet/minecraft/world/entity/LivingEntity;)D
 PRONE class com/hbm/client/Keybinds
 PRONE class com/hbm/entity/projectile/EntityBulletBaseMK4
 PRONE class com/hbm/items/weapon/sedna/ItemGunBaseNT

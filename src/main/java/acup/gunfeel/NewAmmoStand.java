@@ -52,7 +52,8 @@ import net.minecraft.world.phys.Vec3;
 //    one at 4 untouched (slowed, so the walk below is short); a cow is pushed 1.5 to 5 blocks back; the player hit by a mannequin's slug is slowed, its
 //    client confused, and holding the forward key it goes backwards then, forwards again after;
 //  - nuclear: three of the AMAT's shots at a stone wall 40 blocks off wear it out (wear = durability, not after two),
-//    the wall stands whole, a zombie by it is hurt.
+//    the wall stands whole, a zombie by it is hurt; by the wall after them an AI soldier in DNS takes almost no
+//    radiation in 10 seconds (as a player in DNS), one bare and a plain husk in DNS take it as NTM gives a mob;
 // Lines "[new-ammo-stand] ..." in the log, PASS/FAIL in the report.
 final class NewAmmoStand {
     static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.newAmmoStand");
@@ -69,6 +70,10 @@ final class NewAmmoStand {
     private static double zFrom;
     private static Vec3 cowAt;
     private static int wallBefore;
+    /** the radiation's mobs by the wall (nuclearRadiation), the dose there, how long they stand */
+    private static Mob radDns, radBare, radPlain;
+    private static double radDose;
+    private static final int RAD_TICKS = 200;
     private static double backZ, fwdZ;
 
     private NewAmmoStand() {
@@ -127,6 +132,7 @@ final class NewAmmoStand {
                 case 51 -> nuclearFire(1);
                 case 52 -> nuclearFire(2);
                 case 53 -> nuclearAfter();
+                case 54 -> nuclearRadiation();
                 case 60 -> {
                     onServer(p -> {
                         RubberServer.clear();
@@ -517,9 +523,48 @@ final class NewAmmoStand {
         check(hurt, "ядерный: зомби у стены задет взрывом");
         onServer(p -> {
             if (guard.isAlive()) guard.discard();
+            // the radiation the three shots left by the wall: a soldier in DNS, one bare, a plain husk in DNS
+            ServerLevel level = (ServerLevel) p.level();
+            double z = O.getZ() + WALL_Z - 9.5;
+            radDns = mob(p, EntityTypes.HUSK, EX - 2, z, true, 500);
+            radBare = mob(p, EntityTypes.HUSK, EX, z, true, 500);
+            radPlain = mob(p, EntityTypes.HUSK, EX + 2, z, true, 500);
+            for (Mob m : new Mob[] {radDns, radPlain}) dns(m);
+            acup.gunfeel.ai.AiBots.attach(radDns, acup.gunfeel.ai.AiProfile.SOLDIER);
+            acup.gunfeel.ai.AiBots.attach(radBare, acup.gunfeel.ai.AiProfile.SOLDIER);
+            radDose = com.hbm.handler.radiation.RadiationSystemNT.doseAt(level, radBare.blockPosition());
+            return null;
+        });
+        wait(RAD_TICKS, 54);
+    }
+
+    private static void dns(Mob m) {
+        for (var e : new Object[][] {{net.minecraft.world.entity.EquipmentSlot.HEAD, "dns_helmet"}, {net.minecraft.world.entity.EquipmentSlot.CHEST, "dns_plate"},
+                {net.minecraft.world.entity.EquipmentSlot.LEGS, "dns_legs"}, {net.minecraft.world.entity.EquipmentSlot.FEET, "dns_boots"}})
+            m.setItemSlot((net.minecraft.world.entity.EquipmentSlot) e[0],
+                    new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", (String) e[1]))));
+    }
+
+    // a soldier in DNS keeps the radiation out as a player in it would; one bare and a plain husk in DNS take it all
+    private static void nuclearRadiation() {
+        double[] r = onServer(p -> new double[] {rad(radDns), rad(radBare), rad(radPlain), radDns.isAlive() ? 1 : 0, radBare.isAlive() ? 1 : 0,
+                radPlain.isAlive() ? 1 : 0, com.hbm.util.ContaminationUtil.calculateRadiationMod(radDns),
+                com.hbm.util.ContaminationUtil.calculateRadiationMod(radPlain)});
+        log("ядерный: радиация у стены {} RAD/с; за {} тактов боец в DNS {} RAD (жив {}, множитель {}), боец без брони {} RAD (жив {}), "
+                + "хаск в DNS {} RAD (жив {}, множитель {})", f((float) radDose), RAD_TICKS, f((float) r[0]), r[3] > 0, r[6], f((float) r[1]),
+                r[4] > 0, f((float) r[2]), r[5] > 0, r[7]);
+        check(r[3] > 0 && r[0] < 1 && r[6] < 1e-4, "ядерный: боец ИИ в DNS у стены после 3 выстрелов жив и почти без радиации");
+        check(r[4] == 0 || r[1] > 100, "ядерный: боец ИИ без брони у стены облучён, как раньше");
+        check(r[5] == 0 || r[2] > 100, "ядерный: обычный хаск в DNS облучён, как у NTM (броня моба не в счёт)");
+        onServer(p -> {
+            for (Mob m : new Mob[] {radDns, radBare, radPlain}) if (m.isAlive()) m.discard();
             return null;
         });
         wait(5, 60);
+    }
+
+    private static double rad(Mob m) {
+        return com.hbm.extprop.HbmLivingProps.getRadiation(m);
     }
 
     private static int wall() {
