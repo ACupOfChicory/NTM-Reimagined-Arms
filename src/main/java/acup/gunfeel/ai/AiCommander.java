@@ -70,6 +70,8 @@ public final class AiCommander {
     public static long askedLag, askedN, askedMost;
     /** the last tick orders were given in answer to a report (the stands') */
     public static long answeredAt = Long.MIN_VALUE;
+    /** squads scouting a group sent to advance on it once seen (the same task: no change; the war stand) */
+    public static long scoutsFound;
     /** squads that broke contact pinned down (C5) */
     public static long broke;
     static final String REPORTS_KEY = "aiCommanderReports";
@@ -199,7 +201,8 @@ public final class AiCommander {
      * it got there.
      */
     static final class Job {
-        final StaffPlan.Kind kind;
+        /** what (a scout finding its group advances: the same task, StaffPlan.found) */
+        StaffPlan.Kind kind;
         final long since;
         final List<AiBot> bots;
         final int[] ids;
@@ -592,7 +595,7 @@ public final class AiCommander {
             own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), outOf, job == null ? null : job.kind,
                     job == null ? 0 : afresh ? now - StaffPlan.KEEP : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE,
                     job == null || !reports() ? Long.MIN_VALUE : job.pinnedAt, job != null && job.pinnedAt != Long.MIN_VALUE && job.alive() < job.aliveAtPin,
-                    pair && job.partner != null && job.partner.alive() > 0 && !job.late, twin));
+                    pair && job.partner != null && job.partner.alive() > 0 && !job.late, twin, job != null && job.place() && stands(job, groups), out > 0));
         }
         if (all == 0) return;
         sideX /= all;
@@ -981,7 +984,14 @@ public final class AiCommander {
     /** the squad's task: the one it has if the same (its time kept), else a new one; its way there, each its order */
     private static void task(ServerLevel level, String team, Side side, AiSquads.Squad s, @Nullable Job had, StaffPlan.Task t, @Nullable Group g, long now) {
         int[] ids = g == null ? new int[0] : g.ids();
-        boolean same = had != null && had.kind == t.kind() && (g == null ? had.ids.length == 0 : g.any(had.ids));
+        // a squad scouting a group sent to advance on it (the side has seen it now): the same task, its time, pair and
+        // way of going kept (StaffPlan.area: scouting a group not seen lately)
+        boolean found = had != null && g != null && had.kind == StaffPlan.Kind.SCOUT && t.kind() == StaffPlan.Kind.ADVANCE && g.any(had.ids);
+        boolean same = had != null && (had.kind == t.kind() || found) && (g == null ? had.ids.length == 0 : g.any(had.ids));
+        if (found) {
+            had.kind = StaffPlan.Kind.ADVANCE;
+            scoutsFound++;
+        }
         // a sector scouted with no group known: the same one till it is looked through (given up there); a new one
         // turns the side's sectors on
         if (t.kind() == StaffPlan.Kind.SCOUT && g == null) {
@@ -1063,6 +1073,12 @@ public final class AiCommander {
             else if (o.route != null && far(o.route, o.at, b)) o.at = ahead(o.route, b.mob.getX(), b.mob.getZ());
             b.order = o;
         }
+    }
+
+    /** a place to stand at still good: its group about where it was when the place was picked (task keeps it then) */
+    private static boolean stands(Job job, List<Group> groups) {
+        Group g = match(job.ids, groups);
+        return g != null && Math.hypot(g.x() - job.gx, g.z() - job.gz) <= REROUTE;
     }
 
     /** the task's place as the squad has it now (its face too, for a place) */

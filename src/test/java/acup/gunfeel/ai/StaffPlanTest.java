@@ -151,6 +151,32 @@ class StaffPlanTest {
         assertEquals(Kind.ADVANCE, t[1].kind());
     }
 
+    /** a squad with its task kept (since NOW - age, at group 0): its place still good, one of it at red */
+    static Squad kept(double x, double z, double strength, Kind kind, long age, boolean stands, boolean red) {
+        return new Squad(x, z, strength, 3, 3, false, kind, NOW - age, 0, false, -1, false, false, Long.MAX_VALUE, Long.MIN_VALUE, false, false, -1, stands, red);
+    }
+
+    @Test
+    void oneGoingRoundWithNoWayRoundFoundNowKeepsItsPlace() {
+        // the map knows nothing about the group now (no side to go round to on it): the one going round keeps going
+        // round to its place while it is still good, not an advance instead; its place gone (the group moved): advances
+        HqGrid none = new HqGrid(-HqGrid.N * HqGrid.CELL / 2, -HqGrid.N * HqGrid.CELL / 2);
+        Squad round = kept(40, 60, 3, Kind.FLANK, 100, true, false);
+        Task t = StaffPlan.plan(List.of(round), List.of(group(0, 100, 3)), none, 0, 0, 160, AiCommander.PER, NOW, 0)[0];
+        assertEquals(Kind.FLANK, t.kind());
+        assertEquals(0, t.group());
+        Squad gone = kept(40, 60, 3, Kind.FLANK, 100, false, false);
+        assertEquals(Kind.ADVANCE, StaffPlan.plan(List.of(gone), List.of(group(0, 100, 3)), none, 0, 0, 160, AiCommander.PER, NOW, 0)[0].kind());
+    }
+
+    @Test
+    void oneOfItAtRedKeepsItsTaskPastKeep() {
+        // pinning past KEEP, strong enough now to advance alone: sent on afresh, but not with one of it at red (it
+        // would only fall back as the next goes red)
+        assertEquals(Kind.ADVANCE, plan(List.of(kept(0, 40, 3, Kind.PIN, StaffPlan.KEEP + 100, true, false)), List.of(group(0, 100, 1)))[0].kind());
+        assertEquals(Kind.PIN, plan(List.of(kept(0, 40, 3, Kind.PIN, StaffPlan.KEEP + 100, true, true)), List.of(group(0, 100, 1)))[0].kind());
+    }
+
     @Test
     void onTheMapThePinTakesTheHigherPlaceThatSeesTheGroup() {
         HqGrid g = HqGridTest.field();
