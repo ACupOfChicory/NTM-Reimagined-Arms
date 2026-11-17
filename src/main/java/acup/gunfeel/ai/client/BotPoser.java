@@ -117,17 +117,29 @@ public final class BotPoser {
 
     /** ... at a gait drawn of its own (Frame.gait) */
     static float pace(float own, float speed, float gait, float heading, @Nullable BotGaitOverride o) {
+        return pace(own, speed, gait, heading, 0F, o);
+    }
+
+    /** ... crouched this far (0 .. 1): the walk bent low's clip (BotGaitOverride.crouch) in place of them all */
+    static float pace(float own, float speed, float gait, float heading, float crouch, @Nullable BotGaitOverride o) {
         if (o == null) return own;
-        String[] names = { o.walk(), o.jog(), o.sprint() };
-        float[] at = { o.walkSpeed(), o.jogSpeed(), o.sprintSpeed() }, ws = gaitShares(gait, heading);
+        BotGaitOverride.Way back = o.back(), side = o.side(heading), low = o.crouch();
+        String[] names = { o.walk(), o.jog(), o.sprint(), back == null ? null : back.clip(), side == null ? null : side.clip() };
+        float[] at = { o.walkSpeed(), o.jogSpeed(), o.sprintSpeed(), back == null ? 0F : back.speed(), side == null ? 0F : side.speed() },
+                ws = gaitShares(gait, heading);
         float out = own;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < names.length; i++) {
             BotClip clip = names[i] == null || at[i] <= 0F || ws[i] <= 0F ? null : BotClips.get(names[i]);
             if (clip == null || clip.length() <= 0F) continue;
             // a step of the clip a cycle: it goes at[i] * its length blocks
             out += ws[i] * (CYCLE * speed / (at[i] * clip.length()) - own);
         }
-        return out;
+        // crouched, the walk bent low's (played backwards going back, as fast): the one put in, or the mod's at its own
+        float c = BotAnimator.smooth(crouch);
+        if (c <= 0F) return out;
+        BotClip bent = low == null || low.speed() <= 0F ? null : BotClips.get(low.clip());
+        float bentPace = bent != null && bent.length() > 0F ? CYCLE * speed / (low.speed() * bent.length()) : own;
+        return out + c * (bentPace - out);
     }
 
     /** the share of vanilla's pace the steps go at (Config.botRunGait tempo), 1 at a walk */
@@ -257,7 +269,9 @@ public final class BotPoser {
         // a stand's gait clips in place of the mod's (BotGalleryStand; null for every mob out of one): their share of
         // the gait going ahead
         BotGaitOverride o = BotGaitOverride.of(f.entity());
-        float swapped = o == null ? 0F : (o.walk() != null ? gw[0] : 0F) + (o.jog() != null ? gw[1] : 0F) + (o.sprint() != null ? gw[2] : 0F);
+        BotGaitOverride.Way oBack = o == null ? null : o.back(), oSide = o == null ? null : o.side(f.heading());
+        float aheadSwapped = o == null ? 0F : (o.walk() != null ? gw[0] : 0F) + (o.jog() != null ? gw[1] : 0F) + (o.sprint() != null ? gw[2] : 0F);
+        float swapped = aheadSwapped + (oBack != null ? gw[3] : 0F) + (oSide != null ? gw[4] : 0F);
         float bare = o != null && o.bare() ? move * swapped : 0F;
         float run = move * (gw[1] * JOG_RUN + gw[2]), alert = BotAnimator.smooth(f.alert());
         float gun = f.arm(AiPose.HOLD) * upright;
@@ -327,7 +341,8 @@ public final class BotPoser {
         // walk); calm, a stroll as the clips have it
         stoop(p, RUN_LEAN * run + TAC_LEAN * tac, knees, gun * run);
         // the hips (and all over them) down as far as a stand's clips' legs are made for, on top of the stoop's
-        float drop = o == null ? 0F : o.drop() * move * swapped;
+        float drop = o == null ? 0F
+                : move * (o.drop() * aheadSwapped + (oBack != null ? oBack.drop() * gw[3] : 0F) + (oSide != null ? oSide.drop() * gw[4] : 0F));
         if (drop > 0F) for (ModelPart part : new ModelPart[] { p.head, p.body, p.rightArm, p.leftArm, p.rightLeg, p.leftLeg }) part.y += drop;
 
         // in the air (a jump up a block, a fall): the legs of a jump, one knee drawn up
@@ -340,7 +355,10 @@ public final class BotPoser {
         // (HumanoidModel.setupAnim, 26.2: the eye the server keeps, and the hand of blind fire); under them, down on
         // a knee at a stand and a walk bent low on the move, their legs and the trunk's lean fitted to that head
         if (c > 0F) {
-            BotClip kneel = BotClips.get(BotClips.KNEEL), low = BotClips.get(BotClips.CROUCH_WALK);
+            // a stand's walk bent low in place of the mod's (BotGaitOverride.crouch)
+            BotGaitOverride.Way oLow = o == null || o.crouch() == null || BotClips.get(o.crouch().clip()) == null ? null : o.crouch();
+            String lowName = oLow != null ? oLow.clip() : BotClips.CROUCH_WALK;
+            BotClip kneel = BotClips.get(BotClips.KNEEL), low = BotClips.get(lowName);
             float lean = CROUCH_LEAN;
             if (kneel != null && low != null) {
                 // under a slide or a roll and till a few ticks after it, down on the knee: the dash's clip fading out
@@ -349,7 +367,7 @@ public final class BotPoser {
                 float go = BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM)) * (1F - BotAnimator.smooth(f.dashed()));
                 // backwards about the clip's phase: at walkPos 0 both at the same pose, so going from one to the other
                 // does not shift the step
-                float ph = phase(BotClips.CROUCH_WALK, low), u = walkPos / CYCLE;
+                float ph = phase(lowName, low), u = walkPos / CYCLE;
                 float t = ((u + ph) % 1F + 1F) % 1F * low.length(), tBack = ((ph - u) % 1F + 1F) % 1F * low.length();
                 // going back the clip is played backwards: a foot on the ground goes ahead under it, as the mob goes
                 // back (played on, the legs walked ahead while it went back)
@@ -362,6 +380,17 @@ public final class BotPoser {
                 set(p, kneel, 0F, kneeling, LEGS, a);
                 set(p, low, t, ahead, LEGS, a);
                 set(p, low, tBack, backW, LEGS, a);
+                // a stand's: its legs are made for hips its drop under a standing mob's and have no pivots of their
+                // own; the hips there, under the trunk's bottom leaned back from where vanilla's crouch has its top
+                float behind = 0F;
+                if (oLow != null) {
+                    float under = p.rightLeg.getInitialPose().y() + oLow.drop() - CROUCH_BODY;
+                    behind = (float) Math.sqrt(Math.max(0F, TRUNK * TRUNK - under * under));
+                    for (ModelPart thigh : new ModelPart[] { p.rightLeg, p.leftLeg }) {
+                        hip(thigh, oLow.drop(), behind, ahead);
+                        hip(thigh, oLow.drop(), behind, backW);
+                    }
+                }
                 // each of the two stands on the ground, a mix of them (starting, stopping, going down) does not: a
                 // leg that would go into the ground is lifted to it, up into the trunk
                 org.joml.Matrix4f m = M4.get();
@@ -370,6 +399,7 @@ public final class BotPoser {
                 if (left > 0F) p.leftLeg.y -= left * c;
                 float k = kneel.rotation("body", 0F, a) ? a[0] : 0F, l = low.rotation("body", t, a) ? a[0] : 0F;
                 if (back > 0F) l = Mth.lerp(back, l, low.rotation("body", tBack, a) ? a[0] : 0F);
+                if (oLow != null) l = Mth.RAD_TO_DEG * (float) Math.asin(behind / TRUNK);
                 lean = Mth.DEG_TO_RAD * Mth.lerp(go, k, l);
             } else {
                 // no clips: vanilla's, the legs back
@@ -381,7 +411,7 @@ public final class BotPoser {
             p.rightArm.xRot += CROUCH_ARMS * lean * c * plain;
             p.leftArm.xRot += CROUCH_ARMS * lean * c * plain;
             p.head.y += 4.2F * c;
-            p.body.y += 3.2F * c;
+            p.body.y += CROUCH_BODY * c;
             p.rightArm.y += AiPoseGeometry.CROUCH_ARM_DROP_PX * c;
             p.leftArm.y += AiPoseGeometry.CROUCH_ARM_DROP_PX * c;
         }
@@ -687,6 +717,9 @@ public final class BotPoser {
             if (o.walk() != null) names[0] = o.walk();
             if (o.jog() != null) names[1] = o.jog();
             if (o.sprint() != null) names[2] = o.sprint();
+            if (o.back() != null) names[3] = o.back().clip();
+            BotGaitOverride.Way side = o.side(heading);
+            if (side != null) names[4] = side.clip();
         }
         for (int i = 0; i < names.length; i++) {
             if (ws[i] <= 1e-4F) continue;
@@ -939,6 +972,17 @@ public final class BotPoser {
                 part.z = Mth.lerp(w, part.z, d.z() + a[2]);
             }
         }
+    }
+
+    /** px vanilla's crouch puts the trunk's top down, and the trunk's length */
+    static final float CROUCH_BODY = 3.2F, TRUNK = 12F;
+
+    /** the thigh's pivot w of the way to down px under its own and behind px back of it */
+    private static void hip(ModelPart thigh, float down, float behind, float w) {
+        if (w <= 0F) return;
+        PartPose d = thigh.getInitialPose();
+        thigh.y = Mth.lerp(w, thigh.y, d.y() + down);
+        thigh.z = Mth.lerp(w, thigh.z, d.z() + behind);
     }
 
     /** Turns the given parts toward the clip's pose, weighted; their pivots stay where they are. */

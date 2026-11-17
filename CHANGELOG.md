@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- An AI soldier that comes into sight already running, or is put back on its
+  way, is drawn at its own pace at once instead of walking slowly with its
+  feet sliding for half a second.
+
 ## X1600
 
 - AI soldiers going into a room keep their guns on the dead corner of their

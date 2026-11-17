@@ -150,7 +150,36 @@ class BotWeightTest {
         BotAnimator a = new BotAnimator();
         float[] most = { 0F, 0F };
         double t = run(a, 0.0, 20.0, 0.0, most);
-        t = run(a, t + 100.0, 40.0, 0.2, most);
+        // its first tick in sight with no step (the client's first, before the steps sent come)
+        t = run(a, t + 100.0, 1.0, 0.0, most);
+        t = run(a, t, 2.0, 0.2, most);
+        assertEquals(0.2F, a.speed, 1e-5F, "at its pace at once");
+        t = run(a, t, 40.0, 0.2, most);
+        assertEquals(0F, most[0], 0F);
+        assertEquals(0F, most[1], 0F);
+    }
+
+    @Test
+    void firstSeenAStepLateIsFollowedAsEver() {
+        // in sight a tick, its steps two in a tick and none in the next: the none does not drop it to a stand
+        BotAnimator a = new BotAnimator();
+        float[] most = { 0F, 0F };
+        double t = run(a, 100.0, 1.0, 0.2, most);
+        t = run(a, t, 1.0, 0.0, most);
+        assertTrue(a.speed > 0.1F, "dropped to " + a.speed);
+    }
+
+    @Test
+    void putBackOnItsWayRunningItGoesOnAtItsPace() {
+        // a stand's lane: the mob put back where it starts, running on
+        BotAnimator a = new BotAnimator();
+        float[] most = { 0F, 0F };
+        double t = run(a, 0.0, 40.0, 0.2, most);
+        t = run(a, t, 1.0, -8.0, most);
+        t = run(a, t, 1.0, 0.2, most);
+        assertEquals(0.2F, a.speed, 1e-5F);
+        most[0] = most[1] = 0F;
+        t = run(a, t, 40.0, 0.2, most);
         assertEquals(0F, most[0], 0F);
         assertEquals(0F, most[1], 0F);
     }
