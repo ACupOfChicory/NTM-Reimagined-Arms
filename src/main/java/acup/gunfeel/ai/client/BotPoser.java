@@ -40,8 +40,12 @@ import org.jspecify.annotations.Nullable;
  */
 public final class BotPoser {
     static final String[] UPPER = { "head", "body", "right_arm", "right_forearm", "left_arm", "left_forearm" };
-    /** the reload's clip turns these */
-    static final String[] RELOAD_BONES = { "head", "right_arm", "right_forearm", "left_arm", "left_forearm" };
+    /**
+     * the reload's clip turns these: the arms, not the head (eyes on the threat, as soldiers are taught: the head keeps
+     * its aim, and its middle the eye the server sees and shoots from; the clip's look down at the magazine took it up
+     * to 8.6 cm off)
+     */
+    static final String[] RELOAD_BONES = { "right_arm", "right_forearm", "left_arm", "left_forearm" };
     static final String[] ALL = { "head", "body", "right_arm", "right_forearm", "left_arm", "left_forearm", "right_leg",
             "right_shin", "left_leg", "left_shin" };
     private static final float PI = Mth.PI, PI_HALF = Mth.HALF_PI;
@@ -542,7 +546,7 @@ public final class BotPoser {
         return m.transformPosition(out.set(0F, BotModel.HALF, 0F));
     }
 
-    private static void action(Parts p, BotAnimator.Act act, float headX, float headY, float[] a, float[] b) {
+    static void action(Parts p, BotAnimator.Act act, float headX, float headY, float[] a, float[] b) {
         float w = act.w();
         if (w <= 0F) return;
         switch (act.kind()) {
@@ -550,8 +554,7 @@ public final class BotPoser {
                 BotClip r = BotClips.get(BotClips.RELOAD);
                 if (r != null) {
                     // KayKit's rifle reload, stretched to the reload's length (coming in over RELOAD_IN: BotAnimator):
-                    // the arms and the head's turn only, as the reload without it: the body keeps its crouch and the
-                    // head its place at the eye the server keeps
+                    // the arms only (RELOAD_BONES): the body keeps its crouch and the head its aim
                     for (String bone : RELOAD_BONES) {
                         ModelPart part = p.get(bone);
                         if (part != null && r.rotation(bone, act.u() * r.length(), a))
@@ -560,13 +563,12 @@ public final class BotPoser {
                     return;
                 }
                 // no clip: the gun down to the chest, the left hand to the magazine and back twice (out, in), the
-                // eyes on it, the elbows bent: the gun in to the chest, the left hand up to it
+                // eyes on the threat, the elbows bent: the gun in to the chest, the left hand up to it
                 float pull = Mth.sin(PI * ((act.u() * 2F) % 1F));
                 turn(p.rightArm, -0.6F, -0.35F, 0F, w);
                 turn(p.leftArm, -0.45F - 0.35F * pull, 0.65F, 0F, w);
                 if (p.rightForearm != null) turn(p.rightForearm, -0.7F, 0F, 0F, w);
                 if (p.leftForearm != null) turn(p.leftForearm, -0.9F - 0.3F * pull, 0F, 0F, w);
-                p.head.xRot = Mth.lerp(w, p.head.xRot, 0.45F);
             }
             case AiPose.SHOT -> {
                 // the muzzle kicks up and settles
