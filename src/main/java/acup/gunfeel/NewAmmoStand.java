@@ -148,6 +148,11 @@ final class NewAmmoStand {
 
     private static void magazines() {
         check(RubberSlug.config() != null && Duplex.r556() != null && Duplex.r762() != null && NuclearBmg.config() != null, "конфиги патронов есть");
+        // the client's tracer (and with it the holes and the hits' effects) for each: the NTM round's it is made after
+        for (var c : new com.hbm.items.weapon.sedna.BulletConfig[] {RubberSlug.config(), Duplex.r556(), Duplex.r762(), NuclearBmg.config()})
+            check(c != null && Tracers.traced(c), "трейсер у " + (c == null ? "null" : BalanceGuns.ammoName(c)) + " есть (как у " + (c == null ? "-" : BalanceGuns.ammoName(acup.gunfeel.ammo.NewAmmo.lookalike(c))) + ")");
+        check(acup.gunfeel.ammo.NewAmmo.noHole(RubberSlug.config()) && acup.gunfeel.ammo.NewAmmo.noHole(NuclearBmg.config())
+                && !acup.gunfeel.ammo.NewAmmo.noHole(Duplex.r556()) && !acup.gunfeel.ammo.NewAmmo.noHole(Duplex.r762()), "дырки: у Duplex есть, у резинового и ядерного нет");
         takes("gun_maresleg", RubberSlug.config(), true);
         takes("gun_spas12", RubberSlug.config(), true);
         takes("gun_autoshotgun_shredder", RubberSlug.config(), false);
