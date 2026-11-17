@@ -175,6 +175,8 @@ public final class AiEntry {
         long funnelAt = Long.MIN_VALUE;
         /** its slicing: done (or none to do); those slicing, their places in order, the gun's aim at each, how far on, since when there */
         boolean sliced, sliceFoe, decided;
+        /** the ways to the stack: cells before the opening seen from the room dear (none: as any) */
+        PathSearch.Cost exposed = PathSearch.Cost.NONE;
         final List<AiBot> slicers = new ArrayList<>(2);
         final List<long[]> arcs = new ArrayList<>(2);
         final List<Vec3[]> arcAims = new ArrayList<>(2);
@@ -411,7 +413,7 @@ public final class AiEntry {
         } else if (op.phase == FRAG && bot == op.thrower) frag(op, s, bot, level, tick);
         else {
             long at = place(op, i);
-            go(bot, at, 0.35);
+            go(bot, at, 0.35, op.exposed);
             // at its place beside the way in: the gun held up close till they go (AiPose.STACK)
             if (bot.mover.goalIs(at) && bot.mover.arrived()) bot.stackUntil = tick + 5;
         }
@@ -424,8 +426,13 @@ public final class AiEntry {
     }
 
     private static void go(AiBot bot, long cell, double radius) {
+        go(bot, cell, radius, PathSearch.Cost.NONE);
+    }
+
+    /** to it by the way costs makes cheapest (the cells seen from the room dear, on the way to the stack) */
+    private static void go(AiBot bot, long cell, double radius, PathSearch.Cost costs) {
         if (bot.mover.goalIs(cell)) return;
-        bot.mover.costs(PathSearch.Cost.NONE);
+        bot.mover.costs(costs);
         bot.mover.goTo(cell, radius, AiSoldier.RUN);
     }
 
@@ -459,6 +466,7 @@ public final class AiEntry {
         for (int i = 0; i < op.slots.length; i++)
             if (far[i] != op.slots[i] && far2[i] != far[i]) op.places.add(new long[] {far[i], far2[i]});
         op.inner = w.beside(room);
+        if (hidden()) hide(op, level, plan, w, room);
         // looked at from beside it: the opening's cell at the far end from the room; before it, the cell a thrower steps
         // out to (at a trench's turn, the turn)
         long end = room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
@@ -551,6 +559,155 @@ public final class AiEntry {
         if (!sliceNow(op, level, tick)) phase(op, GO, tick);
     }
 
+    /**
+     * The stack out of sight of the room: a place beside the opening seen from a cell of it (a foe by the side wall
+     * across the room sees one flush with the wall beside an opening two wide, a slant through it) goes on along the
+     * wall away from it, STACK_OUT cells at most, to the first seen from none; none such, the least seen. Each place
+     * its own cell, none in the line from another's to the opening. Once, as the entry is made; glass hides nothing.
+     */
+    static final int STACK_OUT = 4;
+    public static final String STACK_KEY = "aiEntryStackHidden";
+    static boolean stackHidden = true;
+    /** the stands: places moved out of sight, places left in it (none out of it near enough) */
+    public static int stackMoved, stackSeen;
+    /** the stands: entries all of whose went in, and their ticks from in to all of them in their places there */
+    public static int goes;
+    public static long goTicks;
+
+    static boolean hidden() {
+        return stackHidden && ReaimTimes.flag(STACK_KEY, true);
+    }
+
+    /** the ways to the stack: a cell before the opening seen from the room costs this many more, EXPOSED_FAR blocks off at most */
+    static final float EXPOSED_COST = 4;
+    static final int EXPOSED_FAR = 6;
+
+    /** hide()'s work for a plan's way in to a room, kept while the plan is: the places as moved, the ways' cost */
+    private record Hidden(long[][] places, PathSearch.Cost cost) {
+    }
+
+    private static final Map<AiRooms.Plan, Map<Long, Hidden>> HIDDEN = new WeakHashMap<>();
+
+    private static void hide(Op op, ServerLevel level, AiRooms.Plan plan, AiRooms.Way w, int room) {
+        long key = (op.front * 31) ^ room;
+        Hidden h;
+        synchronized (HIDDEN) {
+            h = HIDDEN.computeIfAbsent(plan, p -> new HashMap<>()).get(key);
+        }
+        if (h != null && h.places.length == op.places.size()) {
+            for (int i = 0; i < h.places.length; i++) op.places.set(i, h.places[i].clone());
+            op.exposed = h.cost;
+            return;
+        }
+        hide0(op, level, plan, w, room);
+        long[][] kept = new long[op.places.size()][];
+        for (int i = 0; i < kept.length; i++) kept[i] = op.places.get(i).clone();
+        synchronized (HIDDEN) {
+            HIDDEN.get(plan).put(key, new Hidden(kept, op.exposed));
+        }
+    }
+
+    private static void hide0(Op op, ServerLevel level, AiRooms.Plan plan, AiRooms.Way w, int room) {
+        if (room < 0 || plan.size[room] > SLICE_CELLS) {
+            fate("stack: the room too big to weigh what it sees (" + (room < 0 ? -1 : plan.size[room]) + " cells)");
+            return;
+        }
+        long[] cells = plan.cells()[room];
+        VoxelRay.Source src = AiBots.voxels(level);
+        long end = room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
+        // before the opening, the cells seen from the room: dear on the ways to the stack (they come round to it, not
+        // across what the room sees)
+        int out = Dirs.opposite(w.in(room)), ex = BlockPos.getX(end), ey = BlockPos.getY(end), ez = BlockPos.getZ(end);
+        it.unimi.dsi.fastutil.longs.LongOpenHashSet dear = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+        for (int dx = -EXPOSED_FAR; dx <= EXPOSED_FAR; dx++)
+            for (int dz = -EXPOSED_FAR; dz <= EXPOSED_FAR; dz++) {
+                if (dx * Dirs.DX[out] + dz * Dirs.DZ[out] < 1 || dx * dx + dz * dz > EXPOSED_FAR * EXPOSED_FAR) continue;
+                long c = BlockPos.asLong(ex + dx, ey, ez + dz);
+                if (plan.room(c) == room || !stand(src, c)) continue;
+                if (seen(src, cells, c, 1) > 0) dear.add(c);
+            }
+        if (!dear.isEmpty()) op.exposed = (x, y, z) -> y == ey && dear.contains(BlockPos.asLong(x, y, z)) ? EXPOSED_COST : 0F;
+        Vec3 mouth = mid(end, 1.1);
+        java.util.Set<Long> taken = new java.util.HashSet<>();
+        for (int i = 0; i < op.places.size(); i++) {
+            long[] pl = op.places.get(i);
+            int seen = seen(src, cells, pl[0]);
+            if (seen == 0 && taken.add(pl[0])) continue;
+            // on along the wall: the way from the place to the one behind it (else away from the opening)
+            int dx = Integer.signum(BlockPos.getX(pl[1]) - BlockPos.getX(pl[0])), dz = Integer.signum(BlockPos.getZ(pl[1]) - BlockPos.getZ(pl[0]));
+            if (dx == 0 && dz == 0) {
+                dx = Integer.signum(BlockPos.getX(pl[0]) - BlockPos.getX(end));
+                dz = Integer.signum(BlockPos.getZ(pl[0]) - BlockPos.getZ(end));
+                if (dx != 0 && dz != 0) dz = 0;
+            }
+            long best = taken.contains(pl[0]) ? Long.MIN_VALUE : pl[0], c = pl[0];
+            int least = taken.contains(pl[0]) ? Integer.MAX_VALUE : seen;
+            for (int k = 0; k < STACK_OUT && least > 0; k++) {
+                long n = BlockPos.offset(c, dx, 0, dz);
+                if (!stand(src, n) || plan.room(n) >= 0 && plan.room(n) == room) break;
+                c = n;
+                if (taken.contains(c) || inLine(op, i, c, mouth)) continue;
+                int sn = seen(src, cells, c);
+                if (sn < least) {
+                    least = sn;
+                    best = c;
+                }
+            }
+            if (best == Long.MIN_VALUE) continue;
+            if (best != pl[0]) {
+                // (where it steps back to for the grenade: on beyond it, a cell of its own out of the room; else there)
+                long behind = BlockPos.offset(best, dx, 0, dz);
+                boolean free = stand(src, behind) && plan.room(behind) != room && !taken.contains(behind);
+                for (long[] o : op.places) free &= o == pl || o[0] != behind;
+                pl[0] = best;
+                pl[1] = free ? behind : best;
+                stackMoved++;
+            }
+            if (least > 0) stackSeen++;
+            taken.add(pl[0]);
+        }
+        StringBuilder f = new StringBuilder("stack:");
+        for (long[] pl : op.places) f.append(' ').append(BlockPos.getX(pl[0])).append(' ').append(BlockPos.getZ(pl[0])).append(" seen by ").append(seen(src, cells, pl[0])).append(';');
+        fate(f + " before the opening dear " + dear.size());
+    }
+
+    /** a soldier may stand there: room for it, ground under it */
+    private static boolean stand(VoxelRay.Source src, long c) {
+        int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+        return Voxel.open(src.voxel(x, y, z)) && Voxel.open(src.voxel(x, y + 1, z)) && !Voxel.open(src.voxel(x, y - 1, z));
+    }
+
+    /** the room's cells that see one standing there (its chest or head, from theirs) */
+    private static int seen(VoxelRay.Source src, long[] cells, long at) {
+        return seen(src, cells, at, Integer.MAX_VALUE);
+    }
+
+    /** the same, counted up to enough at most */
+    private static int seen(VoxelRay.Source src, long[] cells, long at, int enough) {
+        double ax = BlockPos.getX(at) + 0.5, ay = BlockPos.getY(at), az = BlockPos.getZ(at) + 0.5;
+        int n = 0;
+        for (long r : cells) {
+            double rx = BlockPos.getX(r) + 0.5, ry = BlockPos.getY(r), rz = BlockPos.getZ(r) + 0.5;
+            if ((VoxelRay.clear(src, rx, ry + 1.5, rz, ax, ay + 1.5, az, Voxel.SIGHT) || VoxelRay.clear(src, rx, ry + 1.0, rz, ax, ay + 1.0, az, Voxel.SIGHT)) && ++n >= enough) break;
+        }
+        return n;
+    }
+
+    /** a place there would stand in the line from one of the places before it to the opening (its gun on it) */
+    private static boolean inLine(Op op, int upTo, long c, Vec3 mouth) {
+        double cx = BlockPos.getX(c) + 0.5, cz = BlockPos.getZ(c) + 0.5;
+        for (int j = 0; j < upTo; j++) {
+            long p = op.places.get(j)[0];
+            double px = BlockPos.getX(p) + 0.5, pz = BlockPos.getZ(p) + 0.5, vx = mouth.x - px, vz = mouth.z - pz, len = vx * vx + vz * vz;
+            if (len < 1e-6) continue;
+            double t = ((cx - px) * vx + (cz - pz) * vz) / len;
+            if (t <= 0 || t >= 1) continue;
+            double ox = px + vx * t - cx, oz = pz + vz * t - cz;
+            if (ox * ox + oz * oz < 0.5 * 0.5) return true;
+        }
+        return false;
+    }
+
     static boolean slice() {
         return slice && ReaimTimes.flag(SLICE_KEY, true);
     }
@@ -561,7 +718,7 @@ public final class AiEntry {
     /**
      * The slicing's places for those of the stack at each end of the opening (one a side): from where on the outer
      * side, SLICE_FAR blocks off at most, the room's cells are seen through it, picked so each shows SLICE_NEW or more
-     * none before did, gone through from the widest angle to the nearest the opening's line; the gun at each on what it
+     * none before did, gone through from the furthest from the opening to the nearest; the gun at each on what it
      * shows first. Where none is off the opening's line (a passage along the wall it is in): none (SLICE_LINE). False
      * when there is none to do (a turn, a big room, nothing seen from round it).
      */
@@ -664,11 +821,12 @@ public final class AiEntry {
             all.or(sees.get(best));
         }
         if (picked.isEmpty()) return;
-        // far to near: the widest angle off the opening's line first
+        // far to near: the furthest from the opening first (it shows a sliver of the room, from where one in there sees a
+        // sliver of it), by the jamb last; at one distance the widest angle first
         picked.sort((a, b) -> {
             long[] pa = spots.get(a), pb = spots.get(b);
-            int c = Double.compare(Math.abs(Math.atan2(pb[2], pb[1])), Math.abs(Math.atan2(pa[2], pa[1])));
-            return c != 0 ? c : Double.compare(pb[1] * pb[1] + pb[2] * pb[2], pa[1] * pa[1] + pa[2] * pa[2]);
+            int c = Long.compare(pb[1] * pb[1] + pb[2] * pb[2], pa[1] * pa[1] + pa[2] * pa[2]);
+            return c != 0 ? c : Double.compare(Math.abs(Math.atan2(pb[2], pb[1])), Math.abs(Math.atan2(pa[2], pa[1])));
         });
         long[] arc = new long[picked.size()];
         Vec3[] aims = new Vec3[picked.size()];
@@ -907,7 +1065,14 @@ public final class AiEntry {
                 }
             }
             case GO -> {
-                if (op.done.containsAll(op.members) || tick - op.phaseAt > GO_MAX) phase(op, OVER, tick);
+                if (op.done.containsAll(op.members) || tick - op.phaseAt > GO_MAX) {
+                    // (the stands: from in to all of it there, those it went in with)
+                    if (op.done.containsAll(op.members) && !op.members.isEmpty()) {
+                        goTicks += tick - op.phaseAt;
+                        goes++;
+                    }
+                    phase(op, OVER, tick);
+                }
             }
             default -> {
             }
