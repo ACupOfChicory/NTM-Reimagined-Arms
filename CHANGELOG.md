@@ -1,5 +1,12 @@
 # Changelog
 
+## X1408
+
+- An AI soldier that lost sight of an enemy no longer forgets it while it
+  still hears it from the same place: a shot or other noise it hears itself
+  from where the enemy went out of sight keeps it searching there. A sound
+  from elsewhere, or none, and the enemy is forgotten as before.
+
 ## X1403
 
 - An AI squad that has gone round a held shaft by another way now takes the
