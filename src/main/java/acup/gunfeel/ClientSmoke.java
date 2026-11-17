@@ -116,7 +116,7 @@ public final class ClientSmoke {
                 GunFeel.LOGGER.info("[holebench] запуск phase={} screen={} world={}",phase,
                         mc.gui.screen()==null?"null":mc.gui.screen().getClass().getName(),mc.level!=null);
             }
-            if (!MobSmoke.review() && System.nanoTime() - START > (GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():ShapesStand.ENABLED?ShapesStand.timeout():MobBenchMetrics.ENABLED || BotStand.ENABLED || FireStand.ENABLED || BlastStand.ENABLED || HoleBenchMetrics.ENABLED || HudShots.ENABLED || Gl54Stand.ENABLED || Gl54ReflexStand.ENABLED || FenceSeamCheck.ENABLED || FenceAirStand.ENABLED || WaterFxStand.ENABLED || SmokeCloudStand.ENABLED || GasStand.ENABLED || FragStand.ENABLED?900_000_000_000L:GlassBackCheck.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
+            if (!MobSmoke.review() && System.nanoTime() - START > (GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():ShapesStand.ENABLED?ShapesStand.timeout():MobBenchMetrics.ENABLED || BotStand.ENABLED || FireStand.ENABLED || BlastStand.ENABLED || HoleBenchMetrics.ENABLED || HudShots.ENABLED || Gl54Stand.ENABLED || Gl54ReflexStand.ENABLED || FenceSeamCheck.ENABLED || FenceAirStand.ENABLED || WaterFxStand.ENABLED || SmokeCloudStand.ENABLED || MiniNukeStand.ENABLED || GasStand.ENABLED || FragStand.ENABLED?900_000_000_000L:GlassBackCheck.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;
@@ -155,6 +155,7 @@ public final class ClientSmoke {
                 if(ShockStand.ENABLED) { phase=73; mc.gui.setScreen(null); ShockStand.start(); return; }
                 if(GunHitStand.ENABLED) { phase=74; mc.gui.setScreen(null); GunHitStand.start(); return; }
                 if(SmokeCloudStand.ENABLED) { phase=60; mc.gui.setScreen(null); SmokeCloudStand.start(); return; }
+                if(MiniNukeStand.ENABLED) { phase=76; mc.gui.setScreen(null); MiniNukeStand.start(); return; }
                 if (MobSmoke.enabled()) {
                     phase = 10;
                     mc.gui.setScreen(null);
@@ -242,6 +243,7 @@ public final class ClientSmoke {
             if (phase == 73) ShockStand.frame();
             if (phase == 74) GunHitStand.frame();
             if (phase == 60) SmokeCloudStand.frame();
+            if (phase == 76) MiniNukeStand.frame();
             if (phase == 65) GasStand.frame();
             if (phase == 64) HudShots.frame();
             if (phase == 67) Gl54Stand.frame();

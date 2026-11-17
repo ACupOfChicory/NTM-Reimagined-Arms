@@ -400,6 +400,11 @@ page. They are alphas: expect bugs and back up your world.
   submachine gun, rifle, shotgun, minigun, launcher...), its weight class and
   the slowdown.
 - A player in spectator mode cannot use NTM's guns (NTM itself allows it).
+- NTM's small nuclear blasts (the Fat Mine, the Fat Man's shells, the
+  artillery mini nuke, the nuclear creeper and the rest) rise as the
+  mushroom cloud of NTM's bombs, sized to the blast, instead of their own
+  flash and wave. They keep their own sound; the bombs' screen flash, sound
+  and shake are left out (server key `miniNukeCloud`).
 - The off-hand item is hidden while an NTM gun is held, and switching to or
   from a gun is instant.
 
@@ -523,6 +528,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `shockGlitch`, `shockGlitchMin` | `1`, `0.5` | The most the HUD glitches, and the least share of it a player may turn their own down to |
 | `shockCamera`, `shockShake` | `45`, `0.6` | How fast the view drifts on its own at most (degrees a second), and how much it shakes (degrees) |
 | `gunshotRange` | `1` | How far shots are heard, players and AI bots alike: silenced 16 blocks, energy weapons 24, pistols 48, shotguns and launchers 64, rifles 80, machine guns 96, anti-materiel rifles 128; the part over 16 scaled (`0`: 16 for all, as in NTM) |
+| `miniNukeCloud` | `true` | NTM's small nuclear blasts drawn as the mushroom cloud of NTM's bombs, sized to the blast (`false`: NTM's own flash and wave) |
 | `gunHitKnockback`, `gunHitTilt` | `false` | `true`: a player hit by an NTM gun's bullet or beam is thrown back as in vanilla; their view tilts with the hit |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |
 | `bulletPierceMachines` | `false` | Bullets pierce machines |

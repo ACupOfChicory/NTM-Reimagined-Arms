@@ -39,7 +39,8 @@ public enum Feature {
     SHOCK("shock", List.of("MixinShockSpread"), List.of("ShockAmmo", "ShockServer", "ShockStand")),
     GUNSHOT_RANGE("gunshot_range", List.of("MixinGunshotRange"), List.of("GunshotRange")),
     CASINGS("casings", List.of("CasingInstanceAccess", "MixinCasingDraw"), List.of("CasingCull", "CasingInstances")),
-    THERMAL_OUTLINES("thermal_outlines", List.of("MixinThermalEdges"), List.of("BoxEdges"));
+    THERMAL_OUTLINES("thermal_outlines", List.of("MixinThermalEdges"), List.of("BoxEdges")),
+    MINI_NUKE_CLOUD("mini_nuke_cloud", List.of("MukePayloadAccess", "MixinMiniNukeSend", "MixinMiniNukeSize", "MixinMiniNukeParams", "MixinMiniNukeMk5", "MixinMiniNukeCreeper", "MixinMiniNukeTorex", "MixinMiniNukeFx"), List.of("MiniNukeCloud", "MiniNukeStand"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel
