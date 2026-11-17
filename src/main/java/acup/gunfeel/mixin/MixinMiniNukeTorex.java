@@ -1,6 +1,7 @@
 package acup.gunfeel.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -13,14 +14,39 @@ import com.hbm.entity.effect.EntityNukeTorex;
 import acup.gunfeel.nuke.MiniNukeCloud;
 
 // Client: a small nuclear blast's cloud (MiniNukeCloud) grows its shock ring as a bomb's, 1.5 blocks a tick, out to
-// five times its radius (a bomb's: 150 ticks, 225 blocks), with puffs big and many enough to read as a ring going
-// out over the ground at its edge (NTM's are the scale times 5 wide, still and long lived: specks of smoke over all
-// its disc at a Fat Mine's); it has no condensation
+// three times its radius, where its waste ends (a bomb's: 150 ticks, 225 blocks), with puffs big and many enough to read as a ring going
+// out over the ground at its edge, and behind it NTM's own (the scale times 5 wide, still and long lived), as many
+// as before, out to four radii: smoke left lying over the ground the ring went over; it has no condensation
 // rings (a bomb's form at world heights 130 and 170 whatever its size: 70 blocks over a mine), and is hot at first as
 // a bomb's is (NTM's heat, cut to a whole number, is none under scale 0.142: grey from the start). Not applied: the
 // bomb's ring and rings, a grey cloud.
 @Mixin(value = EntityNukeTorex.class, remap = false)
 public abstract class MixinMiniNukeTorex {
+    @Shadow
+    private int surface(int x, int z) {
+        throw new AssertionError();
+    }
+
+    // the smoke the ring leaves lying behind it: NTM's own shock puffs as its loop makes them (still, long lived, the
+    // scale times 5 wide), as many a tick as before the ring, while the ring goes on
+    @Inject(method = "simulateTick(IZ)I", at = @At("RETURN"))
+    private void gunfeel$smoke(int age, boolean live, CallbackInfoReturnable<Integer> cir) {
+        EntityNukeTorex self = (EntityNukeTorex) (Object) this;
+        if (!MiniNukeCloud.mini(self)) return;
+        double s = self.getScaleVal();
+        if (age >= MiniNukeCloud.shockTicks(s)) return;
+        int n = Math.min(age * 2, MiniNukeCloud.smokePuffs(s)), life = Math.max(400 - age * 20, 50);
+        var rand = self.level().getRandom();
+        for (int i = 0; i < n; i++) {
+            double radius = (age + rand.nextDouble() * 2.0) * 1.5;
+            float rot = (float) (Math.PI * 2 * rand.nextDouble());
+            net.minecraft.world.phys.Vec3 v = new net.minecraft.world.phys.Vec3(radius, 0, 0).yRot(rot);
+            int gh = surface((int) (v.x + self.getX()) + 1, (int) (v.z + self.getZ()));
+            self.cloudlets.add(self.new Cloudlet(v.x + self.getX(), gh, v.z + self.getZ(), rot, 0, life, EntityNukeTorex.TorexType.SHOCK)
+                    .setScale((float) s * 5F, (float) s * 2F).setMotion(net.minecraft.util.Mth.clamp(0.25 * age - 5, 0, 1)));
+        }
+    }
+
     @ModifyConstant(method = "simulateTick(IZ)I", constant = @Constant(intValue = 150))
     private int gunfeel$shockTicks(int ticks) {
         EntityNukeTorex self = (EntityNukeTorex) (Object) this;
@@ -49,7 +75,7 @@ public abstract class MixinMiniNukeTorex {
         return cloud.setScale(wide, high);
     }
 
-    // the shock ring's puffs going out with the ring and short lived: a band at its edge, not a disc of smoke
+    // the shock ring's puffs going out with the ring and short lived: a band at its edge
     @Redirect(method = "simulateTick(IZ)I", at = @At(value = "INVOKE",
             target = "Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;setMotion(D)Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;"))
     private EntityNukeTorex.Cloudlet gunfeel$shockMotion(EntityNukeTorex.Cloudlet cloud, double mult) {

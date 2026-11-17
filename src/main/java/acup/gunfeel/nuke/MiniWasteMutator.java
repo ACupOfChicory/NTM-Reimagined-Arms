@@ -90,15 +90,65 @@ public final class MiniWasteMutator implements IBlockMutator {
 
     /** sets the blast's block allocator and a processor that breaks nothing but lays this waste */
     public static ExplosionVNT apply(ExplosionVNT vnt) {
+        return apply(vnt, Double.MAX_VALUE, Double.MAX_VALUE);
+    }
+
+    /**
+     * As {@link #apply(ExplosionVNT)}, the waste whole out to {@code inner} blocks from the blast (across the ground)
+     * and dying away to none at {@code outer} in patches and tongues (a smooth noise over x z, not block by block)
+     */
+    public static ExplosionVNT apply(ExplosionVNT vnt, double inner, double outer) {
         vnt.setBlockAllocator(new BlockAllocatorStandard(RESOLUTION));
-        vnt.setBlockProcessor(new BlockProcessorNoDamage().withBlockEffect(new MiniWasteMutator()));
+        vnt.setBlockProcessor(new BlockProcessorNoDamage().withBlockEffect(new MiniWasteMutator(inner, outer)));
         return vnt;
+    }
+
+    private final double inner, outer;
+
+    private MiniWasteMutator(double inner, double outer) {
+        this.inner = inner;
+        this.outer = outer;
+    }
+
+    /** the edge's noise: its cells, blocks */
+    static final double EDGE_CELL = 4;
+
+    /**
+     * Whether a block {@code dx dz} off the blast (its seed) is laid waste: all of it within {@code inner}, none past
+     * {@code outer}, between them where a smooth noise (0..1, cells EDGE_CELL across) is over how far out it is
+     */
+    public static boolean laid(double dx, double dz, double inner, double outer, long seed) {
+        double d = Math.hypot(dx, dz);
+        if (d <= inner) return true;
+        if (d >= outer) return false;
+        return noise(dx / EDGE_CELL, dz / EDGE_CELL, seed) > (d - inner) / (outer - inner);
+    }
+
+    /** value noise, 0..1: a value at each whole point, between them smoothly */
+    static double noise(double x, double z, long seed) {
+        int x0 = (int) Math.floor(x), z0 = (int) Math.floor(z);
+        double fx = x - x0, fz = z - z0;
+        fx = fx * fx * (3 - 2 * fx);
+        fz = fz * fz * (3 - 2 * fz);
+        double a = at(x0, z0, seed), b = at(x0 + 1, z0, seed), c = at(x0, z0 + 1, seed), e = at(x0 + 1, z0 + 1, seed);
+        return (a + (b - a) * fx) * (1 - fz) + (c + (e - c) * fx) * fz;
+    }
+
+    private static double at(int x, int z, long seed) {
+        long h = seed ^ x * 0x9E3779B97F4A7C15L ^ z * 0xC2B2AE3D27D4EB4FL;
+        h = (h ^ h >>> 33) * 0xFF51AFD7ED558CCDL;
+        h = (h ^ h >>> 33) * 0xC4CEB9FE1A85EC53L;
+        return ((h ^ h >>> 33) >>> 11) * 0x1.0p-53;
     }
 
     @Override
     public void mutatePre(ExplosionVNT vnt, BlockState state, BlockPos pos) {
         Level level = vnt.world;
         if (level == null || level.isClientSide()) return;
+        if (outer < Double.MAX_VALUE) {
+            long seed = (long) Math.floor(vnt.posX) * 31L + (long) Math.floor(vnt.posZ) * 1_000_003L;
+            if (!laid(pos.getX() + 0.5 - vnt.posX, pos.getZ() + 0.5 - vnt.posZ, inner, outer, seed)) return;
+        }
         String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         int roll;
         if (URANIUM.containsKey(id)) roll = level.getRandom().nextInt(Math.max(1, VersatileConfig.getSchrabOreChance()));

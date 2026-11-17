@@ -59,4 +59,36 @@ class MiniWasteMutatorTest {
         assertNull(MiniWasteMutator.waste("minecraft:sand", NONE, 3));
         assertEquals("hbm:waste_trinitite_red", MiniWasteMutator.waste("minecraft:red_sand", NONE, 0));
     }
+
+    @Test
+    void wasteWholeWithinThenDyingAwayInPatches() {
+        long seed = 12345;
+        for (int a = 0; a < 360; a += 15) {
+            double c = Math.cos(Math.toRadians(a)), s = Math.sin(Math.toRadians(a));
+            org.junit.jupiter.api.Assertions.assertTrue(MiniWasteMutator.laid(19.9 * c, 19.9 * s, 20, 30, seed), "whole within");
+            org.junit.jupiter.api.Assertions.assertFalse(MiniWasteMutator.laid(30.1 * c, 30.1 * s, 20, 30, seed), "none past");
+        }
+        // the share laid falls off with distance, and in patches: a block's neighbour mostly as it is
+        double prev = 1.01;
+        int same = 0, pairs = 0;
+        for (int r = 21; r < 30; r += 2) {
+            int in = 0, n = 0;
+            for (int x = -30; x <= 30; x++) for (int z = -30; z <= 30; z++) {
+                double d = Math.hypot(x, z);
+                if (d < r - 1 || d >= r + 1) continue;
+                n++;
+                boolean l = MiniWasteMutator.laid(x, z, 20, 30, seed);
+                if (l) in++;
+                if (d < 29) {
+                    pairs++;
+                    if (l == MiniWasteMutator.laid(x + 1, z, 20, 30, seed)) same++;
+                }
+            }
+            double share = (double) in / n;
+            org.junit.jupiter.api.Assertions.assertTrue(share <= prev + 0.1, "falls off: " + r + " " + share);
+            prev = share;
+        }
+        org.junit.jupiter.api.Assertions.assertTrue(prev < 0.25, "little at the edge");
+        org.junit.jupiter.api.Assertions.assertTrue(same > pairs * 0.75, "patches, not salt and pepper: " + same + "/" + pairs);
+    }
 }
