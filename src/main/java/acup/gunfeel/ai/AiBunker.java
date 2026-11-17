@@ -627,22 +627,23 @@ public final class AiBunker {
 
     /**
      * Another of the side of a thrower at a slit whose grenade is in, not burst yet (not the thrower, nor one of an
-     * entry going on): in the reach its blast hurts in, all of it behind blocks from the burst where it stands. It
-     * stays there till the burst, as by an entry's grenade (AiEntry.holds); in the open there it runs (keeps,
-     * AiSoldier.dodge).
+     * entry or a way down a shaft going on): in the reach its blast hurts in, all of it behind blocks from the burst
+     * where it stands, in no slit's wedge (there it steps aside: aside). It stays there till the burst, as by an
+     * entry's grenade (AiEntry.holds); in the open there it runs (keeps, AiSoldier.dodge).
      */
     static boolean holds(AiBot bot, ServerLevel level) {
         PerLevel l = LEVELS.get(level);
         if (l == null || l.ops.isEmpty()) return false;
         Op op = l.ops.get(AiSquads.team(bot));
-        if (op == null || op.phase != WAIT || op.thrower == bot || AiEntry.going(bot, level)) return false;
+        if (op == null || op.phase != WAIT || op.thrower == bot || AiEntry.going(bot, level) || AiHatch.going(bot)) return false;
         Entity g = level.getEntity(op.fragId);
         if (g == null || g.isRemoved()) return false;
         Vec3 b = AiGrenades.predicted(level, g);
         if (b == null && op.ready != null) b = op.ready.burst();
         if (b == null) return false;
         Mob m = bot.mob;
-        return m.distanceToSqr(b) < AiEntry.HE_HURTS * AiEntry.HE_HURTS && AiGrenades.shielded(AiBots.voxels(level), m.getX(), m.getY(), m.getZ(), m.getBbHeight(), b);
+        return m.distanceToSqr(b) < AiEntry.HE_HURTS * AiEntry.HE_HURTS && AiGrenades.shielded(AiBots.voxels(level), m.getX(), m.getY(), m.getZ(), m.getBbHeight(), b)
+                && !inWedge(level, bot, level.getGameTime());
     }
 
     /** whether this is its side's grenade in through a slit and it the thrower (back beside the slit) or out of its harm: it does not run */
