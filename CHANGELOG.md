@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## X1557
 
 - AI soldiers turn smoothly: their body comes round after the head and the
   gun in an easy sweep instead of snapping a quarter turn at a time, and
