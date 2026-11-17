@@ -63,8 +63,8 @@ public final class BotAnimator {
      * @param feet    where the feet stand on the floor, standing ({@link #feet}), or null: where the pose puts them
      * @param gait    which gait it goes at, 0 a walk .. 1 a jog .. 2 a sprint (BotPoser.gaitOf), going to the speed's
      *                over a few frames (GAIT_SPRING); NaN: the speed's own
-     * @param kick    a hit's push to the trunk now (BotImpulse.sample: its turn about the neck, rad, and the hips', px),
-     *                or null: none
+     * @param kick    the trunk's turn about the neck now, rad (kick[0..2]: a hit's push, BotImpulse.sample, with the
+     *                trunk's weight's lean, weigh, in 0 and 2; kick[3..5] the push's own hips, px), or null: none
      */
     public record Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits,
             float idleSec, int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert,
@@ -199,6 +199,53 @@ public final class BotAnimator {
 
     /** the speed and heading it is drawn at (Frame) */
     float speed, heading;
+    /**
+     * The trunk's weight (anim-feel stage 2; people: notes/anim-feel/stage2-people.md): it leans about the neck into
+     * how its going changes, ahead starting off ({@link #LEAN_AHEAD}), back pulling up ({@link #LEAN_BACK}), aside into
+     * a turn or a strafe ({@link #LEAN_SIDE}), each a little late; stood still it settles back over a little. The
+     * velocity drawn (blocks a tick, x z); the lean (rad, ModelPart's xRot: the chest ahead, zRot: to its left) and how
+     * fast each goes, a second.
+     */
+    private float velX, velZ, velXv, velZv, tiltXv, tiltZv;
+    float tiltX, tiltZ;
+    /** rad a m/s² ahead (people starting a run: 7.2 deg, a peak of 34 with the speed's own), at most (soft) */
+    static final float LEAN_AHEAD = 0.126F, LEAN_AHEAD_MOST = 0.40F;
+    /** rad a m/s² back (people pulling up from a run: 3.4 deg, a peak of 6.6, p10 12.6), at most */
+    static final float LEAN_BACK = 0.059F, LEAN_BACK_MOST = 0.22F;
+    /** rad a m/s² aside, at a walk and at a run (people: 2.3 and 3.2 deg of v w), at most (p90 of a run's 11 deg) */
+    static final float LEAN_SIDE = 0.041F, LEAN_SIDE_RUN = 0.057F, LEAN_SIDE_MOST = 0.20F;
+    /**
+     * blocks a tick of people's run (3.8 m/s) the most leans are of: going slower, as much less as the square of the
+     * share (people starting off at a walk lean 5 degrees, not the run's 23; aside in a turn 2.4, not 8.7). The bot
+     * comes to its pace in a third of a second, people in a second: its pull is far more, the lean it makes not
+     */
+    static final float LEAN_PACE = 0.19F;
+    /**
+     * The velocity the lean goes by follows the steps the client gets on a critically damped spring of this (1/s), and
+     * a pull under LEAN_STILL (m/s²) leans nothing: a server falling behind sends a mob's steps two in a tick and none
+     * in the next, and its pace over a third of a second wavers between 2 and 4 m/s, as a start's own does, but less
+     */
+    static final float LEAN_FOLLOW = 6F, LEAN_STILL = 3F;
+    /**
+     * blocks a tick: a step this much longer than twice the pace it goes at is no going (a server falling behind
+     * sends two of a sprint's 0.33 in a tick) but a mob put somewhere near or knocked back (the client's three steps
+     * to a place a few blocks off, KNOCK_PUSH): the lean starts over from standing upright
+     */
+    static final float LEAN_PUT = KNOCK_PUSH;
+    /**
+     * s the pace it pulls up from is kept for, then let go over as long: the speed drawn falls in a fifth of a second,
+     * people's lean back is at its most a quarter of a second in
+     */
+    static final float LEAN_PACE_KEPT = 0.5F;
+    /** the share of LEAN_PACE it has been going at (LEAN_PACE_KEPT) and s since it was last so fast */
+    private float leanPace, leanPaceFor;
+    /**
+     * the lean's spring, 1/s and its damping: on the move as late as people's (125 ms ahead and back; 160 ms aside at a
+     * walk, 330 at a run), none over; stood still slow and over a little (people: 13 % of the way, a fifth of a second
+     * past the stop's peak to a degree in 2.2 s)
+     */
+    static final float LEAN_SPRING = 16F, LEAN_SIDE_SPRING = 13F, LEAN_SIDE_SPRING_RUN = 6F, SETTLE_SPRING = 4F,
+            SETTLE_DAMP = 0.5F;
     /** hits' pushes to the trunk; the health and the motion (blocks a tick) it had last frame; the push sampled */
     final BotImpulse impulse = new BotImpulse();
     private float lastHealth = Float.NaN;
@@ -267,8 +314,16 @@ public final class BotAnimator {
             a.lastHealth = health;
             a.motionX = motion.x;
             a.motionZ = motion.z;
-            // a new array only while a push shows: the frame keeps it
-            float[] kick = a.impulse.sample((float) (own / 20.0), a.kickNow) ? a.kickNow.clone() : null;
+            // a new array only while a push or a lean shows: the frame keeps it. The lean not in a dash (its clip) nor in
+            // the air
+            boolean pushed = a.impulse.sample((float) (own / 20.0), a.kickNow);
+            float leans = (1F - smooth(f.dashed())) * (1F - smooth(a.air));
+            float[] kick = null;
+            if (pushed || leans > 0F && (a.tiltX != 0F || a.tiltZ != 0F)) {
+                kick = pushed ? a.kickNow.clone() : new float[6];
+                kick[0] += a.tiltX * leans;
+                kick[2] += a.tiltZ * leans;
+            }
             return new Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
                     a.speed, a.heading, death, a.walk, a.walkPos, f.alert(), a.air, f.dashed(), Mth.wrapDegrees(a.bodyYaw),
                     Mth.wrapDegrees(a.headYaw), a.feetOut.snapshot(), a.gait, kick);
@@ -327,13 +382,14 @@ public final class BotAnimator {
         float s = (float) Math.sqrt(dx * dx + dz * dz);
         if (s > TELEPORT) {
             // put somewhere (a teleport, a ride): it stands where it is now
-            speed = walk = gait = gaitVel = 0F;
+            speed = walk = gait = gaitVel = velX = velZ = velXv = velZv = tiltX = tiltZ = tiltXv = tiltZv = leanPace = leanPaceFor = 0F;
             return;
         }
         float k = dt > 20F ? 1F : 1F - (float) Math.pow(1F - SPEED_FOLLOW, dt);
         // from a stand (the clips hardly in yet) the heading takes the way it goes at once
         float stand = dt > 20F ? 1F : 1F - smooth((speed - BotPoser.MOVE_FROM) / (BotPoser.MOVE_FULL - BotPoser.MOVE_FROM));
         speed += (s - speed) * k;
+        weigh(dx, dz, bodyYaw, dt);
         // the gait by the speed, over a few frames: the speed drawn wavers by a hundredth with the steps the client
         // gets, and from a jog to a sprint is a band of 0.015 (the run's lean and the clips would go over in a frame)
         float gaitTo = BotPoser.gaitOf(speed);
@@ -369,6 +425,75 @@ public final class BotAnimator {
             float turn = Mth.wrapDegrees((to - heading) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD * kh, most = Mth.lerp(stand, Math.min(HEADING_TURN * dt, Mth.PI), Mth.PI);
             heading = Mth.wrapDegrees((heading + Mth.clamp(turn, -most, most)) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD;
         }
+    }
+
+    /** the trunk's weight (tiltX, tiltZ) for the steps dx dz this frame, dt ticks after the last */
+    private void weigh(double dx, double dz, float bodyYaw, float dt) {
+        double step = Math.sqrt(dx * dx + dz * dz);
+        boolean fresh = dt > 20F || Float.isNaN(bodyYaw);
+        if (fresh || step > LEAN_PUT + 2.0 * Math.sqrt(velX * velX + velZ * velZ)) {
+            // first seen (or after a long while) it goes on at the pace it has, upright; put somewhere it stands
+            boolean going = fresh && step <= LEAN_PUT;
+            velX = going ? (float) dx : 0F;
+            velZ = going ? (float) dz : 0F;
+            velXv = velZv = tiltX = tiltZ = tiltXv = tiltZv = leanPace = leanPaceFor = 0F;
+            return;
+        }
+        if (!(dt > 0F)) return;
+        float sec = dt / 20F, vx = velX, vz = velZ;
+        float[] fx = spring(velX, velXv, (float) dx, LEAN_FOLLOW, sec), fz = spring(velZ, velZv, (float) dz, LEAN_FOLLOW, sec);
+        velX = fx[0];
+        velXv = fx[1];
+        velZ = fz[0];
+        velZv = fz[1];
+        // m/s² at the bot's size (a block a metre, 20 ticks a second), along its left (+x) and its back (+z); less
+        // LEAN_STILL
+        float[] m = toModel((velX - vx) * 20F / sec, (velZ - vz) * 20F / sec, bodyYaw);
+        float left = m[0] / 16F, back = m[1] / 16F, pull = (float) Math.sqrt(left * left + back * back);
+        float on = pull > LEAN_STILL ? (pull - LEAN_STILL) / pull : 0F;
+        left *= on;
+        back *= on;
+        float pace = Mth.clamp(Math.max(speed, (float) Math.sqrt(dx * dx + dz * dz)) / LEAN_PACE, 0F, 1F);
+        if (pace >= leanPace) {
+            leanPace = pace;
+            leanPaceFor = 0F;
+        } else {
+            leanPaceFor += sec;
+            if (leanPaceFor > LEAN_PACE_KEPT) leanPace = Math.max(pace, leanPace - sec / LEAN_PACE_KEPT);
+        }
+        float most = leanPace * leanPace;
+        float ahead = back < 0F ? soft(-back * LEAN_AHEAD, LEAN_AHEAD_MOST * most) : -soft(back * LEAN_BACK, LEAN_BACK_MOST * most);
+        float run = Mth.clamp(gait, 0F, 1F);
+        float aside = left * Mth.lerp(run, LEAN_SIDE, LEAN_SIDE_RUN);
+        aside = Math.copySign(soft(Math.abs(aside), LEAN_SIDE_MOST * most), aside);
+        // on the move each follows its own quick spring; stood still both settle on the slow one
+        float go = smooth((speed - BotPoser.MOVE_FROM) / (BotPoser.MOVE_FULL - BotPoser.MOVE_FROM));
+        float damp = Mth.lerp(go, SETTLE_DAMP, 1F);
+        float[] x = spring(tiltX, tiltXv, ahead, Mth.lerp(go, SETTLE_SPRING, LEAN_SPRING), damp, sec);
+        float[] z = spring(tiltZ, tiltZv, aside, Mth.lerp(go, SETTLE_SPRING, Mth.lerp(run, LEAN_SIDE_SPRING, LEAN_SIDE_SPRING_RUN)), damp, sec);
+        tiltX = x[0];
+        tiltXv = x[1];
+        tiltZ = z[0];
+        tiltZv = z[1];
+        // come to rest it is upright, not a ten-thousandth off for a minute (the frame's lean then left out)
+        if (Math.abs(tiltX) < 1e-4F && Math.abs(tiltXv) < 1e-3F) tiltX = tiltXv = 0F;
+        if (Math.abs(tiltZ) < 1e-4F && Math.abs(tiltZv) < 1e-3F) tiltZ = tiltZv = 0F;
+    }
+
+    /** v as it is while well under most, going on to most softly (tanh); none if most is */
+    static float soft(float v, float most) {
+        return most > 1e-6F ? most * (float) Math.tanh(v / most) : 0F;
+    }
+
+    /** a spring of any damping (1 none over), x to {@code to}: steps short enough for its omega */
+    static float[] spring(float x, float v, float to, float omega, float damp, float sec) {
+        int n = Math.max(1, (int) Math.ceil(sec * omega / 0.2F));
+        float h = sec / n;
+        for (int i = 0; i < n; i++) {
+            v += (omega * omega * (to - x) - 2F * damp * omega * v) * h;
+            x += v * h;
+        }
+        return new float[] { x, v };
     }
 
     // ---------------------------------------------------------------- the turn
@@ -577,7 +702,7 @@ public final class BotAnimator {
             planted = false;
             return;
         }
-        out.w = feetW;
+        out.w = smooth(feetW);
         double[] nx = new double[2], nz = new double[2];
         for (int k = 0; k < 2; k++) {
             double[] o = toWorld(out.neutral[k * 3], out.neutral[k * 3 + 2], bodyYaw);
@@ -802,7 +927,7 @@ public final class BotAnimator {
         boolean dash = act != null && BotPoser.dash(act.kind());
         for (Act out : fading) dash |= BotPoser.dash(out.kind());
         dashed = dash ? approach(dashed, 1F, dt / DASH_IN) : approach(dashed, 0F, dt / DASH_OUT);
-        return new Frame(crouch, lean, arms.clone(), act, fading, hitList, age / 20F, entity, 0F, 0F, -1F, 0F, 0F, alert, 0F, dashed);
+        return new Frame(crouch, lean, eased(arms), act, fading, hitList, age / 20F, entity, 0F, 0F, -1F, 0F, 0F, alert, 0F, dashed);
     }
 
     /** the flinch of the n-th hit, by turns: the head back, the chest, doubled up, thrown back */
@@ -832,5 +957,18 @@ public final class BotAnimator {
     static float smooth(float x) {
         x = Mth.clamp(x, 0F, 1F);
         return x * x * (3F - 2F * x);
+    }
+
+    /**
+     * The arms' ways' weights as drawn: each going over (ARMS_TICKS, at an even pace) eased in and out (smooth), so an
+     * arm starts and stops without a jolt; still summing to 1 (from one way to another smooth(w) + smooth(1 - w) is 1
+     * as it is; among three, shared out again)
+     */
+    static float[] eased(float[] w) {
+        float[] out = new float[w.length];
+        float sum = 0F;
+        for (int i = 0; i < w.length; i++) sum += out[i] = smooth(w[i]);
+        if (sum > 1e-6F) for (int i = 0; i < w.length; i++) out[i] /= sum;
+        return out;
     }
 }

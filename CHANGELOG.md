@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers carry their weight: they lean into a start and back as they
+  pull up, lean into a turn, and settle after stopping, their head staying
+  where they look from. Raising and lowering the gun and setting the feet
+  down ease in and out instead of starting and stopping with a jolt.
+
 ## X1592
 
 - A hit no longer throws an AI soldier's head about: its flinch folds the

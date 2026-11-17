@@ -332,7 +332,7 @@ public final class BotPoser {
 
         // in the air (a jump up a block, a fall): the legs of a jump, one knee drawn up
         float c = BotAnimator.smooth(f.crouch()) * upright;
-        float air = f.air() * upright * (1F - c);
+        float air = BotAnimator.smooth(f.air()) * upright * (1F - c);
         BotClip jump = air > 0F ? BotClips.get(BotClips.JUMP) : null;
         if (jump != null) turns(p, jump, jump.local(f.idleSec()), air, LEGS, a);
 
@@ -425,8 +425,8 @@ public final class BotPoser {
                 part.x += shift;
         }
 
-        // 7. a hit's push (BotImpulse): the trunk turned about the neck, the hips and the legs' roots under it, the head
-        // where it is (the server's eye); upright and alive only
+        // 7. a hit's push (BotImpulse) and the trunk's weight (BotAnimator.weigh): the trunk turned about the neck, the
+        // hips and the legs' roots under it, the head where it is (the server's eye); upright and alive only
         kick(p, f.kick(), upright * (1F - dead));
 
         // 8. standing, the feet where they stand on the floor (BotAnimator.feet): the body turns, leans and sways over
