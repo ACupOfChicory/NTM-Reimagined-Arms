@@ -46,6 +46,11 @@ public final class AiMover {
     private boolean settled;
     /** how long the last steps may take before the mob counts as there all the same (another mob in the way) */
     static final int SETTLE = 40;
+    /**
+     * At the goal by the cells, not by where it stands: the search's way was the one cell it stands in (that cell's middle
+     * within the radius, the mob at its edge out of it). It steps to that cell's middle, from closeSince, SETTLE ticks at most.
+     */
+    private long closeCell = Long.MIN_VALUE, closeSince;
     /** a search's answer, with the goal count it was asked for */
     private record Answer(int gen, PathSearch.Result result) {
     }
@@ -107,6 +112,7 @@ public final class AiMover {
         noWay = false;
         partBest = Double.MAX_VALUE;
         inCellSince = Long.MIN_VALUE;
+        closeCell = Long.MIN_VALUE;
         settled = false;
         walking = null;
         searching = false;
@@ -165,6 +171,7 @@ public final class AiMover {
     public void stop() {
         goal = Long.MIN_VALUE;
         inCellSince = Long.MIN_VALUE;
+        closeCell = Long.MIN_VALUE;
         settled = false;
         walking = null;
         searching = false;
@@ -175,6 +182,7 @@ public final class AiMover {
     /** stop walking but keep the goal: the walk starts over when it moves again */
     public void pause() {
         walking = null;
+        closeCell = Long.MIN_VALUE;
         searching = false;
         gen++;
         mob.getNavigation().stop();
@@ -267,6 +275,7 @@ public final class AiMover {
         boolean stuck = mob.getMoveControl() instanceof AiMoveControl legs && legs.stuck();
         if (goal == Long.MIN_VALUE) return;
         if (hold) {
+            closeCell = Long.MIN_VALUE;
             if (walking != null || !mob.getNavigation().isDone()) {
                 walking = null;
                 mob.getNavigation().stop();
@@ -274,11 +283,13 @@ public final class AiMover {
             return;
         }
         if (arrived()) {
+            closeCell = Long.MIN_VALUE;
             mob.getNavigation().stop();
             walking = null;
             return;
         }
         if (inGoalCell()) {
+            closeCell = Long.MIN_VALUE;
             // the last steps: straight to the cell's middle (or the point off it asked for)
             mob.getNavigation().stop();
             walking = null;
@@ -288,6 +299,16 @@ public final class AiMover {
             return;
         }
         inCellSince = Long.MIN_VALUE;
+        if (closeCell != Long.MIN_VALUE) {
+            // the last steps to the middle of the cell it stands in: within the radius there. Pushed out of the cell, or
+            // kept from its middle SETTLE ticks (another mob in it): a try spent, a search again
+            if (mob.getBlockX() == BlockPos.getX(closeCell) && mob.getBlockZ() == BlockPos.getZ(closeCell) && tick - closeSince <= SETTLE) {
+                mob.getMoveControl().setWantedPosition(BlockPos.getX(closeCell) + 0.5, mob.getY(), BlockPos.getZ(closeCell) + 0.5, modifier());
+                return;
+            }
+            if (tick - closeSince > SETTLE) tries++;
+            closeCell = Long.MIN_VALUE;
+        }
         Answer a = answer;
         if (a != null) answer = null;
         if (a != null && a.gen == gen && searching) {
@@ -300,7 +321,16 @@ public final class AiMover {
             noWayAt = map.changes;
             wantMissing(map, r);
             if (r.found() && r.cells.length > 1) walk(r);
-            else if (!r.reached && r.missing.length > 0 && waits++ < MAP_WAITS) {
+            else if (r.reached && r.cells.length == 1 && offX == 0 && offZ == 0 && mob.getBlockX() == BlockPos.getX(r.cells[0])
+                    && mob.getBlockZ() == BlockPos.getZ(r.cells[0])) {
+                // at the goal by the cells, not yet where it stands (its cell's middle within the radius, it at the cell's
+                // edge): no path to walk, a step to that middle. Counted a try, it was searched again and again, never there
+                // (a cell beside its own, the map has none where it stands: a try, as before)
+                closeCell = r.cells[0];
+                closeSince = tick;
+                mob.getNavigation().stop();
+                return;
+            } else if (!r.reached && r.missing.length > 0 && waits++ < MAP_WAITS) {
                 // the map not built yet where the way may go (down a long shaft section after section): no try spent
             } else {
                 // nowhere to go from here, and every cell in reach was looked at: no other search will find a way
@@ -322,6 +352,9 @@ public final class AiMover {
         if (walking != null && !done && (waitingSince != Long.MIN_VALUE || map.changes != seenChanges || tick - lastCheck >= CHECK_EVERY)) {
             lastCheck = tick;
             seenChanges = map.changes;
+            // the sections it walks through kept while it walks them: dropped unwanted under it (a long way down a drift
+            // wanted once, at its search), the path went stale and a search on the map without them turned it back
+            map.keepWalked(walking.keys);
             if (!fresh(map, walking, walkStamps) && !keep(map, walking, tick)) done = true;
         }
         if (walking == null || done) {

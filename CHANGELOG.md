@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- An AI soldier sent to stand near a spot, such as a squad gathering at a
+  hatch, no longer freezes a step short of it with the whole squad waiting
+  on it: it takes that last step.
+- An AI squad going a long way round, such as down a long tunnel, no longer
+  turns back halfway because the ground it was walking over was forgotten
+  under it.
+
 ## X1494
 
 - The small nuclear blasts' shock ring now leaves the old smoke lying over
