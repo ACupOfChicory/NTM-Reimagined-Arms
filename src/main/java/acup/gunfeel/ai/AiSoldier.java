@@ -522,6 +522,11 @@ public final class AiSoldier implements AiBrain {
             shelter(bot, shelter, c, tick);
             return;
         }
+        // another of its side's entry's grenade out, it behind blocks from the burst in its reach: it stays where it is (AiEntry)
+        if (AiEntry.on() && AiEntry.holds(bot, level)) {
+            shelter(bot, Long.MIN_VALUE, c, tick);
+            return;
+        }
         // going round for its side's pair, the foe still far: on round by the order, not into a fight from here (C4)
         if (c != null && AiCommander.goesRound(bot, c, tick) && ordered(bot, level, tick)) {
         }
@@ -1948,15 +1953,24 @@ public final class AiSoldier implements AiBrain {
         return !seesUp || VoxelRay.clear(v, down.x, down.y, down.z, look.x, look.y, look.z, Voxel.SIGHT);
     }
 
-    /** at its place beside the way in till its entry's grenade has burst: a foe in sight under fire from there, no step out */
+    /**
+     * at its place beside the way in till its entry's grenade has burst (Long.MIN_VALUE: where it stands, behind
+     * blocks from another's): a foe in sight under fire from there, no step out
+     */
     private void shelter(AiBot bot, long cell, TargetMemory.@Nullable Contact c, long tick) {
-        if (spot != null) drop(bot);
-        if (!bot.mover.goalIs(cell)) {
-            bot.mover.costs(PathSearch.Cost.NONE);
-            bot.mover.goTo(cell, 0.35, RUN);
+        if (cell == Long.MIN_VALUE) {
+            // held where it stands for a moment: its mode and cover kept (a search goes on after the burst)
+            if (!bot.mover.idle()) bot.mover.stop();
+            why = Why.SHELTER_HOLD;
+        } else {
+            if (spot != null) drop(bot);
+            if (!bot.mover.goalIs(cell)) {
+                bot.mover.costs(PathSearch.Cost.NONE);
+                bot.mover.goTo(cell, 0.35, RUN);
+            }
+            mode(bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
+            why = Why.SHELTER;
         }
-        mode(bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
-        why = Why.SHELTER;
         if (c != null && c.state == TargetMemory.State.VISIBLE) {
             Vec3 at = new Vec3(c.x, c.y + 1.1, c.z);
             watch = at;

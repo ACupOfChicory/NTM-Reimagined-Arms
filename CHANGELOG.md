@@ -1,5 +1,13 @@
 # Changelog
 
+## X1538
+
+- AI soldiers no longer walk into the blast of their own squad's grenade
+  thrown into a room before an entry. Squad mates who are not part of that
+  entry and stand behind a wall from it wait there until it goes off,
+  instead of searching on along the wall into the line of the doorway. A
+  squad mate in the open now keeps clear of all of the blast's reach.
+
 ## X1532
 
 - AI soldiers no longer now and then shoot one of their own who runs across
