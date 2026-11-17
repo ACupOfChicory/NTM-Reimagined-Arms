@@ -93,6 +93,11 @@ final class AiCheckTeams {
     // shots fired by one that knew of no one (no contact, nothing heard) this tick and the one before (a shot the
     // tick its target fell and was forgotten is the trigger's last): at nothing
     private int blindShots;
+    // X1217's n: times one firing (a shot within FIRING ticks) was left knowing of no one (its foe down and forgotten),
+    // the case blindShots watches; the tick each fighter last fired
+    private int leftFiring;
+    private final java.util.Map<AiBot, Long> lastShot = new java.util.HashMap<>();
+    static final int FIRING = 3;
     private final java.util.Map<AiBot, Integer> shotsBefore = new java.util.HashMap<>();
     private final java.util.Set<AiBot> knewNoOne = new java.util.HashSet<>();
     private long seeTicks;
@@ -147,6 +152,9 @@ final class AiCheckTeams {
             int was = shotsBefore.getOrDefault(bot, bot.gunner.shots);
             boolean noOne = bot.memory.contacts().isEmpty() && bot.memory.noise() == null;
             if (bot.gunner.shots > was && noOne && knewNoOne.contains(bot)) blindShots += bot.gunner.shots - was;
+            long nowTick = bot.mob.level().getGameTime();
+            if (bot.gunner.shots > was) lastShot.put(bot, nowTick);
+            if (noOne && !knewNoOne.contains(bot) && lastShot.getOrDefault(bot, Long.MIN_VALUE / 2) >= nowTick - FIRING) leftFiring++;
             shotsBefore.put(bot, bot.gunner.shots);
             if (noOne) knewNoOne.add(bot);
             else knewNoOne.remove(bot);
@@ -601,8 +609,10 @@ final class AiCheckTeams {
             }
         } else check.check("two teams of AI mobs fight each other", fought);
         check.check("no AI mob hits one of its own team", ownHits == 0);
-        check.out("     shots by a fighter that knows of no one: " + blindShots);
+        check.out("     shots by a fighter that knows of no one: " + blindShots + " (left so while firing " + leftFiring + " times)");
         check.check("no AI mob fires knowing of no one", blindShots == 0);
+        // X1217's n (told, not held to): the check above is empty where none firing was left knowing of no one; in the
+        // open fights here that is 0 or 1 a run, before X1217 and after alike (its case is a soldier ordered by the staff)
         check.check("no AI mob is hit by its own grenade", selfBlasts == 0);
         for (Mob m : red) m.discard();
         for (Mob m : blue) m.discard();
