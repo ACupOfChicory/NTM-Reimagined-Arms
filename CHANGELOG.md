@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers no longer walk into the blast of their own squad's grenade
+  thrown into a room before an entry. Squad mates who are not part of that
+  entry and stand behind a wall from it wait there until it goes off,
+  instead of searching on along the wall into the line of the doorway. A
+  squad mate in the open now keeps clear of all of the blast's reach.
+
 ## X1514
 
 - The two bullets of a Duplex round now spread six times as wide: the

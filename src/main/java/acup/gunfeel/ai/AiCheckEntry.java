@@ -67,6 +67,55 @@ final class AiCheckEntry {
     /** AiBots.friendlyHits when the stage began: its bullets (and blasts) into its own counted at its end */
     private int friendly0;
 
+    /** the trace of a blast into its own: the grenades of this round (id: how it was thrown, where it was last), the squad tick by tick (the last TRACE_KEEP) */
+    private final java.util.Map<Integer, String[]> nades = new java.util.LinkedHashMap<>();
+    private final java.util.ArrayDeque<String> history = new java.util.ArrayDeque<>();
+    static final int TRACE_KEEP = 90;
+
+    private void traceTick() {
+        var box = new net.minecraft.world.phys.AABB(X0, y - 4, Z0, X0 + SIZE, y + 12, Z0 + SIZE);
+        for (var g : level.getEntitiesOfClass(com.hbm.entity.grenade.EntityGrenadeUniversal.class, box)) {
+            Vec3 b = AiGrenades.predicted(level, g);
+            String now = String.format(Locale.ROOT, "last seen round tick %d, age %d, at %.2f %.2f %.2f moving %.2f %.2f %.2f, to burst at %s", ticks, g.tickCount, g.getX(), g.getY() - y,
+                    g.getZ(), g.getDeltaMovement().x, g.getDeltaMovement().y, g.getDeltaMovement().z, b == null ? "?" : String.format(Locale.ROOT, "%.2f %.2f %.2f", b.x, b.y - y, b.z));
+            String[] s = nades.get(g.getId());
+            if (s != null) {
+                s[1] = now;
+                continue;
+            }
+            var o = g.getOwner();
+            String who = o == null ? "none" : String.format(Locale.ROOT, "#%d at %.2f %.2f %.2f %s", o.getId(), o.getX(), o.getY() - y, o.getZ(),
+                    o instanceof Mob om && AiBots.get(om) instanceof AiBot ob ? soldier(ob) : o.getType().toShortString());
+            nades.put(g.getId(), new String[] {String.format(Locale.ROOT, "grenade #%d first seen round tick %d, age %d, at %.2f %.2f %.2f, %s %s %s %s timer %d, by %s", g.getId(), ticks, g.tickCount,
+                    g.getX(), g.getY() - y, g.getZ(), g.getShell(), g.getFilling(), g.getFuze(), g.getExtra(), g.getTimer(), who), now});
+        }
+        StringBuilder sb = new StringBuilder(String.format(Locale.ROOT, "t%d:", ticks));
+        for (Mob m : squad) {
+            if (!m.isAlive()) continue;
+            AiBot b = AiBots.get(m);
+            sb.append(String.format(Locale.ROOT, " #%d %.1f %.1f %s;", m.getId(), m.getX(), m.getZ(), b == null ? "-" : soldier(b)));
+        }
+        history.addLast(sb.toString());
+        while (history.size() > TRACE_KEEP) history.removeFirst();
+    }
+
+    private String soldier(AiBot b) {
+        if (!(b.brain instanceof AiSoldier s)) return "?";
+        Vec3 d = s.dodgeFrom();
+        return s.mode() + "/" + s.why + (d == null ? "" : String.format(Locale.ROOT, " dodging %.1f %.1f", d.x, d.z)) + " " + AiEntry.describe(level, b);
+    }
+
+    private void traceDump(Mob hurt) {
+        check.out(String.format(Locale.ROOT, "       trace: hurt #%d; grenades this round:", hurt.getId()));
+        for (String[] s : nades.values()) check.out("       " + s[0] + "; " + s[1]);
+        int k = 0, n = history.size();
+        for (String h : history) {
+            if (k % 5 == 0 || k >= n - 6) check.out("       " + h);
+            k++;
+        }
+        for (String f : AiEntry.fates) check.out("       fate: " + f);
+    }
+
     boolean tick() {
         if (!started) {
             started = true;
@@ -83,6 +132,7 @@ final class AiCheckEntry {
         }
         ticks++;
         if (shed) return shedTick();
+        traceTick();
         int left = 0, foes = 0;
         for (int i = 0; i < squad.size(); i++) {
             Mob m = squad.get(i);
@@ -94,6 +144,7 @@ final class AiCheckEntry {
                     ownBlast++;
                     check.out(String.format(Locale.ROOT, "     entry, round %d, tick %d: one of the squad hurt %.1f at %.1f %.1f by %s", round + 1, ticks, health[i] - h, m.getX(), m.getZ(),
                             by == null ? "?" : by.type().msgId()));
+                    traceDump(m);
                 }
             }
             health[i] = h;
@@ -285,6 +336,9 @@ final class AiCheckEntry {
         fragsBefore = AiEntry.frags;
         noThrowBefore = AiEntry.noThrow;
         ownBlast = blastKills = 0;
+        nades.clear();
+        AiEntry.fates.clear();
+        history.clear();
         for (int i = 0; i < SQUAD; i++) health[i] = squad.get(i).getHealth();
         long now = level.getGameTime();
         for (Mob m : squad) {

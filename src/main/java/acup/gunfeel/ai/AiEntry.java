@@ -111,6 +111,12 @@ public final class AiEntry {
      * first hits, and that place is worked out from each corner of its box.
      */
     static final double HE_SAFE = 9.5, POWDER_SAFE = 7;
+    /**
+     * The others of its side (not of the entry), and those to be spared, are kept this far from the burst unless all of
+     * them is behind blocks: as far as the filling's blast hurts a mob in NTM, twice its reach (he 15, AiGrenades.SAFE;
+     * powder 10). A stand: one of the side 9.6 blocks off, in the open through the doorway, lost 9.5.
+     */
+    static final double HE_HURTS = AiGrenades.SAFE, POWDER_HURTS = 10;
     /** the stands: why a throw was not found: none lands in the room, one of the entry not behind the wall, another of its side in reach, a player */
     public static final int[] why = new int[5];
 
@@ -146,7 +152,7 @@ public final class AiEntry {
         int[] why0 = {};
         String lostHow = "";
         Vec3 aim = Vec3.ZERO;
-        double safe;
+        double safe, hurts;
         /**
          * an entry into a room a foe fell in (no one known there now) whose grenade is not to go in: the room too big,
          * one of its side or one to be spared there; worked out again every FRAG_AGAIN ticks while it stacks
@@ -317,6 +323,29 @@ public final class AiEntry {
             if (i >= 0 && i < op.places.size()) return op.places.get(i)[1];
         }
         return null;
+    }
+
+    /**
+     * Another of the side of an entry whose grenade is out, not burst yet (not of that entry): in the reach the blast
+     * hurts in, all of it behind blocks from the burst where it stands. It stays there, whatever it sees, till the
+     * burst: a search led one that stood behind the house's wall along it into the line through the doorway, out
+     * of cover in the reach, and a blast through the doorway hurt it (the stands). In the open there it runs from the
+     * grenade instead (keeps, AiSoldier.dodge).
+     */
+    static boolean holds(AiBot bot, ServerLevel level) {
+        Map<Long, Op> ops = OPS.get(level);
+        if (ops == null) return false;
+        Mob m = bot.mob;
+        for (Op op : ops.values()) {
+            if (op.phase != WAIT || op.members.contains(bot)) continue;
+            Entity g = level.getEntity(op.fragId);
+            if (g == null || g.isRemoved() || !(g instanceof net.minecraft.world.entity.projectile.Projectile p)
+                    || !(p.getOwner() instanceof net.minecraft.world.entity.LivingEntity o) || o != m && !AiTeams.own(m, o)) continue;
+            Vec3 b = AiGrenades.predicted(level, g);
+            if (b == null) b = op.aim;
+            if (m.distanceToSqr(b) < op.hurts * op.hurts && AiGrenades.shielded(AiBots.voxels(level), m.getX(), m.getY(), m.getZ(), m.getBbHeight(), b)) return true;
+        }
+        return false;
     }
 
     private static @Nullable Vec3 step(Op op, AiRooms.Plan plan, AiSoldier s, AiBot bot, ServerLevel level, long tick) {
@@ -573,6 +602,7 @@ public final class AiEntry {
         AiRooms.Way way = op.way;
         if (!frag || !AiGrenades.on || !ReaimTimes.flag(FRAG_KEY, true) || op.aim == Vec3.ZERO || way == null) return null;
         op.safe = powder() ? POWDER_SAFE : HE_SAFE;
+        op.hurts = powder() ? POWDER_HURTS : HE_HURTS;
         for (AiBot b : op.members) {
             if (b.grenades <= 0 || b.gunner.reloading() || b.prone.lying() || op.tried.contains(b)) continue;
             if (way.door) return b;
@@ -615,8 +645,9 @@ public final class AiEntry {
     /**
      * Whether a burst here harms none of the thrower's own: it is in the room (over one of its cells); those of the
      * entry are all of them off it behind the wall at their places beside the way in (AiGrenades.shielded, standing);
-     * any other of its side is out of its reach (op.safe) or all of it behind blocks from it where it is; none to be
-     * spared (spared) in the room, nor in its reach unless behind blocks.
+     * any other of its side is out of the reach its blast hurts in (op.hurts) or all of it behind blocks from it where
+     * it is (and is held there till the burst: sheltered); none to be spared (spared) in the room, nor in that reach
+     * unless behind blocks.
      */
     private static boolean safe(Op op, ServerLevel level, VoxelRay.Source src, Mob thrower, Vec3 b) {
         AiRooms.Plan plan = op.plan;
@@ -624,7 +655,7 @@ public final class AiEntry {
             why[0]++;
             return false;
         }
-        double s2 = op.safe * op.safe;
+        double s2 = op.hurts * op.hurts;
         for (AiBot o : AiBots.bots(level)) {
             if (!o.mob.isAlive() || o.mob != thrower && !AiTeams.own(thrower, o.mob)) continue;
             int i = op.members.indexOf(o);
@@ -651,7 +682,7 @@ public final class AiEntry {
             op.sparedAt = now;
             op.spared.clear();
             Vec3 mid = mid(plan.mid[op.room], 0);
-            double reach = Math.max(op.safe, FOUGHT_REACH) + Math.sqrt(plan.size[op.room]) + 2;
+            double reach = Math.max(op.hurts, FOUGHT_REACH) + Math.sqrt(plan.size[op.room]) + 2;
             for (net.minecraft.world.entity.LivingEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(mid, mid).inflate(reach)))
                 if (e.isAlive() && spared(e)) op.spared.add(e);
         }
@@ -672,7 +703,8 @@ public final class AiEntry {
     /**
      * Whether this is a grenade thrown into a room before an entry that does this mob no harm where it is: one of the
      * entry, its place beside the way in all behind the wall from where it will burst; another of its side, out of
-     * its reach or all of it behind blocks. It does not run from that one.
+     * the reach its blast hurts in (op.hurts) or all of it behind blocks where it is (held there: sheltered). It does
+     * not run from that one.
      */
     static boolean keeps(ServerLevel level, AiBot bot, int grenade, Vec3 burst, VoxelRay.Source src) {
         Map<Long, Op> ops = OPS.get(level);
@@ -681,8 +713,23 @@ public final class AiEntry {
             if (op.fragId != grenade) continue;
             int i = op.members.indexOf(bot);
             if (i >= 0) return shielded(src, op.places.get(i)[1], bot.mob, burst);
-            return bot.mob.distanceToSqr(burst) >= op.safe * op.safe || AiGrenades.shielded(src, bot.mob.getX(), bot.mob.getY(), bot.mob.getZ(), bot.mob.getBbHeight(), burst);
+            return bot.mob.distanceToSqr(burst) >= op.hurts * op.hurts || AiGrenades.shielded(src, bot.mob.getX(), bot.mob.getY(), bot.mob.getZ(), bot.mob.getBbHeight(), burst);
         }
         return false;
+    }
+
+    /** the stands: this one's part in an entry (its phase, its number, the thrower, its place to wait at), "-" if none */
+    static String describe(ServerLevel level, AiBot bot) {
+        Map<Long, Op> ops = OPS.get(level);
+        if (ops == null) return "-";
+        for (Op op : ops.values()) {
+            int i = op.members.indexOf(bot);
+            if (i < 0 && op.thrower != bot) continue;
+            long p = i >= 0 && i < op.places.size() ? op.places.get(i)[1] : Long.MIN_VALUE;
+            return String.format(java.util.Locale.ROOT, "entry[phase %d at %d, #%d of %d%s, grenade %d, wait at %s, front %d %d]", op.phase, op.phaseAt, i, op.members.size(),
+                    op.thrower == bot ? ", thrower" : "", op.fragId, p == Long.MIN_VALUE ? "-" : BlockPos.getX(p) + " " + BlockPos.getZ(p),
+                    BlockPos.getX(op.front), BlockPos.getZ(op.front));
+        }
+        return "-";
     }
 }
