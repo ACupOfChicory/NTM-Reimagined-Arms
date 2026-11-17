@@ -188,6 +188,9 @@ public final class AiCheck {
                         AiCommander.on = List.of("commander", "war", "wall").contains(names.get(at[0]));
                         AiVoice.reset();
                         AiVoice.counting = true;
+                        // the shots that hit their own traced in the entry (AiBots.friendTrace); suppressing fire counted
+                        AiBots.friendTrace = names.get(at[0]).equals("entry");
+                        AiSoldier.counting = true;
                     }
                     boolean counted = at[0] < stages.size() && legsIn.contains(names.get(at[0]));
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {
@@ -199,6 +202,9 @@ public final class AiCheck {
                         check.out(String.format(java.util.Locale.ROOT, "     pinned down in %s: %.1f%% of %d mob ticks (aiSuppression %s)", names.get(at[0]),
                                 AiBots.botTicks == 0 ? 0 : 100.0 * AiBots.pinnedTicks / AiBots.botTicks, AiBots.botTicks, AiUnderFire.on()));
                         AiBots.botTicks = AiBots.pinnedTicks = 0;
+                        check.out(String.format(java.util.Locale.ROOT, "     suppressing fire in %s: shots %d, ticks held for one of its own in the line %d (aiLeadLine %s)",
+                                names.get(at[0]), AiSoldier.suppressShots, AiSoldier.suppressHolds, AiBots.leadLine));
+                        AiSoldier.suppressShots = AiSoldier.suppressHolds = 0;
                         if (names.get(at[0]).equals("battle")) {
                             check.check("the battle: the mobs call out, no squad more than " + VOICE_SECOND + " lines a second",
                                     AiVoice.total() > 0 && AiVoice.mostASecond(AiVoice.heard) <= VOICE_SECOND);

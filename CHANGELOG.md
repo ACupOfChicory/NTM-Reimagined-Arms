@@ -8,6 +8,13 @@
   instead of searching on along the wall into the line of the doorway. A
   squad mate in the open now keeps clear of all of the blast's reach.
 
+## X1532
+
+- AI soldiers no longer now and then shoot one of their own who runs across
+  in front of the gun a few blocks off: before each shot they check where
+  that one will be when the bullet gets there, along the line the bullet
+  really takes from the gun's muzzle rather than from the eye.
+
 ## X1525
 
 - An AI squad about to go into a room first looks into it from round the
