@@ -140,19 +140,12 @@ final class AiCheckBypass {
         return finish();
     }
 
-    /** as the first of the squad comes in: the one below in the corner (the one further from the shaft's foot) 0 down, 1 known of by one of the squad, 2 not */
+    /** as the first of the squad comes in: the one below it is not told of 0 down, 1 known of by one of the squad, 2 not */
     private int cornerAtIn = -1;
 
     private int corner() {
-        Mob far = null;
-        double best = -1;
-        for (Mob h : held) {
-            double d = Math.hypot(h.getX() - SX - 0.5, h.getZ() - SZ - 0.5);
-            if (d > best) {
-                best = d;
-                far = h;
-            }
-        }
+        // (the first of the two is the one the squad is told of; the other, the one it does not know of)
+        Mob far = held.size() > 1 ? held.get(1) : null;
         if (far == null || !far.isAlive()) return 0;
         for (Mob m : squad) {
             AiBot b = AiBots.get(m);

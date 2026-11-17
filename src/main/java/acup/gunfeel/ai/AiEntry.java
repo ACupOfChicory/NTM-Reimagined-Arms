@@ -363,7 +363,7 @@ public final class AiEntry {
             go(bot, to, 0.5);
             if (bot.mover.arrived() || bot.mover.failed()) op.done.add(bot);
             // the dead corners by the wall with the opening, not seen from round it: the first two each to its own
-            Vec3 at = corner(op, plan, i);
+            Vec3 at = slice() ? corner(op, plan, i) : null;
             if (at != null) return at;
         } else if (op.phase == FRAG && bot == op.thrower) frag(op, s, bot, level, tick);
         else {
@@ -529,10 +529,12 @@ public final class AiEntry {
         long end = op.room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
         int in = w.in(op.room), lx = -Dirs.DZ[in], lz = Dirs.DX[in];
         int ex = BlockPos.getX(end), ez = BlockPos.getZ(end);
+        int[] band = band(w, end, in);
         boolean[] sides = new boolean[3];
         for (int i = 0; i < op.members.size(); i++) {
             AiBot b = op.members.get(i);
-            int side = Integer.signum((Mth.floor(b.mob.getX()) - ex) * lx + (Mth.floor(b.mob.getZ()) - ez) * lz);
+            int lat = (Mth.floor(b.mob.getX()) - ex) * lx + (Mth.floor(b.mob.getZ()) - ez) * lz;
+            int side = lat > band[1] ? 1 : lat < band[0] ? -1 : 0;
             if (side == 0 || sides[side + 1]) continue;
             sides[side + 1] = true;
             arc(op, level, b, side, SLICE_POINTS);
@@ -542,6 +544,23 @@ public final class AiEntry {
         op.arcSince = new long[op.slicers.size()];
         java.util.Arrays.fill(op.arcSince, Long.MIN_VALUE);
         return !op.slicers.isEmpty();
+    }
+
+    /**
+     * across the opening, the sideways reach of its cells (from end, along the left of in): one wide 0..0, two or three
+     * wide all its lanes (Way.cells are its lanes one after another)
+     */
+    private static int[] band(AiRooms.Way w, long end, int in) {
+        int lx = -Dirs.DZ[in], lz = Dirs.DX[in], lo = 0, hi = 0;
+        for (long c : w.cells) {
+            int dx = BlockPos.getX(c) - BlockPos.getX(end), dz = BlockPos.getZ(c) - BlockPos.getZ(end);
+            // (the cells level with end across the way: its lanes' ends on the room's side)
+            if (dx * Dirs.DX[in] + dz * Dirs.DZ[in] != 0) continue;
+            int lat = dx * lx + dz * lz;
+            lo = Math.min(lo, lat);
+            hi = Math.max(hi, lat);
+        }
+        return new int[] {lo, hi};
     }
 
     /** one's places round the opening on its side (0: on the opening's line), at most points of them; none, none added */
@@ -554,6 +573,7 @@ public final class AiEntry {
         long[] cells = plan.cells()[op.room];
         VoxelRay.Source src = AiBots.voxels(level);
         Vec3 mouth = mid(end, 1.0);
+        int[] band = band(w, end, in);
         // the places on its side, each with the room's cells it sees
         List<long[]> spots = new ArrayList<>();
         List<java.util.BitSet> sees = new ArrayList<>();
@@ -563,7 +583,8 @@ public final class AiEntry {
                 int depth = dx * Dirs.DX[out] + dz * Dirs.DZ[out], lat = dx * lx + dz * lz;
                 // (off the opening's line where there is room for it: that is the lane of fire of one in there
                 // waiting for it, and the thrower's)
-                if (depth < 1 || (side == 0 ? lat != 0 : lat * side <= 0) || dx * dx + dz * dz > SLICE_FAR * SLICE_FAR) continue;
+                boolean line = lat >= band[0] && lat <= band[1];
+                if (depth < 1 || (side == 0 ? !line : line || lat * side < 0) || dx * dx + dz * dz > SLICE_FAR * SLICE_FAR) continue;
                 int x = ex + dx, z = ez + dz;
                 long c = BlockPos.asLong(x, ey, z);
                 if (plan.room(c) == op.room || !Voxel.open(src.voxel(x, ey, z)) || !Voxel.open(src.voxel(x, ey + 1, z)) || Voxel.open(src.voxel(x, ey - 1, z)))
@@ -716,6 +737,8 @@ public final class AiEntry {
     /** after the stack (and its slicing): a grenade in, or in without one (or held by the way in) */
     private static void decide(Op op, ServerLevel level, long tick, boolean all) {
         op.decided = true;
+        // (in before all were beside it: late already, no slicing after)
+        if (!all) op.sliced = true;
         entries++;
         int[] w0 = why.clone();
         boolean live = live(op, tick) || op.sliceFoe;
