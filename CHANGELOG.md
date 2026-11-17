@@ -9,6 +9,9 @@
   longer stand a block apart for good with nobody firing.
 - An AI soldier on its way to cover that gets nowhere while one of its own
   keeps it from firing now looks for other cover instead of standing there.
+- The small nuclear blasts' mushroom cloud now starts hot, fiery orange (green
+  for balefire) and greys as it cools, as a bomb's does, instead of grey from
+  the start.
 
 ## X1424
 

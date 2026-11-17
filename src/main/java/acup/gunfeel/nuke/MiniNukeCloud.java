@@ -154,6 +154,19 @@ public final class MiniNukeCloud {
         return (int) Math.max(8, Math.min(150, Math.round(scale / SCALE_PER_BLOCK * 4 / 1.5)));
     }
 
+    // NTM's bomb at scale 1: its heat at the start (EntityNukeTorex.simulateTick: (int) (50 * s * s))
+    static final double BOMB_HEAT = 50;
+
+    // a small cloud's heat at an age, the one its puffs' colour is drawn from (EntityNukeTorex.Cloudlet.updateColor:
+    // the colour falls off with the distance squared over the heat). NTM cuts the heat to a whole number, 50 * s * s:
+    // under scale 0.142 (a blast of radius 14) none at all, and the cloud is grey from its first tick. Here a bomb's
+    // at scale 1, cooling the same way, by the scale squared as the puffs' distances go by the scale: the colours of
+    // a bomb's cloud the size of this one
+    public static double heat(double scale, int age, int maxAge) {
+        double cooled = BOMB_HEAT - Math.pow(BOMB_HEAT * age / Math.max(1, maxAge), 0.6);
+        return Math.max(1e-3, scale * scale * cooled);
+    }
+
     // the shock ring's puffs a tick at most (NTM's bombs: 100), fewer for a smaller cloud
     public static int shockPuffs(double scale) {
         return (int) Math.max(8, Math.min(100, Math.round(100 * scale / 0.25)));
