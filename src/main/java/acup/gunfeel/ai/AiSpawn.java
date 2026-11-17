@@ -70,11 +70,14 @@ public final class AiSpawn {
         return out;
     }
 
-    /** somewhere free round the point, on a floor, within a few blocks (wider for more mobs) */
+    /**
+     * somewhere free round the point, on a floor, within a few blocks (wider for more mobs); none free there (a
+     * cramped room's walls all round), the point itself
+     */
     private static boolean place(ServerLevel level, Mob mob, Vec3 at, RandomSource rng, int count) {
         double reach = 2 + Math.sqrt(count) * 1.5;
-        for (int attempt = 0; attempt < 16; attempt++) {
-            double a = rng.nextDouble() * Math.PI * 2, r = 1.5 + rng.nextDouble() * reach;
+        for (int attempt = 0; attempt <= 16; attempt++) {
+            double a = rng.nextDouble() * Math.PI * 2, r = attempt == 16 ? 0 : 1.5 + rng.nextDouble() * reach;
             double x = Math.floor(at.x + Math.cos(a) * r) + 0.5, z = Math.floor(at.z + Math.sin(a) * r) + 0.5;
             for (int dy = 3; dy >= -4; dy--) {
                 BlockPos feet = BlockPos.containing(x, at.y + dy, z);

@@ -1,5 +1,27 @@
 # Changelog
 
+## X1575
+
+- AI soldiers break into a run and slow from it smoothly, without a jolt
+  of the legs as they go from a jog to a sprint and back, and a hit pushes
+  their body away from the shot for a moment: hit from the side they sway
+  aside, their head still where they look from.
+
+## X1567
+
+- The AI soldier sent to throw a grenade into a room before the squad goes
+  in no longer forgets it the moment it fires at something or hears a
+  noise: with no foe in sight and no one shooting at it, it steps to the
+  doorway and throws, and one handed the grenade does too. Before, the
+  squad often went in without one.
+
+## X1563
+
+- AI soldiers waiting their turn while two of their squad go after a lost
+  enemy a long way, such as up a deep shaft, no longer forget that enemy
+  and stay behind for good: they keep it in mind while the others are still
+  searching, and follow when their turn comes.
+
 ## X1557
 
 - AI soldiers turn smoothly: their body comes round after the head and the

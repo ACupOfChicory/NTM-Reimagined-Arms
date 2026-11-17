@@ -44,6 +44,11 @@ public final class TargetMemory {
          * does not run out; Long.MIN_VALUE: none. Where it was lost and the clearing made of it stay as they were.
          */
         public long heardTick = Long.MIN_VALUE;
+        /**
+         * kept in mind till then at least (waitKeep: its side searches for it, it waits its turn); where and when it
+         * was lost stay as they were (they name the loss: the clearing made of it, the exits watched); MIN_VALUE: not so
+         */
+        long keptTick = Long.MIN_VALUE;
         /** no one known there now: where a foe its squad knew of fell in a building (AiBot.fought), its rooms gone through as a lost target's */
         public boolean place;
         /** known by one of its side shot down by it (shotMate): a way in it covers (AiEntry holds by it); MIN_VALUE: not so */
@@ -316,7 +321,16 @@ public final class TargetMemory {
 
     /** the last that tells of the contact: its going out of sight, or a sound from there since */
     static long fresh(Contact c) {
-        return Math.max(c.lostTick, c.heardTick);
+        return Math.max(c.lostTick, Math.max(c.heardTick, c.keptTick));
+    }
+
+    /**
+     * A target out of sight not forgotten while it waits its turn to search for it (others of its side do): its time
+     * held in the middle of its search, as keep, but where and when it was lost left as they were
+     */
+    public void waitKeep(Contact c, long tick) {
+        if (c.state == State.VISIBLE || c.state == State.GLIMPSED) return;
+        c.keptTick = Math.max(c.keptTick, tick - profile.hold() - profile.search() / 2);
     }
 
     /**

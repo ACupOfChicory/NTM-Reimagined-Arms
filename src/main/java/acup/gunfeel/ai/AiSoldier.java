@@ -528,6 +528,20 @@ public final class AiSoldier implements AiBrain {
             shelter(bot, Long.MIN_VALUE, c, tick);
             return;
         }
+        // its entry's thrower, no foe in its sight and not shot at since its throw began: to the opening and the grenade
+        // in, whatever it heard or lost sight of (in sight: it fights; shot at: it takes cover as ever) (AiEntry)
+        if (AiEntry.on() && (c == null || c.state != TargetMemory.State.VISIBLE)) {
+            Vec3 door = AiEntry.throwing(this, bot, level, tick);
+            if (door != null) {
+                if (spot != null) drop(bot);
+                mode(Mode.SEARCH, tick);
+                why = Why.SEARCH;
+                watch = door;
+                bot.gunner.aim(door);
+                bot.gunner.fire(false);
+                return;
+            }
+        }
         // going round for its side's pair, the foe still far: on round by the order, not into a fight from here (C4)
         if (c != null && AiCommander.goesRound(bot, c, tick) && ordered(bot, level, tick)) {
         }
@@ -571,7 +585,12 @@ public final class AiSoldier implements AiBrain {
         // holding back (AiConfidence): it does not go after it, it watches; one already on its way goes on
         else if (c != null && c.state == TargetMemory.State.SEARCH && (mode == Mode.SEARCH || AiSquads.mayHunt(bot, c.id) && !bot.confidence.holdsBack(tick)))
             search(bot, level, c, tick);
-        else if (c != null && c.state == TargetMemory.State.SEARCH) hold(bot, level, c, tick);
+        else if (c != null && c.state == TargetMemory.State.SEARCH) {
+            // waiting its turn while two of its side search for it: it keeps it in mind meanwhile (not one holding
+            // back, nor one kept back for another reason: those forget it as before)
+            if (!bot.confidence.holdsBack(tick) && AiSquads.othersHunt(bot, c.id)) bot.memory.waitKeep(c, tick);
+            hold(bot, level, c, tick);
+        }
         // knows of no one, a foe it knew of fallen in a building a moment ago: in and through its rooms (there may be more)
         // (as one going after a lost target: no more than HUNTERS of its side, its base of fire, marksman, grenadier and
         // one holding back stay)
