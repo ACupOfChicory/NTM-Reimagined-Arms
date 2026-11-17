@@ -371,8 +371,11 @@ final class AiCheckWar {
             Object[] was = lastJob.get(m.getId());
             // a flap: a change within FLAP of its last change (its first task given is none)
             if (was == null) lastJob.put(m.getId(), new Object[] {j, Long.MIN_VALUE, jb});
-            // a scout that found its group advances on it: the same task (AiCommander.scoutsFound), no change
-            else if (j != null && was[0] != j && was[2] == jb) lastJob.put(m.getId(), new Object[] {j, was[1], jb});
+            // a scout that found its group advances on it: the same task (AiCommander.scoutsFound), no change; a change
+            // after it within FLAP of finding it a flap still
+            else if (j != null && was[0] != j && was[2] == jb) lastJob.put(m.getId(), new Object[] {j, now, jb});
+            // a new task of the same kind (another group): no change, but the task it has now is this one
+            else if (j != null && was[0] == j && was[2] != jb) lastJob.put(m.getId(), new Object[] {j, was[1], jb});
             else if (j != null && was[0] != j) {
                 // a squad's change once (the task is the squad's: each of it changes with it), by the first of it seen
                 if (was[0] != null && changeCounted.add(jb)) {

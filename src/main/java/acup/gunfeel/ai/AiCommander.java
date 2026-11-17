@@ -201,9 +201,11 @@ public final class AiCommander {
      * it got there.
      */
     static final class Job {
-        /** what (a scout finding its group advances: the same task, StaffPlan.found) */
+        /** what (a scout finding its group advances: the same task, AiCommander.task) */
         StaffPlan.Kind kind;
         final long since;
+        /** a scout that found its group: when (it advances KEEP at least from then, StaffPlan; Long.MIN_VALUE: not) */
+        long foundAt = Long.MIN_VALUE;
         final List<AiBot> bots;
         final int[] ids;
         double gx, gz, faceX, faceZ;
@@ -593,9 +595,9 @@ public final class AiCommander {
                 expired++;
             }
             own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), outOf, job == null ? null : job.kind,
-                    job == null ? 0 : afresh ? now - StaffPlan.KEEP : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE,
+                    job == null ? 0 : afresh ? now - StaffPlan.KEEP : Math.max(job.since, job.foundAt), group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE,
                     job == null || !reports() ? Long.MIN_VALUE : job.pinnedAt, job != null && job.pinnedAt != Long.MIN_VALUE && job.alive() < job.aliveAtPin,
-                    pair && job.partner != null && job.partner.alive() > 0 && !job.late, twin, job != null && job.place() && stands(job, groups), out > 0));
+                    pair && job.partner != null && job.partner.alive() > 0 && !job.late, twin, job != null && job.place() && stands(job, groups), out > 0 && !afresh));
         }
         if (all == 0) return;
         sideX /= all;
@@ -990,6 +992,7 @@ public final class AiCommander {
         boolean same = had != null && (had.kind == t.kind() || found) && (g == null ? had.ids.length == 0 : g.any(had.ids));
         if (found) {
             had.kind = StaffPlan.Kind.ADVANCE;
+            had.foundAt = now;
             scoutsFound++;
         }
         // a sector scouted with no group known: the same one till it is looked through (given up there); a new one

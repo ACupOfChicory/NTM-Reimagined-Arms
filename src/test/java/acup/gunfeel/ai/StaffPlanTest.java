@@ -165,6 +165,9 @@ class StaffPlanTest {
         Task t = StaffPlan.plan(List.of(round), List.of(group(0, 100, 3)), none, 0, 0, 160, AiCommander.PER, NOW, 0)[0];
         assertEquals(Kind.FLANK, t.kind());
         assertEquals(0, t.group());
+        // its place as it has it (AiCommander keeps it): here only where it is, not the group's middle
+        assertEquals(40, t.x(), 1e-9);
+        assertEquals(60, t.z(), 1e-9);
         Squad gone = kept(40, 60, 3, Kind.FLANK, 100, false, false);
         assertEquals(Kind.ADVANCE, StaffPlan.plan(List.of(gone), List.of(group(0, 100, 3)), none, 0, 0, 160, AiCommander.PER, NOW, 0)[0].kind());
     }
