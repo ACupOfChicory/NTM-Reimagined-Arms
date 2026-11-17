@@ -227,7 +227,7 @@ final class AiCheckSlice {
 
     private boolean finish() {
         check.out(String.format(Locale.ROOT, "     slice: places beside the way in moved out of sight of the room %d, left in it %d", AiEntry.stackMoved - stackMoved0, AiEntry.stackSeen - stackSeen0));
-        check.out(String.format(Locale.ROOT, "     slice: entries all gone in %%d, ticks from in to all in their places %%.1f a time", AiEntry.goes - goes0, AiEntry.goes == goes0 ? 0.0 : (AiEntry.goTicks - goTicks0) / (double) (AiEntry.goes - goes0)));
+        check.out(String.format(Locale.ROOT, "     slice: entries all gone in %d, ticks from in to all in their places %.1f a time", AiEntry.goes - goes0, AiEntry.goes == goes0 ? 0.0 : (AiEntry.goTicks - goTicks0) / (double) (AiEntry.goes - goes0)));
         AiEntry.on = entryOn;
         AiEntry.frag = fragOn;
         AiEntry.slice = sliceOn;

@@ -175,6 +175,8 @@ public final class AiEntry {
         long funnelAt = Long.MIN_VALUE;
         /** its slicing: done (or none to do); those slicing, their places in order, the gun's aim at each, how far on, since when there */
         boolean sliced, sliceFoe, decided;
+        /** the ways to the stack: cells before the opening seen from the room dear (none: as any) */
+        PathSearch.Cost exposed = PathSearch.Cost.NONE;
         final List<AiBot> slicers = new ArrayList<>(2);
         final List<long[]> arcs = new ArrayList<>(2);
         final List<Vec3[]> arcAims = new ArrayList<>(2);
@@ -370,7 +372,7 @@ public final class AiEntry {
         } else if (op.phase == FRAG && bot == op.thrower) frag(op, s, bot, level, tick);
         else {
             long at = place(op, i);
-            go(bot, at, 0.35);
+            go(bot, at, 0.35, op.exposed);
             // at its place beside the way in: the gun held up close till they go (AiPose.STACK)
             if (bot.mover.goalIs(at) && bot.mover.arrived()) bot.stackUntil = tick + 5;
         }
@@ -383,8 +385,13 @@ public final class AiEntry {
     }
 
     private static void go(AiBot bot, long cell, double radius) {
+        go(bot, cell, radius, PathSearch.Cost.NONE);
+    }
+
+    /** to it by the way costs makes cheapest (the cells seen from the room dear, on the way to the stack) */
+    private static void go(AiBot bot, long cell, double radius, PathSearch.Cost costs) {
         if (bot.mover.goalIs(cell)) return;
-        bot.mover.costs(PathSearch.Cost.NONE);
+        bot.mover.costs(costs);
         bot.mover.goTo(cell, radius, AiSoldier.RUN);
     }
 
@@ -530,11 +537,27 @@ public final class AiEntry {
         return stackHidden && ReaimTimes.flag(STACK_KEY, true);
     }
 
+    /** the ways to the stack: a cell before the opening seen from the room costs this many more, EXPOSED_FAR blocks off at most */
+    static final float EXPOSED_COST = 8;
+    static final int EXPOSED_FAR = 6;
+
     private static void hide(Op op, ServerLevel level, AiRooms.Plan plan, AiRooms.Way w, int room) {
         if (room < 0 || plan.size[room] > SLICE_CELLS) return;
         long[] cells = plan.cells()[room];
         VoxelRay.Source src = AiBots.voxels(level);
         long end = room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
+        // before the opening, the cells seen from the room: dear on the ways to the stack (they come round to it, not
+        // across what the room sees)
+        int out = Dirs.opposite(w.in(room)), ex = BlockPos.getX(end), ey = BlockPos.getY(end), ez = BlockPos.getZ(end);
+        it.unimi.dsi.fastutil.longs.LongOpenHashSet dear = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+        for (int dx = -EXPOSED_FAR; dx <= EXPOSED_FAR; dx++)
+            for (int dz = -EXPOSED_FAR; dz <= EXPOSED_FAR; dz++) {
+                if (dx * Dirs.DX[out] + dz * Dirs.DZ[out] < 1 || dx * dx + dz * dz > EXPOSED_FAR * EXPOSED_FAR) continue;
+                long c = BlockPos.asLong(ex + dx, ey, ez + dz);
+                if (plan.room(c) == room || !stand(src, c)) continue;
+                if (seen(src, cells, c, 1) > 0) dear.add(c);
+            }
+        if (!dear.isEmpty()) op.exposed = (x, y, z) -> y == ey && dear.contains(BlockPos.asLong(x, y, z)) ? EXPOSED_COST : 0F;
         Vec3 mouth = mid(end, 1.1);
         java.util.Set<Long> taken = new java.util.HashSet<>();
         for (int i = 0; i < op.places.size(); i++) {
@@ -581,11 +604,16 @@ public final class AiEntry {
 
     /** the room's cells that see one standing there (its chest or head, from theirs) */
     private static int seen(VoxelRay.Source src, long[] cells, long at) {
+        return seen(src, cells, at, Integer.MAX_VALUE);
+    }
+
+    /** the same, counted up to enough at most */
+    private static int seen(VoxelRay.Source src, long[] cells, long at, int enough) {
         double ax = BlockPos.getX(at) + 0.5, ay = BlockPos.getY(at), az = BlockPos.getZ(at) + 0.5;
         int n = 0;
         for (long r : cells) {
             double rx = BlockPos.getX(r) + 0.5, ry = BlockPos.getY(r), rz = BlockPos.getZ(r) + 0.5;
-            if (VoxelRay.clear(src, rx, ry + 1.5, rz, ax, ay + 1.5, az, Voxel.SIGHT) || VoxelRay.clear(src, rx, ry + 1.0, rz, ax, ay + 1.0, az, Voxel.SIGHT)) n++;
+            if ((VoxelRay.clear(src, rx, ry + 1.5, rz, ax, ay + 1.5, az, Voxel.SIGHT) || VoxelRay.clear(src, rx, ry + 1.0, rz, ax, ay + 1.0, az, Voxel.SIGHT)) && ++n >= enough) break;
         }
         return n;
     }
