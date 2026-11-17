@@ -329,7 +329,7 @@ public final class AiSquads {
         if (offTeams.contains(team)) return true;
         int n = 0;
         for (AiBot b : AiBots.bots(level)) {
-            if (b == bot || !live(b) || b.memory.focusId != target || !(b.brain instanceof AiSoldier o) || o.mode() != AiSoldier.Mode.SEARCH) continue;
+            if (b == bot || !live(b) || b.memory.focusId != target && !AiSoldier.fights(b, target) || !(b.brain instanceof AiSoldier o) || o.mode() != AiSoldier.Mode.SEARCH) continue;
             if (b.mob.distanceToSqr(bot.mob) > HUNT_NEAR * HUNT_NEAR || !team.equals(team(b))) continue;
             if (++n >= HUNTERS) return false;
         }

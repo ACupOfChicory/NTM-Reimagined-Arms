@@ -59,6 +59,11 @@ public final class AiBot {
     public @Nullable AiBrain brain;
     /** grenades it has left (AiGrenades) */
     public int grenades;
+    /**
+     * where a foe it (or its squad) knew of fell in a building, for AiSoldier to go in and through its rooms while it
+     * knows of no one (a room fought in is cleared all the same: there may be more in it): a place, not a target; null none
+     */
+    public TargetMemory.@org.jspecify.annotations.Nullable Contact fought;
     /** smoke grenades it has left (AiSmoke) */
     public int smokes;
     /** when it last called out (AiVoice) */

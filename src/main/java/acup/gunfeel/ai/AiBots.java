@@ -550,7 +550,7 @@ public final class AiBots {
         }
         // the nearest of its side calls it out
         if (nearest != null) AiVoice.say(level, nearest, AiVoice.Line.MAN_DOWN, tick);
-        if (downTold()) told(l, victim);
+        if (downTold()) told(level, l, victim, tick);
     }
 
     /** the server setting: a foe seen to fall is no more gone after, by the one that saw it nor by its squad */
@@ -569,23 +569,58 @@ public final class AiBots {
      * and so does the rest of its squad (it tells them). One that did not see it fall and is in no such squad goes on
      * as before: a target out of sight, lost where it was last seen.
      */
-    private static void told(PerLevel l, LivingEntity victim) {
+    private static void told(ServerLevel level, PerLevel l, LivingEntity victim, long tick) {
         int id = victim.getId();
+        // fallen in a building: those that knew of it go in and through its rooms after all (AiBot.fought)
+        TargetMemory.Contact place = null;
         for (AiBot b : l.bots.values()) {
             if (b.mob == victim || !b.mob.isAlive() || AiTeams.own(b.mob, victim)) continue;
             TargetMemory.Contact c = b.memory.contact(id);
             if (c == null || c.state != TargetMemory.State.VISIBLE) continue;
             seenDown++;
             b.memory.forget(id);
+            if (place == null) place = fought(level, victim, tick);
+            if (place != null && near(b, victim)) b.fought = place;
             AiSquads.Squad s = AiSquads.of(b);
             if (s == null) continue;
             for (AiBot o : s.bots)
                 if (o != b && o.memory.contact(id) != null) {
                     toldDown++;
                     o.memory.forget(id);
+                    if (place != null && near(o, victim)) o.fought = place;
                 }
         }
     }
+
+    /** where the foe fell, if under a roof in a building (AiRooms, not a trench in the open): a place to go through; else null */
+    private static TargetMemory.@org.jspecify.annotations.Nullable Contact fought(ServerLevel level, LivingEntity victim, long tick) {
+        if (!foughtOn || !AiEntry.on() && !AiClearing.on()) return null;
+        // (the cell as AiEntry and AiClearing read it)
+        long cell = net.minecraft.core.BlockPos.asLong(net.minecraft.util.Mth.floor(victim.getX()), net.minecraft.util.Mth.floor(victim.getY() + 0.2), net.minecraft.util.Mth.floor(victim.getZ()));
+        AiRooms.Plan plan = AiRooms.of(TacticalMap.of(level), cell);
+        if (plan == null || plan.room(cell) < 0) return null;
+        TargetMemory.Contact c = new TargetMemory.Contact(victim.getId());
+        c.place = true;
+        c.state = TargetMemory.State.SEARCH;
+        c.x = c.lostX = victim.getX();
+        c.y = c.lostY = victim.getY();
+        c.z = c.lostZ = victim.getZ();
+        c.seenTick = c.lostTick = tick;
+        foughtPlaces++;
+        return c;
+    }
+
+    /** a building fought in is gone through by those this near where the foe fell, blocks (not the squad's far end) */
+    static final double FOUGHT_NEAR = 32;
+
+    private static boolean near(AiBot b, LivingEntity victim) {
+        return b.mob.distanceToSqr(victim) <= FOUGHT_NEAR * FOUGHT_NEAR;
+    }
+
+    /** foes fallen in a building that those who knew of them went through after (the stands) */
+    public static int foughtPlaces;
+    /** off only for the stands' "before": a foe fallen in a building is forgotten, its building not gone through */
+    static boolean foughtOn = true;
 
     /** one that fights: an AI mob, a player, a stand's target (not a cow) */
     private static boolean fighter(LivingEntity e) {
