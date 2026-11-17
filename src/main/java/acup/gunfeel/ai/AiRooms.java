@@ -31,6 +31,8 @@ public final class AiRooms {
     static final int TINY = 2;
     /** a wild cell (AiRooms.wild) this many steps from a sign that someone lives there is a building's */
     static final int DWELT = 8;
+    /** the wild cells counted on a door's side, at most (the fewer side is the one lived in) */
+    static final int WILD_PAST = 200;
     /** not under the roof */
     public static final int OUTSIDE = -1;
     private static final int[] CARDINAL = {Dirs.N, Dirs.E, Dirs.S, Dirs.W};
@@ -638,6 +640,8 @@ public final class AiRooms {
             int[] shell = new int[10];
             int n = 0;
             shell[n++] = src.kind(x, y - 1, z);
+            // a sign of it in the cell itself: a ladder, a lantern hung or stood in it
+            for (int up = 0; up < 3; up++) marker |= src.kind(x, y + up, z) == AiBlockKinds.MARKER;
             for (int up = 2; up < 2 + CellBuilder.ROOF_REACH; up++) {
                 int at = src.voxel(x, y + up, z);
                 if (!Voxel.open(at) || Voxel.sight(at)) {
@@ -656,7 +660,11 @@ public final class AiRooms {
                 }
                 int nx = BlockPos.getX(next), nz = BlockPos.getZ(next);
                 if (seen.contains(next) || Math.abs(nx - sx) > reach || Math.abs(nz - sz) > reach) continue;
-                if ((r.flags(nx, BlockPos.getY(next), nz) & SectionCells.ROOF) == 0) continue;
+                if ((r.flags(nx, BlockPos.getY(next), nz) & SectionCells.ROOF) == 0) {
+                    // a door out under the open sky: this side of it, the roofed one, is lived in
+                    marker |= (src.voxel(nx, BlockPos.getY(next), nz) & Voxel.DOOR) != 0;
+                    continue;
+                }
                 seen.add(next);
                 cells.add(next);
             }
@@ -687,6 +695,23 @@ public final class AiRooms {
             if (tame >= 2) between.add(c);
         }
         for (long c : between) wild.remove(c);
+        // a door in the rock: someone hung it. The side of it with the fewer wild cells (a room dug out off a tunnel, a box of
+        // stone with the open sky past its door) is lived in; both, the same
+        for (long c : wild.toLongArray()) {
+            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            if ((src.voxel(x, y, z) & Voxel.DOOR) == 0) continue;
+            long[] side = new long[4];
+            int[] size = new int[4];
+            int sides = 0, least = Integer.MAX_VALUE;
+            for (int k = 0; k < 4; k++) {
+                long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
+                if (next == PathSearch.NONE || !wild.contains(next) || (src.voxel(BlockPos.getX(next), BlockPos.getY(next), BlockPos.getZ(next)) & Voxel.DOOR) != 0) continue;
+                side[sides] = next;
+                size[sides] = wildPast(r, src, wild, c, next);
+                least = Math.min(least, size[sides++]);
+            }
+            for (int i = 0; i < sides; i++) if (size[i] == least) dwelt.add(side[i]);
+        }
         // lived in: DWELT steps from a sign of it, through wild cells, a door's cell the last
         LongArrayList at = dwelt, then = new LongArrayList();
         for (long c : dwelt) wild.remove(c);
@@ -706,6 +731,26 @@ public final class AiRooms {
             then = t;
         }
         return wild.isEmpty() ? null : wild;
+    }
+
+    /** the wild cells joined to from, not through door nor any door's cell; WILD_PAST at most */
+    private static int wildPast(PathSearch.Reader r, CellSource src, LongOpenHashSet wild, long door, long from) {
+        LongArrayList q = new LongArrayList();
+        LongOpenHashSet seen = new LongOpenHashSet();
+        q.add(from);
+        seen.add(from);
+        seen.add(door);
+        for (int head = 0; head < q.size() && q.size() < WILD_PAST; head++) {
+            long c = q.getLong(head);
+            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            for (int k = 0; k < 4; k++) {
+                long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
+                if (next == PathSearch.NONE || !wild.contains(next) || !seen.add(next)) continue;
+                if ((src.voxel(BlockPos.getX(next), BlockPos.getY(next), BlockPos.getZ(next)) & Voxel.DOOR) != 0) continue;
+                q.add(next);
+            }
+        }
+        return Math.min(q.size(), WILD_PAST);
     }
 
     /** the frame's row next to this one in cardinal k: the row its cells step into, cell for cell, as wide; or -1 */

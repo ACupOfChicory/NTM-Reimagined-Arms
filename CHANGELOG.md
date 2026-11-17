@@ -1,5 +1,15 @@
 # Changelog
 
+## X1416
+
+- AI squads now take a room hollowed out of plain rock as a building when
+  someone has plainly lived in it: a door hung in its way in, a hatch, glass,
+  a lantern or a ladder. Such a room is entered and cleared like any other,
+  instead of searched as a cave. A door counts for the smaller side of it: a
+  room dug off a tunnel is a building, the tunnel is not. A hollow with no
+  such sign is a cave as before, and old mines and fortresses stay caves.
+  The cave right by an ancient city's walls reads as a building too.
+
 ## X1412
 
 - An AI squad that shoots down an enemy it knew of inside a building no
