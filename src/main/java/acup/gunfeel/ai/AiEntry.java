@@ -127,8 +127,8 @@ public final class AiEntry {
     /**
      * Slicing the pie: before a grenade or going in, those of the stack at its ends step round the opening on its outer
      * side, far to near, at most SLICE_POINTS places SLICE_FAR blocks off at most, each showing cells of the room none of
-     * the earlier did, its gun on them, SLICE_DWELL ticks at each; the opening's line only last. A foe seen, or a shot at
-     * them, ends it: they fight as ever, the entry goes on with what is known (a grenade at a foe seen in there). All of it
+     * the earlier did, its gun on them, SLICE_DWELL ticks at each; never on the opening's line (the thrower's). A foe seen,
+     * or a shot at them, ends it: they fight as ever, the entry goes on with what is known (a grenade in). All of it
      * SLICE_MAX ticks at most. The rays once, as it begins.
      */
     static final int SLICE_POINTS = 4, SLICE_DWELL = 10, SLICE_MAX = 160, SLICE_NEW = 2;
@@ -501,7 +501,8 @@ public final class AiEntry {
     /**
      * The slicing's places for those of the stack at each end of the opening (one a side): from where on the outer
      * side, SLICE_FAR blocks off at most, the room's cells are seen through it, picked so each shows SLICE_NEW or more
-     * none before did, gone through from the widest angle to the opening's line; the gun at each on what it shows first.
+     * none before did, gone through from the widest angle to the nearest the opening's line; the gun at each on what it
+     * shows first.
      * False when there is none to do (a turn, a big room, nothing seen from round it).
      */
     private static boolean slice(Op op, ServerLevel level) {
@@ -527,7 +528,8 @@ public final class AiEntry {
             for (int dx = -r; dx <= r; dx++)
                 for (int dz = -r; dz <= r; dz++) {
                     int depth = dx * Dirs.DX[out] + dz * Dirs.DZ[out], lat = dx * lx + dz * lz;
-                    if (depth < 1 || lat * side < 0 || dx * dx + dz * dz > SLICE_FAR * SLICE_FAR) continue;
+                    // (not on the opening's line: that is the lane of fire of one in there waiting for it; the thrower's)
+                    if (depth < 1 || lat * side <= 0 || dx * dx + dz * dz > SLICE_FAR * SLICE_FAR) continue;
                     int x = ex + dx, z = ez + dz;
                     long c = BlockPos.asLong(x, ey, z);
                     if (plan.room(c) == op.room || !Voxel.open(src.voxel(x, ey, z)) || !Voxel.open(src.voxel(x, ey + 1, z)) || Voxel.open(src.voxel(x, ey - 1, z)))
@@ -632,12 +634,11 @@ public final class AiEntry {
         return false;
     }
 
-    /** a foe it saw in the room: the grenade goes at it, and one goes in */
+    /** a foe it saw in the room: a grenade goes in (thrown as ever, straight in: its burst takes the room) */
     private static void aimAtSeen(Op op, AiBot b) {
         if (op.plan == null) return;
         for (TargetMemory.Contact c : b.memory.contacts()) {
             if (c.state != TargetMemory.State.VISIBLE || op.plan.room(cell(c.x, c.y + 0.2, c.z)) != op.room) continue;
-            op.aim = new Vec3(c.x, c.y, c.z);
             if (!op.sliceFoe) sliceSeen++;
             op.sliceFoe = true;
         }
