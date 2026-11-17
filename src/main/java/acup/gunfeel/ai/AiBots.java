@@ -566,7 +566,7 @@ public final class AiBots {
     /** off only for the stands' "before" */
     static boolean mateDown = true;
     /** a fall seen this far off at most, blocks (in sight), or heard this near (round a corner, through a door) */
-    static final double MATE_SEEN = 16, MATE_HEARD = 4;
+    static final double MATE_SEEN = 16, MATE_HEARD = 8;
     /** the stands: those told of a foe so */
     public static int matesDownHeard;
 

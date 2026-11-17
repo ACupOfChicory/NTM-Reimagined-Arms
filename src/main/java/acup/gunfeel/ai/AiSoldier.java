@@ -2129,15 +2129,29 @@ public final class AiSoldier implements AiBrain {
         }
         // lost in a room: beside the way in first, a grenade in, and in together (AiEntry)
         Vec3 door = AiEntry.on() ? AiEntry.step(this, bot, level, c, tick) : null;
+        // a foe that shot one of its side down a moment ago, near and where it can see: its gun on where the shot came from
+        Vec3 shooter = toldAim(bot, level, c, tick);
         if (door != null) {
             searchCell = Long.MIN_VALUE;
-            watch = door;
-            bot.gunner.aim(door);
+            watch = shooter != null ? shooter : door;
+            bot.gunner.aim(watch);
             return;
         }
         var cleared = bot.clearedFor(c);
         // lost in a building: room after room, two to a room, a room checked not gone into again (AiClearing)
         long room = AiClearing.on() ? AiClearing.step(bot, level, c, cleared, tick) : AiClearing.NONE;
+        if (room != AiClearing.NONE && shooter != null) {
+            if (!yields(bot, level, room, tick) && !bot.mover.goalIs(room)) {
+                searchSpots++;
+                bot.mover.costs(PathSearch.Cost.NONE);
+                bot.mover.goTo(room, 0.6, WALK);
+            }
+            searchCell = room;
+            why = Why.SEARCH;
+            watch = shooter;
+            bot.gunner.aim(watch);
+            return;
+        }
         if (room != AiClearing.NONE) {
             if (!yields(bot, level, room, tick) && !bot.mover.goalIs(room)) {
                 searchSpots++;
@@ -2169,7 +2183,10 @@ public final class AiSoldier implements AiBrain {
                 why = Why.SEARCH;
             } else why = Why.SEARCH_NONE;
         }
-        if (searchCell != Long.MIN_VALUE) {
+        if (shooter != null) {
+            watch = shooter;
+            bot.gunner.aim(shooter);
+        } else if (searchCell != Long.MIN_VALUE) {
             Vec3 at = new Vec3(BlockPos.getX(searchCell) + 0.5, BlockPos.getY(searchCell) + 1.1, BlockPos.getZ(searchCell) + 0.5);
             watch = at;
             bot.gunner.aim(at);
@@ -2177,6 +2194,23 @@ public final class AiSoldier implements AiBrain {
             watch = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ);
             bot.gunner.aim(watch);
         }
+    }
+
+    /** a foe known by one of its side it shot down (TargetMemory.Contact.mateDown) is looked for gun first this long, ticks, this near, blocks */
+    static final int TOLD_AIM = 100;
+    static final double TOLD_NEAR = 10;
+
+    /**
+     * Where to hold its gun while it goes after a foe that shot one of its side down lately, near it and in its sight
+     * (where the shot was heard from, at chest height): it is looked at as it is come on, not the room's cells. Else null.
+     */
+    private static @Nullable Vec3 toldAim(AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) {
+        if (c.mateDown == Long.MIN_VALUE || tick - c.mateDown > TOLD_AIM) return null;
+        Vec3 at = new Vec3(c.lostX, c.lostY + 1.1, c.lostZ), eye = bot.mob.getEyePosition();
+        if (eye.distanceToSqr(at) > TOLD_NEAR * TOLD_NEAR) return null;
+        var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, at, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                net.minecraft.world.level.ClipContext.Fluid.NONE, bot.mob));
+        return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS ? at : null;
     }
 
     // ------------------------------------------------------------------ heard only, nothing
