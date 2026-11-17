@@ -318,6 +318,9 @@ final class AiCheckBunkerNtm {
         return false;
     }
 
+    /** rounds some of the squad got to the shaft's foot in, and of them those nobody fell in (the stands: a fight a block apart, 1600 ticks of nobody firing) */
+    private int atFoot, noLoss;
+
     /** a round over: counted, its mobs taken away, the hatch shut again */
     private void endRound(int rt) {
         long left = squad.stream().filter(Mob::isAlive).count(), in = inside.stream().filter(Mob::isAlive).count();
@@ -338,6 +341,11 @@ final class AiCheckBunkerNtm {
             }
         if (k == 1 && AiHatch.down > hatchDown0) ladderRounds++;
         if (downs > 0) footRounds[k]++;
+        // the fight at the foot, close: a round some got down in and nobody fell on either side
+        if (downs > 0) {
+            atFoot++;
+            if (left == squad.size() && in == inside.size()) noLoss++;
+        }
         if (k == 1) {
             int[] a = arms[smokeRound() ? 0 : 1];
             a[0]++;
@@ -433,6 +441,7 @@ final class AiCheckBunkerNtm {
         check.out(String.format(Locale.ROOT, "     bunkerntm: %d ticks; of the squad %d of %d left, %d got to the shaft's foot (the first at tick %d); in the hub %d of %d left; the squad at the end:%s",
                 ticks, squad.stream().filter(Mob::isAlive).count(), squad.size(), downs, firstDown, inside.stream().filter(Mob::isAlive).count(), inside.size(), where));
         AiHatch.on = hatchOn;
+        check.out(String.format(Locale.ROOT, "     bunkerntm: at the foot, close: of %d rounds some got down in, nobody fell in %d", atFoot, noLoss));
         check.out(String.format(Locale.ROOT, "     bunkerntm: rounds off: got under %d, the hub taken %d, of the squad left %d, of %d rounds; on: got under %d, the hub taken %d, of the squad left %d, of %d rounds",
                 sums[0][0], sums[0][1], sums[0][2], sums[0][3], sums[1][0], sums[1][1], sums[1][2], sums[1][3]));
         check.out(String.format(Locale.ROOT, "     bunkerntm: ways down a shaft begun %d, grenades down %d, none %d (too deep %d), down the ladder %d; none found: not under %d, no cell %d, no way %d, no shaft %d", AiHatch.begun - hatch0[0],

@@ -10,6 +10,16 @@
 - The 12 gauge electroshock shell now draws the slug's tracer too. It
   leaves no bullet holes.
 
+## X1437
+
+- An AI soldier now notices an enemy right at its back, within about a block
+  and a half, even one standing silent: a little slower than one in front of
+  it, and a player crouching still there much slower, so one can still lie
+  low behind it a while. A block between them hides as before. Two foes no
+  longer stand a block apart for good with nobody firing.
+- An AI soldier on its way to cover that gets nowhere while one of its own
+  keeps it from firing now looks for other cover instead of standing there.
+
 ## X1434
 
 - Three new rounds for NTM's guns, made in NTM's ammo press:

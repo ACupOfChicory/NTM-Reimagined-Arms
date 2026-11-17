@@ -18,11 +18,11 @@ import net.minecraft.world.level.block.state.BlockState;
  * the line of fire unchecked (as before), then checked; the hits they take from each other are counted both times.
  * Everyone's health is put back every tick: nobody dies, the counts stay comparable. Then twice more, close: a knot of
  * grease guns shoulder to shoulder in two ranks (one close beside, a burst's kick), the line checked first without
- * the wider line of X1227 (AiBots.wideLine), then with it.
+ * the wider line of X1227 (AiBots.wideLine), then with it. Last a foe close at one's back (AiCheckBack).
  */
 final class AiCheckCrowd {
     private enum Phase {
-        SETUP, RUN, DONE
+        SETUP, RUN, BACK, DONE
     }
 
     static final int X0 = 90, Z0 = 4, SIZE = 40, RUN_TICKS = 400;
@@ -45,6 +45,7 @@ final class AiCheckCrowd {
     private final int[] friendly = new int[ROUNDS], pulls = new int[ROUNDS], holds = new int[ROUNDS], shifts = new int[ROUNDS];
     private final double[] lost = new double[ROUNDS];
     private int hitsAtStart;
+    private AiCheckBack back;
 
     AiCheckCrowd(AiCheck check, ServerLevel level, int y) {
         this.check = check;
@@ -57,6 +58,9 @@ final class AiCheckCrowd {
         switch (phase) {
             case SETUP -> setup();
             case RUN -> run();
+            case BACK -> {
+                if (back.tick()) phase = Phase.DONE;
+            }
             case DONE -> {
                 return true;
             }
@@ -220,6 +224,8 @@ final class AiCheckCrowd {
         check.check("and close they still shoot the target", lost[3] > 0);
         barriers();
         target.discard();
-        phase = Phase.DONE;
+        AiBots.refreshTargets(level);
+        back = new AiCheckBack(check, level, y);
+        phase = Phase.BACK;
     }
 }
