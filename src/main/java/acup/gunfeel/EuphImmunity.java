@@ -13,6 +13,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -49,6 +50,11 @@ import net.minecraft.world.entity.player.Player;
  * set itself (its rating, balanceS.dns 186 and balanceS.fau 168), the window lets hits through to that rating. They
  * have no Regeneration or Resistance of their own to drop. Other damage (fire, falling, gas, radiation, nuclear) is not
  * touched by their pool: NTM's own numbers of the set, as without it. The tomb's radon takes their pool off too.
+ *
+ * <p>Our AI's soldiers ({@link #pooled}: AiBots, not other mobs) get the three pools too, with the same numbers, by the
+ * mob's id while it lives (AiBots forgets it when the mob is gone). NTM gives a mob in euphemium no invulnerability at
+ * all (its check is a player's), so a soldier's euphemium goes by {@link #kitOf} as DNS and FAU do. Its set's charge is
+ * full from /armsai and NTM spends it on a player's tick only. The window's message is a player's only.
  */
 public final class EuphImmunity {
     private EuphImmunity() {
@@ -239,7 +245,7 @@ public final class EuphImmunity {
         return ReaimTimes.flag("balance.immune.shared", true);
     }
 
-    static synchronized State state(Kit kit, Player player, long now) {
+    static synchronized State state(Kit kit, LivingEntity player, long now) {
         UUID id = player.getUUID();
         Map<UUID, State> own = STATES.get(kit);
         if (shared()) {
@@ -287,7 +293,7 @@ public final class EuphImmunity {
     }
 
     /** what the hit would do to the kit's drain set (formula C; one hit at most damageCapClick of the health), or 0 */
-    static float drain(Kit kit, Player player, DamageSource source, float amount, String cat) {
+    static float drain(Kit kit, LivingEntity player, DamageSource source, float amount, String cat) {
         if (cat == null) return 0F;
         // the final scheme: the pool takes the scheme's damage of the hit (balance.final)
         float scheme = BalanceFinal.drain(player, source);
@@ -331,7 +337,9 @@ public final class EuphImmunity {
      * A hit on {@code player} in the full set of {@code kit} with its pool on: true calls it off. Euphemium calls off
      * every hit in the pool and the recovery; DNS and FAU only bullets, beams and blasts (the rest is NTM's).
      */
-    public static boolean absorbs(Kit kit, Player player, DamageSource source, float amount) {
+    public static boolean absorbs(Kit kit, LivingEntity player, DamageSource source, float amount) {
+        // a soldier is not called off what nothing may be (the void, /kill): a player has its own ways out, it has none
+        if (!(player instanceof Player) && source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;
         long now = player.level().getGameTime();
         if (radon(player, now)) {
             // the set's tick takes them off too, but not before this hit
@@ -393,12 +401,22 @@ public final class EuphImmunity {
         return most;
     }
 
-    /** the full set of DNS or FAU (charged, as NTM counts it) with its pool on, or null */
-    public static Kit kitOf(Player player) {
+    /**
+     * the full set of DNS or FAU (charged, as NTM counts it) with its pool on, or null; an AI soldier's euphemium too (a
+     * player's goes by NTM's own check, MixinEuphImmunity)
+     */
+    public static Kit kitOf(LivingEntity player) {
         if (!acup.gunfeel.compat.Feature.BALANCE.on()) return null;
         if (com.hbm.items.armor.ArmorSuitEffects.hasFullSet(player, com.hbm.items.armor.ModArmorItem.Suit.DNS)) return on(Kit.DNS) ? Kit.DNS : null;
         if (com.hbm.items.armor.ArmorSuitEffects.hasFullSet(player, com.hbm.items.armor.ModArmorItem.Suit.DIGAMMA)) return on(Kit.FAU) ? Kit.FAU : null;
+        if (!(player instanceof Player) && com.hbm.items.armor.ArmorSuitEffects.hasFullSet(player, com.hbm.items.armor.ModArmorItem.Suit.EUPHEMIUM))
+            return on(Kit.EUPHEMIUM) ? Kit.EUPHEMIUM : null;
         return null;
+    }
+
+    /** the wearers the pools are for: players and our AI's soldiers (AiBots), not other mobs */
+    public static boolean pooled(Entity e) {
+        return e instanceof Player || acup.gunfeel.ai.AiBots.get(e) != null;
     }
 
     /** the last decision on a hit of DNS or FAU: the hit's source (by identity, not held), its tick, called off */
@@ -409,7 +427,7 @@ public final class EuphImmunity {
     private static final Map<UUID, Decided> DECIDED = new HashMap<>();
 
     /** NTM's early check (allowsAttack) of a hit on DNS or FAU: true calls it off */
-    public static boolean early(Kit kit, Player player, DamageSource source, float amount) {
+    public static boolean early(Kit kit, LivingEntity player, DamageSource source, float amount) {
         boolean off = absorbs(kit, player, source, amount);
         synchronized (EuphImmunity.class) {
             DECIDED.put(player.getUUID(), new Decided(System.identityHashCode(source), player.level().getGameTime(), off));
@@ -421,7 +439,7 @@ public final class EuphImmunity {
      * The hit reaches NTM's accepted damage (beams and blasts come with ignoreEarlyCancellation: the early check's
      * calling off does not stop them): true takes it to 0. The early check's decision on the same hit, or a new one.
      */
-    public static boolean accepted(Kit kit, Player player, DamageSource source, float amount) {
+    public static boolean accepted(Kit kit, LivingEntity player, DamageSource source, float amount) {
         Decided d;
         synchronized (EuphImmunity.class) {
             d = DECIDED.get(player.getUUID());
@@ -443,7 +461,7 @@ public final class EuphImmunity {
     }
 
     /** the set's own effects (NTM: amplifier 127) */
-    public static void dropEffects(Player player) {
+    public static void dropEffects(LivingEntity player) {
         MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION), res = player.getEffect(MobEffects.RESISTANCE);
         if (regen != null && regen.getAmplifier() >= 100) player.removeEffect(MobEffects.REGENERATION);
         if (res != null && res.getAmplifier() >= 100) player.removeEffect(MobEffects.RESISTANCE);
@@ -454,7 +472,7 @@ public final class EuphImmunity {
         return describe(Kit.EUPHEMIUM, player);
     }
 
-    static synchronized String describe(Kit kit, Player player) {
+    static synchronized String describe(Kit kit, LivingEntity player) {
         State s = STATES.get(kit).get(player.getUUID());
         if (s == null) return "нет";
         long now = player.level().getGameTime();
@@ -462,14 +480,14 @@ public final class EuphImmunity {
     }
 
     /** the stand: the pool now (NaN: no state, or not in the pool's phase) */
-    static synchronized float poolOf(Kit kit, Player player) {
+    static synchronized float poolOf(Kit kit, LivingEntity player) {
         State s = STATES.get(kit).get(player.getUUID());
         if (s == null) return Float.NaN;
         long now = player.level().getGameTime();
         return phase(s, now) == Phase.POOL ? poolAt(s, now, pool(kit)) : Float.NaN;
     }
 
-    static synchronized void forget(Player player) {
+    public static synchronized void forget(LivingEntity player) {
         for (Map<UUID, State> m : STATES.values()) m.remove(player.getUUID());
         DECIDED.remove(player.getUUID());
         LAST_KIT.remove(player.getUUID());

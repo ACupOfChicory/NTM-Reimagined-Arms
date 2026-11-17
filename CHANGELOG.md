@@ -1,5 +1,12 @@
 # Changelog
 
+## X1468
+
+- AI soldiers spawned with /armsai in a full DNS, FAU or euphemium set now
+  have the same invulnerability pool as a player in it: hits are called off
+  while it lasts, then a vulnerability window opens and the pool recovers.
+  Other mobs are unchanged.
+
 ## X1466
 
 - The 5.56mm and 7.62mm Duplex Rounds now take small weapon steel casings in
