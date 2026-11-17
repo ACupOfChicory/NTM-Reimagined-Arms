@@ -42,10 +42,24 @@ final class AiCheckBunkerNtm {
     private int ticks, faults0, firstDown = -1, downs, round, roundAt;
     /** AiHatch.down as the round began; the on rounds some went down the ladder in */
     private int hatchDown0, ladderRounds;
+    /** AiHatch's held, smoked down, held off as the round began */
+    private int[] held0 = new int[3];
+    /** the way down on with smoke, without: rounds, of the squad left, the hub taken, held, smoke down, held off, some at the foot */
+    private final int[][] arms = new int[2][8];
+
+    /** an on round with a smoke grenade each: the first of every two on rounds (1, 5, 9) */
+    private boolean smokeRound() {
+        return round % 4 == 1;
+    }
     /** off rounds and on some of the squad got to the shaft's foot in */
     private final int[] footRounds = new int[2];
     /** of the squad left in the shaft halfway down as a round ran out (hung on the ladder), off rounds and on */
     private final int[] hung = new int[2];
+    /** hung: in the shaft as the round runs out, and no more than a block from where it was this many ticks before */
+    static final int STILL = 100;
+    private final double[] yLate = new double[SQUAD];
+    /** the stands: of the squad still on its way down the shaft as a round ran out (one after another, it takes long) */
+    private int climbingAtEnd;
     /** per round, off ones and on ones: got under the ground, the hub taken, of the squad left, rounds */
     private final int[][] sums = new int[2][4];
     private final boolean hatchOn = AiHatch.on;
@@ -54,6 +68,9 @@ final class AiCheckBunkerNtm {
     private final int[] hatch0 = {AiHatch.begun, AiHatch.frags, AiHatch.noFrag, AiHatch.deepNoFrag, AiHatch.down};
     private final List<Mob> squad = new ArrayList<>(), inside = new ArrayList<>();
     private final boolean[] under = new boolean[SQUAD];
+    /** fallen this round, and of those in the shaft (under the ground, over the foot's stack): fallen going down */
+    private final boolean[] fell = new boolean[SQUAD];
+    private int fellInShaft;
 
     AiCheckBunkerNtm(AiCheck check, ServerLevel level, int y) {
         this.check = check;
@@ -95,6 +112,15 @@ final class AiCheckBunkerNtm {
             return false;
         }
         int rt = ticks - roundAt;
+        // (where each was a while before the round runs out: one still climbing down then is on its way, not hung)
+        if (rt == RUN - STILL) for (int i = 0; i < squad.size() && i < yLate.length; i++) yLate[i] = squad.get(i).getY();
+        for (int i = 0; i < squad.size() && i < SQUAD; i++) {
+            Mob m = squad.get(i);
+            if (!m.isAlive() && !fell[i]) {
+                fell[i] = true;
+                if (m.getY() < ground - 2 && m.getY() >= BlockPos.getY(hub) + 2) fellInShaft++;
+            }
+        }
         for (int i = 0; i < squad.size(); i++) {
             Mob m = squad.get(i);
             if (!m.isAlive() || under[i]) continue;
@@ -215,6 +241,7 @@ final class AiCheckBunkerNtm {
     private void spawn() {
         roundAt = ticks;
         hatchDown0 = AiHatch.down;
+        held0 = new int[] {AiHatch.held, AiHatch.smokedDown, AiHatch.contained};
         AiHatch.on = hatchOn && round % 2 == 1;
         double hx = BlockPos.getX(hub) + 0.5, hy = BlockPos.getY(hub), hz = BlockPos.getZ(hub) + 0.5;
         for (int i = 0; i < INSIDE; i++) {
@@ -232,7 +259,11 @@ final class AiCheckBunkerNtm {
             Mob m = AiSpawn.spawn(level, new Vec3(sx, sy, sz + i * 2 - 3), AiSpawn.Kind.DUMMY, 1, null).get(0);
             AiTeams.join(level, m, "ntmbunker_out" + round);
             AiBot b = AiBots.get(m);
-            if (b != null) b.grenades = Math.max(b.grenades, 1);
+            if (b != null) {
+                b.grenades = Math.max(b.grenades, 1);
+                // the way down on: a smoke grenade each in some rounds, none in the others (the foot held: smoke down, or hold)
+                b.smokes = smokeRound() ? 1 : 0;
+            }
             squad.add(m);
         }
         AiBots.refreshTargets(level);
@@ -270,11 +301,29 @@ final class AiCheckBunkerNtm {
         sums[k][2] += (int) left;
         sums[k][3]++;
         if (rt >= RUN)
-            for (Mob m : squad)
+            for (int i = 0; i < squad.size(); i++) {
+                Mob m = squad.get(i);
                 // (over the squad stacked at the foot: waiting on the ladder over its own holding the foot is no hanging)
-                if (m.isAlive() && m.getY() >= BlockPos.getY(hub) + 2 * SQUAD && m.getY() < ground - 2) hung[k]++;
+                if (m.isAlive() && m.getY() >= BlockPos.getY(hub) + 2 * SQUAD && m.getY() < ground - 2) {
+                    if (i < yLate.length && Math.abs(m.getY() - yLate[i]) > 1) climbingAtEnd++;
+                    else hung[k]++;
+                }
+            }
         if (k == 1 && AiHatch.down > hatchDown0) ladderRounds++;
         if (downs > 0) footRounds[k]++;
+        if (k == 1) {
+            int[] a = arms[smokeRound() ? 0 : 1];
+            a[0]++;
+            a[1] += (int) left;
+            a[2] += in == 0 ? 1 : 0;
+            a[3] += AiHatch.held - held0[0];
+            a[4] += AiHatch.smokedDown - held0[1];
+            a[5] += AiHatch.contained - held0[2];
+            a[6] += downs > 0 ? 1 : 0;
+            a[7] += fellInShaft;
+            check.out(String.format(Locale.ROOT, "     bunkerntm %d: %s; the foot held %d (why %s), smoke down %d (first %d all told), held off %d; fallen in the shaft %d; the smoker's ticks %s", round, smokeRound() ? "a smoke each" : "no smoke",
+                    AiHatch.held - held0[0], java.util.Arrays.toString(AiHatch.heldWhy), AiHatch.smokedDown - held0[1], AiHatch.smokeFirst, AiHatch.contained - held0[2], fellInShaft, java.util.Arrays.toString(AiHatch.smokerTicks)));
+        }
         check.out(String.format(Locale.ROOT, "     bunkerntm %d (%s): %d ticks; of the squad %d of %d left, %d got to the shaft's foot (the first at tick %d); in the hub %d of %d left;%s", round,
                 AiHatch.on ? "on" : "off", rt, left, squad.size(), downs, firstDown, in, inside.size(), where()));
         for (Mob m : squad) m.discard();
@@ -282,6 +331,8 @@ final class AiCheckBunkerNtm {
         squad.clear();
         inside.clear();
         for (int i = 0; i < SQUAD; i++) under[i] = false;
+        java.util.Arrays.fill(fell, false);
+        fellInShaft = 0;
         downs = 0;
         firstDown = -1;
         for (var e : level.getEntitiesOfClass(net.minecraft.world.entity.Entity.class, new net.minecraft.world.phys.AABB(X0 - REACH, level.getMinY(), Z0 - REACH, X0 + REACH, TOP + 20, Z0 + REACH),
@@ -364,13 +415,22 @@ final class AiCheckBunkerNtm {
             // two holding the foot shoot some going down; checked is what was wrong: hanging halfway, no drill down)
             check.out(String.format(Locale.ROOT, "     bunkerntm: with the way down a shaft to the shaft's foot %d of %d (before %d); of the squad left %d (%d before)", sums[1][0], SQUAD * sums[1][3], sums[0][0],
                     sums[1][2], sums[0][2]));
-            check.check(String.format(Locale.ROOT, "bunkerntm: none hangs halfway down the shaft as a round runs out (%d, %d before)", hung[1], hung[0]), hung[0] == 0 && hung[1] == 0);
+            check.check(String.format(Locale.ROOT, "bunkerntm: none hangs halfway down the shaft as a round runs out (%d, %d before; on its way down still %d)", hung[1], hung[0], climbingAtEnd), hung[0] == 0 && hung[1] == 0);
             // (down by the drill itself counted: one shot off the ladder, or slow under fire, goes on as it may, uncounted)
             check.out(String.format(Locale.ROOT, "     bunkerntm: with it down the ladder by the drill in %d of %d rounds", ladderRounds, sums[1][3]));
             // (with the way down off, under fire from the hub up the shaft they come off the ladder at its top, X1309: so
             // the bunker placed with its hub under the shaft; the drill goes down whatever it sees)
-            check.check(String.format(Locale.ROOT, "bunkerntm: with the way down a shaft some get to its foot in every round (%d of %d, %d of %d before)", footRounds[1], sums[1][3], footRounds[0], sums[0][3]),
-                    footRounds[1] == sums[1][3]);
+            int[] sm = arms[0], no = arms[1];
+            check.out(String.format(Locale.ROOT, "     bunkerntm: the way down on, with smoke: %d rounds, of the squad left %d, the hub taken %d, held %d, smoke down %d, held off %d, some at the foot %d;"
+                    + " without: %d rounds, left %d, the hub taken %d, held %d, held off %d; off: %d rounds, left %d, the hub taken %d", sm[0], sm[1], sm[2], sm[3], sm[4], sm[5], sm[6],
+                    no[0], no[1], no[2], no[3], no[5], sums[0][3], sums[0][2], sums[0][1]));
+            // (the foot held: with smoke they go down under it, so some get there; without, none more goes down)
+            check.check(String.format(Locale.ROOT, "bunkerntm: with the way down a shaft and smoke some get to its foot in every round (%d of %d)", sm[6], sm[0]), sm[6] == sm[0]);
+            // (sixty deep, too deep for a frag: the smoke goes down first)
+            check.check(String.format(Locale.ROOT, "bunkerntm: smoke goes down the shaft in every round with smoke (%d in %d rounds)", sm[4], sm[0]), sm[4] >= sm[0]);
+            // (fallen going down the shaft: one up at the hatch shot by a foe come up the ladder is no going down)
+            check.check(String.format(Locale.ROOT, "bunkerntm: the foot held with no smoke, none more goes down: fallen in the shaft %d in %d rounds, at most one a round (of the squad lost %d all told)",
+                    no[7], no[0], SQUAD * no[0] - no[1]), no[7] <= no[0]);
             // (the hub taken is counted, not checked: two holding the shaft's foot shoot most going down it either way)
         }
         check.check("bunkerntm: nothing in the AI threw on it (" + (AiRooms.faults - faults0) + ")", AiRooms.faults == faults0);
