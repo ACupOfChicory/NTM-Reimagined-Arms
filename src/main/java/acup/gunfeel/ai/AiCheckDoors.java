@@ -32,7 +32,8 @@ final class AiCheckDoors {
     private final int y;
     private boolean started;
     private int round = -1, ticks, reachedAt, openedAt;
-    private long caveAt = -1;
+    private long caveAt = -1, doorAt = -1;
+    private boolean caveOk;
     private Mob mob;
     /** per round: {way in, aiDoors, reached at (-1: not), opened} */
     private final List<int[]> rounds = new ArrayList<>();
@@ -53,7 +54,22 @@ final class AiCheckDoors {
             AiBlockKinds.shell = true;
             check.out("     doors, the room of the rock's stone: " + (cave ? "no building" : "a building") + "; with aiRoomsShell off: " + (before ? "a building" : "no building")
                     + "; the wall's kind " + map.kind(RX - WALL, y, RZ) + ", the roof's " + map.kind(RX, y + 3, RZ) + ", the floor's " + map.kind(RX, y - 1, RZ));
-            check.check("the same room walled and roofed with the rock's stone is a cave, no building; with aiRoomsShell off it is one, as before", cave && before);
+            caveOk = cave && before;
+            caveAt = -1;
+            // a wooden door hung in its doorway
+            BlockState door = Blocks.OAK_DOOR.defaultBlockState();
+            set(RX, y, RZ + WALL, door.setValue(DoorBlock.HALF, DoubleBlockHalf.LOWER));
+            set(RX, y + 1, RZ + WALL, door.setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER));
+            map.want(RX, y, RZ + 4, 14, 6);
+            doorAt = level.getGameTime();
+            return false;
+        }
+        if (doorAt >= 0) {
+            if (level.getGameTime() - doorAt < 40) return false;
+            boolean building = AiRooms.of(TacticalMap.of(level), BlockPos.asLong(RX, y, RZ)) != null;
+            check.out("     doors, the room of the rock's stone with a door in its doorway: " + (building ? "a building" : "no building"));
+            check.check("the same room walled and roofed with the rock's stone, its way in with no door, is a cave, no building; with aiRoomsShell off it is one, as before", caveOk);
+            check.check("the same room of the rock's stone with a door hung in its way in is a building (someone lives there)", building);
             return true;
         }
         if (!started) {
@@ -161,7 +177,7 @@ final class AiCheckDoors {
         String[] ids = { "minecraft:stone", "minecraft:deepslate", "minecraft:dirt", "minecraft:oak_leaves", "minecraft:iron_ore", "minecraft:stone_bricks", "minecraft:cobblestone",
                 "minecraft:oak_planks", "minecraft:glass", "hbm:reinforced_stone", "hbm:brick_concrete", "minecraft:chest", "minecraft:furnace", "minecraft:red_bed",
                 "minecraft:spawner", "minecraft:oak_door", "minecraft:torch" };
-        byte[] want = { 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 0, 0, 0 };
+        byte[] want = { 1, 1, 1, 1, 1, 2, 2, 2, 3, 2, 2, 3, 3, 3, 0, 0, 0 };
         String[] kindNames = { "none", "natural", "built", "dwelling" };
         StringBuilder sb = new StringBuilder();
         boolean ok = true;
@@ -173,7 +189,7 @@ final class AiCheckDoors {
             ok &= k == want[i];
         }
         check.out("     doors, what the blocks say of a place:" + sb);
-        check.check("stone, dirt, leaves and ore are the ground; bricks, planks, glass and NTM's concrete are put there; a chest, a furnace and a bed say someone lives there; a spawner, a door and a torch say nothing", ok);
+        check.check("stone, dirt, leaves and ore are the ground; bricks, planks and NTM's concrete are put there; a chest, a furnace, a bed and glass say someone lives there; a spawner, a torch and a door's block say nothing (a door does by its way)", ok);
         // the same room with its walls and roof of the rock's stone: a cave, no building; with the setting off, one as before
         BlockState stone = Blocks.STONE.defaultBlockState();
         for (int x = RX - WALL; x <= RX + WALL; x++)
@@ -181,6 +197,9 @@ final class AiCheckDoors {
                 boolean wall = Math.max(Math.abs(x - RX), Math.abs(z - RZ)) == WALL;
                 for (int h = 0; h < 4; h++) if (h == 3 || wall && level.getBlockState(new BlockPos(x, y + h, z)).is(Blocks.STONE_BRICKS)) set(x, y + h, z, stone);
             }
+        // its way in a doorway with no door: a door hung there would say someone lives there (tick: then one is)
+        set(RX, y, RZ + WALL, Blocks.AIR.defaultBlockState());
+        set(RX, y + 1, RZ + WALL, Blocks.AIR.defaultBlockState());
         map.want(RX, y, RZ + 4, 14, 6);
         caveAt = level.getGameTime();
     }
@@ -204,6 +223,6 @@ final class AiCheckDoors {
         rooms();
         check.check("with aiDoors off, and at an iron door: it stays out and opens nothing", before);
         // the cave's check comes a few ticks later (tick), once the map has read the blocks changed
-        return caveAt < 0;
+        return caveAt < 0 && doorAt < 0;
     }
 }
