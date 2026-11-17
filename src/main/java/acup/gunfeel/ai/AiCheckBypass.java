@@ -45,6 +45,7 @@ final class AiCheckBypass {
     private final int stackMoved0 = AiEntry.stackMoved, stackSeen0 = AiEntry.stackSeen;
     private final int goes0 = AiEntry.goes;
     private final long goTicks0 = AiEntry.goTicks;
+    private final int primed0 = AiEntry.primedNoticed;
     private int round = -1, ticks;
     private final List<Mob> squad = new ArrayList<>(), held = new ArrayList<>();
     private final boolean[] inShaft = new boolean[SQUAD], inRoom = new boolean[SQUAD], fell = new boolean[SQUAD], atDoor = new boolean[SQUAD];
@@ -343,6 +344,7 @@ final class AiCheckBypass {
 
     private boolean finish() {
         check.out(String.format(Locale.ROOT, "     bypass: places beside the way in moved out of sight of the room %d, left in it %d", AiEntry.stackMoved - stackMoved0, AiEntry.stackSeen - stackSeen0));
+        check.out("     bypass: going in after its grenade, foes in there noticed while looking for them " + (AiEntry.primedNoticed - primed0));
         check.out(String.format(Locale.ROOT, "     bypass: entries all gone in %d, ticks from in to all in their places %.1f a time", AiEntry.goes - goes0, AiEntry.goes == goes0 ? 0.0 : (AiEntry.goTicks - goTicks0) / (double) (AiEntry.goes - goes0)));
         AiHatch.on = hatchOn;
         AiHatch.bypassOn = true;

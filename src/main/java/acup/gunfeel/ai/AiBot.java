@@ -145,6 +145,7 @@ public final class AiBot {
         memory.look();
         int n = targets.size(), start = n == 0 ? 0 : Math.floorMod(scanFrom, n), scanned = 0;
         double range = eyes().viewRange();
+        AiEntry.Primed primed = n == 0 ? null : AiEntry.primed(this, tick);
         for (int k = 0; k < n; k++) {
             LivingEntity t = targets.get((start + k) % n);
             if (t == mob || !t.isAlive() || !AiTeams.enemy(mob, t)) continue;
@@ -155,10 +156,19 @@ public final class AiBot {
                 if (++scanned == SCAN) scanFrom = start + k + 1;
             }
             boolean focus = t.getId() == memory.focusId;
-            int notice = Senses.look(voxels, smoke, mob, t, eyes(), focus);
+            boolean looked = primed != null && primed.in(t);
+            int notice = Senses.look(voxels, smoke, mob, t, eyes(), focus, looked);
+            TargetMemory.Contact was = looked ? memory.contact(t.getId()) : null;
+            // (one it knew of is noticed again in half the time: one looked for, its least kept even so)
+            if (looked && notice >= 0 && was != null && was.state != TargetMemory.State.GLIMPSED) notice = Math.max(notice, 2 * Senses.PRIMED_MIN);
             // of one it does not aim at it saw one part, not which ones: all of it, as far as aiming goes (the chest,
             // with the wide band), till it deals with them and sees them whole
-            if (notice >= 0) memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice).parts = focus ? Senses.parts : Senses.WHOLE;
+            if (notice >= 0) {
+                boolean before = was != null && was.state == TargetMemory.State.VISIBLE;
+                TargetMemory.Contact c = memory.seen(t.getId(), t.getX(), t.getY(), t.getZ(), tick, notice);
+                c.parts = focus ? Senses.parts : Senses.WHOLE;
+                if (looked && !before && c.state == TargetMemory.State.VISIBLE) AiEntry.primedNoticed++;
+            }
         }
         memory.endLook(tick);
     }

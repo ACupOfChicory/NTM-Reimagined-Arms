@@ -441,7 +441,8 @@ public final class AiEntry {
             go(bot, to, 0.5);
             if (bot.mover.arrived() || bot.mover.failed()) op.done.add(bot);
             // the dead corners by the wall with the opening, not seen from round it: the first two each to its own
-            Vec3 at = slice() ? corner(op, plan, i) : null;
+            // (after its own grenade too: one it left alive may be there)
+            Vec3 at = slice() || op.fragId != -1 ? corner(op, plan, i) : null;
             if (at != null) return at;
         } else if (op.phase == FRAG && bot == op.thrower) frag(op, s, bot, level, tick);
         else {
@@ -609,6 +610,35 @@ public final class AiEntry {
 
     static boolean hidden() {
         return stackHidden && ReaimTimes.flag(STACK_KEY, true);
+    }
+
+    /**
+     * Going in after its own grenade, the first PRIMED ticks of it: one of it waits for a foe in there (one the blast
+     * did not finish, thrown into a corner it did not look at), and one in the room it sees is noticed as one looked
+     * for (Senses.look, primed): no slower in the corner of its eye, sooner, but not at once (a player there gets the
+     * time a man takes, Senses.PRIMED_MIN). The stands: a foe the blast left alive seen 10-12 ticks from the opening,
+     * not noticed in them, shot first.
+     */
+    static final int PRIMED = 100;
+    public static final String PRIMED_KEY = "aiEntryPrimed";
+    static boolean primedOn = true;
+    /** the stands: foes in the room noticed going in after its grenade, looking for them (whether or not the sooner did it) */
+    public static int primedNoticed;
+
+    /** the room it goes into after its own grenade, now (PRIMED), its plan and room; else null */
+    static @Nullable Primed primed(AiBot bot, long tick) {
+        if (!primedOn || !(bot.mob.level() instanceof ServerLevel level) || !on() || !ReaimTimes.flag(PRIMED_KEY, true)) return null;
+        Map<Long, Op> ops = OPS.get(level);
+        if (ops == null) return null;
+        for (Op op : ops.values())
+            if (op.phase == GO && op.fragId != -1 && op.plan != null && tick - op.phaseAt <= PRIMED && op.members.contains(bot)) return new Primed(op.plan, op.room);
+        return null;
+    }
+
+    record Primed(AiRooms.Plan plan, int room) {
+        boolean in(net.minecraft.world.entity.Entity e) {
+            return plan.room(cell(e.getX(), e.getY(), e.getZ())) == room;
+        }
     }
 
     /** the ways to the stack: a cell before the opening seen from the room costs this many more, EXPOSED_FAR blocks off at most */
