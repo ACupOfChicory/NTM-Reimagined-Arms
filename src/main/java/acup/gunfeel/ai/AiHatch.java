@@ -206,7 +206,9 @@ final class AiHatch {
      */
     static final int BYPASS_NODES = 4 * AiMover.MAX_NODES;
     /** the stands: ways round found (the shaft too deep, held), none (no way, too long), given up (shot at on it), begins put off by one */
-    public static int bypassDeep, bypassHeld, bypassDropped, bypassKept, bypassMissing;
+    public static int bypassDeep, bypassHeld, bypassDropped, bypassKept, bypassMissing, bypassEntry;
+    /** round by another way this near where the foe was lost, a room it is in with a way in is gone into by AiEntry, blocks */
+    static final double BYPASS_ENTRY = 14;
     /** the map about a way round not built yet: looked for again every BYPASS_AGAIN ticks, at most BYPASS_WAIT from the first look */
     static final int BYPASS_AGAIN = 20, BYPASS_WAIT = 400;
     /** one of it this near where the foe was lost, the way round is over: it searches from there, blocks */
@@ -466,6 +468,14 @@ final class AiHatch {
         if (!op.members.contains(bot) && op.phase != OVER && AiSquads.live(bot) && bot.mob.distanceToSqr(mid(op.shaft.rim, 0)) <= NEAR * NEAR && AiCrossing.of(bot) == null
                 && bot.mob.getY() > BlockPos.getY(op.shaft.foot) + 1) op.members.add(bot);
         if (!op.members.contains(bot) || op.downs.contains(bot) && op.holder != bot) return null;
+        // round by another way near a room the foe is in with a way in: the entry's drill from here (beside the way in,
+        // a grenade in, in together), not on to where it was lost, one after another through the way in
+        if (op.phase == BYPASS && !climbing(op, bot, tick) && bot.mob.distanceToSqr(mid(op.goal, 0)) <= BYPASS_ENTRY * BYPASS_ENTRY && AiEntry.wayIn(bot, level, c, tick)) {
+            l.bypass.remove(team);
+            phase(op, OVER, tick);
+            bypassEntry++;
+            return null;
+        }
         op.lastStep = tick;
         bot.memory.keep(c, tick);
         try {

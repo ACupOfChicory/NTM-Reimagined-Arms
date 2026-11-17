@@ -7,6 +7,18 @@
   from where the enemy went out of sight keeps it searching there. A sound
   from elsewhere, or none, and the enemy is forgotten as before.
 
+## X1403
+
+- An AI squad that has gone round a held shaft by another way now takes the
+  room at the end of it by its room drill: it stacks up beside the way in,
+  throws a grenade in and goes in together, instead of walking into the
+  doorway one after another.
+
+## X1401
+
+- AI squads: a pinning-and-flanking pair that is made again (the squads swapping roles, one sent to scout and
+  back, or a partner lost) keeps the time it had for the way round instead of starting it afresh.
+
 ## X1393
 
 - An AI squad after an enemy down a shaft that is too deep for a grenade, or
