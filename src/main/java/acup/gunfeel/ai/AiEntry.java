@@ -123,7 +123,15 @@ public final class AiEntry {
     /** in they go this long at most; an entry and what it knew is let go after this; ticks */
     static final int GO_MAX = 100, ENTRY_MAX = 1200;
 
-    private static final int STACK = 0, FRAG = 1, WAIT = 2, GO = 3, OVER = 4;
+    private static final int STACK = 0, FRAG = 1, WAIT = 2, HOLD = 3, GO = 4, OVER = 5;
+    /**
+     * a foe in the room that shot one of the side down at its way in (TargetMemory.Contact.mateDown), no grenade to go in
+     * first: they hold beside it, out of its line, and fight what shows; in when none goes after that foe for HOLD_STALE
+     * ticks (forgotten, or seen and fought), or after HOLD_MAX
+     */
+    static final int HOLD_STALE = 40, HOLD_MAX = 400;
+    /** the stands: entries held so, and gone in after their HOLD_MAX */
+    public static int held, heldOut;
 
     private static final class Op {
         AiRooms.@Nullable Plan plan;
@@ -146,6 +154,8 @@ public final class AiEntry {
         boolean noFrag;
         /** when noFrag was last worked out; when one of the side last went after a foe known of (alive) by this entry */
         long fragSeen = Long.MIN_VALUE, liveAt = Long.MIN_VALUE;
+        /** when one of the side last went after a foe by this entry known by one of theirs it shot down (MIN_VALUE: none) */
+        long funnelAt = Long.MIN_VALUE;
         /** its grenade (if one goes) is one into a room fought in (the stands) */
         boolean fragPlace;
         /** those to be spared by the room (spared), found at the tick sparedAt (safe) */
@@ -271,7 +281,10 @@ public final class AiEntry {
         }
         // a foe known of (alive) gone after by this entry: its drill as ever, a grenade in where one goes (the entry is
         // one a side, another target in the same room shares it)
-        if (!c.place) op.liveAt = tick;
+        if (!c.place) {
+            op.liveAt = tick;
+            if (c.mateDown != Long.MIN_VALUE) op.funnelAt = tick;
+        }
         // a room fought in (the foe known of fallen there): whether a grenade goes in, worked out again while they
         // stack (those of its side or to be spared step in and out), on the entry it has (one made while the foe was
         // alive, by AiSoldier's flank check, is the same entry)
@@ -440,7 +453,8 @@ public final class AiEntry {
                     fate("no throw found: none in the room " + (why[0] - w0[0]) + ", one of it not behind the wall " + (why[1] - w0[1]) + ", another of its side " + (why[2] - w0[2])
                             + ", a player " + (why[3] - w0[3]) + ", one to be spared " + (why[4] - w0[4]) + "; with a grenade " + armed(op));
                 }
-                phase(op, op.thrower != null ? FRAG : GO, tick);
+                if (op.thrower != null) phase(op, FRAG, tick);
+                else in(op, tick);
                 if (op.thrower != null && firstThrower != null) firstThrower.accept(op.thrower);
             }
             case FRAG -> {
@@ -484,6 +498,14 @@ public final class AiEntry {
                 Entity g = level.getEntity(op.fragId);
                 if (g == null || g.isRemoved() || tick - op.phaseAt > AiGrenades.FUSE + 10) phase(op, GO, tick);
             }
+            case HOLD -> {
+                boolean stale = tick - op.funnelAt > HOLD_STALE, late = tick - op.phaseAt > HOLD_MAX;
+                if (late) heldOut++;
+                if (stale || late) {
+                    fate("held by the way in " + (tick - op.phaseAt) + " ticks, in: " + (late ? "out of time" : "the foe no more gone after"));
+                    phase(op, GO, tick);
+                }
+            }
             case GO -> {
                 if (op.done.containsAll(op.members) || tick - op.phaseAt > GO_MAX) phase(op, OVER, tick);
             }
@@ -516,7 +538,16 @@ public final class AiEntry {
         }
         fate("thrower " + op.lostHow + ", in without one: " + (armed == 0 ? "none else with a grenade" : "no throw found: none in the room " + (why[0] - op.why0[0])
                 + ", one of it not behind the wall " + (why[1] - op.why0[1]) + ", another of its side " + (why[2] - op.why0[2]) + ", a player " + (why[3] - op.why0[3]) + ", one to be spared " + (why[4] - op.why0[4])));
-        phase(op, GO, tick);
+        in(op, tick);
+    }
+
+    /** in with no grenade: at once, or held beside the way in while a foe that shot one of them down there is gone after */
+    private static void in(Op op, long tick) {
+        if (op.funnelAt != Long.MIN_VALUE && tick - op.funnelAt <= HOLD_STALE) {
+            held++;
+            fate("held by the way in: a foe in there shot one of them down, no grenade");
+            phase(op, HOLD, tick);
+        } else phase(op, GO, tick);
     }
 
     private static void fate(String s) {
@@ -569,7 +600,7 @@ public final class AiEntry {
             if (++op.tries >= FRAG_TRIES) {
                 noThrow++;
                 fate("stepped out and threw none");
-                phase(op, GO, tick);
+                in(op, tick);
             }
             return;
         }

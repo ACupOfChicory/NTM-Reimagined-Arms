@@ -46,6 +46,8 @@ public final class TargetMemory {
         public long heardTick = Long.MIN_VALUE;
         /** no one known there now: where a foe its squad knew of fell in a building (AiBot.fought), its rooms gone through as a lost target's */
         public boolean place;
+        /** known by one of its side shot down by it (shotMate): a way in it covers (AiEntry holds by it); MIN_VALUE: not so */
+        public long mateDown = Long.MIN_VALUE;
 
         Contact(int id) {
             this.id = id;
@@ -233,6 +235,7 @@ public final class TargetMemory {
         c.z = c.lostZ = c.glimpseZ = z;
         c.vx = c.vz = 0;
         c.lostTick = tick;
+        c.mateDown = tick;
         return c;
     }
 
