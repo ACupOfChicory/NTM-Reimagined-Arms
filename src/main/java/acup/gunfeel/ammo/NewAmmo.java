@@ -75,14 +75,14 @@ public final class NewAmmo {
 
     /**
      * NTM's round one of the mod's looks like where a thing is found by the round itself (NTM's tracer for it,
-     * RenderBulletMK4's by its config): a Duplex round its calibre's SP, the rubber slug the 12 gauge slug, the nuclear
-     * .50 the .50 SP; any other round (or null) itself
+     * RenderBulletMK4's by its config): a Duplex round its calibre's SP, the rubber slug and the shock shell (one shot
+     * each) the 12 gauge slug, the nuclear .50 the .50 SP; any other round (or null) itself
      */
     public static BulletConfig lookalike(BulletConfig c) {
         if (c == null) return null;
         if (c == Duplex.r556()) return XFactory556mm.r556_sp;
         if (c == Duplex.r762()) return XFactory762mm.r762_sp;
-        if (RubberSlug.is(c)) return XFactory12ga.g12_slug;
+        if (RubberSlug.is(c) || c == acup.gunfeel.shock.ShockAmmo.config()) return XFactory12ga.g12_slug;
         if (NuclearBmg.is(c)) return XFactory50.bmg50_sp;
         return c;
     }
@@ -92,9 +92,9 @@ public final class NewAmmo {
         return NuclearBmg.is(c) ? c : lookalike(c);
     }
 
-    /** a round of the mod's that leaves no hole where it hits: the rubber slug (it bounces off), the nuclear .50 (it goes off) */
+    /** a round of the mod's that leaves no hole where it hits: the rubber slug (it bounces off), the shock shell, the nuclear .50 (it goes off) */
     public static boolean noHole(BulletConfig c) {
-        return c != null && (RubberSlug.is(c) || NuclearBmg.is(c));
+        return c != null && (RubberSlug.is(c) || NuclearBmg.is(c) || c == acup.gunfeel.shock.ShockAmmo.config());
     }
 
     /** the gun's id path ("gun_amat"), or "" */

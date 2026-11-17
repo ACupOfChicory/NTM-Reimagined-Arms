@@ -47,7 +47,7 @@ class NewAmmoLookalikeTest {
         return was;
     }
 
-    private BulletConfig d556, d762, rubber, nuke, sp556, sp762, slug, sp50;
+    private BulletConfig d556, d762, rubber, nuke, shock, sp556, sp762, slug, sp50;
     private Object[] was;
 
     @BeforeEach
@@ -56,13 +56,15 @@ class NewAmmoLookalikeTest {
         d762 = config();
         rubber = config();
         nuke = config();
+        shock = config();
         sp556 = config();
         sp762 = config();
         slug = config();
         sp50 = config();
         was = new Object[] {put(Duplex.class, "r556", d556), put(Duplex.class, "r762", d762), put(RubberSlug.class, "config", rubber),
                 put(NuclearBmg.class, "config", nuke), put(XFactory556mm.class, "r556_sp", sp556), put(XFactory762mm.class, "r762_sp", sp762),
-                put(XFactory12ga.class, "g12_slug", slug), put(XFactory50.class, "bmg50_sp", sp50)};
+                put(XFactory12ga.class, "g12_slug", slug), put(XFactory50.class, "bmg50_sp", sp50),
+                put(acup.gunfeel.shock.ShockAmmo.class, "config", shock)};
     }
 
     @AfterEach
@@ -75,6 +77,7 @@ class NewAmmoLookalikeTest {
         put(XFactory762mm.class, "r762_sp", was[5]);
         put(XFactory12ga.class, "g12_slug", was[6]);
         put(XFactory50.class, "bmg50_sp", was[7]);
+        put(acup.gunfeel.shock.ShockAmmo.class, "config", was[8]);
     }
 
     @Test
@@ -83,6 +86,7 @@ class NewAmmoLookalikeTest {
         assertSame(sp762, NewAmmo.lookalike(d762));
         assertSame(slug, NewAmmo.lookalike(rubber));
         assertSame(sp50, NewAmmo.lookalike(nuke));
+        assertSame(slug, NewAmmo.lookalike(shock));
     }
 
     @Test
@@ -104,6 +108,7 @@ class NewAmmoLookalikeTest {
     void onlyTheRubberSlugAndTheNuclearRoundLeaveNoHole() {
         assertTrue(NewAmmo.noHole(rubber));
         assertTrue(NewAmmo.noHole(nuke));
+        assertTrue(NewAmmo.noHole(shock));
         assertFalse(NewAmmo.noHole(d556));
         assertFalse(NewAmmo.noHole(d762));
         assertFalse(NewAmmo.noHole(sp556));

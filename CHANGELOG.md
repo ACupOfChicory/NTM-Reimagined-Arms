@@ -7,6 +7,8 @@
   .50 draws the .50 SP's tracer, and the rubber slug draws the 12 gauge
   slug's. Neither leaves a hole. In water a Duplex bullet acts like its SP
   round, and the rubber slug like the slug.
+- The 12 gauge electroshock shell now draws the slug's tracer too. It
+  leaves no bullet holes.
 
 ## X1434
 
