@@ -66,8 +66,16 @@ FIT = {
 # a slide into cover (AiPose.SLIDE), the whole body, 16 ticks: UAL Slide_Start down into the slide (to 0.533 s), then
 # Slide_Exit while the hips stay low (to 0.267 s); the pose layer fades it into the crouch after. Poor by the numbers too
 SPLICE = {"slide": [("ual2", "slide_start", 0.5333), ("ual2", "slide_exit", 0.2667)]}
-# turns only: the game moves the mob itself as it is thrown, and the head stays at the eye the server keeps
+# turns only: the game moves the mob itself as it is thrown (the clip's own travel left out)
 TURNS_ONLY = {"hit_knock"}
+# A hit's flinch is added over whatever the mob does, and its head may not leave the eye the server looks and shoots
+# from (3 cm): as the clips have them the neck goes 16 cm with the trunk and the head's own nod takes its middle up
+# to 23 cm more. So each is fitted (fit.pin_head): the head's middle kept where it was as the hit came, the neck and
+# the trunk under it going the other way, the trunk's fold about the neck the clip's, the legs fitted under the hips.
+# Over a straight leg the neck cannot rise, so a nod that would still lower the head's middle by more than
+# HEAD_KEEP px is cut (hit_back's 31 degrees, hit_knock's 55)
+HEAD_PINNED = ("hit_chest", "hit_head", "hit_fold", "hit_back", "hit_knock")
+HEAD_KEEP = 0.4
 
 
 def _keys(ch):
@@ -113,6 +121,13 @@ def build(say=print):
         if name in TURNS_ONLY:
             out[name] = dict(out[name], bones={b: {k: v for k, v in ch.items() if k != "position"}
                                                for b, ch in out[name]["bones"].items()})
+    for name in HEAD_PINNED:
+        src = out[name]
+        n = max(1, round(src["animation_length"] * 60))
+        times = [src["animation_length"] * i / n for i in range(n + 1)]
+        out[name], report = fit.pin_head(src, times, keep=HEAD_KEEP, length=src["animation_length"])
+        say("%s: the head's middle off its place %.2f px at most, the nod kept %.0f%% at least" % (
+            name, max(r["off"] for r in report), 100 * min(r["nod"] for r in report)))
     for name, parts in SPLICE.items():
         for f, _, _ in parts:
             if f not in cache:

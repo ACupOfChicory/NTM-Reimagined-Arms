@@ -89,12 +89,12 @@ def leg(hip, thigh0, shin0, ankle, pole, plant):
 
 
 def fit(clip, neck, times, plant=False, body=None, feet=None, loop=False, length=None, square=False):
-    """The clip's legs under a neck at `neck` (the body's pivot, px): {bones} of a Bedrock animation, the body's turn
-    and the four leg parts. `body`: the trunk's turn (degrees) in place of the clip's; `feet`: {leg: (x, z)} the
+    """The clip's legs under a neck at `neck` (the body's pivot, px; or a function of the time, the neck frame by
+    frame): {bones} of a Bedrock animation, the body's turn and the four leg parts. `body`: the trunk's turn (degrees) in place of the clip's; `feet`: {leg: (x, z)} the
     ankles' places, px: x from the leg's own hip, z from the middle of the hips, in place of the clip's; `square`:
     each leg turned from the model's rest pose, not from the clip's turn (none of the clip's twist of a thigh about
     its own length, which a box shows as a leg turned edge on), the knee ahead."""
-    neck = np.array(neck, float)
+    at_t = neck if callable(neck) else (lambda t, n=np.array(neck, float): n)
     rows = {b: {"rotation": [], "position": []} for b in ("body", "right_leg", "right_shin", "left_leg", "left_shin")}
     prev = {}
     report = []
@@ -103,7 +103,7 @@ def fit(clip, neck, times, plant=False, body=None, feet=None, loop=False, length
         trunk = own if body is None else euler_to_mat(body)
         # the hips from the neck: along the trunk as it is drawn; the legs' pivots from the hips as the clip had them
         hips0 = pivot(clip, "body", t) + own @ np.array([0.0, 12.0, 0.0])
-        hips = neck + trunk @ np.array([0.0, 12.0, 0.0])
+        hips = np.array(at_t(t), float) + trunk @ np.array([0.0, 12.0, 0.0])
         e = mat_to_euler(trunk, prev.get("body"))
         prev["body"] = e
         rows["body"]["rotation"].append(e)
@@ -151,3 +151,104 @@ def fit(clip, neck, times, plant=False, body=None, feet=None, loop=False, length
             bones[b] = out
     span = times[-1] - times[0] if length is None else length
     return {"loop": bool(loop) if span > 0 else "hold_on_last_frame", "animation_length": round(span, 4), "bones": bones}, report
+
+
+HEAD_MID = np.array([0.0, -4.0, 0.0])  # the head box's middle from its pivot (the neck), px, Y down
+# the head's own pose the flinch is added over (the mod adds the nod after it, BotPoser.add): level, and looking 30
+# degrees up, down and aside, as a mob aiming does; the neck's move is worked out for the level head only
+LOOKS = tuple(euler_to_mat(e) for e in ((0, 0, 0), (30, 0, 0), (-30, 0, 0), (0, 30, 0), (0, -30, 0)))
+UPPER = ("head", "body", "right_arm", "left_arm")
+
+
+def _turned(m, s):
+    """the turn m taken s of the way from none (about its own axis)"""
+    a = math.acos(max(-1.0, min(1.0, (np.trace(m) - 1.0) / 2.0)))
+    if a < 1e-9:
+        return np.eye(3)
+    if math.pi - a < 1e-4:
+        # half a turn: the axis from the matrix's symmetric part, (m + I) / 2 = k k' there (sin a is no use), its
+        # sign the one the skew part still gives
+        b = (m + np.eye(3)) / 2.0
+        j = int(np.argmax(np.diag(b)))
+        k = b[:, j] / math.sqrt(max(b[j, j], 1e-12))
+        v = np.array([m[2, 1] - m[1, 2], m[0, 2] - m[2, 0], m[1, 0] - m[0, 1]])
+        if np.dot(k, v) < 0:
+            k = -k
+    else:
+        k = np.array([m[2, 1] - m[1, 2], m[0, 2] - m[2, 0], m[1, 0] - m[0, 1]]) / (2.0 * math.sin(a))
+    kx = np.array([[0.0, -k[2], k[1]], [k[2], 0.0, -k[0]], [-k[1], k[0], 0.0]])
+    b = a * s
+    return np.eye(3) + math.sin(b) * kx + (1.0 - math.cos(b)) * kx @ kx
+
+
+def pin_head(clip, times, keep=0.4, length=None):
+    """A flinch (added from its first frame) with the head's middle kept where it was then: the neck goes against
+    the head's own nod (the head turns about its middle, its neck and the trunk under it go the other way), the trunk
+    keeps the clip's turn about the neck, the hips go with it and the legs are fitted under them (fit). Over a straight
+    leg the neck cannot go up, and the neck's move is right for a level head only: where the head's middle would
+    still be off by more than `keep` px, level or looking 30 degrees up, down or aside (LOOKS), the nod is cut till it
+    is not. Returns the clip (all ten parts) and, frame by frame, how far the head's middle is off
+    its first place (px) and how much of the nod is kept."""
+    times = list(times)
+    n0 = pivot(clip, "body", times[0])
+    r0 = turn(clip, "head", times[0])
+    heads, necks, report = [], [], []
+
+    def place(d):
+        tgt = n0 - (d - np.eye(3)) @ HEAD_MID
+        tgt[1] = max(tgt[1], n0[1])  # not over a straight leg
+        return tgt, max(float(np.linalg.norm(tgt + look @ (d - np.eye(3)) @ HEAD_MID - n0)) for look in LOOKS)
+
+    for t in times:
+        # as the mod adds it (BotPoser.add): the turn from the first frame in the part's own axes, after its pose
+        d = r0.T @ turn(clip, "head", t)
+        s = 1.0
+        tgt, off = place(d)
+        if off > keep:
+            lo, hi = 0.0, 1.0
+            for _ in range(30):
+                mid = (lo + hi) / 2.0
+                if place(_turned(d, mid))[1] > keep:
+                    hi = mid
+                else:
+                    lo = mid
+            s = lo
+            d = _turned(d, s)
+            tgt, off = place(d)
+        heads.append(r0 @ d)
+        necks.append(tgt)
+        report.append({"t": t, "off": off, "nod": s})
+    by_t = dict(zip(times, necks))
+    legs, _ = fit(clip, lambda t: by_t[t], times, length=length)
+    rows = {b: {"rotation": [], "position": []} for b in UPPER + ("right_forearm", "left_forearm")}
+    prev = {}
+    flip = np.array([1.0, -1.0, 1.0])
+    for k, t in enumerate(times):
+        tgt = necks[k]
+        neck_clip = pivot(clip, "body", t)
+        for b in rows:
+            if b == "head":
+                rot = heads[k]
+            else:
+                rot = turn(clip, b, t)
+            e = mat_to_euler(rot, prev.get(b))
+            prev[b] = e
+            rows[b]["rotation"].append(e)
+            if b in UPPER:
+                # the upper parts with the neck: each where the clip had it from its own neck
+                rows[b]["position"].append((pivot(clip, b, t) - neck_clip + tgt - PIVOT[b]) * flip)
+            else:
+                rows[b]["position"].append(np.zeros(3))
+    bones = dict(legs["bones"])
+    bones.pop("body", None)
+    for b, ch in rows.items():
+        out = {}
+        for kind, tol in (("rotation", 0.5), ("position", 0.05)):
+            vals = np.array(ch[kind])
+            if kind == "position" and np.max(np.abs(vals)) < 1e-4:
+                continue
+            keep_k = reduce_keys(times, vals, tol)
+            out[kind] = {"%.4f" % (times[i] - times[0]): {"post": [round(float(x), 3) for x in vals[i]], "lerp_mode": "linear"}
+                         for i in keep_k}
+        bones[b] = out
+    return dict(legs, loop=False, bones=bones), report
