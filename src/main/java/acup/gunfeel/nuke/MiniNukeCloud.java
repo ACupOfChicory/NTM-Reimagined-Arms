@@ -148,10 +148,22 @@ public final class MiniNukeCloud {
         return type == MINI || type == MINI_BALE;
     }
 
-    // the ticks a small cloud's shock ring grows (1.5 blocks a tick, NTM's bombs: 150 at any size): to about four
-    // times the blast's radius
+    // the ticks a small cloud's shock ring grows (1.5 blocks a tick as a bomb's, NTM's bombs: 150 at any size): to
+    // five times the blast's radius
     public static int shockTicks(double scale) {
-        return (int) Math.max(8, Math.min(150, Math.round(scale / SCALE_PER_BLOCK * 4 / 1.5)));
+        return (int) Math.max(8, Math.min(150, Math.round(scale / SCALE_PER_BLOCK * 5 / 1.5)));
+    }
+
+    // a shock ring puff's width and height at least, blocks: NTM's are the scale times 5 and 2, half a block at a Fat
+    // Mine's: specks of smoke on the ground, no ring to see (a bomb's are 5 blocks and more)
+    static final float SHOCK_WIDE = 2.5F, SHOCK_HIGH = 1F;
+
+    public static float shockWidth(float ntm) {
+        return Math.max(SHOCK_WIDE, ntm);
+    }
+
+    public static float shockHeight(float ntm) {
+        return Math.max(SHOCK_HIGH, ntm);
     }
 
     // NTM's bomb at scale 1: its heat at the start (EntityNukeTorex.simulateTick: (int) (50 * s * s))
@@ -167,9 +179,11 @@ public final class MiniNukeCloud {
         return Math.max(1e-3, scale * scale * cooled);
     }
 
-    // the shock ring's puffs a tick at most (NTM's bombs: 100), fewer for a smaller cloud
+    // the shock ring's puffs a tick at most (NTM's bombs: 100), 60 at least: fewer and a ring is a spot
+    static final int SHOCK_PUFFS = 60;
+
     public static int shockPuffs(double scale) {
-        return (int) Math.max(8, Math.min(100, Math.round(100 * scale / 0.25)));
+        return (int) Math.max(SHOCK_PUFFS, Math.min(100, Math.round(100 * scale / 0.25)));
     }
 
     // client: the colours of NTM's types 0 and 1 (EntityNukeTorex.Cloudlet.updateColor) under the mod's two types

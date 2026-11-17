@@ -64,6 +64,10 @@ final class MiniNukeStand {
     private static boolean shot1, shot3;
     // the cloud's heat and its puffs' mean colour (NTM's own, before light and texture) at 1 s and 3 s: hot, then grey
     private static final double[] COLOUR = new double[8];
+    // the shock ring at 0.5, 1, 2 and 3 s: its radius (blocks) and its puffs then
+    private static final double[] RING_AT = {0.5, 1, 2, 3};
+    private static final double[] RING_R = new double[4];
+    private static final int[] RING_N = new int[4];
     private static final List<String> ROWS = new ArrayList<>();
 
     private MiniNukeStand() {
@@ -108,7 +112,7 @@ final class MiniNukeStand {
         } catch (Exception e) {
             ClientSmoke.check(false, "мини-нюк: папка " + DIR + ": " + e);
         }
-        ROWS.add("scene\tmode\trep\tbase_ms\tframe_ms\tp95_ms\tfps\tclouds\tscale\tpuffs_max\ttop_blocks\tring_blocks\theat_1s\tr_1s\tg_1s\tb_1s\theat_3s\tr_3s\tg_3s\tb_3s");
+        ROWS.add("scene\tmode\trep\tbase_ms\tframe_ms\tp95_ms\tfps\tclouds\tscale\tpuffs_max\ttop_blocks\tring_blocks\theat_1s\tr_1s\tg_1s\tb_1s\theat_3s\tr_3s\tg_3s\tb_3s\tring_05s\tring_1s\tring_2s\tring_3s\tpuffs_05s\tpuffs_1s\tpuffs_2s\tpuffs_3s");
         run = 0;
         phase = 0;
         last = System.nanoTime();
@@ -149,6 +153,8 @@ final class MiniNukeStand {
                 scale = top = ring = 0;
                 shot1 = shot3 = false;
                 java.util.Arrays.fill(COLOUR, Double.NaN);
+                java.util.Arrays.fill(RING_R, Double.NaN);
+                java.util.Arrays.fill(RING_N, -1);
                 trigger(0);
                 triggerAt = phaseAt = now;
                 phase = 3;
@@ -157,6 +163,7 @@ final class MiniNukeStand {
                 TIMES.add(dt);
                 if (scene().equals("mines8")) while (minesFired < 8 && since >= minesFired * 0.25) trigger(minesFired);
                 measure(mc);
+                for (int i = 0; i < RING_AT.length; i++) if (RING_N[i] < 0 && since >= RING_AT[i]) ring(mc, i);
                 if (!shot1 && since >= 1) {
                     colour(mc, 0);
                     shot1 = true;
@@ -276,6 +283,21 @@ final class MiniNukeStand {
         puffs = Math.max(puffs, all);
     }
 
+    private static void ring(Minecraft mc, int at) {
+        double r = 0;
+        int n = 0;
+        if (mc.level != null) for (Entity e : mc.level.entitiesForRendering()) {
+            if (!(e instanceof EntityNukeTorex t)) continue;
+            for (EntityNukeTorex.Cloudlet c : t.cloudlets) {
+                if (c.type != EntityNukeTorex.TorexType.SHOCK) continue;
+                r = Math.max(r, Math.hypot(c.posX - t.getX(), c.posZ - t.getZ()));
+                n++;
+            }
+        }
+        RING_R[at] = r;
+        RING_N[at] = n;
+    }
+
     private static void colour(Minecraft mc, int at) {
         if (mc.level == null) return;
         double heat = Double.NaN, r = 0, g = 0, b = 0;
@@ -302,8 +324,8 @@ final class MiniNukeStand {
         double ms = mean(TIMES), p95 = t.length == 0 ? 0 : t[Math.min(t.length - 1, (int) (t.length * 0.95))] / 1e6;
 
         String mode = modeB() ? "B" : "A";
-        ROWS.add(String.format(Locale.ROOT, "%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.0f\t%d\t%.3f\t%d\t%.1f\t%.1f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f", scene(), mode, rep(), baseMs, ms, p95,
-                ms > 0 ? 1000 / ms : 0, clouds, scale, puffs, top, ring, COLOUR[0], COLOUR[1], COLOUR[2], COLOUR[3], COLOUR[4], COLOUR[5], COLOUR[6], COLOUR[7]));
+        ROWS.add(String.format(Locale.ROOT, "%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.0f\t%d\t%.3f\t%d\t%.1f\t%.1f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t%d\t%d\t%d", scene(), mode, rep(), baseMs, ms, p95,
+                ms > 0 ? 1000 / ms : 0, clouds, scale, puffs, top, ring, COLOUR[0], COLOUR[1], COLOUR[2], COLOUR[3], COLOUR[4], COLOUR[5], COLOUR[6], COLOUR[7], RING_R[0], RING_R[1], RING_R[2], RING_R[3], RING_N[0], RING_N[1], RING_N[2], RING_N[3]));
         GunFeel.LOGGER.info("[mininuke] {}", ROWS.getLast());
         if (modeB()) {
             if (scene().equals("far")) {

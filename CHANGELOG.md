@@ -5,6 +5,9 @@
 - An AI soldier at the foot or top of a shaft its side climbs no longer goes
   off to other cover while one of its own on the ladder is in its line: it
   waits its turn and comes up with the rest.
+- The small nuclear blasts' shock wave now shows as a ring rolling out over
+  the ground as a bomb's does, at a bomb's pace, out to about five times the
+  blast's radius, instead of specks of smoke where it struck.
 
 ## X1456
 

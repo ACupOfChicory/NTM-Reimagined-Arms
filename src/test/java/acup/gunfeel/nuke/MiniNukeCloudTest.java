@@ -72,8 +72,12 @@ class MiniNukeCloudTest {
         // a bomb's: 150 ticks, 100 puffs a tick; a Fat Mine's (scale 0.1) shorter and thinner
         assertEquals(150, MiniNukeCloud.shockTicks(5));
         assertEquals(100, MiniNukeCloud.shockPuffs(1));
-        assertEquals(27, MiniNukeCloud.shockTicks(0.1));
-        assertEquals(40, MiniNukeCloud.shockPuffs(0.1));
+        // out to five radii at a bomb's 1.5 blocks a tick, puffs enough and big enough to read as a ring
+        assertEquals(33, MiniNukeCloud.shockTicks(0.1));
+        assertEquals(60, MiniNukeCloud.shockPuffs(0.1));
+        assertEquals(2.5F, MiniNukeCloud.shockWidth(0.5F));
+        assertEquals(1F, MiniNukeCloud.shockHeight(0.2F));
+        assertEquals(5F, MiniNukeCloud.shockWidth(5F), "a bigger one keeps NTM's");
         assertTrue(MiniNukeCloud.shockTicks(0.08) < MiniNukeCloud.shockTicks(0.2));
         assertTrue(MiniNukeCloud.shockTicks(0.001) >= 8 && MiniNukeCloud.shockPuffs(0.001) >= 8);
     }
