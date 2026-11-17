@@ -93,6 +93,8 @@ public final class NuclearBmg {
         SatelliteDetector.reportEvent(level, 300, SatelliteDetector.BurstIntensity.LOW, x, z);
         NuclearFx.miniNuke(level, x, y, z, NuclearRule.size());
         level.playSound(null, x, y, z, (SoundEvent) ModSounds.GUN_MINI_NUKE_EXPLOSION.get(), SoundSource.BLOCKS, NuclearRule.MINE_VOLUME, 0.9F);
+        // the waste out past the blast, dying away at its edge, as a mini nuke's (MiniNukeCloud.lay)
+        acup.gunfeel.nuke.MiniNukeCloud.lay(level, x, y, z, NuclearRule.size());
     }
 
     /** the wear a shot of the round leaves on {@code stack}'s config {@code index} (MixinNuclearWear) */

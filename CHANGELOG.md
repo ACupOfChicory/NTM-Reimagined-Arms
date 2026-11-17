@@ -1,5 +1,12 @@
 # Changelog
 
+## X1494
+
+- The small nuclear blasts' shock ring now leaves the old smoke lying over
+  the ground behind it, and dies out where their waste ends; that waste now
+  reaches about three times the blast's radius, whole to about twice it and
+  thinning out in patches beyond, the nuclear .50 round's the same way.
+
 ## X1490
 
 - An AI squad clearing the building where it shot down a foe no longer
