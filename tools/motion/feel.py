@@ -126,7 +126,8 @@ def read_bot(path: str) -> dict[str, Take]:
 	for name, rs in scenes.items():
 		g = lambda k: np.array([float(r[k]) for r in rs])
 		t = g("t")
-		keep = np.concatenate([[True], np.diff(t) > 1e-6])
+		# frames in order of their time only (the stand's clock may step back over a scene's change)
+		keep = np.concatenate([[True], t[1:] > np.maximum.accumulate(t)[:-1] + 1e-6])
 		rs = [r for r, k in zip(rs, keep) if k]
 		t = g("t")
 		rot = np.stack([quat_mat(np.stack([g(f"{b}_qw"), g(f"{b}_qx"), g(f"{b}_qy"), g(f"{b}_qz")], -1)) for b in BOXES], 1)

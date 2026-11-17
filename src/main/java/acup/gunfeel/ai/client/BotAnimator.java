@@ -58,10 +58,21 @@ public final class BotAnimator {
      * @param alert   0 calm (the gun lowered, a stroll) .. 1 in a fight (the gun ready, a tactical walk)
      * @param air     0 on the ground .. 1 in the air (a jump, a fall)
      * @param dashed  1 in a slide or a roll and just after it, going over a few ticks (the legs under it kept still)
+     * @param bodyYaw the body's yaw as drawn, degrees ({@link #turn}), or NaN for the game's own
+     * @param headYaw the head's, the same
+     * @param feet    where the feet stand on the floor, standing ({@link #feet}), or null: where the pose puts them
      */
     public record Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits,
             float idleSec, int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert,
-            float air, float dashed) {
+            float air, float dashed, float bodyYaw, float headYaw, @Nullable Feet feet) {
+        /** with no turn of its own (the game's body and head) and its feet where the pose puts them */
+        public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
+                int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert, float air,
+                float dashed) {
+            this(crouch, lean, arms, act, fading, hits, idleSec, entity, speed, heading, deathSec, walk, walkPos, alert, air,
+                    dashed, Float.NaN, Float.NaN, null);
+        }
+
         /** a frame made by hand: in a dash while its action shows */
         public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
                 int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert, float air) {
@@ -191,7 +202,19 @@ public final class BotAnimator {
     public static Frame frame(LivingEntity e, AiPose pose, long gameTime, float partial, boolean crouching) {
         BotAnimator a = ALL.computeIfAbsent(e, k -> new BotAnimator());
         synchronized (a) {
-            a.move(e.getX() - e.xo, e.getZ() - e.zo, e.yBodyRot, gameTime + (double) partial);
+            double now = gameTime + (double) partial;
+            // the turn and the feet go by the mob's own ticks on this client: the world's time steps back when the
+            // server, behind, sends its own (and their springs would stand still till it came back)
+            double own = e.tickCount + (double) partial;
+            // in a fight or on the move the yaws the server sent last (the body's, the head's), each drawn going there
+            // over the time between two (BotAnimator.Sent): the mob AI turns the body and the head with the aim
+            // (AiGunner.face; on the run the head alone), a mob on the move faces its way and looks with its head;
+            // else the game's own body and head as drawn (a calm mob looking round: its body follows its head later)
+            boolean fight = pose.alert() == AiPose.FIGHT, moving = a.speed > BotPoser.MOVE_FROM;
+            float sent = a.sent.at(e.getInterpolation().yRot(), own), head = a.sentHead.at(headSent(e), own);
+            a.turn(fight || moving ? sent : Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot),
+                    fight || moving ? head : Mth.rotLerp(partial, e.yHeadRotO, e.yHeadRot), Math.max(a.alert, a.arms[AiPose.AIM]), own);
+            a.move(e.getX() - e.xo, e.getZ() - e.zo, a.bodyYaw, now);
             // the push a hit gives it comes as its motion before it shows as steps
             a.push = (float) e.getDeltaMovement().horizontalDistance();
             a.fly(!e.onGround() && !e.isInWater() && !e.isInLava() && !e.isPassenger() && !e.onClimbable() && !e.isFallFlying(),
@@ -199,8 +222,15 @@ public final class BotAnimator {
             Frame f = a.step(pose, gameTime, partial, e.hurtTime, e.deathTime > 0, e.tickCount + partial, e.getId(),
                     crouching);
             float death = e.deathTime > 0 ? (e.deathTime - 1 + partial) / 20F : -1F;
+            // the feet stand where they were put: standing upright and alive, not crouched, not in the air or a dash
+            float stand = (1F - smooth(f.crouch())) * (1F - a.air) * (1F - f.dashed())
+                    * (1F - smooth((a.speed - LOCK_FROM) / (LOCK_FULL - LOCK_FROM)));
+            if (e.deathTime > 0 || e.getSwimAmount(partial) > 0F || e.isPassenger()) stand = 0F;
+            var at = e.getPosition(partial);
+            a.feet(at.x, at.z, stand, own);
             return new Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
-                    a.speed, a.heading, death, a.walk, a.walkPos, f.alert(), a.air, f.dashed());
+                    a.speed, a.heading, death, a.walk, a.walkPos, f.alert(), a.air, f.dashed(), Mth.wrapDegrees(a.bodyYaw),
+                    Mth.wrapDegrees(a.headYaw), a.feetOut.snapshot());
         }
     }
 
@@ -282,6 +312,316 @@ public final class BotAnimator {
             float turn = Mth.wrapDegrees((to - heading) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD * kh, most = Mth.lerp(stand, Math.min(HEADING_TURN * dt, Mth.PI), Mth.PI);
             heading = Mth.wrapDegrees((heading + Mth.clamp(turn, -most, most)) * Mth.RAD_TO_DEG) * Mth.DEG_TO_RAD;
         }
+    }
+
+    // ---------------------------------------------------------------- the turn
+
+    /**
+     * The yaw the server sends, as a line through the yaws it sent: each one reached over the time it took to come
+     * after the one before (a tick for an AI mob turning, MixinAiTurnSync; up to the game's three ticks for others).
+     * A turn then goes on at the server's pace a tick late, not in steps.
+     */
+    static final class Sent {
+        /** a yaw unchanged this long (ticks) is reached over it at most: the game sends a mob's yaw every third tick */
+        static final double LONGEST = 3.0;
+        private float last = Float.NaN, from, to;
+        private double at, start, length = 1.0;
+
+        /** the yaw to draw now (degrees, not wrapped) with `yaw` the last one sent */
+        float at(float yaw, double now) {
+            if (Float.isNaN(last) || now - at > 20.0 || now < at - BACK) {
+                last = yaw;
+                from = to = yaw;
+                at = start = now;
+                return yaw;
+            }
+            float change = Mth.wrapDegrees(yaw - last);
+            if (Math.abs(change) > 1e-3F) {
+                float here = value(now);
+                length = Mth.clamp(now - at, 1.0, LONGEST);
+                from = here;
+                to += change;
+                start = at = now;
+                last = yaw;
+            }
+            return value(now);
+        }
+
+        private float value(double now) {
+            return Mth.lerp((float) Mth.clamp((now - start) / length, 0.0, 1.0), from, to);
+        }
+    }
+
+    final Sent sent = new Sent(), sentHead = new Sent();
+
+    /** the head's yaw the server sent last (the client turns the head to it over three ticks), or the head's own */
+    static float headSent(LivingEntity e) {
+        var head = (acup.gunfeel.mixin.mc.LivingEntityAccess) e;
+        return head.gunfeel$lerpHeadSteps() > 0 ? (float) head.gunfeel$lerpYHeadRot() : e.getYHeadRot();
+    }
+
+    /**
+     * Ticks gone back by less than this are taken for none (a second look in a frame at an earlier part of the tick);
+     * by more, the mob's ticks have begun again (it was sent anew) and its turn and feet start over
+     */
+    static final double BACK = 1.0;
+
+    /**
+     * How fast the body drawn follows the yaw it turns to, a critically damped spring, rad/s: it follows a steady turn
+     * 2/ω behind, the yaw sent a tick behind the server's (Sent). Ready to fire (in a fight, or aiming) half a turn is
+     * drawn 0.1 s after the server's: the gun points near enough where the server fires it (NTM fires along the
+     * server's body); else 0.2 s, nearer a person's ease into and out of a turn (tools/motion feel.py: people's chest
+     * takes some 600 deg/s² at most, the server's aim 30 degrees a tick)
+     */
+    static final float BODY_SPRING_READY = 40F, BODY_SPRING = 13F;
+    /** the head's, twice as quick: it leads the body into a turn, as a person's does */
+    static final float HEAD_SPRING = 2F;
+    /** the body and the head as drawn, degrees, not wrapped; their speed, degrees a second */
+    float bodyYaw = Float.NaN, headYaw = Float.NaN;
+    private float bodyVel, headVel;
+    private double turnedAt = Double.NaN;
+
+    /**
+     * The body and the head drawn turning to these yaws (degrees) by their springs. In a fight, or on the move, the
+     * yaw the server sent: the mob AI turns the body and the head with the aim (AiGunner.face), a mob on the move
+     * faces its way; else the game's own body and head (a calm mob looking round: its body follows its head later).
+     *
+     * @param ready 0 .. 1 how ready to fire: the body follows by BODY_SPRING_READY then
+     */
+    void turn(float body, float head, float ready, double now) {
+        // a first look, or its ticks begun again (the mob sent anew); a look back a little within a tick changes nothing
+        if (!Double.isNaN(turnedAt) && now < turnedAt && now >= turnedAt - BACK) return;
+        float dt = Double.isNaN(turnedAt) || now < turnedAt ? Float.POSITIVE_INFINITY : (float) (now - turnedAt) / 20F;
+        turnedAt = now;
+        if (dt > 1F || Float.isNaN(bodyYaw)) {
+            // a first look, or out of sight a while: where it is
+            bodyYaw = body;
+            headYaw = head;
+            bodyVel = headVel = 0F;
+            return;
+        }
+        float w = Mth.lerp(Mth.clamp(ready, 0F, 1F), BODY_SPRING, BODY_SPRING_READY);
+        float[] b = spring(bodyYaw, bodyVel, bodyYaw + Mth.wrapDegrees(body - bodyYaw), w, dt);
+        bodyYaw = b[0];
+        bodyVel = b[1];
+        float[] h = spring(headYaw, headVel, headYaw + Mth.wrapDegrees(head - headYaw), w * HEAD_SPRING, dt);
+        headYaw = h[0];
+        headVel = h[1];
+    }
+
+    /** a critically damped spring from x moving at v to `to`, over dt seconds: x and v after */
+    static float[] spring(float x, float v, float to, float omega, float dt) {
+        float off = x - to, k = (float) Math.exp(-omega * dt), lead = (v + omega * off) * dt;
+        return new float[] { to + (off + lead) * k, (v - omega * lead) * k };
+    }
+
+    // ---------------------------------------------------------------- the feet
+
+    /** the feet stand from this speed down (blocks a tick, drawn smoothed), fully under it; the legs walk above */
+    static final float LOCK_FROM = 0.006F, LOCK_FULL = 0.03F;
+    /**
+     * A foot standing steps when the pose would put it this far from where it stands (px; its leg leans 12 degrees
+     * then), or turned this far from the body (degrees): on a turn on the spot, or a stance changed. One foot at a time,
+     * in STEP_TICKS, lifted STEP_LIFT px at the middle: a person turns 90 degrees on the spot in two steps
+     */
+    static final float STEP_DIST = 2.5F, STEP_YAW = 40F, STEP_TICKS = 6F, STEP_LIFT = 1.5F;
+    /**
+     * In a step the foot goes over only in this part of it (from STEP_OVER to 1 - STEP_OVER), up off the floor: a
+     * person lifts the foot first and sets it down after; a foot going over while still down would slide. The shin
+     * box tips back as the knee bends to lift the foot, and its lower edge comes up some half as far as the ankle:
+     * it is clear of the floor from about a third of the step
+     */
+    static final float STEP_OVER = 0.3F;
+    /** a foot standing turned farther than this from the body (degrees) turns on the spot with it, as on the ball of it */
+    static final float PIVOT = 70F;
+    /** farther than this from where a foot stands (blocks: a teleport) it is put down again where the pose has it */
+    static final double LOST = 1.0;
+    /**
+     * The feet are put down only bearing this much: coming to stand (up from a crouch, to a stop) they go with the
+     * pose's till then. A crouch's foot put down where it was would stand out of the standing leg's reach (the poses put
+     * the ankles some 5 px apart), and the knee would snap as a step brought it back in
+     */
+    static final float PLANT = 0.9F;
+    /**
+     * A foot standing farther than this from where the pose has it (px) is drawn along (the body going on faster than
+     * the steps): a straight leg reaches a foot that far out only a fraction of a pixel short, and its knee bends to a
+     * step with no snap
+     */
+    static final float DRAG = 3.5F;
+    /**
+     * A quick turn (the body faster than QUICK_TURN degrees a second: an aim snapping round; people turn on the spot
+     * at some 160 to 220) steps up to QUICKEST times quicker, the other foot lifting as the first comes down: a person
+     * turning that fast all but hops round, and the feet would else be drawn along (DRAG) half the turn
+     */
+    static final float QUICK_TURN = 300F, QUICKEST = 1.5F;
+
+    /**
+     * Where the feet go in the model, for BotPoser: right foot then left. The poser writes back where the pose put
+     * each before (neutral), so the next frame knows where a step goes.
+     */
+    public static final class Feet {
+        /** how much the feet stand where they were put: 0 the pose's own .. 1 */
+        float w;
+        /** each foot: its ankle's place in the model (x, z, px), lifted (px), turned from the body (radians) */
+        final float[] at = new float[8];
+        /** each foot: the ankle where the pose put it (x, y, z, px in the model), written by the poser */
+        final float[] neutral;
+
+        Feet() {
+            this(new float[] { -1.9F, 24F, 0F, 1.9F, 24F, 0F });
+        }
+
+        private Feet(float[] neutral) {
+            this.neutral = neutral;
+        }
+
+        /**
+         * this frame's, for its Frame: the next frame's look (a shadow, the hitbox taken) does not change it under
+         * the poser; where the pose puts the ankles still comes back to the animator
+         */
+        Feet snapshot() {
+            Feet f = new Feet(neutral);
+            f.w = w;
+            System.arraycopy(at, 0, f.at, 0, at.length);
+            return f;
+        }
+    }
+
+    final Feet feetOut = new Feet();
+    /** each foot on the floor, blocks; the way it faces, degrees; in a step: how far (0 .. 1, below 0 none), from where */
+    private final double[] footX = new double[2], footZ = new double[2], fromX = new double[2], fromZ = new double[2];
+    private final float[] footYaw = new float[2], fromYaw = new float[2], stepU = { -1F, -1F }, lift = new float[2],
+            stepPace = { 1F, 1F };
+    private boolean planted;
+    private double feetAt = Double.NaN;
+    /** the feet's weight as drawn, going to the one asked for over FEET_FADE ticks */
+    private float feetW;
+    static final float FEET_FADE = 4F;
+
+    /**
+     * The feet this frame: with the mob at (x, z) and its body drawn at bodyYaw. Standing (w over 0) each stays where
+     * it was put while the body turns and sways over it, and steps to where the pose has it when that is too far or
+     * turned too far; else the pose's.
+     */
+    void feet(double x, double z, float w, double now) {
+        if (!Double.isNaN(feetAt) && now < feetAt && now >= feetAt - BACK) return;
+        float dt = Double.isNaN(feetAt) || now < feetAt ? Float.POSITIVE_INFINITY : (float) (now - feetAt);
+        feetAt = now;
+        Feet out = feetOut;
+        out.w = 0F;
+        if (dt > 20F || Float.isNaN(bodyYaw)) {
+            planted = false;
+            feetW = 0F;
+            return;
+        }
+        // in and out over a few ticks: a fall dead, a swim, a mount let go of the feet at once
+        feetW = approach(feetW, Mth.clamp(w, 0F, 1F), dt / FEET_FADE);
+        if (feetW <= 0F) {
+            planted = false;
+            return;
+        }
+        out.w = feetW;
+        double[] nx = new double[2], nz = new double[2];
+        for (int k = 0; k < 2; k++) {
+            double[] o = toWorld(out.neutral[k * 3], out.neutral[k * 3 + 2], bodyYaw);
+            nx[k] = x + o[0];
+            nz[k] = z + o[1];
+        }
+        boolean lost = false;
+        for (int k = 0; k < 2 && planted; k++)
+            lost |= Math.hypot(footX[k] - nx[k], footZ[k] - nz[k]) > LOST || Math.abs(footYaw[k] - bodyYaw) > 180F;
+        if (!planted || lost) {
+            for (int k = 0; k < 2; k++) {
+                footX[k] = nx[k];
+                footZ[k] = nz[k];
+                footYaw[k] = bodyYaw;
+                stepU[k] = -1F;
+                lift[k] = 0F;
+            }
+            planted = feetW >= PLANT;
+        }
+        for (int k = 0; k < 2; k++) {
+            if (stepU[k] < 0F) continue;
+            // a step: to where the pose has the foot now (it moves on as the body turns), lifted on the way
+            stepU[k] = Math.min(1F, stepU[k] + dt * stepPace[k] / STEP_TICKS);
+            // lifted first, it would wait where it stood as the body goes on
+            double[] from = drag(fromX[k], fromZ[k], nx[k], nz[k]);
+            fromX[k] = from[0];
+            fromZ[k] = from[1];
+            // and turned on the ball of it no farther than PIVOT from the body
+            fromYaw[k] = bodyYaw + Mth.clamp(fromYaw[k] - bodyYaw, -PIVOT, PIVOT);
+            float u = smooth(Mth.clamp((stepU[k] - STEP_OVER) / (1F - 2F * STEP_OVER), 0F, 1F));
+            footX[k] = Mth.lerp(u, fromX[k], nx[k]);
+            footZ[k] = Mth.lerp(u, fromZ[k], nz[k]);
+            // the yaws are not wrapped (turn): no jump past +-180 in a half turn
+            footYaw[k] = fromYaw[k] + u * (bodyYaw - fromYaw[k]);
+            // lifted and set down slowing to nought: the leg (nearly straight) does not snap at the knee
+            float up = Mth.sin(Mth.PI * stepU[k]);
+            lift[k] = STEP_LIFT * up * up;
+            if (stepU[k] >= 1F) {
+                stepU[k] = -1F;
+                lift[k] = 0F;
+            }
+        }
+        for (int k = 0; k < 2; k++) {
+            float off = footYaw[k] - bodyYaw;
+            if (Math.abs(off) > PIVOT) footYaw[k] = bodyYaw + Math.copySign(PIVOT, off);
+            if (stepU[k] < 0F) {
+                double[] at = drag(footX[k], footZ[k], nx[k], nz[k]);
+                footX[k] = at[0];
+                footZ[k] = at[1];
+            }
+        }
+        float pace = Mth.clamp(Math.abs(bodyVel) / QUICK_TURN, 1F, QUICKEST);
+        {
+            // the foot that most needs it steps: the other standing, or (a quick turn) over and coming down
+            int pick = -1;
+            float most = 1F;
+            for (int k = 0; k < 2; k++) {
+                if (stepU[k] >= 0F || stepU[1 - k] >= 0F && (pace <= 1F || stepU[1 - k] < 1F - STEP_OVER)) continue;
+                float far = (float) Math.hypot(footX[k] - nx[k], footZ[k] - nz[k]) * 16F / STEP_DIST,
+                        turned = Math.abs(footYaw[k] - bodyYaw) / STEP_YAW, need = Math.max(far, turned);
+                if (need > most) {
+                    most = need;
+                    pick = k;
+                }
+            }
+            if (pick >= 0) {
+                stepU[pick] = 0F;
+                stepPace[pick] = pace;
+                fromX[pick] = footX[pick];
+                fromZ[pick] = footZ[pick];
+                fromYaw[pick] = footYaw[pick];
+            }
+        }
+        for (int k = 0; k < 2; k++) {
+            float[] m = toModel(footX[k] - x, footZ[k] - z, bodyYaw);
+            out.at[k * 4] = m[0];
+            out.at[k * 4 + 1] = m[1];
+            out.at[k * 4 + 2] = lift[k];
+            out.at[k * 4 + 3] = (footYaw[k] - bodyYaw) * Mth.DEG_TO_RAD;
+        }
+    }
+
+    /** a foot's place (x, z, blocks) no farther than DRAG from where the pose has it (nx, nz) */
+    private static double[] drag(double x, double z, double nx, double nz) {
+        double dx = x - nx, dz = z - nz, far = Math.hypot(dx, dz), most = DRAG / 16.0;
+        return far <= most ? new double[] { x, z } : new double[] { nx + dx * most / far, nz + dz * most / far };
+    }
+
+    /**
+     * A place in the model (x, z, px: the renderer turns it by 180 - yaw after flipping x and y) as an offset in the
+     * world from the mob's place, blocks
+     */
+    static double[] toWorld(float px, float pz, float yaw) {
+        double t = Math.toRadians(180.0 - yaw), c = Math.cos(t), s = Math.sin(t), x = -px / 16.0, z = pz / 16.0;
+        return new double[] { x * c + z * s, -x * s + z * c };
+    }
+
+    /** an offset in the world from the mob's place (blocks) as a place in the model (x, z, px) */
+    static float[] toModel(double wx, double wz, float yaw) {
+        double t = Math.toRadians(180.0 - yaw), c = Math.cos(t), s = Math.sin(t);
+        return new float[] { (float) (-(wx * c - wz * s) * 16.0), (float) ((wx * s + wz * c) * 16.0) };
     }
 
     /** the flinch showing (the last hit's) */

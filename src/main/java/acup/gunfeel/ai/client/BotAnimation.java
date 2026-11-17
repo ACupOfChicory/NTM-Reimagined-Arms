@@ -54,6 +54,12 @@ public final class BotAnimation {
         AiPose pose = stand != null ? stand.apply(mob) : AiPose.of(mob);
         BotAnimator.Frame frame = BotAnimator.frame(mob, pose, mob.level().getGameTime(), partial, state.isCrouching);
         data.gunfeel$setBot(frame);
+        // the body and the head as the animator turns them (springs, the head first): the hitbox is taken at this
+        // yaw too, and the server turns it to its own body (ModelHits.turnAngle)
+        if (!Float.isNaN(frame.bodyYaw())) {
+            state.bodyRot = frame.bodyYaw();
+            state.yRot = net.minecraft.util.Mth.wrapDegrees(frame.headYaw() - frame.bodyYaw());
+        }
         // its own walk for vanilla's swing as well (HumanoidModel.setupAnim): vanilla's kicks as it is hit
         if (!standStill) {
             state.walkAnimationSpeed = frame.walk();

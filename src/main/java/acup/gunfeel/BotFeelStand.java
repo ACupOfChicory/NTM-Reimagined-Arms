@@ -210,6 +210,8 @@ final class BotFeelStand {
             level.addFreshEntity(c);
             c.goalSelector.removeAllGoals(g -> true);
             c.targetSelector.removeAllGoals(g -> true);
+            // posed as an AI mob: its turn goes to the client every tick, as an AI mob's (MixinAiTurnSync)
+            c.setData(AiPose.Sync.TYPE, AiPose.IDLE);
             live = c;
             place(scripted, AX, AZ, 180F);
             scripted.setData(AiPose.Sync.TYPE, AiPose.IDLE);
@@ -235,8 +237,18 @@ final class BotFeelStand {
     static void frame() {
         long tick = now();
         if (tick == lastTick) return;
+        boolean back = tick < lastTick;
         lastTick = (int) tick;
         if (scene >= SCENES.length) return;
+        if (back) {
+            // the world's time stepped back (the server, behind at the start, sent its own): the scene again from
+            // its start, its frames so far left out
+            String mark = SCENES[scene].name + "\t";
+            FRAMES.removeIf(r -> r.startsWith(mark));
+            TICKS.removeIf(r -> r.startsWith(mark));
+            sceneStart = tick + SETTLE;
+            return;
+        }
         Scene s = SCENES[scene];
         int t = (int) (tick - sceneStart);
         if (t >= s.ticks) {
