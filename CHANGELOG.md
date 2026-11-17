@@ -1,5 +1,11 @@
 # Changelog
 
+## X1617
+
+- An AI soldier reloads with the rifle brought up close in front of its chest,
+  muzzle up, and puts the new magazine in just under its line of sight,
+  instead of working low at its hips where it could not see the magazine.
+
 ## X1613
 
 - An AI soldier reloading keeps its eyes and head on the threat instead of

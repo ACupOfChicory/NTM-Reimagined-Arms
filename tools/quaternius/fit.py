@@ -254,3 +254,90 @@ def pin_head(clip, times, keep=0.4, length=None):
                          for i in keep_k}
         bones[b] = out
     return dict(legs, loop=False, bones=bones), report
+
+
+# ------------------------------------------------------------------ the arms by their hands
+
+FOREARM = 6.0  # px from the elbow to the hand
+EYE = np.array([0.0, -4.0, -4.0])  # px: the face's middle, the head level (forward is -z, Y down)
+
+
+def arm(side, hand, pole):
+    """The turns that put `side`'s hand ("right" or "left") at `hand` (px, the model's, Y down) with the elbow toward
+    `pole`: the upper arm's (about its pivot, the shoulder) and the forearm's (a hinge about the arm's own x, as the
+    mod's split limb bends: BotModel), as matrices, and how far the hand is left from where it was asked (px; out of
+    reach it reaches toward it). The arm's line runs 1 px in from its pivot (the box's middle), the elbow 4 px down it."""
+    sx = -1.0 if side == "right" else 1.0
+    piv = PIVOT[side + "_arm"]
+    d = np.asarray(hand, float) - piv
+    c = max(-1.0, min(1.0, (float(d @ d) - 53.0) / 48.0))
+    phi = -math.acos(c)
+    v = np.array([sx, 4.0 + FOREARM * math.cos(phi), FOREARM * math.sin(phi)])
+    e = np.array([sx, 4.0, 0.0])
+
+    def basis(a, b):
+        x = unit(a)
+        y = b - x * float(x @ b)
+        if np.linalg.norm(y) <= 1e-9:  # the pole on the line: any side square to it
+            y = np.cross(x, [1.0, 0.0, 0.0])
+            if np.linalg.norm(y) <= 1e-9:
+                y = np.cross(x, [0.0, 0.0, 1.0])
+        y = unit(y)
+        return np.column_stack([x, y, np.cross(x, y)])
+
+    ra = basis(d, np.asarray(pole, float) - piv) @ basis(v, e).T
+    rf = euler_to_mat((math.degrees(phi), 0.0, 0.0))
+    got = piv + ra @ v
+    return ra, rf, float(np.linalg.norm(got - hand))
+
+
+def hand_at(clip, side, t):
+    """where `side`'s hand is in a clip at t, px"""
+    sx = -1.0 if side == "right" else 1.0
+    ra, rf = turn(clip, side + "_arm", t), turn(clip, side + "_forearm", t)
+    return PIVOT[side + "_arm"] + ra @ (np.array([sx, 4.0, 0.0]) + rf @ np.array([0.0, FOREARM, 0.0]))
+
+
+def arms_clip(keys, length, fps=60):
+    """A clip of the four arm parts whose hands go through `keys`: {side: [(u, hand, pole), ...]} (u 0..1 of the
+    length; a cubic through them, still at a key held twice); with, frame by frame, the most a hand was left off its way (px)"""
+    n = max(1, round(length * fps))
+    times = [length * i / n for i in range(n + 1)]
+    rows = {b: [] for b in ("right_arm", "right_forearm", "left_arm", "left_forearm")}
+    prev, worst = {}, 0.0
+
+    def slope(ks, i, k):
+        # through a key on the way (Catmull-Rom); none at a key held (the one before or after it the same) or an end
+        if i == 0 or i == len(ks) - 1:
+            return np.zeros(3)
+        a, m, z = (np.asarray(ks[j][k], float) for j in (i - 1, i, i + 1))
+        if np.allclose(a, m) or np.allclose(m, z):
+            return np.zeros(3)
+        return (z - a) / (ks[i + 1][0] - ks[i - 1][0])
+
+    def way(ks, u):
+        for i in range(len(ks) - 1):
+            u0, u1 = ks[i][0], ks[i + 1][0]
+            if u0 <= u <= u1:
+                d = u1 - u0
+                f = 0.0 if d == 0 else (u - u0) / d
+                h00, h10, h01, h11 = 2 * f ** 3 - 3 * f ** 2 + 1, f ** 3 - 2 * f ** 2 + f, -2 * f ** 3 + 3 * f ** 2, f ** 3 - f ** 2
+                return tuple(h00 * np.asarray(ks[i][k], float) + h10 * d * slope(ks, i, k) + h01 * np.asarray(ks[i + 1][k], float)
+                             + h11 * d * slope(ks, i + 1, k) for k in (1, 2))
+        return np.asarray(ks[-1][1], float), np.asarray(ks[-1][2], float)
+
+    for t in times:
+        for side in ("right", "left"):
+            h, p = way(keys[side], t / length)
+            ra, rf, off = arm(side, h, p)
+            worst = max(worst, off)
+            for b, m in ((side + "_arm", ra), (side + "_forearm", rf)):
+                e = mat_to_euler(m, prev.get(b))
+                prev[b] = e
+                rows[b].append(e)
+    bones = {}
+    for b, vals in rows.items():
+        vals = np.array(vals)
+        keep = reduce_keys(times, vals, 0.5)
+        bones[b] = {"rotation": {"%.4f" % times[k]: {"post": [round(float(x), 3) for x in vals[k]], "lerp_mode": "linear"} for k in keep}}
+    return {"loop": False, "animation_length": round(length, 4), "bones": bones}, worst

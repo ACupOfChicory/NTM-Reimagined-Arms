@@ -32,7 +32,6 @@ BOT = {
     "back": ("kaykit", "walking_backwards_lower"),          # KayKit Walking_Backwards: lower fair
     "strafe_left": ("kaykit", "running_strafe_left_lower"),  # KayKit Running_Strafe_Left: lower fair
     "strafe_right": ("kaykit", "running_strafe_right_lower"),  # KayKit Running_Strafe_Right: lower fair
-    "reload": ("kaykit", "ranged_2h_reload_upper"),  # KayKit Ranged_2H_Reload: upper fair (a rifle's reload)
     "death": ("kaykit", "death_a"),              # KayKit Death_A: upper good, lower poor (it falls: the legs fold)
     # KayKit Hit_B: thrown back and up on its feet again, first and last frame the rest pose (added as a flinch).
     # UAL Hit_Knockback is a fall onto the back (the body to -88 degrees and lying there): no flinch over standing legs
@@ -68,6 +67,31 @@ FIT = {
 SPLICE = {"slide": [("ual2", "slide_start", 0.5333), ("ual2", "slide_exit", 0.2667)]}
 # turns only: the game moves the mob itself as it is thrown (the clip's own travel left out)
 TURNS_ONLY = {"hit_knock"}
+
+# A rifle's reload by the hands (fit.arms_clip; KayKit's Ranged_2H_Reload had the hands low at the hips, the magazine
+# some 75 degrees under the eyes kept on the threat: BotPoser.RELOAD_BONES): the gun brought up close in front of the
+# chest, its muzzle up 35 degrees as at a doorway (BotPoser.READY) and turned in 30, the magazine well under the chin:
+# the magazine goes in 25 to 40 degrees under the line of sight (standing; crouched the arms go down less than the head,
+# a pixel higher), the left hand to the pouch and back. Px, the model's (Y down, forward -z). The right hand's pole is
+# the elbow itself (the forearm, the gun's line, where it is asked): on the chest's front, the upper arm's box half in
+# it (the forearm can't be along the gun with the elbow further out); the left elbow out and down
+_UP = (1.0, -0.94, -6.3)        # the right hand on the grip
+_ELBOW = (-1.46, 2.5, -2.05)    # ... its elbow, the forearm along the gun up 35 degrees and in 30
+_LP = (9.0, 9.0, 0.0)
+_WELL = (2.23, -1.66, -8.43)    # the left hand on the magazine at the well, 3 px up the gun and 1 under it
+_OUT = (2.4, 0.9, -8.0)         # the old one pulled out and let go
+_POUCH = (3.0, 7.0, -3.0)       # the pouch, the belt's left front
+_MID = (2.6, 2.5, -6.5)         # the new one on its way up, in front of the chest
+_UNDER = (2.23, -0.46, -8.43)   # lined up under the well
+_PUSH = (2.23, -2.16, -8.43)    # pushed home
+ARMS = {
+    "reload": (1.6, {
+        "right": [(0.0, _UP, _ELBOW), (1.0, _UP, _ELBOW)],
+        "left": [(0.0, _WELL, _LP), (0.12, _WELL, _LP), (0.22, _OUT, _LP), (0.36, _POUCH, _LP), (0.40, _POUCH, _LP),
+                 (0.50, _MID, _LP), (0.58, _UNDER, _LP), (0.65, _PUSH, _LP), (0.71, _WELL, _LP), (1.0, _WELL, _LP)],
+    }),
+}
+RELOAD_IN = (0.58, 0.71)  # the reload's insertion, of its length
 # A hit's flinch is added over whatever the mob does, and its head may not leave the eye the server looks and shoots
 # from (3 cm): as the clips have them the neck goes 16 cm with the trunk and the head's own nod takes its middle up
 # to 23 cm more. So each is fitted (fit.pin_head): the head's middle kept where it was as the hit came, the neck and
@@ -128,6 +152,9 @@ def build(say=print):
         out[name], report = fit.pin_head(src, times, keep=HEAD_KEEP, length=src["animation_length"])
         say("%s: the head's middle off its place %.2f px at most, the nod kept %.0f%% at least" % (
             name, max(r["off"] for r in report), 100 * min(r["nod"] for r in report)))
+    for name, (length, keys) in ARMS.items():
+        out[name], off = fit.arms_clip(keys, length)
+        say("%s: a hand off its way %.3f px at most" % (name, off))
     for name, parts in SPLICE.items():
         for f, _, _ in parts:
             if f not in cache:

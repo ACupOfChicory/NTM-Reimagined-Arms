@@ -114,6 +114,49 @@ def test_hits_head_at_the_eye():
         print("%s: ok, the head within %.1f cm" % (name, worst * 6.25))
 
 
+def test_arm_reaches():
+    """fit.arm puts a hand where it is asked, the elbow on the pole's side, and hand_at reads it back off a clip"""
+    for side, hand, pole in (("right", (-2.5, -1.0, -4.5), (-9.0, 9.0, 0.0)), ("left", (-0.5, -2.5, -6.0), (9.0, 9.0, 0.0)),
+                             ("left", (3.0, 7.0, -3.0), (9.0, 9.0, 0.0))):
+        ra, rf, off = fit.arm(side, np.array(hand), np.array(pole))
+        assert off < 1e-6, "%s: the hand %.3f px off" % (side, off)
+        clip = {"bones": {side + "_arm": {"rotation": {"0": {"post": list(fit.mat_to_euler(ra))}}},
+                          side + "_forearm": {"rotation": {"0": {"post": list(fit.mat_to_euler(rf))}}}}}
+        assert np.allclose(fit.hand_at(clip, side, 0.0), hand, atol=0.05), side
+        # the elbow bent toward the pole (off the shoulder-hand line), and out of the trunk's box
+        piv = fit.PIVOT[side + "_arm"]
+        elbow = piv + ra @ np.array([-1.0 if side == "right" else 1.0, 4.0, 0.0])
+        line = fit.unit(np.array(hand) - piv)
+        out = lambda q: (q - piv) - line * float((q - piv) @ line)  # noqa: E731
+        assert out(elbow) @ out(np.array(pole)) > 0.0, "%s: the elbow away from the pole, %s" % (side, elbow)
+        assert abs(elbow[0]) > 4.0 or elbow[2] < -2.0, "%s: the elbow in the trunk, %s" % (side, elbow)
+    # out of reach: toward it, the arm straight
+    _, rf, off = fit.arm("left", np.array([5.0, 2.0, -20.0]), np.array([9.0, 9.0, 0.0]))
+    assert 9.0 < off < 11.0 and abs(fit.mat_to_euler(rf)[0]) < 1e-6
+
+
+def test_reload_in_view():
+    """the reload's magazine goes in near the line of sight (the head level, eyes on the threat), the hands smooth"""
+    with open(bot_clips.OUT) as fh:
+        c = json.load(fh)["animations"]["reload"]
+    L = c["animation_length"]
+    ts = np.linspace(0.0, L, int(L * 60) + 1)
+    u0, u1 = bot_clips.RELOAD_IN
+    for t in ts:
+        if u0 <= t / L <= u1:
+            v = fit.hand_at(c, "left", t) - fit.EYE
+            below = math.degrees(math.atan2(v[1], -v[2]))
+            assert below <= 40.0, "at %.3f: the magazine %.0f deg under the line of sight" % (t, below)
+            gap = np.linalg.norm(fit.hand_at(c, "left", t) - fit.hand_at(c, "right", t))
+            assert gap <= 5.0, "at %.3f: the hands %.1f px apart" % (t, gap)
+    for bone in ("right_arm", "right_forearm", "left_arm", "left_forearm"):
+        rs = [fit.turn(c, bone, t) for t in ts]
+        v = [math.degrees(math.acos(max(-1.0, min(1.0, (np.trace(a.T @ b) - 1.0) / 2.0)))) for a, b in zip(rs, rs[1:])]
+        jerk = max(abs(b - a) for a, b in zip(v, v[1:]))
+        assert max(v) <= 15.0 and jerk <= 4.0, "%s: %.1f deg a frame, %.1f a frame's change" % (bone, max(v), jerk)
+    print("reload: ok")
+
+
 def test_mod_file_is_current():
     """bot.animation.json holds what bot_clips.py writes from animations/"""
     with open(bot_clips.OUT) as fh:
@@ -125,5 +168,7 @@ if __name__ == "__main__":
     test_bend()
     test_crouch_clips()
     test_hits_head_at_the_eye()
+    test_arm_reaches()
+    test_reload_in_view()
     test_mod_file_is_current()
     print("ok")
