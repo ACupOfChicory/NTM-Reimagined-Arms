@@ -90,6 +90,9 @@ final class AiCheckCrossing {
     private final int[] smokeWhy0 = AiCrossing.smokeWhy.clone();
     /** AiCrossing.smokeWhy when the round began */
     private int[] whyBefore = new int[3];
+    /** rounds the hut was read as a building with a way in, of those it was looked at (at HUT_READ ticks) */
+    private int hutRead, hutLooked;
+    static final int HUT_READ = 100;
     /** the drill: ticks one of the main body swam with one of the far side's security not over; one of the near side's with one of the main body not over; the most of the main body swimming at once; reports seen, places in them */
     private int mainEarly, nearEarly, mostMain, reports, spots;
     /** ticks one of the far side's security swam, one of the near side's */
@@ -211,6 +214,14 @@ final class AiCheckCrossing {
             if (ticks - lastBankShot <= AiSoldier.COVER_EVERY || overNow) coveredTicks++;
         }
         if (shooterDown < 0 && !held.get(1).isAlive()) shooterDown = ticks;
+        // the hut read as a building (AiRooms, as AiEntry reads it): a room with a way in
+        if (ticks == HUT_READ) {
+            long cell = BlockPos.asLong(HUT_X, y, HUT_Z);
+            AiRooms.Plan plan = AiTrenches.place(TacticalMap.of(level), cell);
+            int room = plan == null ? AiRooms.OUTSIDE : plan.room(cell);
+            if (room != AiRooms.OUTSIDE && !plan.waysOf(room).isEmpty()) hutRead++;
+            hutLooked++;
+        }
         // the bank's taken when the one in the hut is down
         if (held.get(0).isAlive()) foes++;
         if (foes == 0 && takenAt < 0) takenAt = ticks;
@@ -286,13 +297,15 @@ final class AiCheckCrossing {
                 boolean wall = z == WALL_Z && x >= 3722 && x <= 3741;
                 for (int h = 0; h < 6; h++) set(x, y + h, z, edge && h < 3 || wall && h == 0 ? stone : air);
             }
-        // the hut: stone walls three high round a 3 by 3 floor, a roof, a door two high in the north wall
+        // the hut: stone brick walls three high round a 3 by 3 floor, a roof, a door two high in the north wall (bricks: a
+        // building the AI reads as one, with a room and a way in; of the plain stone the ground is made of it was a cave)
+        BlockState bricks = Blocks.STONE_BRICKS.defaultBlockState();
         for (int dx = -2; dx <= 2; dx++)
             for (int dz = -2; dz <= 2; dz++)
                 for (int h = 0; h <= 3; h++) {
                     boolean w = Math.abs(dx) == 2 || Math.abs(dz) == 2 || h == 3;
                     boolean door = dz == -2 && dx == 0 && h < 2;
-                    set(HUT_X + dx, y + h, HUT_Z + dz, w && !door ? stone : air);
+                    set(HUT_X + dx, y + h, HUT_Z + dz, w && !door ? bricks : air);
                 }
         TacticalMap.of(level).want(X0 + SX / 2, y, Z0 + SZ / 2, SX / 2 + 4, 6);
     }
@@ -400,6 +413,16 @@ final class AiCheckCrossing {
         check.out(String.format(Locale.ROOT, "     crossing, why smoke: under fire %d, its own fire heard %d, a foe known at the far bank %d",
                 AiCrossing.smokeWhy[0] - smokeWhy0[0], AiCrossing.smokeWhy[1] - smokeWhy0[1], AiCrossing.smokeWhy[2] - smokeWhy0[2]));
         check.check("crossing: all rounds ran", results.size() == ROUNDS);
+        check.check(String.format(Locale.ROOT, "crossing: the hut is read as a building, a room with a way in (%d of %d rounds)", hutRead, hutLooked), hutLooked > 0 && hutRead == hutLooked);
+        // the one in the hut known of (ordered over, or the one there unarmed): the squad goes in and takes it
+        int known = 0, takenKnown = 0;
+        for (int[] r : results)
+            if (r[0] == ORDER || r[0] == SILENT) {
+                known++;
+                if (r[4] >= 0) takenKnown++;
+            }
+        check.check(String.format(Locale.ROOT, "crossing: the one in the hut, known of, is gone in after and taken (%d of %d rounds, all but one at least)", takenKnown, known),
+                known > 0 && takenKnown >= known - 1);
         check.check(String.format(Locale.ROOT, "crossing: with no order the squad swims nowhere and does not cross (ticks swum %.0f, crossings %.0f, of %d rounds)", sum[WATCH][8], sum[WATCH][11], n[WATCH]),
                 n[WATCH] > 0 && sum[WATCH][8] == 0 && sum[WATCH][11] == 0);
         check.check(String.format(Locale.ROOT, "crossing: with no order it watches the bank, looks along it and reports the foe across to its staff, with places to cross (watches %.0f, looks %.0f, reports %.0f, places %.0f, of %d rounds)",

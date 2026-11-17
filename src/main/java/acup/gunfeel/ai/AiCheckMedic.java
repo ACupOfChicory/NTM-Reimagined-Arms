@@ -58,7 +58,7 @@ final class AiCheckMedic {
     private Item rifle;
     /** the tick each hurt one (the two soldiers, the player) was first above HURT and a little, -1: not yet */
     private final int[] treatedAt = new int[3];
-    private int treatedBefore, runsBefore, coverBefore, kitsInFight;
+    private int treatedBefore, runsBefore, coverBefore, kitsInFight, medicShots0, medicShotsFight;
     /**
      * per round: {on, fight, ours left, theirs left, ticks, kits on others, runs, medic alive, health of the two *100,
      * of the player *100, treated at x3, mode (0 off, 1 on, 2 on with cover), kits in the fight, to cover}
@@ -101,13 +101,14 @@ final class AiCheckMedic {
         if (fight() && over < 0 && (ticks >= FIGHT || left == 0 || foes == 0)) {
             over = ticks;
             kitsInFight = AiMedic.treated - treatedBefore;
+            medicShotsFight = AiBots.get(medic) instanceof AiBot mb ? mb.gunner.shots - medicShots0 : 0;
         }
         if (fight() ? over < 0 || ticks < over + AFTER && left > 0 : ticks < QUIET) return false;
         int two = 0;
         for (Mob m : hurt) two += m.isAlive() ? Math.round(100 * m.getHealth() / m.getMaxHealth()) : 0;
         int pl = player == null ? -1 : Math.round(100 * player.getHealth() / player.getMaxHealth());
         results.add(new int[] {mode() > 0 ? 1 : 0, fight() ? 1 : 0, left, foes, ticks, AiMedic.treated - treatedBefore, AiMedic.runs - runsBefore, medic.isAlive() ? 1 : 0,
-                two / 2, pl, treatedAt[0], treatedAt[1], treatedAt[2], mode(), fight() ? kitsInFight : 0, AiMedic.toCover - coverBefore});
+                two / 2, pl, treatedAt[0], treatedAt[1], treatedAt[2], mode(), fight() ? kitsInFight : 0, AiMedic.toCover - coverBefore, fight() ? medicShotsFight : 0});
         for (Mob m : ours) m.discard();
         for (Mob m : theirs) m.discard();
         ours.clear();
@@ -195,6 +196,8 @@ final class AiCheckMedic {
         runsBefore = AiMedic.runs;
         coverBefore = AiMedic.toCover;
         kitsInFight = 0;
+        medicShotsFight = 0;
+        medicShots0 = AiBots.get(medic) instanceof AiBot mb0 ? mb0.gunner.shots : 0;
         AiBots.refreshTargets(level);
         long now = level.getGameTime();
         for (Mob a : ours) for (Mob b : theirs) {
@@ -210,7 +213,7 @@ final class AiCheckMedic {
         String[] names = {"aiMedic off (before)", "aiMedic on, aiMedicCover off", "aiMedic on"};
         // [mode][fight]: rounds, ours left, theirs left, kits, runs, medic alive, the two's health, the player's, treated (of the three),
         // kits in the fight, to cover
-        double[][][] sum = new double[3][2][11];
+        double[][][] sum = new double[3][2][12];
         for (int i = 0; i < results.size(); i++) {
             int[] r = results.get(i);
             double[] s = sum[r[13]][r[1]];
@@ -225,9 +228,10 @@ final class AiCheckMedic {
             for (int k = 10; k < 13; k++) if (r[k] >= 0) s[8]++;
             s[9] += r[14];
             s[10] += r[15];
+            s[11] += r[16];
             check.out(String.format(Locale.ROOT, "     medic, round %d, %s, %s: left %d of ours, %d of theirs, %d ticks; kits on others %d (%d in the fight), runs %d,"
-                    + " to cover %d, the medic %s; the two hurt at %d%% of their health, the player at %d%%; treated at ticks %d, %d, %d", i + 1, r[1] == 1 ? "a fight" : "quiet",
-                    names[r[13]], r[2], r[3], r[4], r[5], r[14], r[6], r[15], r[7] == 1 ? "alive" : "down", r[8], r[9], r[10], r[11], r[12]));
+                    + " to cover %d, the medic %s, its shots in the fight %d; the two hurt at %d%% of their health, the player at %d%%; treated at ticks %d, %d, %d", i + 1, r[1] == 1 ? "a fight" : "quiet",
+                    names[r[13]], r[2], r[3], r[4], r[5], r[14], r[6], r[15], r[7] == 1 ? "alive" : "down", r[16], r[8], r[9], r[10], r[11], r[12]));
         }
         for (int m = 0; m < 3; m++)
             for (int f = 0; f < 2; f++) {
@@ -248,6 +252,11 @@ final class AiCheckMedic {
                 fOff[3]), fPlain[3] > 0 && fCover[3] > 0 && fOff[3] == 0);
         check.check(String.format(Locale.ROOT, "medic: the hurt go to cover for it with aiMedicCover (%.0f times on, %.0f off, %.0f with no medic)", fCover[10], fPlain[10], fOff[10]),
                 fCover[10] > 0 && fPlain[10] == 0 && fOff[10] == 0);
+        // R4a+ (X1115): while its squad fights, the medic fights too, and treats them after the fight
+        check.check(String.format(Locale.ROOT, "medic: in the fights it fires with the squad while they see the foe (%.0f shots in %.0f fights with aiMedicCover, %.0f without)",
+                fCover[11], fCover[0], fPlain[11]), fCover[11] > 0);
+        check.check(String.format(Locale.ROOT, "medic: with aiMedicCover it treats the hurt after the fight (%.0f kits after, %.0f in it, of %.0f fights)", fCover[3] - fCover[9], fCover[9], fCover[0]),
+                fCover[3] - fCover[9] > 0);
         return true;
     }
 }
