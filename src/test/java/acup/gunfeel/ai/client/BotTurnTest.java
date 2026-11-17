@@ -137,13 +137,14 @@ class BotTurnTest {
 
     @Test
     void feetLetGoOverAFewTicks() {
-        // standing, then fallen dead (the weight asked for at once nought): the legs go to the pose over FEET_FADE
+        // standing, then fallen dead (the weight asked for at once nought): the legs go to the pose over FEET_FADE,
+        // eased in and out
         BotAnimator a = new BotAnimator();
         a.turn(0F, 0F, 1F, 0.0);
         for (int i = 0; i <= 30; i++) a.feet(0.0, 0.0, 1F, i * FRAME);
         assertEquals(1F, a.feetOut.w, 1e-6F);
         a.feet(0.0, 0.0, 0F, 30 * FRAME + FRAME);
-        assertEquals(1F - (float) FRAME / BotAnimator.FEET_FADE, a.feetOut.w, 1e-4F);
+        assertEquals(BotAnimator.smooth(1F - (float) FRAME / BotAnimator.FEET_FADE), a.feetOut.w, 1e-4F);
         for (int i = 2; i <= 13; i++) a.feet(0.0, 0.0, 0F, 30 * FRAME + i * FRAME);
         assertEquals(0F, a.feetOut.w, 0F);
     }
