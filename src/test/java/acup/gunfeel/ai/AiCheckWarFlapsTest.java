@@ -39,4 +39,17 @@ class AiCheckWarFlapsTest {
         assertEquals(8, AiCheckWar.leastByChance(15, AiCheckWar.READY_BEFORE));
         assertEquals(12, AiCheckWar.leastByChance(20, AiCheckWar.READY_BEFORE));
     }
+
+    // C4b's rounds against C3's (AiCheckWar.moreByChance): not more in the mean is 1; a clear rise is rare by chance, a
+    // small one in a wide spread is not
+    @Test
+    void moreByChanceByPermutations() {
+        java.util.List<Double> low = java.util.List.of(0.10, 0.12, 0.15, 0.11, 0.14, 0.13, 0.12, 0.10, 0.16, 0.11, 0.13, 0.12);
+        java.util.List<Double> high = java.util.List.of(0.30, 0.28, 0.35, 0.31, 0.27, 0.33, 0.29, 0.32, 0.30, 0.34, 0.28, 0.31);
+        assertEquals(1.0, AiCheckWar.moreByChance(low, high));
+        assertTrue(AiCheckWar.moreByChance(high, low) < 0.001);
+        java.util.List<Double> wide = java.util.List.of(0.0, 0.5, 0.1, 0.4, 0.2, 0.3, 0.0, 0.6, 0.1, 0.3, 0.2, 0.4);
+        java.util.List<Double> wider = java.util.List.of(0.05, 0.55, 0.15, 0.45, 0.25, 0.35, 0.05, 0.65, 0.15, 0.35, 0.25, 0.45);
+        assertTrue(AiCheckWar.moreByChance(wider, wide) > 0.2);
+    }
 }
