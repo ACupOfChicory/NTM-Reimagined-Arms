@@ -311,7 +311,10 @@ CORE class com/hbm/entity/projectile/EntityBulletBaseMK4
 CORE class com/hbm/entity/projectile/EntityBulletBeamBase
 CORE class com/hbm/entity/projectile/EntityThrowableNT
 CORE class com/hbm/explosion/vanillant/ExplosionVNT
+CORE class com/hbm/explosion/vanillant/interfaces/IBlockMutator
 CORE class com/hbm/explosion/vanillant/interfaces/IExplosionSFX
+CORE class com/hbm/explosion/vanillant/standard/BlockAllocatorStandard
+CORE class com/hbm/explosion/vanillant/standard/BlockProcessorNoDamage
 CORE class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
 CORE class com/hbm/explosion/vanillant/standard/EntityProcessorStandard
 CORE class com/hbm/explosion/vanillant/standard/ExplosionEffectTiny
@@ -501,6 +504,7 @@ CORE method com/hbm/blocks/multiblock/BlockMultiblockCore withoutTeardown (Ljava
 CORE method com/hbm/blocks/multiblock/MultiblockSurface rigidStructureBlocks (Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;)Ljava/util/List;
 CORE method com/hbm/client/Keybinds isGunHeld ()Z
 CORE method com/hbm/client/Keybinds isGunKey (Lnet/minecraft/client/KeyMapping;)Z
+CORE method com/hbm/config/VersatileConfig getSchrabOreChance ()I
 CORE method com/hbm/entity/effect/EntityFireLingering discard ()V
 CORE method com/hbm/entity/grenade/EntityGrenadeBouncyGeneric getGrenade ()Lcom/hbm/items/weapon/ItemGenericGrenade;
 CORE method com/hbm/entity/grenade/EntityGrenadeBouncyGeneric getX ()D
@@ -561,9 +565,14 @@ CORE method com/hbm/explosion/ExplosionNukeGeneric dealDamage (Lnet/minecraft/wo
 CORE method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDF)V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDFLnet/minecraft/world/entity/Entity;)V
 CORE method com/hbm/explosion/vanillant/ExplosionVNT explode ()V
+CORE method com/hbm/explosion/vanillant/ExplosionVNT setBlockAllocator (Lcom/hbm/explosion/vanillant/interfaces/IBlockAllocator;)Lcom/hbm/explosion/vanillant/ExplosionVNT;
+CORE method com/hbm/explosion/vanillant/ExplosionVNT setBlockProcessor (Lcom/hbm/explosion/vanillant/interfaces/IBlockProcessor;)Lcom/hbm/explosion/vanillant/ExplosionVNT;
 CORE method com/hbm/explosion/vanillant/ExplosionVNT setEntityProcessor (Lcom/hbm/explosion/vanillant/interfaces/IEntityProcessor;)Lcom/hbm/explosion/vanillant/ExplosionVNT;
 CORE method com/hbm/explosion/vanillant/ExplosionVNT setPlayerProcessor (Lcom/hbm/explosion/vanillant/interfaces/IPlayerProcessor;)Lcom/hbm/explosion/vanillant/ExplosionVNT;
 CORE method com/hbm/explosion/vanillant/ExplosionVNT setSFX ([Lcom/hbm/explosion/vanillant/interfaces/IExplosionSFX;)Lcom/hbm/explosion/vanillant/ExplosionVNT;
+CORE method com/hbm/explosion/vanillant/standard/BlockAllocatorStandard <init> (I)V
+CORE method com/hbm/explosion/vanillant/standard/BlockProcessorNoDamage <init> ()V
+CORE method com/hbm/explosion/vanillant/standard/BlockProcessorNoDamage withBlockEffect (Lcom/hbm/explosion/vanillant/interfaces/IBlockMutator;)Lcom/hbm/explosion/vanillant/standard/BlockProcessorNoDamage;
 CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth <init> (DF)V
 CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setKnockback (D)Lcom/hbm/explosion/vanillant/standard/EntityProcessorCross;
 CORE method com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth setupPiercing (FF)Lcom/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth;
@@ -1001,6 +1010,7 @@ MINI_NUKE_CLOUD field com/hbm/entity/ModEntities NUKE_TOREX Lcom/hbm/registratio
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex cloudlets Ljava/util/List;
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex heat D
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex maxAge I
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet cloudletLife I
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorB D
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorG D
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorR D
@@ -1030,6 +1040,8 @@ MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setPos (DDD)V
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setScale (F)Lcom/hbm/entity/effect/EntityNukeTorex;
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setTorexType (I)Lcom/hbm/entity/effect/EntityNukeTorex;
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet getScale ()F
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet setMotion (D)Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet setScale (FF)Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;
 MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getX ()D
 MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getY ()D
 MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear getZ ()D
@@ -1037,6 +1049,8 @@ MINI_NUKE_CLOUD method com/hbm/entity/mob/EntityCreeperNuclear isPowered ()Z
 MINI_NUKE_CLOUD method com/hbm/entity/projectile/EntityBulletBaseMK4 <init> (Lnet/minecraft/world/level/Level;Lcom/hbm/items/weapon/sedna/BulletConfig;FFFF)V
 MINI_NUKE_CLOUD method com/hbm/entity/projectile/EntityBulletBaseMK4 setPos (DDD)V
 MINI_NUKE_CLOUD method com/hbm/explosion/ExplosionNukeSmall explode (Lnet/minecraft/world/level/Level;DDDLcom/hbm/explosion/ExplosionNukeSmall$MukeParams;)V
+MINI_NUKE_CLOUD method com/hbm/explosion/vanillant/ExplosionVNT <init> (Lnet/minecraft/world/level/Level;DDDF)V
+MINI_NUKE_CLOUD method com/hbm/explosion/vanillant/ExplosionVNT explode ()V
 MINI_NUKE_CLOUD method com/hbm/handler/threading/TargetPoint <init> (Lnet/minecraft/server/level/ServerLevel;DDDD)V
 MINI_NUKE_CLOUD method com/hbm/handler/threading/TargetPoint level ()Lnet/minecraft/server/level/ServerLevel;
 MINI_NUKE_CLOUD method com/hbm/packet/PacketWire sendToAllAround (Lcom/hbm/packet/threading/ThreadedPayload;Lcom/hbm/handler/threading/TargetPoint;)V
