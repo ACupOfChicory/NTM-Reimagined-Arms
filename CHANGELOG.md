@@ -1,5 +1,12 @@
 # Changelog
 
+## X1563
+
+- AI soldiers waiting their turn while two of their squad go after a lost
+  enemy a long way, such as up a deep shaft, no longer forget that enemy
+  and stay behind for good: they keep it in mind while the others are still
+  searching, and follow when their turn comes.
+
 ## X1557
 
 - AI soldiers turn smoothly: their body comes round after the head and the
