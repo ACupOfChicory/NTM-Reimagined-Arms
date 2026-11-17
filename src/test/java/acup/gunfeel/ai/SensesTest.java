@@ -155,6 +155,31 @@ class SensesTest {
     }
 
     @Test
+    void aTargetWaitedForIsKeptWhileOthersSearchWithItsLossAsItWas() {
+        TargetMemory kept = new TargetMemory(P), plain = new TargetMemory(P);
+        for (TargetMemory m : new TargetMemory[] {kept, plain}) {
+            m.look();
+            m.seen(1, 10, 64, 0, 0, 0);
+            m.endLook(0);
+            m.look();
+            m.endLook(1);
+        }
+        long lost = kept.contact(1).lostTick, end = 3L * (P.hold() + P.search()), waited = 2L * (P.hold() + P.search());
+        for (long t = 2; t <= end; t++) {
+            // its turn to search comes after `waited` ticks: kept in mind while it waits
+            if (t <= waited && kept.contact(1) != null) kept.waitKeep(kept.contact(1), t);
+            if (t == waited) {
+                assertNotNull(kept.contact(1), "kept while it waits");
+                assertEquals(lost, kept.contact(1).lostTick, "the loss stays as it was (it names the clearing, the exits watched)");
+            }
+            kept.update(t);
+            plain.update(t);
+        }
+        assertNull(plain.contact(1), "not waited for: forgotten");
+        assertNull(kept.contact(1), "its wait over, forgotten after half a search");
+    }
+
+    @Test
     void lostTargetStaysWhereItWentOutOfSight() {
         TargetMemory m = new TargetMemory(P);
         long t = 0;

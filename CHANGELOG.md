@@ -1,5 +1,27 @@
 # Changelog
 
+## X1567
+
+- The AI soldier sent to throw a grenade into a room before the squad goes
+  in no longer forgets it the moment it fires at something or hears a
+  noise: with no foe in sight and no one shooting at it, it steps to the
+  doorway and throws, and one handed the grenade does too. Before, the
+  squad often went in without one.
+
+## X1563
+
+- AI soldiers waiting their turn while two of their squad go after a lost
+  enemy a long way, such as up a deep shaft, no longer forget that enemy
+  and stay behind for good: they keep it in mind while the others are still
+  searching, and follow when their turn comes.
+
+## X1557
+
+- AI soldiers turn smoothly: their body comes round after the head and the
+  gun in an easy sweep instead of snapping a quarter turn at a time, and
+  standing still their feet stay planted while they turn and step round
+  one at a time rather than sliding over the ground.
+
 ## X1552
 
 - AI soldiers keep clear of the whole blast of a grenade one of their squad
