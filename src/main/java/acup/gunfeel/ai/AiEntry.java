@@ -538,10 +538,35 @@ public final class AiEntry {
     }
 
     /** the ways to the stack: a cell before the opening seen from the room costs this many more, EXPOSED_FAR blocks off at most */
-    static final float EXPOSED_COST = 8;
+    static final float EXPOSED_COST = 4;
     static final int EXPOSED_FAR = 6;
 
+    /** hide()'s work for a plan's way in to a room, kept while the plan is: the places as moved, the ways' cost */
+    private record Hidden(long[][] places, PathSearch.Cost cost) {
+    }
+
+    private static final Map<AiRooms.Plan, Map<Long, Hidden>> HIDDEN = new WeakHashMap<>();
+
     private static void hide(Op op, ServerLevel level, AiRooms.Plan plan, AiRooms.Way w, int room) {
+        long key = (op.front * 31) ^ room;
+        Hidden h;
+        synchronized (HIDDEN) {
+            h = HIDDEN.computeIfAbsent(plan, p -> new HashMap<>()).get(key);
+        }
+        if (h != null && h.places.length == op.places.size()) {
+            for (int i = 0; i < h.places.length; i++) op.places.set(i, h.places[i].clone());
+            op.exposed = h.cost;
+            return;
+        }
+        hide0(op, level, plan, w, room);
+        long[][] kept = new long[op.places.size()][];
+        for (int i = 0; i < kept.length; i++) kept[i] = op.places.get(i).clone();
+        synchronized (HIDDEN) {
+            HIDDEN.get(plan).put(key, new Hidden(kept, op.exposed));
+        }
+    }
+
+    private static void hide0(Op op, ServerLevel level, AiRooms.Plan plan, AiRooms.Way w, int room) {
         if (room < 0 || plan.size[room] > SLICE_CELLS) {
             fate("stack: the room too big to weigh what it sees (" + (room < 0 ? -1 : plan.size[room]) + " cells)");
             return;
@@ -589,9 +614,12 @@ public final class AiEntry {
             }
             if (best == Long.MIN_VALUE) continue;
             if (best != pl[0]) {
+                // (where it steps back to for the grenade: on beyond it, a cell of its own out of the room; else there)
                 long behind = BlockPos.offset(best, dx, 0, dz);
+                boolean free = stand(src, behind) && plan.room(behind) != room && !taken.contains(behind);
+                for (long[] o : op.places) free &= o == pl || o[0] != behind;
                 pl[0] = best;
-                pl[1] = stand(src, behind) ? behind : best;
+                pl[1] = free ? behind : best;
                 stackMoved++;
             }
             if (least > 0) stackSeen++;
