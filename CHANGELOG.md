@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers going into a room keep their guns on the dead corner of their
+  side for the first second through the doorway, whatever they hear or are
+  hit by from where they cannot see, and notice whoever stands in there
+  sooner on every entry, not only after their own grenade. When one of them
+  is killed inside, the others no longer walk in after him one by one: those
+  still outside hold the doorway and those inside turn to where the shot
+  came from.
+
 ## X1592
 
 - A hit no longer throws an AI soldier's head about: its flinch folds the
