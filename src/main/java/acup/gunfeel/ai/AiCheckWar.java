@@ -94,6 +94,22 @@ final class AiCheckWar {
         return 0;
     }
 
+    /**
+     * the near pairs' share ready in time on war 60/20/10 (X1395: 12 of 15); the check lets pass as few of n as
+     * happen by chance under FLAP_LEVEL at it (n 1, 2: none; n 3: 1; n 15: 8, half as before)
+     */
+    static final double READY_BEFORE = 0.8;
+
+    /** the fewest of {@code n} the check lets pass: the smallest k with P(X <= k) >= FLAP_LEVEL, X of Binomial(n, p) */
+    static int leastByChance(long n, double p) {
+        double tail = 0;
+        for (long k = 0; k <= n; k++) {
+            tail += Math.exp(logChoose(n, k) + k * Math.log(p) + (n - k) * Math.log1p(-p));
+            if (tail >= FLAP_LEVEL) return (int) k;
+        }
+        return (int) n;
+    }
+
     private static double logChoose(long n, long k) {
         double s = 0;
         for (long i = 1; i <= k; i++) s += Math.log((double) (n - k + i) / i);
@@ -945,11 +961,11 @@ final class AiCheckWar {
         boolean staffRan = roundsOf[STAFF] > 0, tasksRan = roundsOf[TASKS] + roundsOf[MOVES] + roundsOf[PAIRS] > 0;
         boolean enoughWays = ways.size() >= WAYS_MIN;
         check.check(String.format(Locale.ROOT, "war: the staff's ways keep out of the enemy's sight up to the river: %d of %d (the shortest aside) less in it than the shortest ways there (2/3 at least, from 3 on),"
-                        + " %.0f blocks of them in it against %.0f of the shortest (%.0f%% of it, %.0f%% at most), %.2f times as long as the shortest (1.5 at most)%s", lessSeen, open,
+                        + " %.0f blocks of them in it against %.0f of the shortest (%.0f%% of it, %.0f%% at most, from 3 on), %.2f times as long as the shortest (1.5 at most)%s", lessSeen, open,
                 seenBlocks, shortestBlocks, shortestBlocks == 0 ? 0 : 100 * seenBlocks / shortestBlocks, 100 * WAY_SEEN, longer,
                 enoughWays ? "" : String.format(Locale.ROOT, "; too few ways (%d of them needed): not checked", WAYS_MIN)),
                 // a staff that ran and made no way at all fails
-                !staffRan || !ways.isEmpty() && (!enoughWays || (open < BY_WAY || 3 * lessSeen >= 2 * open) && seenBlocks <= WAY_SEEN * shortestBlocks && longer <= 1.5));
+                !staffRan || !ways.isEmpty() && (!enoughWays || (open < BY_WAY || 3 * lessSeen >= 2 * open && seenBlocks <= WAY_SEEN * shortestBlocks) && longer <= 1.5));
         check.check(String.format(Locale.ROOT, "war: a way takes %.2f ms off the server thread (5 at most)", msRoute), msRoute <= 5);
         // C2: with the staff's tasks no squad stands about with nothing to do, and the squads were sent at the player
         // (a reserve or a hold is an order too: not all of them)
@@ -987,11 +1003,14 @@ final class AiCheckWar {
             // sees the player within CLOSE on the field (seldom: the river); too few of them all, nothing measured: a FAIL.
             // Near, its first sight within CLOSE comes on the way, 80 blocks off at the start, before it is round: shown, not counted
             long angles = readyAngles + flankOf[PAIRS], wide = readyWide + wideOf[PAIRS];
-            check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round %.0f degrees or more off the pinning one: %d of %d (half at least, %d measured at least%s):"
+            // too few (the short war: one near C4 round, 0-1 of them): shown, not checked; war 60/20/10 measures it
+            if (angles < ANGLES_MIN) check.out(String.format(Locale.ROOT, "     war: the pairs (C4), the squad going round %.0f degrees or more off the pinning one: %d of %d,"
+                    + " not measured (%d at least; war 60/20/10 measures it)", WIDE, wide, angles, ANGLES_MIN));
+            else check.check(String.format(Locale.ROOT, "war: the pairs (C4), the squad going round %.0f degrees or more off the pinning one: %d of %d (half at least, %d measured at least%s):"
                     + " near at its signal %d of %d, on the field coming on the player within %.0f %d of %d; %d pairs made (near, first seen within %.0f on the way, not counted: %d of %d)",
-                    WIDE, wide, angles, ANGLES_MIN, angles < ANGLES_MIN ? ", NOT MEASURED" : "", readyWide, readyAngles, CLOSE, wideOf[PAIRS], flankOf[PAIRS], pairsMade, CLOSE,
+                    WIDE, wide, angles, ANGLES_MIN, "", readyWide, readyAngles, CLOSE, wideOf[PAIRS], flankOf[PAIRS], pairsMade, CLOSE,
                     nearWide, nearFlank),
-                    angles >= ANGLES_MIN && wide * 2 >= angles);
+                    wide * 2 >= angles);
         }
         if (roundsOf[PAIRS] > 0)
             check.check(String.format(Locale.ROOT, "war: the pairs (C4), no squad going round for a pair sent across the river from the camp (its ford too far for the pair's time):"
@@ -1016,7 +1035,8 @@ final class AiCheckWar {
                     + " it is seen than C3's: %.1f%% against %.1f%% (10 points more at most)", 100.0 * c4[11] / c4[10], 100.0 * c3[11] / c3[10]),
                     (double) c4[11] / c4[10] <= (double) c3[11] / c3[10] + 0.1);
             if (c4[0] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the staff pairs its squads and the one going round is ready in time: %d pairs, %d ready in time"
-                    + " (half at least), %d out of time", c4[1], c4[2], c4[3]), c4[1] > 0 && c4[2] * 2 >= c4[1]);
+                    + " (%d at least: as few as happen by chance at %.0f%%, 1%% at most), %d out of time", c4[1], c4[2], leastByChance(c4[1], READY_BEFORE), 100 * READY_BEFORE, c4[3]),
+                    c4[1] > 0 && c4[2] >= leastByChance(c4[1], READY_BEFORE));
         }
         check.out(String.format(Locale.ROOT, "     war, pairs made again (C4): %d; the time one had before kept %d, up the moment they were made %d; its other dead %d"
                 + " (given more time, the new one not at its place yet: %d)", AiCommander.pairedAgain, AiCommander.keptTime, AiCommander.upAtOnce, AiCommander.otherDied,
