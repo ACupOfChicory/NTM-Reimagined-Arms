@@ -52,7 +52,8 @@ import net.minecraft.world.phys.Vec3;
 //    one at 4 untouched (slowed, so the walk below is short); a cow is pushed 1.5 to 5 blocks back; the player hit by a mannequin's slug is slowed, its
 //    client confused, and holding the forward key it goes backwards then, forwards again after;
 //  - nuclear: three of the AMAT's shots at a stone wall 40 blocks off wear it out (wear = durability, not after two),
-//    the wall stands whole, a zombie by it is hurt; by the wall after them an AI soldier in DNS takes almost no
+//    the wall stands whole, a zombie by it is hurt, the grass, a poppy, leaves and uranium ore before it laid waste (a log
+//    left); by the wall after them an AI soldier in DNS takes almost no
 //    radiation in 10 seconds (as a player in DNS), one bare and a plain husk in DNS take it as NTM gives a mob;
 // Lines "[new-ammo-stand] ..." in the log, PASS/FAIL in the report.
 final class NewAmmoStand {
@@ -435,6 +436,15 @@ final class NewAmmoStand {
                 ServerLevel level = (ServerLevel) p.level();
                 for (int x = -WALL_W; x <= WALL_W; x++) for (int y = 0; y < WALL_H; y++)
                     level.setBlock(O.offset(x, y, WALL_Z - 8), Blocks.STONE.defaultBlockState(), 3);
+                // before the wall what a nuke lays waste to (MiniWasteMutator): grass, a poppy, leaves, uranium ore; and
+                // a log it leaves (no wood burnt)
+                for (int x = -3; x <= 3; x++) for (int z = WALL_Z - 10; z <= WALL_Z - 9; z++)
+                    level.setBlock(O.offset(x, -1, z), Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+                level.setBlock(O.offset(-1, 0, WALL_Z - 9), Blocks.POPPY.defaultBlockState(), 3);
+                level.setBlock(O.offset(1, 0, WALL_Z - 9), Blocks.OAK_LEAVES.defaultBlockState()
+                        .setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 3);
+                level.setBlock(O.offset(3, 0, WALL_Z - 9), Blocks.OAK_LOG.defaultBlockState(), 3);
+                level.setBlock(O.offset(4, -1, WALL_Z - 9), block("ore_uranium").defaultBlockState(), 3);
                 p.teleportTo(level, EX, O.getY(), EZ, Set.of(), 0F, -2F, false);
                 gun(p, "gun_amat", NuclearBmg.config(), 7);
                 p.setHealth(p.getMaxHealth());
@@ -521,6 +531,20 @@ final class NewAmmoStand {
         log("ядерный: блоков стены {} -> {}, зомби у стены задет {}, игрок {}", wallBefore, now, hurt, f(hp));
         check(now == wallBefore, "ядерный: стена цела (" + wallBefore + " -> " + now + ")");
         check(hurt, "ядерный: зомби у стены задет взрывом");
+        String[] w = onServer(p -> {
+            var l = p.level();
+            int dead = 0;
+            for (int x = -3; x <= 3; x++) for (int z = WALL_Z - 10; z <= WALL_Z - 9; z++)
+                if (l.getBlockState(O.offset(x, -1, z)).is(block("waste_earth"))) dead++;
+            return new String[] {String.valueOf(dead), id(l.getBlockState(O.offset(-1, 0, WALL_Z - 9))), id(l.getBlockState(O.offset(1, 0, WALL_Z - 9))),
+                    id(l.getBlockState(O.offset(3, 0, WALL_Z - 9))), id(l.getBlockState(O.offset(4, -1, WALL_Z - 9)))};
+        });
+        log("ядерный: пустошь у стены: мёртвой земли {} из 14, мак -> {}, листва -> {}, бревно -> {}, урановая руда -> {}", w[0], w[1], w[2], w[3], w[4]);
+        check(Integer.parseInt(w[0]) >= 7, "ядерный: трава у стены стала мёртвой землёй (" + w[0] + " из 14)");
+        check(w[1].equals("minecraft:air") && w[2].equals("hbm:waste_leaves"), "ядерный: мак у стены убран, листва мёртвая (" + w[1] + ", " + w[2] + ")");
+        check(w[3].equals("minecraft:oak_log"), "ядерный: бревно у стены цело, не обгорело (" + w[3] + ")");
+        check(w[4].equals("hbm:ore_schrabidium") || w[4].equals("hbm:ore_uranium_scorched"),
+                "ядерный: урановая руда у стены стала шрабидиевой или обожжённой (" + w[4] + ")");
         onServer(p -> {
             if (guard.isAlive()) guard.discard();
             // the radiation the three shots left by the wall: a soldier in DNS, one bare, a plain husk in DNS
@@ -561,6 +585,14 @@ final class NewAmmoStand {
             return null;
         });
         wait(5, 60);
+    }
+
+    private static net.minecraft.world.level.block.Block block(String id) {
+        return BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("hbm", id));
+    }
+
+    private static String id(net.minecraft.world.level.block.state.BlockState s) {
+        return BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();
     }
 
     private static double rad(Mob m) {
