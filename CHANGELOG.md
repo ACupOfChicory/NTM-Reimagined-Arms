@@ -1,5 +1,11 @@
 # Changelog
 
+## X1514
+
+- The two bullets of a Duplex round now spread six times as wide: the
+  second goes about 20 milliradians off the first one's line instead of 3,
+  so at 50 blocks they land about a block apart.
+
 ## X1512
 
 - An AI soldier sent to stand near a spot, such as a squad gathering at a
