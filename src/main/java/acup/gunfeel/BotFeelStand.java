@@ -126,10 +126,13 @@ final class BotFeelStand {
             new Scene("hit", false, 90, (level, m, t) -> {
                 if (t < 0) {
                     place(m, AX, AZ, 180F);
-                    m.setHealth(1000F);
+                    // the agent's health, the trunk's push (BotImpulse) going by the share of it taken
+                    m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(20);
+                    m.setHealth(20F);
                     return;
                 }
-                if (t == 10 || t == 40) m.hurtServer(level, level.damageSources().generic(), 1F);
+                // a rifle bullet's damage
+                if (t == 10 || t == 40) m.hurtServer(level, level.damageSources().generic(), 6F);
             }, t -> AIMED) };
 
     /** a turn on the spot by the aim, from facing -Z */
