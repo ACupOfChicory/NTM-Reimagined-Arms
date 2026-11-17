@@ -1704,6 +1704,7 @@ public final class AiCommander {
         o.legD = Double.MAX_VALUE;
         if (leg.low() && bot.brain instanceof AiSoldier s) s.crouch(true);
         if (leg.hold()) {
+            AiHold.held(bot, tick);
             if (bot.mover.goal() != Long.MIN_VALUE) bot.mover.stop();
             StaffMove.face(bot, o);
             return;

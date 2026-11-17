@@ -532,7 +532,7 @@ final class StaffMove {
             else if (!atCover(b, o)) {
                 double d = Math.hypot(o.coverX - b.mob.getX(), o.coverZ - b.mob.getZ());
                 why = d <= 16 ? "off its place 16 at most" : d <= 32 ? "off its place 16 to 32" : "off its place over 32";
-            } else if (b.mob.getDeltaMovement().horizontalDistance() >= 0.05) why = "at its place, moving";
+            } else if (AiHold.moving(b)) why = "at its place, moving";
             else why = "at its place";
             String mode = b.brain instanceof AiSoldier s ? s.mode() + "/" + s.why : "-";
             out.accept(j.kind + " | " + why + " | " + mode);
@@ -573,7 +573,7 @@ final class StaffMove {
         for (int i = 0; i < of.size(); i++) {
             AiBot b = of.get(i);
             AiCommander.Order o = b.order;
-            if (half[i] == st.moving || o == null || o.coverSince != st.since || !atCover(b, o) || b.mob.getDeltaMovement().horizontalDistance() >= 0.05) continue;
+            if (half[i] == st.moving || o == null || o.coverSince != st.since || !atCover(b, o) || AiHold.moving(b)) continue;
             best[0] = Math.max(best[0], o.covered ? 2 : 1);
         }
         return best[0];
