@@ -148,6 +148,9 @@ public final class AiEntry {
         long fragSeen = Long.MIN_VALUE, liveAt = Long.MIN_VALUE;
         /** its grenade (if one goes) is one into a room fought in (the stands) */
         boolean fragPlace;
+        /** those to be spared by the room (spared), found at the tick sparedAt (safe) */
+        final List<net.minecraft.world.entity.LivingEntity> spared = new ArrayList<>(2);
+        long sparedAt = Long.MIN_VALUE;
         long[] slots = {}, inner = {};
         /** where each of the entry waits, by its number: {beside the way in, a grenade going in} */
         final List<long[]> places = new ArrayList<>(4);
@@ -609,9 +612,18 @@ public final class AiEntry {
                 why[3]++;
                 return false;
             }
-        // one to be spared (a villager, a tamed pet, one named: spared) in the room or in the blast's reach
-        for (net.minecraft.world.entity.LivingEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(b, b).inflate(Math.max(op.safe, Math.sqrt(plan.size[op.room]) + 2)))) {
-            if (!e.isAlive() || !spared(e)) continue;
+        // one to be spared (a villager, a tamed pet, one named: spared) in the room or in the blast's reach (those by
+        // the room found once a tick: a throw's plan asks here for many a point)
+        long now = level.getGameTime();
+        if (op.sparedAt != now) {
+            op.sparedAt = now;
+            op.spared.clear();
+            Vec3 mid = mid(plan.mid[op.room], 0);
+            double reach = Math.max(op.safe, FOUGHT_REACH) + Math.sqrt(plan.size[op.room]) + 2;
+            for (net.minecraft.world.entity.LivingEntity e : level.getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, new net.minecraft.world.phys.AABB(mid, mid).inflate(reach)))
+                if (e.isAlive() && spared(e)) op.spared.add(e);
+        }
+        for (net.minecraft.world.entity.LivingEntity e : op.spared) {
             boolean in = plan.room(cell(e.getX(), e.getY(), e.getZ())) == op.room;
             if (in || e.distanceToSqr(b) < s2 && !AiGrenades.shielded(src, e.getX(), e.getY(), e.getZ(), e.getBbHeight(), b)) {
                 why[4]++;

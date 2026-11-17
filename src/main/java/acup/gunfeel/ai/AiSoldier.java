@@ -2011,7 +2011,7 @@ public final class AiSoldier implements AiBrain {
     static final double SWEEP_BACK = 2;
     /** where it last got to on a sweep's way and when; stepping back to yieldCell till yieldUntil */
     private double stuckX = Double.NaN, stuckZ;
-    private long stuckSince, yieldUntil = Long.MIN_VALUE, yieldCell;
+    private long stuckSince, yieldUntil = Long.MIN_VALUE, yieldCell, yieldsAt = Long.MIN_VALUE;
 
     /**
      * Two of a side on their way through one doorway to the rooms beyond (AiClearing's cells, changing as more is seen
@@ -2020,6 +2020,12 @@ public final class AiSoldier implements AiBrain {
      */
     private boolean yields(AiBot bot, ServerLevel level, long room, long tick) {
         Mob m = bot.mob;
+        // (not on a sweep's way the tick before: where it stood then, and a step back begun then, tell nothing now)
+        if (yieldsAt == Long.MIN_VALUE || tick - yieldsAt > 1) {
+            stuckX = Double.NaN;
+            yieldUntil = Long.MIN_VALUE;
+        }
+        yieldsAt = tick;
         if (tick < yieldUntil) {
             if (!bot.mover.goalIs(yieldCell)) {
                 bot.mover.costs(PathSearch.Cost.NONE);
