@@ -31,7 +31,8 @@ import org.joml.Vector3f;
  * <li>a hit's flinch, added on top (UAL Hit_Chest, Hit_Head, Quaternius SWAT HitRecieve and HitRecieve_2 by turns;
  * KayKit Hit_B when a blast throws it);</li>
  * <li>its fall dead (KayKit Death_A, the whole body: vanilla's tip onto its side is not drawn then);</li>
- * <li>the lean: the hips step aside and everything above them tips (AiPoseGeometry, the server's own numbers).</li>
+ * <li>the lean: the hips step aside and everything above them tips (AiPoseGeometry, the server's own numbers);</li>
+ * <li>standing, each foot where it stands on the floor (BotAnimator.feet): the leg reaches it, a step when it must.</li>
  * </ol>
  * Each arm and leg is two parts (BotModel): the forearm and the shin are children of the upper arm and the thigh, turned
  * from them, so what turns an arm carries its forearm. The hitbox walks the same tree: nothing it would miss.
@@ -389,6 +390,69 @@ public final class BotPoser {
             for (ModelPart part : new ModelPart[] { p.head, p.body, p.rightArm, p.leftArm, p.rightLeg, p.leftLeg })
                 part.x += shift;
         }
+
+        // 7. standing, the feet where they stand on the floor (BotAnimator.feet): the body turns, leans and sways over
+        // them, and a foot steps when it must
+        lock(p, f.feet());
+    }
+
+    /**
+     * Each leg reaches its foot where it stands (BotAnimator.Feet, by its weight): the knee bends (or straightens) to
+     * the hip's distance from it, the thigh turns to point there, and the leg turns about that line to the foot's way.
+     * Writes back where the pose had each ankle before, for the next step.
+     */
+    static void lock(Parts p, BotAnimator.@org.jspecify.annotations.Nullable Feet feet) {
+        if (feet == null || p.rightShin == null || p.leftShin == null) return;
+        lockLeg(p.rightLeg, p.rightShin, feet, 0);
+        lockLeg(p.leftLeg, p.leftShin, feet, 1);
+    }
+
+    /** the thigh and the shin are BotModel.HALF px each: the ankle's distance from the hip, straight */
+    private static final float LEG = 2F * BotModel.HALF;
+    /**
+     * Past this share of LEG the knee straightens softly (soft IK): straight, a knee's bend for a small change of reach
+     * has no bound (2 acos), and a foot set down by a nearly straight leg would snap the knee
+     */
+    private static final float SOFT = 0.99F;
+
+    /** the knee's bend (radians) for an ankle this far from the hip (px), the reach eased past SOFT */
+    static float kneeFor(float reach) {
+        float s = SOFT * LEG, d = reach <= s ? reach : s + (LEG - s) * (1F - (float) Math.exp(-(reach - s) / (LEG - s)));
+        return 2F * (float) Math.acos(Mth.clamp(d / LEG, -1F, 1F));
+    }
+
+    private static void lockLeg(ModelPart thigh, ModelPart shin, BotAnimator.Feet feet, int k) {
+        Vector3f a = ankle(thigh, shin, new Vector3f());
+        feet.neutral[k * 3] = a.x;
+        feet.neutral[k * 3 + 1] = a.y;
+        feet.neutral[k * 3 + 2] = a.z;
+        float w = Mth.clamp(feet.w, 0F, 1F);
+        if (w <= 0F) return;
+        Vector3f hip = new Vector3f(thigh.x, thigh.y, thigh.z);
+        Vector3f to = new Vector3f(feet.at[k * 4], a.y - feet.at[k * 4 + 2], feet.at[k * 4 + 1]);
+        to.lerp(new Vector3f(a), 1F - w);
+        float twist = feet.at[k * 4 + 3] * w;
+        // the knee, a hinge (BotModel), bends one way only: its bend gives the hip-to-ankle distance 2 HALF cos(bend / 2);
+        // by the feet's weight from the pose's own (a nearly straight leg's soft reach bends it some 10 degrees)
+        shin.xRot = Mth.lerp(w, shin.xRot, kneeFor(to.distance(hip)));
+        ankle(thigh, shin, a);
+        // the thigh: turned so the ankle goes there, then about that line to the foot's way
+        Vector3f from = new Vector3f(a).sub(hip), there = new Vector3f(to).sub(hip);
+        if (from.lengthSquared() < 1e-6F || there.lengthSquared() < 1e-6F) return;
+        Quaternionf q = new Quaternionf().rotationTo(from, there);
+        q.premul(new Quaternionf().rotationAxis(twist, there.normalize()));
+        Quaternionf t = new Quaternionf().rotationZYX(thigh.zRot, thigh.yRot, thigh.xRot).premul(q);
+        Vector3f e = t.getEulerAnglesZYX(new Vector3f());
+        thigh.xRot = e.x;
+        thigh.yRot = e.y;
+        thigh.zRot = e.z;
+    }
+
+    /** where a leg's ankle is (the shin's far end, its middle), px in the model */
+    static Vector3f ankle(ModelPart thigh, ModelPart shin, Vector3f out) {
+        org.joml.Matrix4f m = M4.get();
+        frame(thigh, m).translate(shin.x, shin.y, shin.z).rotateZYX(shin.zRot, shin.yRot, shin.xRot);
+        return m.transformPosition(out.set(0F, BotModel.HALF, 0F));
     }
 
     private static void action(Parts p, BotAnimator.Act act, float headX, float headY, float[] a, float[] b) {
