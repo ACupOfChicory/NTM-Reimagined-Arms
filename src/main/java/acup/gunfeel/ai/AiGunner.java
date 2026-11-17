@@ -228,6 +228,24 @@ public final class AiGunner {
         return 16;
     }
 
+    private net.minecraft.world.item.@Nullable Item leadOf;
+    private long leadAt = Long.MIN_VALUE;
+    private double leadSpeed = 16;
+
+    /** bulletSpeed for the line kept clear of its own (AiBots.leadLine), worked out again when its gun changes or a second on */
+    double leadSpeed(long tick) {
+        net.minecraft.world.item.Item item = mob.getMainHandItem().getItem();
+        if (item != leadOf || tick - leadAt > LEAD_AGAIN || tick < leadAt) {
+            leadOf = item;
+            leadAt = tick;
+            leadSpeed = Math.max(1, bulletSpeed());
+        }
+        return leadSpeed;
+    }
+
+    /** ticks a gun's bullet speed is kept for the line's lead (a server setting may change it) */
+    private static final int LEAD_AGAIN = 20;
+
     /** the distance it would rather fight at with no gun to go by, blocks */
     static final double FIGHT_AT = 20;
 
@@ -473,16 +491,27 @@ public final class AiGunner {
     Vec3 muzzle(Vec3 eye, ItemStack stack) {
         ItemGunBaseNT gun = gun();
         if (gun == null) return eye;
-        Vec3 off;
-        try {
-            com.hbm.items.weapon.sedna.Receiver r = gun.getConfig(stack, 0).getReceivers(stack)[0];
-            off = ItemGunBaseNT.getIsAiming(stack) ? r.getProjectileOffsetScoped(stack) : r.getProjectileOffset(stack);
-        } catch (RuntimeException e) {
-            return eye;
+        boolean aiming = ItemGunBaseNT.getIsAiming(stack);
+        if (stack.getItem() != offsetOf || aiming != offsetAiming) {
+            offsetOf = stack.getItem();
+            offsetAiming = aiming;
+            offset = null;
+            try {
+                com.hbm.items.weapon.sedna.Receiver r = gun.getConfig(stack, 0).getReceivers(stack)[0];
+                Vec3 off = aiming ? r.getProjectileOffsetScoped(stack) : r.getProjectileOffset(stack);
+                if (off != null) offset = new Vec3(off.z, off.y, off.x);
+            } catch (RuntimeException e) {
+                offset = null;
+            }
         }
-        if (off == null) return eye;
-        return eye.add(new Vec3(off.z, off.y, off.x).xRot((float) Math.toRadians(-mob.getXRot())).yRot((float) Math.toRadians(-mob.getYRot())));
+        if (offset == null) return eye;
+        return eye.add(offset.xRot((float) Math.toRadians(-mob.getXRot())).yRot((float) Math.toRadians(-mob.getYRot())));
     }
+
+    // the gun and aim the offset was read for (the receiver's, as EntityBulletBaseMK4 takes it: aside, up, forward)
+    private net.minecraft.world.item.@Nullable Item offsetOf;
+    private boolean offsetAiming;
+    private @Nullable Vec3 offset;
 
     // the stands: it fires to keep a target's head down (AiSoldier.suppress)
     private boolean suppresses() {

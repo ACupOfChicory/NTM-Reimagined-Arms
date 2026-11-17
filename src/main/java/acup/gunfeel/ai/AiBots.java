@@ -505,15 +505,15 @@ public final class AiBots {
         Vec3 end = from.add(u.scale(len + 1));
         double tan = Math.tan(Math.toRadians(coneDegrees));
         // its bullets' speed: one of its own is kept clear where it will be when the bullet gets there (leadLine)
-        AiBot sb = get(shooter);
-        double speed = leadLine && sb != null ? sb.gunner.bulletSpeed() : 0;
+        AiBot sb = leadLine ? get(shooter) : null;
+        AiGunner lead = sb != null ? sb.gunner : null;
         for (AiBot b : l.bots.values()) {
             Mob m = b.mob;
             if (m == shooter || m.isRemoved() || !m.isAlive() || !AiTeams.own(shooter, m)) continue;
-            if (crosses(m, from, u, end, len, tan, speed) || wideLine && beside(m, from, look)) return true;
+            if (crosses(m, from, u, end, len, tan, lead) || wideLine && beside(m, from, look)) return true;
         }
         if (shooter.getTeam() != null) for (Player p : level.players())
-            if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && (crosses(p, from, u, end, len, tan, speed) || wideLine && beside(p, from, look))) return true;
+            if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && (crosses(p, from, u, end, len, tan, lead) || wideLine && beside(p, from, look))) return true;
         return false;
     }
 
@@ -567,10 +567,12 @@ public final class AiBots {
     }
 
     // whether the entity is in the cone from `from` along u (len long, widening by tan a block)
-    private static boolean crosses(LivingEntity m, Vec3 from, Vec3 u, Vec3 end, double len, double tan, double speed) {
+    private static boolean crosses(LivingEntity m, Vec3 from, Vec3 u, Vec3 end, double len, double tan, @Nullable AiGunner lead) {
         net.minecraft.world.phys.AABB box = m.getBoundingBox();
-        Vec3 center = box.getCenter();
-        if (speed > 0) {
+        // how far along the line it stands (behind the gun or past the line's end: not in it)
+        double t = ((box.minX + box.maxX) / 2 - from.x) * u.x + ((box.minY + box.maxY) / 2 - from.y) * u.y + ((box.minZ + box.maxZ) / 2 - from.z) * u.z;
+        if (t <= 0 || t > len + 1) return false;
+        if (lead != null) {
             // its last step, carried on for as long as the shot takes to leave and to get to it (a player's: as its
             // client moves it, its old place is not the last tick's)
             Vec3 known = m instanceof Player ? m.getKnownMovement() : null;
@@ -582,11 +584,12 @@ public final class AiBots {
                     dy *= LEAD_STEP / step;
                     dz *= LEAD_STEP / step;
                 }
-                double ticks = LEAD_FIRE + Math.max(0, center.subtract(from).dot(u)) / speed;
+                double ticks = LEAD_FIRE + t / lead.leadSpeed(m.level().getGameTime());
                 box = box.expandTowards(dx * ticks, dy * ticks, dz * ticks);
             }
         }
-        return crosses(box, center, from, u, end, len, tan);
+        net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan + (wideLine ? near(t) : 0));
+        return grown.contains(from) || grown.clip(from, end).isPresent();
     }
 
     // whether the box (grown by the cone at the distance along the line of center, where it stands) crosses the line
