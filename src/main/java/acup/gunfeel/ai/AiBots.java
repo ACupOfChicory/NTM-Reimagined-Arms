@@ -415,6 +415,74 @@ public final class AiBots {
     public static int friendlyHits;
     /** the stands: how the hits on their own came (up to 40) */
     public static final List<String> friendlyWhy = new java.util.ArrayList<>();
+    /** the stands: each AI shot keeps its pose and its own's places (AiGunner.Snap), and a hit on one of its own tells them */
+    static boolean friendTrace;
+
+    /** the AI mobs of its own side within r blocks of it */
+    static List<Mob> ownNear(ServerLevel level, Mob shooter, double r) {
+        List<Mob> out = new java.util.ArrayList<>();
+        PerLevel l = LEVELS.get(level);
+        if (l == null) return out;
+        for (AiBot b : l.bots.values())
+            if (b.mob != shooter && b.mob.isAlive() && AiTeams.own(shooter, b.mob) && b.mob.distanceToSqr(shooter) < r * r) out.add(b.mob);
+        return out;
+    }
+
+    // the stands: the shot that hit one of its own, as the shooter's line check saw it (AiGunner.Snap)
+    private static String traceHit(Mob victim, LivingEntity shooter, DamageSource source) {
+        AiBot sb = get(shooter);
+        Entity bullet = source.getDirectEntity();
+        if (sb == null || bullet == null) return "  trace: none";
+        long now = victim.level().getGameTime(), fired = now - bullet.tickCount;
+        AiGunner.Snap best = null;
+        for (AiGunner.Snap s : sb.gunner.snaps) if (best == null || Math.abs(s.tick() - fired) < Math.abs(best.tick() - fired)) best = s;
+        StringBuilder o = new StringBuilder(String.format(java.util.Locale.ROOT, "  trace: now %d, bullet age %d (fired ~%d), bullet at %s, motion %s; victim now %s",
+                now, bullet.tickCount, fired, v(bullet.position()), v(bullet.getDeltaMovement()), v(victim.getBoundingBox().getCenter())));
+        if (best == null) return o.append(", no shot kept").toString();
+        Vec3 vc = best.own().get(victim);
+        o.append(String.format(java.util.Locale.ROOT, "%n     shot at %d: eye %s yaw %.1f pitch %.1f look %s; victim then %s",
+                best.tick(), v(best.eye()), best.yaw(), best.pitch(), v(best.look()), vc == null ? "not kept" : v(vc)));
+        Vec3 flight = bullet.position().subtract(best.eye());
+        o.append(String.format(java.util.Locale.ROOT, "; flight %.1f deg off its body's line, %.1f off its look", deg(flight, body(best.yaw(), best.pitch())), deg(flight, best.look())));
+        AiGunner.Checked c = best.checked();
+        if (c == null) return o.append("; no line check kept").toString();
+        o.append(String.format(java.util.Locale.ROOT, "%n     line check at %d (%d before): on %s, friend %s, cone %.1f, eye %s muzzle %s aim %s yaw %.1f pitch %.1f; victim's step %s",
+                c.tick(), best.tick() - c.tick(), c.on(), c.friend(), c.cone(), v(c.eye()), v(c.from()), v(c.aim()), c.yaw(), c.pitch(),
+                v(new Vec3(victim.getX() - victim.xo, victim.getY() - victim.yo, victim.getZ() - victim.zo))));
+        if (vc != null) {
+            double hw = victim.getBbWidth() / 2, hh = victim.getBbHeight() / 2;
+            net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(vc.x - hw, vc.y - hh, vc.z - hw, vc.x + hw, vc.y + hh, vc.z + hw);
+            double far = Math.max(2, c.aim().distanceTo(c.eye())), tan = Math.tan(Math.toRadians(c.cone()));
+            Vec3[] lines = {c.aim().subtract(c.eye()), c.look(), body(c.yaw(), c.pitch()), body(best.yaw(), best.pitch()), bullet.getDeltaMovement()};
+            String[] names = {"aim", "look", "body", "body@shot", "bullet's own line"};
+            for (int i = 0; i < lines.length; i++) {
+                Vec3 u = lines[i].normalize();
+                Vec3 org = i == 0 ? c.eye() : i == 4 ? bullet.position() : c.from();
+                double len = Math.max(i == 0 ? lines[0].length() : far, past((ServerLevel) victim.level(), org, u));
+                Vec3 rel = vc.subtract(org);
+                double t = rel.dot(u), side = rel.subtract(u.scale(t)).length();
+                double grow = 0.3 + t * tan + (wideLine ? near(t) : 0);
+                o.append(String.format(java.util.Locale.ROOT, "%n       %s: along %.2f, off %.2f, kept clear %.2f (+half %.2f), len %.1f, crosses %s",
+                        names[i], t, side, grow, hw, len, crosses(box, vc, org, u, org.add(u.scale(len + 1)), len, tan)));
+            }
+        }
+        return o.toString();
+    }
+
+    private static Vec3 body(float yaw, float pitch) {
+        double y = Math.toRadians(yaw), p = Math.toRadians(pitch);
+        return new Vec3(-Math.sin(y) * Math.cos(p), -Math.sin(p), Math.cos(y) * Math.cos(p));
+    }
+
+    private static double deg(Vec3 a, Vec3 b) {
+        double l = a.length() * b.length();
+        return l < 1e-9 ? 0 : Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, a.dot(b) / l))));
+    }
+
+    private static String v(Vec3 a) {
+        return String.format(java.util.Locale.ROOT, "(%.2f %.2f %.2f)", a.x, a.y, a.z);
+    }
+
     /** the stands: the wider line of X1227 (one close beside, the look's and the body's lines, an automatic's cone); off: the aim's line alone */
     static boolean wideLine = true;
 
@@ -436,15 +504,29 @@ public final class AiBots {
         len = Math.max(len, past(level, from, u));
         Vec3 end = from.add(u.scale(len + 1));
         double tan = Math.tan(Math.toRadians(coneDegrees));
+        // its bullets' speed: one of its own is kept clear where it will be when the bullet gets there (leadLine)
+        AiBot sb = leadLine ? get(shooter) : null;
+        AiGunner lead = sb != null ? sb.gunner : null;
         for (AiBot b : l.bots.values()) {
             Mob m = b.mob;
             if (m == shooter || m.isRemoved() || !m.isAlive() || !AiTeams.own(shooter, m)) continue;
-            if (crosses(m, from, u, end, len, tan) || wideLine && beside(m, from, look)) return true;
+            if (crosses(m, from, u, end, len, tan, lead) || wideLine && beside(m, from, look)) return true;
         }
         if (shooter.getTeam() != null) for (Player p : level.players())
-            if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && (crosses(p, from, u, end, len, tan) || wideLine && beside(p, from, look))) return true;
+            if (!p.isSpectator() && p.isAlive() && AiTeams.own(shooter, p) && (crosses(p, from, u, end, len, tan, lead) || wideLine && beside(p, from, look))) return true;
         return false;
     }
+
+    /**
+     * Whether a shot keeps its own clear where they will be (X1511: the stands' entry, one running across the line 0.25
+     * to 0.46 blocks a tick, hit a tick after the check let the shot go) and from its gun's muzzle (AiGunner.muzzle);
+     * off: where they stand, from the eye (the stands' "before", -PaiLeadLineOff)
+     */
+    static boolean leadLine = !Boolean.getBoolean("ntmgunfeel.aiLeadLineOff");
+    /** ticks from the check to the bullet's first move (the stands: the trigger goes down at the check, the bullet moves the next tick) */
+    static final double LEAD_FIRE = 1;
+    /** a step one of its own takes a tick, counted at most (blocks): a teleport is no step */
+    static final double LEAD_STEP = 1;
 
     /** how far a shot's line is kept clear at most, blocks */
     static final double PAST = 48;
@@ -462,6 +544,15 @@ public final class AiBots {
     static final double BESIDE = 1.8, BEHIND_DEGREES = 160;
     /** near the shooter the cone is this much wider, blocks, out to NEAR_LINE (a held trigger fires once more after one steps in) */
     static final double NEAR_MARGIN = 0.4, NEAR_LINE = 4;
+    /** past NEAR_LINE the near margin fades out by this far, blocks (leadLine) */
+    static final double NEAR_FADE = 6;
+
+    /** the near margin at t blocks along the line: NEAR_MARGIN out to NEAR_LINE, then (leadLine) less and less out to NEAR_FADE, not cut off at once */
+    static double near(double t) {
+        if (t < NEAR_LINE) return NEAR_MARGIN;
+        if (!leadLine || t >= NEAR_FADE) return 0;
+        return NEAR_MARGIN * (NEAR_FADE - t) / (NEAR_FADE - NEAR_LINE);
+    }
 
     // whether the entity stands close beside the shooter's eye, anywhere but right behind it (the stands: 0.5 to 1.3
     // blocks off, 40 to 125 degrees off the look, hit by the bullet's first tick)
@@ -476,11 +567,36 @@ public final class AiBots {
     }
 
     // whether the entity is in the cone from `from` along u (len long, widening by tan a block)
-    private static boolean crosses(LivingEntity m, Vec3 from, Vec3 u, Vec3 end, double len, double tan) {
+    private static boolean crosses(LivingEntity m, Vec3 from, Vec3 u, Vec3 end, double len, double tan, @Nullable AiGunner lead) {
         net.minecraft.world.phys.AABB box = m.getBoundingBox();
-        double t = box.getCenter().subtract(from).dot(u);
+        // how far along the line it stands (behind the gun or past the line's end: not in it)
+        double t = ((box.minX + box.maxX) / 2 - from.x) * u.x + ((box.minY + box.maxY) / 2 - from.y) * u.y + ((box.minZ + box.maxZ) / 2 - from.z) * u.z;
         if (t <= 0 || t > len + 1) return false;
-        net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan + (wideLine && t < NEAR_LINE ? NEAR_MARGIN : 0));
+        if (lead != null) {
+            // its last step, carried on for as long as the shot takes to leave and to get to it (a player's: as its
+            // client moves it, its old place is not the last tick's)
+            Vec3 known = m instanceof Player ? m.getKnownMovement() : null;
+            double dx = known != null ? known.x : m.getX() - m.xo, dy = known != null ? known.y : m.getY() - m.yo, dz = known != null ? known.z : m.getZ() - m.zo;
+            double step = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (step > 1e-4) {
+                if (step > LEAD_STEP) {
+                    dx *= LEAD_STEP / step;
+                    dy *= LEAD_STEP / step;
+                    dz *= LEAD_STEP / step;
+                }
+                double ticks = LEAD_FIRE + t / lead.leadSpeed(m.level().getGameTime());
+                box = box.expandTowards(dx * ticks, dy * ticks, dz * ticks);
+            }
+        }
+        net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan + (wideLine ? near(t) : 0));
+        return grown.contains(from) || grown.clip(from, end).isPresent();
+    }
+
+    // whether the box (grown by the cone at the distance along the line of center, where it stands) crosses the line
+    private static boolean crosses(net.minecraft.world.phys.AABB box, Vec3 center, Vec3 from, Vec3 u, Vec3 end, double len, double tan) {
+        double t = center.subtract(from).dot(u);
+        if (t <= 0 || t > len + 1) return false;
+        net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan + (wideLine ? near(t) : 0));
         return grown.contains(from) || grown.clip(from, end).isPresent();
     }
 
@@ -500,7 +616,8 @@ public final class AiBots {
                     friendlyWhy.add(String.format(java.util.Locale.ROOT, "%s by %s (%s) %.1f blocks off, %.0f deg off its look, direct %s, its mode %s",
                             source.getMsgId(), le.getMainHandItem().getItem(), le.getName().getString(), h, deg,
                             source.getDirectEntity() == null ? "-" : source.getDirectEntity().getType().toShortString(),
-                            sb != null && sb.brain instanceof AiSoldier so ? so.mode() + "/" + so.why : "-"));
+                            sb != null && sb.brain instanceof AiSoldier so ? so.mode() + "/" + so.why : "-")
+                            + (friendTrace ? System.lineSeparator() + "     " + traceHit(mob, le, source) : ""));
                 }
             }
             return;
