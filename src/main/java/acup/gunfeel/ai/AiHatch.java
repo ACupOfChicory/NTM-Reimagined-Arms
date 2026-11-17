@@ -1123,7 +1123,7 @@ final class AiHatch {
     private static boolean safe(Op op, ServerLevel level, AiBot thrower) {
         Vec3 burst = mid(op.shaft.foot, 0.2);
         VoxelRay.Source src = AiBots.voxels(level);
-        double s2 = AiEntry.HE_SAFE * AiEntry.HE_SAFE;
+        double s2 = AiEntry.HE_HURTS * AiEntry.HE_HURTS;
         for (AiBot b : AiBots.bots(level))
             if (b != thrower && b.mob.isAlive() && AiTeams.own(b.mob, op.members.get(0).mob) && b.mob.distanceToSqr(burst) < s2
                     && !AiGrenades.shielded(src, b.mob.getX(), b.mob.getY(), b.mob.getZ(), b.mob.getBbHeight(), burst)) return false;
