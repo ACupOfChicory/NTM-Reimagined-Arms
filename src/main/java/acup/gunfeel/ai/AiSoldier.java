@@ -1954,15 +1954,19 @@ public final class AiSoldier implements AiBrain {
      * blocks from another's): a foe in sight under fire from there, no step out
      */
     private void shelter(AiBot bot, long cell, TargetMemory.@Nullable Contact c, long tick) {
-        if (spot != null) drop(bot);
         if (cell == Long.MIN_VALUE) {
+            // held where it stands for a moment: its mode and cover kept (a search goes on after the burst)
             if (!bot.mover.idle()) bot.mover.stop();
-        } else if (!bot.mover.goalIs(cell)) {
-            bot.mover.costs(PathSearch.Cost.NONE);
-            bot.mover.goTo(cell, 0.35, RUN);
+            why = Why.SHELTER_HOLD;
+        } else {
+            if (spot != null) drop(bot);
+            if (!bot.mover.goalIs(cell)) {
+                bot.mover.costs(PathSearch.Cost.NONE);
+                bot.mover.goTo(cell, 0.35, RUN);
+            }
+            mode(bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
+            why = Why.SHELTER;
         }
-        mode(cell == Long.MIN_VALUE || bot.mover.arrived() ? Mode.COVER : Mode.TO_COVER, tick);
-        why = cell == Long.MIN_VALUE ? Why.SHELTER_HOLD : Why.SHELTER;
         if (c != null && c.state == TargetMemory.State.VISIBLE) {
             Vec3 at = new Vec3(c.x, c.y + 1.1, c.z);
             watch = at;

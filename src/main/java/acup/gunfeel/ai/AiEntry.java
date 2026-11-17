@@ -106,11 +106,10 @@ public final class AiEntry {
     /** the thrower has this long to step out and throw; a throw is worked out this often and this many times; ticks */
     static final int FRAG_MAX = 60, FRAG_EVERY = 5, FRAG_TRIES = 4;
     /**
-     * Its own not behind blocks are kept this far from the burst: the filling's reach in NTM (he 7.5, powder 5) and two
-     * more. Less than AiGrenades.SAFE: that one is for a grenade that bounces and rolls; this one sticks where it
-     * first hits, and that place is worked out from each corner of its box.
+     * AiBunker's and AiHatch's grenades: their own not behind blocks are kept this far from the burst (the blast's
+     * reach, 7.5, and two more; it hurts out to twice that: HE_HURTS, a debt there).
      */
-    static final double HE_SAFE = 9.5, POWDER_SAFE = 7;
+    static final double HE_SAFE = 9.5;
     /**
      * The others of its side (not of the entry), and those to be spared, are kept this far from the burst unless all of
      * them is behind blocks: as far as the filling's blast hurts a mob in NTM, twice its reach (he 15, AiGrenades.SAFE;
@@ -169,7 +168,7 @@ public final class AiEntry {
         int[] why0 = {};
         String lostHow = "";
         Vec3 aim = Vec3.ZERO;
-        double safe, hurts;
+        double hurts;
         /**
          * an entry into a room a foe fell in (no one known there now) whose grenade is not to go in: the room too big,
          * one of its side or one to be spared there; worked out again every FRAG_AGAIN ticks while it stacks
@@ -354,17 +353,27 @@ public final class AiEntry {
      * hurts in, all of it behind blocks from the burst where it stands. It stays there, whatever it sees, till the
      * burst: a search led one that stood behind the house's wall along it into the line through the doorway, out
      * of cover in the reach, and a blast through the doorway hurt it (the stands). In the open there it runs from the
-     * grenade instead (keeps, AiSoldier.dodge).
+     * grenade instead (keeps, AiSoldier.dodge). One of an entry of its own going on is not held: its drill goes on (a
+     * thrower stopped so would be lost before its throw).
      */
     static boolean holds(AiBot bot, ServerLevel level) {
         Map<Long, Op> ops = OPS.get(level);
         if (ops == null) return false;
         Mob m = bot.mob;
+        int team = Integer.MIN_VALUE;
+        boolean any = false;
         for (Op op : ops.values()) {
-            if (op.phase != WAIT || op.members.contains(bot)) continue;
+            if (op.phase < OVER && (op.members.contains(bot) || op.thrower == bot)) return false;
+            any |= op.phase == WAIT;
+        }
+        if (!any) return false;
+        for (Op op : ops.values()) {
+            if (op.phase != WAIT) continue;
+            // its side's entry (the side, not the grenade's owner: one shot down after its throw is no owner of it)
+            if (team == Integer.MIN_VALUE) team = AiSquads.team(bot).hashCode();
+            if (op.team != team) continue;
             Entity g = level.getEntity(op.fragId);
-            if (g == null || g.isRemoved() || !(g instanceof net.minecraft.world.entity.projectile.Projectile p)
-                    || !(p.getOwner() instanceof net.minecraft.world.entity.LivingEntity o) || o != m && !AiTeams.own(m, o)) continue;
+            if (g == null || g.isRemoved()) continue;
             Vec3 b = AiGrenades.predicted(level, g);
             if (b == null) b = op.aim;
             if (m.distanceToSqr(b) < op.hurts * op.hurts && AiGrenades.shielded(AiBots.voxels(level), m.getX(), m.getY(), m.getZ(), m.getBbHeight(), b)) return true;
@@ -960,7 +969,6 @@ public final class AiEntry {
     private static @Nullable AiBot thrower(Op op, ServerLevel level, long tick) {
         AiRooms.Way way = op.way;
         if (!frag || !AiGrenades.on || !ReaimTimes.flag(FRAG_KEY, true) || op.aim == Vec3.ZERO || way == null) return null;
-        op.safe = powder() ? POWDER_SAFE : HE_SAFE;
         op.hurts = powder() ? POWDER_HURTS : HE_HURTS;
         for (AiBot b : op.members) {
             if (b.grenades <= 0 || b.gunner.reloading() || b.prone.lying() || op.tried.contains(b)) continue;
