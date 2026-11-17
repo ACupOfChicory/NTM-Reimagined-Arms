@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers going into a room after their own grenade are ready for
+  whoever it left alive: one still standing in there, even off to the side
+  where they are not looking, is noticed sooner and shot, though not in
+  under a quarter of a second. Before, a wounded enemy thrown into a corner
+  by the blast often fired first at the man in the doorway.
+
 ## X1567
 
 - The AI soldier sent to throw a grenade into a room before the squad goes
