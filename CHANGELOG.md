@@ -1,5 +1,11 @@
 # Changelog
 
+## X1389
+
+- AI squads: a squad that splits on the move keeps its one task — both parts go on together and take one
+  place at the enemy group, instead of one part being sent to the reserve where it stood; a squad pinned down
+  that splits calls one squad round, not two.
+
 ## X1380
 
 - An AI soldier keeping a way out under fire while its squad moves no longer
