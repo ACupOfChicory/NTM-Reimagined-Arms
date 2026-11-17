@@ -1,5 +1,15 @@
 # Changelog
 
+## X1442
+
+- The new rounds now have tracers. Both bullets of a Duplex round draw the
+  tracer of their calibre's SP round and leave its bullet holes. The nuclear
+  .50 draws the .50 SP's tracer, and the rubber slug draws the 12 gauge
+  slug's. Neither leaves a hole. In water a Duplex bullet acts like its SP
+  round, and the rubber slug like the slug.
+- The 12 gauge electroshock shell now draws the slug's tracer too. It
+  leaves no bullet holes.
+
 ## X1437
 
 - An AI soldier now notices an enemy right at its back, within about a block

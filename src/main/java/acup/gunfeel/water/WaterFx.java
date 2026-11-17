@@ -593,6 +593,8 @@ public final class WaterFx {
 
     // "m44_jhp" of hbm:ammo_standard_m44_jhp (ammo_secret_ the same)
     public static @Nullable String ammo(@Nullable BulletConfig config) {
+        // a round of the mod's: as the NTM round it is made after (WaterClass.ammoName)
+        if (config != null) config = acup.gunfeel.ammo.NewAmmo.waterLike(config);
         if (config == null || config.ammoItem == null) return null;
         try {
             var key = BuiltInRegistries.ITEM.getKey(config.ammoItem.get());
