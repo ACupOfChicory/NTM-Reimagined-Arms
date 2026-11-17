@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- NTM's small nuclear blasts (the Fat Mine, the Fat Man's shells, the
+  artillery mini nuke, the nuclear creeper, the nuclear grenade and the rest)
+  now rise as the mushroom cloud of NTM's nuclear bombs, sized to the blast,
+  instead of their own flash and wave; a balefire one as the balefire bomb's
+  green cloud. A Tiny Tot volley makes one cloud. They keep their own sound,
+  without the bombs' screen flash, sound and shake. Server key
+  `miniNukeCloud` (`false`: NTM's own).
+
 ## X1408
 
 - An AI soldier that lost sight of an enemy no longer forgets it while it
