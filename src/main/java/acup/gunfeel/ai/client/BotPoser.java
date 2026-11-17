@@ -393,7 +393,7 @@ public final class BotPoser {
         // 5. a hit's flinch (and one it cut short, going)
         for (BotAnimator.Hit hit : f.hits()) {
             BotClip h = BotClips.get(hit.clip());
-            if (h != null) add(p, h, h.local(hit.sec()), hit.w() * upright, a, b);
+            if (h != null) add(p, h, h.local(hit.sec()), hit.w() * upright, a, b, true);
         }
 
         // its fall dead, over everything
@@ -867,8 +867,22 @@ public final class BotPoser {
      * is added as a turn (w of the turn from the first frame to this one, after the part's own), not as angles: a
      * clip's angles near a quarter turn about Y swing far for a small turn (the arms of UAL's Hit_Knockback), and
      * added as angles at a part weight they would give a turn the clip never makes.
+     *
      */
     static void add(Parts p, BotClip clip, float t, float w, float[] a, float[] b) {
+        add(p, clip, t, w, a, b, false);
+    }
+
+    /**
+     * ... and a clip made to keep the head where it is ({@code pinned}: the flinches, tools/quaternius bot_clips
+     * HEAD_PINNED) keeps it whichever way the head looks: the clip's nod D (the turn added) is made for a head looking
+     * straight ahead, and the neck it moves to keep the head's middle where it is (fit.pin_head: head, trunk, arms and
+     * hips by one shift) holds it only there. A head turned P already (aimed up, down, aside) nods its middle by
+     * P(D - I)C, not (D - I)C: those six are moved the rest, -(P - I)(D - I)C ({@link #HEAD_MIDDLE}). Not for a clip
+     * that nods the head alone (the idle's breath): its trunk would sway with the nod.
+     */
+    static void add(Parts p, BotClip clip, float t, float w, float[] a, float[] b, boolean pinned) {
+        float nx = 0F, ny = 0F, nz = 0F;
         for (String bone : ALL) {
             ModelPart part = p.get(bone);
             if (part == null) continue;
@@ -878,7 +892,16 @@ public final class BotPoser {
                 q[2].rotationZYX(Mth.DEG_TO_RAD * a[2], Mth.DEG_TO_RAD * a[1], Mth.DEG_TO_RAD * a[0]);
                 q[1].mul(q[2]);
                 q[2].identity().slerp(q[1], w);
-                q[0].rotationZYX(part.zRot, part.yRot, part.xRot).mul(q[2]);
+                q[0].rotationZYX(part.zRot, part.yRot, part.xRot);
+                if (pinned && part == p.head()) {
+                    // (P - I)(D - I)C: the nod of the middle (D - I)C, turned by the head's own P, less itself
+                    Vector3f nod = q[2].transform(new Vector3f(HEAD_MIDDLE)).sub(HEAD_MIDDLE);
+                    Vector3f more = q[0].transform(new Vector3f(nod)).sub(nod);
+                    nx = -more.x;
+                    ny = -more.y;
+                    nz = -more.z;
+                }
+                q[0].mul(q[2]);
                 // kept on the branch nearest the angles added straight (what the flinches did before, where it holds)
                 float lx = part.xRot + w * Mth.DEG_TO_RAD * (a[0] - b[0]), ly = part.yRot + w * Mth.DEG_TO_RAD * (a[1] - b[1]),
                         lz = part.zRot + w * Mth.DEG_TO_RAD * (a[2] - b[2]);
@@ -890,7 +913,16 @@ public final class BotPoser {
                 part.z += w * (a[2] - b[2]);
             }
         }
+        if (nx != 0F || ny != 0F || nz != 0F)
+            for (ModelPart part : new ModelPart[] { p.head(), p.body(), p.rightArm(), p.leftArm(), p.rightLeg(), p.leftLeg() }) {
+                part.x += nx;
+                part.y += ny;
+                part.z += nz;
+            }
     }
+
+    /** px from the head's pivot (the neck) to its middle, the model's axes (Y down) */
+    static final org.joml.Vector3fc HEAD_MIDDLE = new Vector3f(0F, -4F, 0F);
 
     /** Moves the given parts toward the clip's pose (from the default pose), weighted. */
     static void set(Parts p, BotClip clip, float t, float w, String[] bones, float[] a) {
