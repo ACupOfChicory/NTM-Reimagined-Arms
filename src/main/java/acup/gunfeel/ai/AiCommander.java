@@ -995,7 +995,7 @@ public final class AiCommander {
         job.faceZ = t.faceZ();
         // given to the other part of a split squad already this time round: its members are both parts
         int i = 0;
-        if (same && job.givenAt == now) {
+        if (same && job.givenAt == now && !job.members.containsAll(s.bots)) {
             List<AiBot> both = new ArrayList<>(job.members);
             i = both.size();
             for (AiBot b : s.bots) if (!both.contains(b)) both.add(b);

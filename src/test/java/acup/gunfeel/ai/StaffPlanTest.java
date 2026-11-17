@@ -394,6 +394,18 @@ class StaffPlanTest {
         t = plan(List.of(part(0, 40, Kind.PIN, due, false, -1), part(60, 80, Kind.FLANK, due, false, -1), part(66, 90, Kind.FLANK, due, false, 1),
                 new Squad(30, 60, 2, 2, 2, false, null, 0, -1, false)), List.of(group(0, 100, 3)));
         assertEquals(Kind.RESERVE, t[3].kind());
+        // pinned down (C5) and split: one base of fire, one place, one squad sent round, none more
+        Squad pinned = new Squad(0, 60, 2, 2, 4, false, Kind.PIN, NOW - 100, 0, false, -1, false, false, Long.MAX_VALUE, NOW - 100, false, false, -1),
+                pinnedPart = new Squad(4, 62, 2, 2, 4, false, Kind.PIN, NOW - 100, 0, false, -1, false, false, Long.MAX_VALUE, NOW - 100, false, false, 0);
+        t = plan(List.of(pinned, pinnedPart, new Squad(40, 40, 3, 3, 3, false, Kind.HOLD, NOW - 50, 0, false), new Squad(-40, 40, 3, 3, 3, false, Kind.HOLD, NOW - 50, 0, false)),
+                List.of(group(0, 100, 3)));
+        assertEquals(Kind.PIN, t[0].kind());
+        assertEquals(t[0], t[1]);
+        assertEquals(1, java.util.Arrays.stream(t).filter(x -> x.kind() == Kind.FLANK).count(), "one squad round");
+        // a part that gave the group up does not take its first's task there
+        t = plan(List.of(part(0, 40, Kind.PIN, due, false, -1), part(60, 80, Kind.FLANK, due, false, -1),
+                new Squad(66, 90, 2, 2, 4, false, Kind.FLANK, NOW - 100, 0, false, 0, false, false, due, Long.MIN_VALUE, false, false, 1)), List.of(group(0, 100, 3)));
+        org.junit.jupiter.api.Assertions.assertNotEquals(0, t[2].group());
     }
 
     @Test
