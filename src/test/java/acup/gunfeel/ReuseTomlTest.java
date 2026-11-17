@@ -204,7 +204,9 @@ class ReuseTomlTest {
             assertEquals("LGPL-3.0-only", r.license(), f);
         }
         assertTrue(n > 80, "NTM-derived files found: " + n);
-        for (String own : List.of(ASSETS + "ntmgunfeel/textures/item/ammo_g12_shock.png", ASSETS + "ntmgunfeel/textures/effect/hole_old.png",
+        for (String own : List.of(ASSETS + "ntmgunfeel/textures/item/ammo_g12_shock.png", ASSETS + "ntmgunfeel/textures/item/ammo_g12_rubber_slug.png",
+                ASSETS + "ntmgunfeel/textures/item/ammo_r556_duplex.png", ASSETS + "ntmgunfeel/textures/item/ammo_r762_duplex.png",
+                ASSETS + "ntmgunfeel/textures/item/ammo_bmg50_nuclear.png", ASSETS + "ntmgunfeel/textures/effect/hole_old.png",
                 ASSETS + "ntmgunfeel/textures/particle/water_ring.png", "src/main/resources/data/hbm/tags/item/gun_mechanisms/steel.json")) {
             assertTrue(resolve(rules, own).isDefault(), "the owner's file under another rule: " + own);
         }

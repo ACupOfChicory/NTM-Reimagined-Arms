@@ -73,6 +73,32 @@ page. They are alphas: expect bugs and back up your world.
   immunity does not shock again but does 90 % of a slug from the same gun
   (with the mod's balance; about 2 under `balance = ntm`). The shooter sees a
   spark at the crosshair.
+- A 12 Gauge Rubber Slug for the same shotguns (ammo press: latex, smokeless
+  powder and a shotshell casing give six, rubber twelve). A hit does 6 damage
+  before armour and never takes anyone below 4 health. It pushes the one hit
+  back about 3 blocks, slows a player by 60 % for 1.5 seconds and mixes up
+  their movement for 4 (forward and back, left and right, jump and sneak swap,
+  whatever the key bindings; a boat or a horse steers the other way too). An
+  AI soldier is slowed and its aim swings off for 4 seconds. An undead mob,
+  not a boss, runs from the shooter for 4 seconds, then cannot be frightened
+  for 10.
+- 5.56mm and 7.62mm Duplex Rounds wherever NTM's soft point round of the
+  calibre goes (ammo press: four lead ingots, four smokeless powder, two small
+  casings give 16 and 12). Each shot fires two bullets at once, the second a
+  quarter of a block behind the first and about 3 milliradians off its line;
+  each bullet goes through things as a soft point and does 70 % of its damage.
+- A .50 BMG Nuclear Round for the AMAT rifles only (ammo press: two
+  americium-242 nuggets, a schrabidium nugget, two TATB charges and a steel
+  large casing give one). It does no damage of its own and goes off where it
+  hits as 80 % of NTM's Fat Mine, breaking no blocks; point blank as well. One
+  shot wears the rifle by a fixed share of its durability: an AMAT from new is
+  worn out in 3 shots, a Subtlety in 6, a Penance in 10. Wear spreads this
+  round's shots only a quarter as much as NTM's other rounds, so the last
+  shots before the rifle is worn out still go about where they are aimed. A
+  worn-out rifle no longer fires the nuclear round (it clicks as if empty),
+  and R does not swap them for another round while they are in it: take
+  another type from the ammo wheel (Y). Its other rounds it fires as NTM has
+  it, spread wide.
 
 ### Hits
 

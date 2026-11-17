@@ -148,6 +148,8 @@ neoForge {
             systemProperty("ntmgunfeel.suppressionStand",providers.gradleProperty("suppressionStand").isPresent.toString())
             // -PshockStand: the 12 gauge shock shell, its window, spread, immunity, the AI bot and the HUD's glitch (ShockStand)
             systemProperty("ntmgunfeel.shockStand",providers.gradleProperty("shockStand").isPresent.toString())
+            // -PnewAmmoStand: the rubber slug, the Duplex rounds and the nuclear .50 in the game (NewAmmoStand)
+            systemProperty("ntmgunfeel.newAmmoStand",providers.gradleProperty("newAmmoStand").isPresent.toString())
             // -PgunHitStand: a player hit by an NTM gun, no knockback nor tilt by default (GunHitStand)
             systemProperty("ntmgunfeel.gunHitStand",providers.gradleProperty("gunHitStand").isPresent.toString())
             // -PproneFireStand: no shot while crawling, for a player and a mannequin (ProneFireStand)

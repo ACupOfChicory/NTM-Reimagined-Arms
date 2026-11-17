@@ -1,0 +1,31 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 10241,
+  "pattern": [
+    "   ",
+    "AB ",
+    "CD "
+  ],
+  "key": {
+    "A": {
+      "count": 2,
+      "ingredient": "hbm:nugget_am242"
+    },
+    "B": {
+      "ingredient": "hbm:nugget_schrabidium"
+    },
+    "C": {
+      "count": 2,
+      "ingredient": "hbm:ball_tatb"
+    },
+    "D": {
+      "ingredient": "hbm:casing_large_steel"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:ammo_bmg50_nuclear",
+      "count": 1
+    }
+  ]
+}
