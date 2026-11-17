@@ -42,7 +42,7 @@ public final class BotPoser {
     static final String[] UPPER = { "head", "body", "right_arm", "right_forearm", "left_arm", "left_forearm" };
     /**
      * the reload's clip turns these: the arms, not the head (eyes on the threat, as soldiers are taught: the head keeps
-     * its aim, and its middle the eye the server sees and shoots from; the clip's look down at the magazine took it up
+     * its aim, and its middle the eye the server sees and shoots from; KayKit's look down at the magazine took it up
      * to 8.6 cm off)
      */
     static final String[] RELOAD_BONES = { "right_arm", "right_forearm", "left_arm", "left_forearm" };
@@ -553,8 +553,9 @@ public final class BotPoser {
             case AiPose.RELOAD -> {
                 BotClip r = BotClips.get(BotClips.RELOAD);
                 if (r != null) {
-                    // KayKit's rifle reload, stretched to the reload's length (coming in over RELOAD_IN: BotAnimator):
-                    // the arms only (RELOAD_BONES): the body keeps its crouch and the head its aim
+                    // the rifle's reload (tools/quaternius bot_clips ARMS: the gun up in front of the chest, the
+                    // magazine in under the line of sight), stretched to the reload's length (coming in over RELOAD_IN:
+                    // BotAnimator): the arms only (RELOAD_BONES): the body keeps its crouch and the head its aim
                     for (String bone : RELOAD_BONES) {
                         ModelPart part = p.get(bone);
                         if (part != null && r.rotation(bone, act.u() * r.length(), a))
