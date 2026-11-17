@@ -213,6 +213,29 @@ public final class TargetMemory {
         only.lostTick = tick;
     }
 
+    /**
+     * One of its side shot down by its side's foe that it saw or heard fall (AiBots.mateDown), the shot heard from x y z
+     * (the ear's error in it): that foe is known now, out of sight, lost there (the wait, the look out and the search
+     * start from there: a room it is in is gone into by the drill, AiEntry). One it sees now is left as it is.
+     */
+    public Contact shotMate(int id, double x, double y, double z, long tick) {
+        Contact c = contact(id);
+        if (c == null) {
+            if (contacts.size() >= MAX_CONTACTS) dropWeakest();
+            c = new Contact(id);
+            contacts.add(c);
+        } else if (c.state == State.VISIBLE) return c;
+        c.state = State.LOST;
+        c.place = false;
+        c.sightTicks = 0;
+        c.x = c.lostX = c.glimpseX = x;
+        c.y = c.lostY = y;
+        c.z = c.lostZ = c.glimpseZ = z;
+        c.vx = c.vz = 0;
+        c.lostTick = tick;
+        return c;
+    }
+
     /** a known target's state moves on with time: LOST to SEARCH to forgotten */
     public void update(long tick) {
         for (int i = contacts.size() - 1; i >= 0; i--) {

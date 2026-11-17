@@ -227,7 +227,8 @@ public final class AiEntry {
             // one entry a side and a way in: another target lost in the same room is gone after by the same ones
             if (op.way != null)
                 for (Op o : ops.values())
-                    if (o != op && o.team == op.team && o.front == op.front && o.way != null && o.phase != OVER && tick - o.made <= ENTRY_MAX) {
+                    // (not one gone in already: a foe found in there after is a room to take again, its grenade first)
+                    if (o != op && o.team == op.team && o.front == op.front && o.way != null && o.phase < GO && tick - o.made <= ENTRY_MAX) {
                         op = o;
                         break;
                     }
