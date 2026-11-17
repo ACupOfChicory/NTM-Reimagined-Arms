@@ -79,6 +79,41 @@ def test_crouch_clips():
     assert math.isclose(k["animation_length"], 0.0)
 
 
+def _turn_at(d, w):
+    """the turn d taken w of the way, as a slerp from none (BotPoser.add)"""
+    return fit._turned(d, w)
+
+
+def test_hits_head_at_the_eye():
+    """Each flinch as the mod adds it (BotPoser.add: from its first frame, the nod a slerp after the head's own pose,
+    the pivots' change straight; its weight in over HIT_IN = 1 tick and out over HIT_OUT = 3, BotAnimator): the head's
+    middle within 3 cm (0.48 px) of where it was, level or looking 30 degrees up, down or aside; the trunk's fold the
+    clip's (within half a degree); no leg in the ground"""
+    mod = bot_clips.build(say=lambda line: None)
+    for name in bot_clips.HEAD_PINNED:
+        f, src = bot_clips.BOT[name]
+        before, c = clip(f, src), mod[name]
+        L = c["animation_length"]
+        assert math.isclose(L, before["animation_length"]), name
+        r0, p0 = fit.turn(c, "head", 0.0), fit.pivot(c, "head", 0.0)
+        b0, s0 = fit.turn(c, "body", 0.0), fit.turn(before, "body", 0.0)
+        worst = 0.0
+        for t in np.linspace(0.0, L, int(L * 120) + 1):
+            w = max(0.0, min(1.0, t * 20 / 1.0, (L - t) * 20 / 3.0))
+            d = _turn_at(r0.T @ fit.turn(c, "head", t), w)
+            for look in fit.LOOKS:
+                off = w * (fit.pivot(c, "head", t) - p0) + look @ (d - np.eye(3)) @ fit.HEAD_MID
+                worst = max(worst, float(np.linalg.norm(off)))
+            fold = b0.T @ fit.turn(c, "body", t)
+            was = s0.T @ fit.turn(before, "body", t)
+            a = math.degrees(math.acos(max(-1.0, min(1.0, (np.trace(fold.T @ was) - 1.0) / 2.0))))
+            assert a < 0.6, "%s at %.3f: the trunk's fold %.2f deg off the clip's" % (name, t, a)
+            for up, (hip, knee, ankle, lowest) in posed(c, t).items():
+                assert lowest <= fit.GROUND + 0.15, "%s at %.3f: %s %.2f px into the ground" % (name, t, up, lowest - fit.GROUND)
+        assert worst <= 0.48, "%s: the head's middle %.2f px (%.1f cm) off the eye" % (name, worst, worst * 6.25)
+        print("%s: ok, the head within %.1f cm" % (name, worst * 6.25))
+
+
 def test_mod_file_is_current():
     """bot.animation.json holds what bot_clips.py writes from animations/"""
     with open(bot_clips.OUT) as fh:
@@ -89,5 +124,6 @@ def test_mod_file_is_current():
 if __name__ == "__main__":
     test_bend()
     test_crouch_clips()
+    test_hits_head_at_the_eye()
     test_mod_file_is_current()
     print("ok")
