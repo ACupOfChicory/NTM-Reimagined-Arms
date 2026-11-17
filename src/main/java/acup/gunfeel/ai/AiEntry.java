@@ -123,7 +123,22 @@ public final class AiEntry {
     /** in they go this long at most; an entry and what it knew is let go after this; ticks */
     static final int GO_MAX = 100, ENTRY_MAX = 1200;
 
-    private static final int STACK = 0, FRAG = 1, WAIT = 2, HOLD = 3, GO = 4, OVER = 5;
+    private static final int STACK = 0, SLICE = 1, FRAG = 2, WAIT = 3, HOLD = 4, GO = 5, OVER = 6;
+    /**
+     * Slicing the pie: before a grenade or going in, those of the stack at its ends step round the opening on its outer
+     * side, far to near, at most SLICE_POINTS places SLICE_FAR blocks off at most, each showing cells of the room none of
+     * the earlier did, its gun on them, SLICE_DWELL ticks at each; the opening's line only last. A foe seen, or a shot at
+     * them, ends it: they fight as ever, the entry goes on with what is known (a grenade at a foe seen in there). All of it
+     * SLICE_MAX ticks at most. The rays once, as it begins.
+     */
+    static final int SLICE_POINTS = 4, SLICE_DWELL = 10, SLICE_MAX = 160, SLICE_NEW = 2;
+    static final double SLICE_FAR = 6;
+    /** the server setting: the opening looked into from round it before they go in */
+    public static final String SLICE_KEY = "aiEntrySlice";
+    /** off only for the stands' "before" */
+    static boolean slice = true;
+    /** the stands: slicings begun, places stood at, foes seen in the room by them */
+    public static int slices, slicePoints, sliceSeen;
     /**
      * a foe in the room that shot one of the side down at its way in (TargetMemory.Contact.mateDown), no grenade to go in
      * first: they hold beside it, out of its line, and fight what shows; in when none goes after that foe for HOLD_STALE
@@ -156,6 +171,13 @@ public final class AiEntry {
         long fragSeen = Long.MIN_VALUE, liveAt = Long.MIN_VALUE;
         /** when one of the side last went after a foe by this entry known by one of theirs it shot down (MIN_VALUE: none) */
         long funnelAt = Long.MIN_VALUE;
+        /** its slicing: done (or none to do); those slicing, their places in order, the gun's aim at each, how far on, since when there */
+        boolean sliced, sliceFoe;
+        final List<AiBot> slicers = new ArrayList<>(2);
+        final List<long[]> arcs = new ArrayList<>(2);
+        final List<Vec3[]> arcAims = new ArrayList<>(2);
+        int[] arcAt = {};
+        long[] arcSince = {};
         /** its grenade (if one goes) is one into a room fought in (the stands) */
         boolean fragPlace;
         /** those to be spared by the room (spared), found at the tick sparedAt (safe) */
@@ -334,10 +356,15 @@ public final class AiEntry {
             i = op.members.size();
             op.members.add(bot);
         }
+        int k = op.phase == SLICE ? op.slicers.indexOf(bot) : -1;
+        if (k >= 0) return sliceStep(op, k, bot, tick);
         if (op.phase == GO) {
             long to = op.inner.length > 0 ? op.inner[i % op.inner.length] : plan.mid[op.room];
             go(bot, to, 0.5);
             if (bot.mover.arrived() || bot.mover.failed()) op.done.add(bot);
+            // the dead corners by the wall with the opening, not seen from round it: the first two each to its own
+            Vec3 at = corner(op, plan, i);
+            if (at != null) return at;
         } else if (op.phase == FRAG && bot == op.thrower) frag(op, s, bot, level, tick);
         else {
             long at = place(op, i);
@@ -434,29 +461,233 @@ public final class AiEntry {
                 }
                 long waited = tick - op.phaseAt;
                 if (!(all && (op.members.size() >= Math.min(2, op.slots.length) || waited >= WAIT_SECOND) || waited >= STACK_MAX)) return;
-                entries++;
-                int[] w0 = why.clone();
-                // (a foe known of gone after by it a moment ago, since the room was last weighed as one fought in: not a
-                // room fought in only)
-                boolean live = op.liveAt != Long.MIN_VALUE && op.liveAt >= op.fragSeen && tick - op.liveAt <= FRAG_AGAIN;
-                boolean noFrag = op.noFrag && !live;
-                op.fragPlace = op.fragSeen != Long.MIN_VALUE && !live;
-                op.thrower = all && !noFrag ? thrower(op, level, tick) : null;
-                if (noFrag) {
-                    noFragFought++;
-                    fate("a room fought in, no grenade: too big, or one of its side or one to be spared there");
-                } else if (!all) {
-                    unstacked++;
-                    fate("in before all were beside it (" + op.members.size() + " there)");
-                } else if (op.thrower == null) {
-                    noPlan++;
-                    fate("no throw found: none in the room " + (why[0] - w0[0]) + ", one of it not behind the wall " + (why[1] - w0[1]) + ", another of its side " + (why[2] - w0[2])
-                            + ", a player " + (why[3] - w0[3]) + ", one to be spared " + (why[4] - w0[4]) + "; with a grenade " + armed(op));
+                if (all && !op.sliced) {
+                    op.sliced = true;
+                    if (slice() && slice(op, level)) {
+                        slices++;
+                        phase(op, SLICE, tick);
+                        return;
+                    }
                 }
-                if (op.thrower != null) phase(op, FRAG, tick);
-                else in(op, tick);
-                if (op.thrower != null && firstThrower != null) firstThrower.accept(op.thrower);
+                decide(op, level, tick, all);
             }
+            case SLICE -> {
+                boolean over = tick - op.phaseAt > SLICE_MAX, going = false;
+                for (int k = 0; k < op.slicers.size(); k++) {
+                    AiBot b = op.slicers.get(k);
+                    if (!AiSquads.live(b)) continue;
+                    // a foe in its sight or a shot at it: the slicing is over, they fight as ever
+                    if (b.memory.shotTick() >= op.phaseAt || seen(op, b)) {
+                        over = true;
+                        break;
+                    }
+                    if (op.arcAt[k] < op.arcs.get(k).length) going = true;
+                }
+                if (!over && going) return;
+                for (AiBot b : op.slicers) if (AiSquads.live(b)) aimAtSeen(op, b);
+                decide(op, level, tick, true);
+            }
+            default -> advanceRest(op, level, tick);
+        }
+    }
+
+    static boolean slice() {
+        return slice && ReaimTimes.flag(SLICE_KEY, true);
+    }
+
+    /** a room this big at most is sliced (its cells looked at from each place round the opening, once) */
+    static final int SLICE_CELLS = 96;
+
+    /**
+     * The slicing's places for those of the stack at each end of the opening (one a side): from where on the outer
+     * side, SLICE_FAR blocks off at most, the room's cells are seen through it, picked so each shows SLICE_NEW or more
+     * none before did, gone through from the widest angle to the opening's line; the gun at each on what it shows first.
+     * False when there is none to do (a turn, a big room, nothing seen from round it).
+     */
+    private static boolean slice(Op op, ServerLevel level) {
+        AiRooms.Plan plan = op.plan;
+        AiRooms.Way w = op.way;
+        if (plan == null || w == null || w.turn >= 0 || op.room < 0 || plan.size[op.room] > SLICE_CELLS) return false;
+        long end = op.room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
+        int in = w.in(op.room), out = Dirs.opposite(in), lx = -Dirs.DZ[in], lz = Dirs.DX[in];
+        int ex = BlockPos.getX(end), ey = BlockPos.getY(end), ez = BlockPos.getZ(end);
+        long[] cells = plan.cells()[op.room];
+        VoxelRay.Source src = AiBots.voxels(level);
+        Vec3 mouth = mid(end, 1.0);
+        boolean[] sides = new boolean[3];
+        for (int i = 0; i < op.members.size() && i < op.places.size(); i++) {
+            long at = op.places.get(i)[0];
+            int side = Integer.signum((BlockPos.getX(at) - ex) * lx + (BlockPos.getZ(at) - ez) * lz);
+            if (side == 0 || sides[side + 1]) continue;
+            sides[side + 1] = true;
+            // the places on its side (or on the line), each with the room's cells it sees
+            List<long[]> spots = new ArrayList<>();
+            List<java.util.BitSet> sees = new ArrayList<>();
+            int r = (int) SLICE_FAR;
+            for (int dx = -r; dx <= r; dx++)
+                for (int dz = -r; dz <= r; dz++) {
+                    int depth = dx * Dirs.DX[out] + dz * Dirs.DZ[out], lat = dx * lx + dz * lz;
+                    if (depth < 1 || lat * side < 0 || dx * dx + dz * dz > SLICE_FAR * SLICE_FAR) continue;
+                    int x = ex + dx, z = ez + dz;
+                    long c = BlockPos.asLong(x, ey, z);
+                    if (plan.room(c) == op.room || !Voxel.open(src.voxel(x, ey, z)) || !Voxel.open(src.voxel(x, ey + 1, z)) || Voxel.open(src.voxel(x, ey - 1, z)))
+                        continue;
+                    double eyeY = ey + 1.62;
+                    if (!VoxelRay.clear(src, x + 0.5, eyeY, z + 0.5, mouth.x, mouth.y, mouth.z, Voxel.SIGHT)) continue;
+                    java.util.BitSet seen = new java.util.BitSet(cells.length);
+                    for (int k = 0; k < cells.length; k++) {
+                        Vec3 t = mid(cells[k], 1.0);
+                        if (VoxelRay.clear(src, x + 0.5, eyeY, z + 0.5, t.x, t.y, t.z, Voxel.SIGHT)) seen.set(k);
+                    }
+                    if (seen.isEmpty()) continue;
+                    spots.add(new long[] {c, depth, lat});
+                    sees.add(seen);
+                }
+            // the ones that show most none before did, at most SLICE_POINTS
+            java.util.BitSet all = new java.util.BitSet(cells.length);
+            List<Integer> picked = new ArrayList<>();
+            while (picked.size() < SLICE_POINTS) {
+                int best = -1, most = SLICE_NEW - 1;
+                for (int k = 0; k < spots.size(); k++) {
+                    if (picked.contains(k)) continue;
+                    java.util.BitSet n = (java.util.BitSet) sees.get(k).clone();
+                    n.andNot(all);
+                    if (n.cardinality() > most) {
+                        most = n.cardinality();
+                        best = k;
+                    }
+                }
+                if (best < 0) break;
+                picked.add(best);
+                all.or(sees.get(best));
+            }
+            if (picked.isEmpty()) continue;
+            // far to near: the widest angle off the opening's line first, the line itself last
+            picked.sort((a, b) -> {
+                long[] pa = spots.get(a), pb = spots.get(b);
+                int c = Double.compare(Math.abs(Math.atan2(pb[2], pb[1])), Math.abs(Math.atan2(pa[2], pa[1])));
+                return c != 0 ? c : Double.compare(pb[1] * pb[1] + pb[2] * pb[2], pa[1] * pa[1] + pa[2] * pa[2]);
+            });
+            long[] arc = new long[picked.size()];
+            Vec3[] aims = new Vec3[picked.size()];
+            java.util.BitSet shown = new java.util.BitSet(cells.length);
+            for (int k = 0; k < arc.length; k++) {
+                int q = picked.get(k);
+                arc[k] = spots.get(q)[0];
+                java.util.BitSet n = (java.util.BitSet) sees.get(q).clone();
+                n.andNot(shown);
+                if (n.isEmpty()) n = sees.get(q);
+                shown.or(sees.get(q));
+                double sx = 0, sy = 0, sz = 0;
+                for (int b = n.nextSetBit(0); b >= 0; b = n.nextSetBit(b + 1)) {
+                    Vec3 t = mid(cells[b], 1.2);
+                    sx += t.x;
+                    sy += t.y;
+                    sz += t.z;
+                }
+                int m = n.cardinality();
+                aims[k] = new Vec3(sx / m, sy / m, sz / m);
+            }
+            op.slicers.add(op.members.get(i));
+            op.arcs.add(arc);
+            op.arcAims.add(aims);
+        }
+        op.arcAt = new int[op.slicers.size()];
+        op.arcSince = new long[op.slicers.size()];
+        java.util.Arrays.fill(op.arcSince, Long.MIN_VALUE);
+        return !op.slicers.isEmpty();
+    }
+
+    /** one slicing: to its next place, slowly, its gun on what that shows; a while there, then on */
+    private static Vec3 sliceStep(Op op, int k, AiBot bot, long tick) {
+        long[] arc = op.arcs.get(k);
+        Vec3[] aims = op.arcAims.get(k);
+        int a = op.arcAt[k];
+        if (a >= arc.length) {
+            if (!bot.mover.idle()) bot.mover.stop();
+            return aims[aims.length - 1];
+        }
+        if (!bot.mover.goalIs(arc[a])) {
+            bot.mover.costs(PathSearch.Cost.NONE);
+            bot.mover.goTo(arc[a], 0.35, AiSoldier.CREEP);
+        }
+        if (bot.mover.failed()) {
+            op.arcAt[k]++;
+            op.arcSince[k] = Long.MIN_VALUE;
+        } else if (bot.mover.arrived()) {
+            if (op.arcSince[k] == Long.MIN_VALUE) {
+                op.arcSince[k] = tick;
+                slicePoints++;
+            } else if (tick - op.arcSince[k] >= SLICE_DWELL) {
+                op.arcAt[k]++;
+                op.arcSince[k] = Long.MIN_VALUE;
+            }
+        }
+        return aims[Math.min(a, aims.length - 1)];
+    }
+
+    /** a foe in its sight now */
+    private static boolean seen(Op op, AiBot b) {
+        for (TargetMemory.Contact c : b.memory.contacts()) if (c.state == TargetMemory.State.VISIBLE) return true;
+        return false;
+    }
+
+    /** a foe it saw in the room: the grenade goes at it, and one goes in */
+    private static void aimAtSeen(Op op, AiBot b) {
+        if (op.plan == null) return;
+        for (TargetMemory.Contact c : b.memory.contacts()) {
+            if (c.state != TargetMemory.State.VISIBLE || op.plan.room(cell(c.x, c.y + 0.2, c.z)) != op.room) continue;
+            op.aim = new Vec3(c.x, c.y, c.z);
+            if (!op.sliceFoe) sliceSeen++;
+            op.sliceFoe = true;
+        }
+    }
+
+    /** going in, the first two each to its side: the gun on the far corner along the wall the opening is in; else null */
+    private static @Nullable Vec3 corner(Op op, AiRooms.Plan plan, int i) {
+        AiRooms.Way w = op.way;
+        if (w == null || i >= 2 || op.inner.length == 0) return null;
+        long start = op.inner[i % op.inner.length], mouth = op.room == w.b ? w.cells[w.cells.length - 1] : w.cells[0];
+        int in = w.in(op.room), lx = -Dirs.DZ[in], lz = Dirs.DX[in];
+        int side = Integer.signum((BlockPos.getX(start) - BlockPos.getX(mouth)) * lx + (BlockPos.getZ(start) - BlockPos.getZ(mouth)) * lz);
+        if (side == 0) return null;
+        long c = start;
+        for (int k = 0; k < 16; k++) {
+            long n = BlockPos.asLong(BlockPos.getX(c) + lx * side, BlockPos.getY(c), BlockPos.getZ(c) + lz * side);
+            if (plan.room(n) != op.room) break;
+            c = n;
+        }
+        return c == start ? null : mid(c, 1.1);
+    }
+
+    /** after the stack (and its slicing): a grenade in, or in without one (or held by the way in) */
+    private static void decide(Op op, ServerLevel level, long tick, boolean all) {
+        entries++;
+        int[] w0 = why.clone();
+        // (a foe known of gone after by it a moment ago, since the room was last weighed as one fought in: not a
+        // room fought in only)
+        boolean live = op.liveAt != Long.MIN_VALUE && op.liveAt >= op.fragSeen && tick - op.liveAt <= FRAG_AGAIN || op.sliceFoe;
+        boolean noFrag = op.noFrag && !live;
+        op.fragPlace = op.fragSeen != Long.MIN_VALUE && !live;
+        op.thrower = all && !noFrag ? thrower(op, level, tick) : null;
+        if (noFrag) {
+            noFragFought++;
+            fate("a room fought in, no grenade: too big, or one of its side or one to be spared there");
+        } else if (!all) {
+            unstacked++;
+            fate("in before all were beside it (" + op.members.size() + " there)");
+        } else if (op.thrower == null) {
+            noPlan++;
+            fate("no throw found: none in the room " + (why[0] - w0[0]) + ", one of it not behind the wall " + (why[1] - w0[1]) + ", another of its side " + (why[2] - w0[2])
+                    + ", a player " + (why[3] - w0[3]) + ", one to be spared " + (why[4] - w0[4]) + "; with a grenade " + armed(op));
+        }
+        if (op.thrower != null) phase(op, FRAG, tick);
+        else in(op, tick);
+        if (op.thrower != null && firstThrower != null) firstThrower.accept(op.thrower);
+    }
+
+    private static void advanceRest(Op op, ServerLevel level, long tick) {
+        switch (op.phase) {
             case FRAG -> {
                 if (op.handing != Long.MIN_VALUE) {
                     hand(op, level, tick);
