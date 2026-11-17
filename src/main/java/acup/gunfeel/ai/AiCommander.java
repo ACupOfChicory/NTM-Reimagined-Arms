@@ -730,7 +730,9 @@ public final class AiCommander {
                 }
             }
             // its own side of the point, not by water (a ford is narrow)
-            double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of <= 1 ? 0 : nearWater(grid, tx, tz) ? 1 : 3;
+            // (by water, or at a point to be reached on it: nearly on it)
+            boolean onIt = way != null && o.at < way.size() && reached(grid, way, o.at) < REACHED;
+            double a = Math.PI * 2 * o.slot / Math.max(1, o.of), spread = o.of <= 1 ? 0 : onIt || nearWater(grid, tx, tz) ? 1 : 3;
             tx += Math.cos(a) * spread;
             tz += Math.sin(a) * spread;
             double l = Math.hypot(tx - x, tz - z);
@@ -760,6 +762,11 @@ public final class AiCommander {
             double along = Math.atan2(tz - z, tx - x) + (o.fails == 0 ? 0 : (o.fails % 2 == 1 ? 1 : -1) * Math.PI / 4 * ((o.fails + 1) / 2));
             double step = Math.min(DRIFT_STEP, l);
             int bx = Mth.floor(x + Math.cos(along) * step), bz = Mth.floor(z + Math.sin(along) * step);
+            // its point within the block it stands on (a step to it goes nowhere): reached, on to the next
+            if (bx == Mth.floor(x) && bz == Mth.floor(z) && o.fails == 0) {
+                if (way != null && o.at < way.size() - 1) o.at++;
+                continue;
+            }
             // a chunk not loaded: it waits there
             if (!level.hasChunk(bx >> 4, bz >> 4)) continue;
             int ny = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
