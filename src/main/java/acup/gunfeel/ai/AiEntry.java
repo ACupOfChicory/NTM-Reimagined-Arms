@@ -172,7 +172,7 @@ public final class AiEntry {
         /** when one of the side last went after a foe by this entry known by one of theirs it shot down (MIN_VALUE: none) */
         long funnelAt = Long.MIN_VALUE;
         /** its slicing: done (or none to do); those slicing, their places in order, the gun's aim at each, how far on, since when there */
-        boolean sliced, sliceFoe;
+        boolean sliced, sliceFoe, decided;
         final List<AiBot> slicers = new ArrayList<>(2);
         final List<long[]> arcs = new ArrayList<>(2);
         final List<Vec3[]> arcAims = new ArrayList<>(2);
@@ -461,14 +461,9 @@ public final class AiEntry {
                 }
                 long waited = tick - op.phaseAt;
                 if (!(all && (op.members.size() >= Math.min(2, op.slots.length) || waited >= WAIT_SECOND) || waited >= STACK_MAX)) return;
-                if (all && !op.sliced) {
-                    op.sliced = true;
-                    if (slice() && slice(op, level)) {
-                        slices++;
-                        phase(op, SLICE, tick);
-                        return;
-                    }
-                }
+                // a foe gone after in there a moment ago: its grenade first, the slicing after it; else the slicing
+                // first (a foe it shows: the grenade then)
+                if (all && !live(op, tick) && sliceNow(op, level, tick)) return;
                 decide(op, level, tick, all);
             }
             case SLICE -> {
@@ -485,10 +480,31 @@ public final class AiEntry {
                 }
                 if (!over && going) return;
                 for (AiBot b : op.slicers) if (AiSquads.live(b)) aimAtSeen(op, b);
-                decide(op, level, tick, true);
+                if (!op.decided) decide(op, level, tick, true);
+                else phase(op, GO, tick);
             }
             default -> advanceRest(op, level, tick);
         }
+    }
+
+    /** a foe known of gone after by it a moment ago, since the room was last weighed as one fought in (not a room fought in only) */
+    private static boolean live(Op op, long tick) {
+        return op.liveAt != Long.MIN_VALUE && op.liveAt >= op.fragSeen && tick - op.liveAt <= FRAG_AGAIN;
+    }
+
+    /** the slicing begun, if not done yet and there is one to do; false: none (on to what comes next) */
+    private static boolean sliceNow(Op op, ServerLevel level, long tick) {
+        if (op.sliced) return false;
+        op.sliced = true;
+        if (!slice() || !slice(op, level)) return false;
+        slices++;
+        phase(op, SLICE, tick);
+        return true;
+    }
+
+    /** in: through the slicing first, if not done yet */
+    private static void go(Op op, ServerLevel level, long tick) {
+        if (!sliceNow(op, level, tick)) phase(op, GO, tick);
     }
 
     static boolean slice() {
@@ -502,102 +518,134 @@ public final class AiEntry {
      * The slicing's places for those of the stack at each end of the opening (one a side): from where on the outer
      * side, SLICE_FAR blocks off at most, the room's cells are seen through it, picked so each shows SLICE_NEW or more
      * none before did, gone through from the widest angle to the nearest the opening's line; the gun at each on what it
-     * shows first.
-     * False when there is none to do (a turn, a big room, nothing seen from round it).
+     * shows first. Where none is off the opening's line (a passage along the wall it is in), the head of the stack looks
+     * in from the one place on it that shows most, a moment. False when there is none to do (a turn, a big room, nothing
+     * seen from round it).
      */
     private static boolean slice(Op op, ServerLevel level) {
         AiRooms.Plan plan = op.plan;
         AiRooms.Way w = op.way;
-        if (plan == null || w == null || w.turn >= 0 || op.room < 0 || plan.size[op.room] > SLICE_CELLS) return false;
+        if (plan == null || w == null || w.turn >= 0 || op.room < 0 || plan.size[op.room] > SLICE_CELLS || op.members.isEmpty()) return false;
+        long end = op.room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
+        int in = w.in(op.room), lx = -Dirs.DZ[in], lz = Dirs.DX[in];
+        int ex = BlockPos.getX(end), ez = BlockPos.getZ(end);
+        boolean[] sides = new boolean[3];
+        for (int i = 0; i < op.members.size(); i++) {
+            AiBot b = op.members.get(i);
+            int side = Integer.signum((Mth.floor(b.mob.getX()) - ex) * lx + (Mth.floor(b.mob.getZ()) - ez) * lz);
+            if (side == 0 || sides[side + 1]) continue;
+            sides[side + 1] = true;
+            arc(op, level, b, side, SLICE_POINTS);
+        }
+        if (op.slicers.isEmpty()) arc(op, level, op.members.get(0), 0, 1);
+        op.arcAt = new int[op.slicers.size()];
+        op.arcSince = new long[op.slicers.size()];
+        java.util.Arrays.fill(op.arcSince, Long.MIN_VALUE);
+        return !op.slicers.isEmpty();
+    }
+
+    /** one's places round the opening on its side (0: on the opening's line), at most points of them; none, none added */
+    private static void arc(Op op, ServerLevel level, AiBot bot, int side, int points) {
+        AiRooms.Plan plan = op.plan;
+        AiRooms.Way w = op.way;
         long end = op.room == w.b ? w.cells[0] : w.cells[w.cells.length - 1];
         int in = w.in(op.room), out = Dirs.opposite(in), lx = -Dirs.DZ[in], lz = Dirs.DX[in];
         int ex = BlockPos.getX(end), ey = BlockPos.getY(end), ez = BlockPos.getZ(end);
         long[] cells = plan.cells()[op.room];
         VoxelRay.Source src = AiBots.voxels(level);
         Vec3 mouth = mid(end, 1.0);
-        boolean[] sides = new boolean[3];
-        for (int i = 0; i < op.members.size() && i < op.places.size(); i++) {
-            long at = op.places.get(i)[0];
-            int side = Integer.signum((BlockPos.getX(at) - ex) * lx + (BlockPos.getZ(at) - ez) * lz);
-            if (side == 0 || sides[side + 1]) continue;
-            sides[side + 1] = true;
-            // the places on its side (or on the line), each with the room's cells it sees
-            List<long[]> spots = new ArrayList<>();
-            List<java.util.BitSet> sees = new ArrayList<>();
-            int r = (int) SLICE_FAR;
-            for (int dx = -r; dx <= r; dx++)
-                for (int dz = -r; dz <= r; dz++) {
-                    int depth = dx * Dirs.DX[out] + dz * Dirs.DZ[out], lat = dx * lx + dz * lz;
-                    // (not on the opening's line: that is the lane of fire of one in there waiting for it; the thrower's)
-                    if (depth < 1 || lat * side <= 0 || dx * dx + dz * dz > SLICE_FAR * SLICE_FAR) continue;
-                    int x = ex + dx, z = ez + dz;
-                    long c = BlockPos.asLong(x, ey, z);
-                    if (plan.room(c) == op.room || !Voxel.open(src.voxel(x, ey, z)) || !Voxel.open(src.voxel(x, ey + 1, z)) || Voxel.open(src.voxel(x, ey - 1, z)))
-                        continue;
-                    double eyeY = ey + 1.62;
-                    if (!VoxelRay.clear(src, x + 0.5, eyeY, z + 0.5, mouth.x, mouth.y, mouth.z, Voxel.SIGHT)) continue;
-                    java.util.BitSet seen = new java.util.BitSet(cells.length);
-                    for (int k = 0; k < cells.length; k++) {
-                        Vec3 t = mid(cells[k], 1.0);
-                        if (VoxelRay.clear(src, x + 0.5, eyeY, z + 0.5, t.x, t.y, t.z, Voxel.SIGHT)) seen.set(k);
-                    }
-                    if (seen.isEmpty()) continue;
-                    spots.add(new long[] {c, depth, lat});
-                    sees.add(seen);
+        // the places on its side, each with the room's cells it sees
+        List<long[]> spots = new ArrayList<>();
+        List<java.util.BitSet> sees = new ArrayList<>();
+        int r = (int) SLICE_FAR;
+        for (int dx = -r; dx <= r; dx++)
+            for (int dz = -r; dz <= r; dz++) {
+                int depth = dx * Dirs.DX[out] + dz * Dirs.DZ[out], lat = dx * lx + dz * lz;
+                // (off the opening's line where there is room for it: that is the lane of fire of one in there
+                // waiting for it, and the thrower's)
+                if (depth < 1 || (side == 0 ? lat != 0 : lat * side <= 0) || dx * dx + dz * dz > SLICE_FAR * SLICE_FAR) continue;
+                int x = ex + dx, z = ez + dz;
+                long c = BlockPos.asLong(x, ey, z);
+                if (plan.room(c) == op.room || !Voxel.open(src.voxel(x, ey, z)) || !Voxel.open(src.voxel(x, ey + 1, z)) || Voxel.open(src.voxel(x, ey - 1, z)))
+                    continue;
+                double eyeY = ey + 1.62;
+                if (!VoxelRay.clear(src, x + 0.5, eyeY, z + 0.5, mouth.x, mouth.y, mouth.z, Voxel.SIGHT)) continue;
+                java.util.BitSet seen = new java.util.BitSet(cells.length);
+                for (int k = 0; k < cells.length; k++) {
+                    Vec3 t = mid(cells[k], 1.0);
+                    if (VoxelRay.clear(src, x + 0.5, eyeY, z + 0.5, t.x, t.y, t.z, Voxel.SIGHT)) seen.set(k);
                 }
-            // the ones that show most none before did, at most SLICE_POINTS
-            java.util.BitSet all = new java.util.BitSet(cells.length);
-            List<Integer> picked = new ArrayList<>();
-            while (picked.size() < SLICE_POINTS) {
-                int best = -1, most = SLICE_NEW - 1;
-                for (int k = 0; k < spots.size(); k++) {
-                    if (picked.contains(k)) continue;
-                    java.util.BitSet n = (java.util.BitSet) sees.get(k).clone();
-                    n.andNot(all);
-                    if (n.cardinality() > most) {
-                        most = n.cardinality();
-                        best = k;
-                    }
-                }
-                if (best < 0) break;
-                picked.add(best);
-                all.or(sees.get(best));
+                if (seen.isEmpty()) continue;
+                spots.add(new long[] {c, depth, lat});
+                sees.add(seen);
             }
-            if (picked.isEmpty()) continue;
-            // far to near: the widest angle off the opening's line first, the line itself last
-            picked.sort((a, b) -> {
-                long[] pa = spots.get(a), pb = spots.get(b);
-                int c = Double.compare(Math.abs(Math.atan2(pb[2], pb[1])), Math.abs(Math.atan2(pa[2], pa[1])));
-                return c != 0 ? c : Double.compare(pb[1] * pb[1] + pb[2] * pb[2], pa[1] * pa[1] + pa[2] * pa[2]);
-            });
-            long[] arc = new long[picked.size()];
-            Vec3[] aims = new Vec3[picked.size()];
-            java.util.BitSet shown = new java.util.BitSet(cells.length);
-            for (int k = 0; k < arc.length; k++) {
-                int q = picked.get(k);
-                arc[k] = spots.get(q)[0];
-                java.util.BitSet n = (java.util.BitSet) sees.get(q).clone();
-                n.andNot(shown);
-                if (n.isEmpty()) n = sees.get(q);
-                shown.or(sees.get(q));
-                double sx = 0, sy = 0, sz = 0;
-                for (int b = n.nextSetBit(0); b >= 0; b = n.nextSetBit(b + 1)) {
-                    Vec3 t = mid(cells[b], 1.2);
-                    sx += t.x;
-                    sy += t.y;
-                    sz += t.z;
+        // the ones that show most none before did, at most points
+        java.util.BitSet all = new java.util.BitSet(cells.length);
+        List<Integer> picked = new ArrayList<>();
+        while (picked.size() < points) {
+            int best = -1, most = SLICE_NEW - 1;
+            for (int k = 0; k < spots.size(); k++) {
+                if (picked.contains(k)) continue;
+                java.util.BitSet n = (java.util.BitSet) sees.get(k).clone();
+                n.andNot(all);
+                if (n.cardinality() > most) {
+                    most = n.cardinality();
+                    best = k;
                 }
-                int m = n.cardinality();
-                aims[k] = new Vec3(sx / m, sy / m, sz / m);
             }
-            op.slicers.add(op.members.get(i));
-            op.arcs.add(arc);
-            op.arcAims.add(aims);
+            if (best < 0) break;
+            picked.add(best);
+            all.or(sees.get(best));
         }
-        op.arcAt = new int[op.slicers.size()];
-        op.arcSince = new long[op.slicers.size()];
-        java.util.Arrays.fill(op.arcSince, Long.MIN_VALUE);
-        return !op.slicers.isEmpty();
+        if (picked.isEmpty()) return;
+        // far to near: the widest angle off the opening's line first
+        picked.sort((a, b) -> {
+            long[] pa = spots.get(a), pb = spots.get(b);
+            int c = Double.compare(Math.abs(Math.atan2(pb[2], pb[1])), Math.abs(Math.atan2(pa[2], pa[1])));
+            return c != 0 ? c : Double.compare(pb[1] * pb[1] + pb[2] * pb[2], pa[1] * pa[1] + pa[2] * pa[2]);
+        });
+        long[] arc = new long[picked.size()];
+        Vec3[] aims = new Vec3[picked.size()];
+        java.util.BitSet shown = new java.util.BitSet(cells.length);
+        for (int k = 0; k < arc.length; k++) {
+            int q = picked.get(k);
+            arc[k] = spots.get(q)[0];
+            java.util.BitSet n = (java.util.BitSet) sees.get(q).clone();
+            n.andNot(shown);
+            if (n.isEmpty()) n = sees.get(q);
+            shown.or(sees.get(q));
+            // (on the opening's line: the gun on the far end of what it shows, where the corners are)
+            if (side == 0) n = far(n, cells, mouth);
+            double sx = 0, sy = 0, sz = 0;
+            for (int b = n.nextSetBit(0); b >= 0; b = n.nextSetBit(b + 1)) {
+                Vec3 t = mid(cells[b], 1.2);
+                sx += t.x;
+                sy += t.y;
+                sz += t.z;
+            }
+            int m = n.cardinality();
+            aims[k] = new Vec3(sx / m, sy / m, sz / m);
+        }
+        op.slicers.add(bot);
+        op.arcs.add(arc);
+        op.arcAims.add(aims);
+    }
+
+    /** of the cells seen, the one furthest to the side of the opening (a corner by its wall), alone */
+    private static java.util.BitSet far(java.util.BitSet n, long[] cells, Vec3 mouth) {
+        int best = n.nextSetBit(0);
+        double most = -1;
+        for (int b = best; b >= 0; b = n.nextSetBit(b + 1)) {
+            Vec3 t = mid(cells[b], 0);
+            double d = Math.abs(t.x - mouth.x) + Math.abs(t.z - mouth.z);
+            if (d > most) {
+                most = d;
+                best = b;
+            }
+        }
+        java.util.BitSet one = new java.util.BitSet();
+        one.set(best);
+        return one;
     }
 
     /** one slicing: to its next place, slowly, its gun on what that shows; a while there, then on */
@@ -663,11 +711,10 @@ public final class AiEntry {
 
     /** after the stack (and its slicing): a grenade in, or in without one (or held by the way in) */
     private static void decide(Op op, ServerLevel level, long tick, boolean all) {
+        op.decided = true;
         entries++;
         int[] w0 = why.clone();
-        // (a foe known of gone after by it a moment ago, since the room was last weighed as one fought in: not a
-        // room fought in only)
-        boolean live = op.liveAt != Long.MIN_VALUE && op.liveAt >= op.fragSeen && tick - op.liveAt <= FRAG_AGAIN || op.sliceFoe;
+        boolean live = live(op, tick) || op.sliceFoe;
         boolean noFrag = op.noFrag && !live;
         op.fragPlace = op.fragSeen != Long.MIN_VALUE && !live;
         op.thrower = all && !noFrag ? thrower(op, level, tick) : null;
@@ -683,7 +730,7 @@ public final class AiEntry {
                     + ", a player " + (why[3] - w0[3]) + ", one to be spared " + (why[4] - w0[4]) + "; with a grenade " + armed(op));
         }
         if (op.thrower != null) phase(op, FRAG, tick);
-        else in(op, tick);
+        else in(op, level, tick);
         if (op.thrower != null && firstThrower != null) firstThrower.accept(op.thrower);
     }
 
@@ -728,14 +775,14 @@ public final class AiEntry {
                         }
                     }
                 Entity g = level.getEntity(op.fragId);
-                if (g == null || g.isRemoved() || tick - op.phaseAt > AiGrenades.FUSE + 10) phase(op, GO, tick);
+                if (g == null || g.isRemoved() || tick - op.phaseAt > AiGrenades.FUSE + 10) go(op, level, tick);
             }
             case HOLD -> {
                 boolean stale = tick - op.funnelAt > HOLD_STALE, late = tick - op.phaseAt > HOLD_MAX;
                 if (late) heldOut++;
                 if (stale || late) {
                     fate("held by the way in " + (tick - op.phaseAt) + " ticks, in: " + (late ? "out of time" : "the foe no more gone after"));
-                    phase(op, GO, tick);
+                    go(op, level, tick);
                 }
             }
             case GO -> {
@@ -770,16 +817,16 @@ public final class AiEntry {
         }
         fate("thrower " + op.lostHow + ", in without one: " + (armed == 0 ? "none else with a grenade" : "no throw found: none in the room " + (why[0] - op.why0[0])
                 + ", one of it not behind the wall " + (why[1] - op.why0[1]) + ", another of its side " + (why[2] - op.why0[2]) + ", a player " + (why[3] - op.why0[3]) + ", one to be spared " + (why[4] - op.why0[4])));
-        in(op, tick);
+        in(op, level, tick);
     }
 
     /** in with no grenade: at once, or held beside the way in while a foe that shot one of them down there is gone after */
-    private static void in(Op op, long tick) {
+    private static void in(Op op, ServerLevel level, long tick) {
         if (op.funnelAt != Long.MIN_VALUE && tick - op.funnelAt <= HOLD_STALE) {
             held++;
             fate("held by the way in: a foe in there shot one of them down, no grenade");
             phase(op, HOLD, tick);
-        } else phase(op, GO, tick);
+        } else go(op, level, tick);
     }
 
     private static void fate(String s) {
@@ -832,7 +879,7 @@ public final class AiEntry {
             if (++op.tries >= FRAG_TRIES) {
                 noThrow++;
                 fate("stepped out and threw none");
-                in(op, tick);
+                in(op, level, tick);
             }
             return;
         }
