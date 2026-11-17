@@ -422,6 +422,7 @@ final class AiCheckBunkerNtm {
     private final boolean[] upped = new boolean[SQUAD];
 
     private void spawnUp() {
+        AiHatch.wayUpFails.clear();
         roundAt = ticks;
         // (on: the foe on the ground is a still target, no grenade comes down; the way up a shaft is AiHatch's)
         AiHatch.on = hatchOn;
@@ -496,6 +497,7 @@ final class AiCheckBunkerNtm {
         if (rt % 400 == 0 && rt > 0) check.out(String.format(Locale.ROOT, "     bunkerntm up, tick %d:%s", rt, where()));
         if (rt < UP_RUN && up < SQUAD) return false;
         check.out(String.format(Locale.ROOT, "     bunkerntm up: %d of %d up the shaft through the steel hatch by tick %d (all at %d);%s", up, SQUAD, rt, upAt, where()));
+        check.out(String.format(Locale.ROOT, "     bunkerntm up: walks to the way up that failed %d%s", AiHatch.wayUpFails.size(), AiHatch.wayUpFails.isEmpty() ? "" : "; " + String.join("; ", AiHatch.wayUpFails)));
         check.check(String.format(Locale.ROOT, "bunkerntm: the squad comes up the sixty-deep shaft through NTM's steel hatch, all of it (%d of %d in %d ticks)", up, SQUAD, UP_RUN), up == SQUAD);
         for (Mob m : squad) m.discard();
         squad.clear();

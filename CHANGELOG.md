@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers who find no way to the ladder up a shaft after a lost enemy
+  try again a moment later instead of standing at its foot searching for
+  good, and while they are stuck one of their squad waiting its turn goes
+  up in their place.
+
 ## X1567
 
 - The AI soldier sent to throw a grenade into a room before the squad goes

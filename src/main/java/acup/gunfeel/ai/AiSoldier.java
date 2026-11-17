@@ -2154,8 +2154,34 @@ public final class AiSoldier implements AiBrain {
             wayUp = AiHatch.on() ? AiHatch.wayUp(level, bot, c) : Long.MIN_VALUE;
         }
         long up = wayUp;
+        if (c.id != wayUpFor) {
+            wayUpFor = c.id;
+            wayUpMisses = 0;
+            wayUpAgain = Long.MIN_VALUE;
+        }
+        // its walk to it failed WAY_UP_TRIES times: the way up given up for this one, its search from the foot
+        if (wayUpMisses >= WAY_UP_TRIES) up = Long.MIN_VALUE;
         if (up != Long.MIN_VALUE) {
-            if (!bot.mover.goalIs(up)) {
+            // on the ladder: on its way up, one of its side's hunters again
+            if (bot.mob.onClimbable()) {
+                wayUpMisses = 0;
+                wayUpAgain = Long.MIN_VALUE;
+            }
+            if (bot.mover.goalIs(up) && bot.mover.failed()) {
+                // no way to it found: a while, and again (the way was taken, its map not read yet: one stood at a
+                // shaft's foot searching for good, the stands)
+                if (wayUpAgain == Long.MIN_VALUE) {
+                    wayUpMisses++;
+                    wayUpAgain = tick + WAY_UP_PAUSE;
+                    AiHatch.wayUpFailed(bot, level, up, wayUpMisses);
+                }
+                if (wayUpMisses < WAY_UP_TRIES && tick >= wayUpAgain) {
+                    bot.mover.stop();
+                    bot.mover.costs(PathSearch.Cost.NONE);
+                    bot.mover.goTo(up, 0.35, WALK);
+                    wayUpAgain = Long.MIN_VALUE;
+                }
+            } else if (!bot.mover.goalIs(up)) {
                 bot.mover.costs(PathSearch.Cost.NONE);
                 bot.mover.goTo(up, 0.35, WALK);
             }
@@ -2382,6 +2408,21 @@ public final class AiSoldier implements AiBrain {
     /** the way up a shaft a foe was lost up (AiHatch.wayUp), looked for again from wayUpNext on */
     private long wayUp = Long.MIN_VALUE, wayUpNext;
     static final int WAY_UP_EVERY = 20;
+    /**
+     * Its walks to the way up for target wayUpFor that failed: after each a pause till wayUpAgain (MIN_VALUE: none on),
+     * then again; WAY_UP_TRIES of them and the way up is given up for that target
+     */
+    private int wayUpFor = -1, wayUpMisses;
+    private long wayUpAgain = Long.MIN_VALUE;
+    static final int WAY_UP_PAUSE = 40, WAY_UP_TRIES = 3;
+
+    /**
+     * Short of the way up a shaft: from its first failed walk to it till it is on the ladder (or the target another), its
+     * pauses and the walks again included; not one of its side's hunters (AiSquads), the place goes to one waiting
+     */
+    boolean wayUpStuck() {
+        return wayUpMisses > 0;
+    }
     /** the way it last went on a ladder: up 1, down -1, 0 none (on the ground) */
     private int climbWay;
     /** off a ladder idle: how far up or down its end is looked for, blocks; again after none or a failed walk, ticks */
