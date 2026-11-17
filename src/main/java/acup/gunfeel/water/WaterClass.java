@@ -173,6 +173,8 @@ public enum WaterClass {
     // the ammo item's path (hbm:<path>), "" when it has none
     static String ammoName(@Nullable BulletConfig c) {
         if (c == null) return "";
+        // a round of the mod's: as the NTM round it is made after (a Duplex round its SP, the rubber slug the slug)
+        c = acup.gunfeel.ammo.NewAmmo.waterLike(c);
         try {
             if (c.ammoItem != null) {
                 var key = BuiltInRegistries.ITEM.getKey(c.ammoItem.get());

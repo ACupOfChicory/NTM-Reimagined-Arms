@@ -668,6 +668,8 @@ DUPLEX field com/hbm/entity/projectile/EntityBulletBaseMK4 zOld D
 DUPLEX field com/hbm/entity/projectile/EntityBulletBaseMK4 zo D
 DUPLEX field com/hbm/items/weapon/sedna/BulletConfig id I
 DUPLEX field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
+DUPLEX field com/hbm/items/weapon/sedna/factory/XFactory12ga g12_slug Lcom/hbm/items/weapon/sedna/BulletConfig;
+DUPLEX field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 DUPLEX field com/hbm/items/weapon/sedna/factory/XFactory556mm r556_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 DUPLEX field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 DUPLEX field com/hbm/items/weapon/sedna/mags/MagazineBelt acceptedBullets Ljava/util/List;
@@ -1150,8 +1152,10 @@ NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig damageMult F
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig id I
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/BulletConfig spread F
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
+NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/factory/XFactory12ga g12_slug Lcom/hbm/items/weapon/sedna/BulletConfig;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/factory/XFactory556mm r556_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
+NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/mags/MagazineBelt acceptedBullets Ljava/util/List;
 NUCLEAR_BMG50 field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
 NUCLEAR_BMG50 field com/hbm/particle/SpentCasing$CasingType BOTTLENECK Lcom/hbm/particle/SpentCasing$CasingType;
@@ -1302,6 +1306,10 @@ RUBBER_SLUG field com/hbm/items/weapon/sedna/BulletConfig LAMBDA_STANDARD_ENTITY
 RUBBER_SLUG field com/hbm/items/weapon/sedna/BulletConfig id I
 RUBBER_SLUG field com/hbm/items/weapon/sedna/BulletConfig onEntityHit Ljava/util/function/BiConsumer;
 RUBBER_SLUG field com/hbm/items/weapon/sedna/factory/XFactory12ga g12 Lcom/hbm/items/weapon/sedna/BulletConfig;
+RUBBER_SLUG field com/hbm/items/weapon/sedna/factory/XFactory12ga g12_slug Lcom/hbm/items/weapon/sedna/BulletConfig;
+RUBBER_SLUG field com/hbm/items/weapon/sedna/factory/XFactory50 bmg50_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
+RUBBER_SLUG field com/hbm/items/weapon/sedna/factory/XFactory556mm r556_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
+RUBBER_SLUG field com/hbm/items/weapon/sedna/factory/XFactory762mm r762_sp Lcom/hbm/items/weapon/sedna/BulletConfig;
 RUBBER_SLUG field com/hbm/items/weapon/sedna/mags/MagazineBelt acceptedBullets Ljava/util/List;
 RUBBER_SLUG field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
 RUBBER_SLUG field com/hbm/particle/SpentCasing$CasingType SHOTGUN Lcom/hbm/particle/SpentCasing$CasingType;
@@ -1493,5 +1501,6 @@ TRACERS field com/hbm/items/weapon/sedna/BulletConfig onRicochet Ljava/util/func
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig ricochetAngle F
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig selfDamageDelay I
 TRACERS field com/hbm/items/weapon/sedna/BulletConfig velocity F
+TRACERS method com/hbm/client/render/RenderBulletMK4 setRenderer (Lcom/hbm/items/weapon/sedna/BulletConfig;Lcom/hbm/client/render/RenderBulletMK4$Tracer;)V
 TRACERS method com/hbm/client/render/RenderBulletMK4$State <init> ()V
 TRACERS method com/hbm/client/render/RenderBulletMK4$Tracer draw (Lcom/hbm/client/render/RenderBulletMK4$State;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;)V
