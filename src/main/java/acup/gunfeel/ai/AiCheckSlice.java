@@ -45,6 +45,14 @@ final class AiCheckSlice {
     private int round = -1, ticks;
     private final List<Mob> squad = new ArrayList<>(), held = new ArrayList<>();
     private final boolean[] in = new boolean[SQUAD], fell = new boolean[SQUAD];
+    /**
+     * each of the squad, kept every tick to tell where it fell: its part in the entry and mode, since when the corner
+     * one and the known one have it in sight (-1: not now), the last tick it stood before the way in
+     */
+    private final String[] role = new String[SQUAD], mw = new String[SQUAD];
+    private final int[] cornerSees = new int[SQUAD], knownSees = new int[SQUAD], frontAt = new int[SQUAD];
+    /** the stands' counts of where they fell before any went in: before the way in, beside it, on the way there; and how long in sight */
+    private final int[] where = new int[4];
     private int firstIn, atWayIn, cornerAtIn, slices0, sliceSeen0, slicePoints0, entries0, frags0, knownDown, hiddenDown;
     /** per round: {arm, left, fallen by the way in, the corner one as the first came in (0 down, 1 known of, 2 not, -1 none in), the hidden one down, the known one down, sliced, entries, grenades in, foes seen slicing} */
     private final List<int[]> results = new ArrayList<>();
@@ -84,10 +92,21 @@ final class AiCheckSlice {
                 if (!fell[i]) {
                     fell[i] = true;
                     if (byWayIn(m)) atWayIn++;
-                    check.out(String.format(Locale.ROOT, "     slice %d, fell at %d: %.1f %.1f, by %s", round + 1, ticks, m.getX(), m.getZ(), by(m)));
+                    String at = place(m);
+                    if (firstIn < 0) where[switch (at) { case "front" -> 0; case "stack" -> 1; case "inside" -> 3; default -> 2; }]++;
+                    check.out(String.format(Locale.ROOT, "     slice %d, fell at %d: %.1f %.1f, by %s; %s%s, %s, %s; in sight of the corner one %d ticks, of the known one %d; before the way in %s",
+                            round + 1, ticks, m.getX(), m.getZ(), by(m), at, firstIn < 0 ? " (none in yet)" : "", mw[i], role[i],
+                            cornerSees[i] < 0 ? 0 : ticks - cornerSees[i], knownSees[i] < 0 ? 0 : ticks - knownSees[i],
+                            frontAt[i] < 0 ? "never" : (ticks - frontAt[i]) + " ticks before"));
                 }
                 continue;
             }
+            AiBot b = AiBots.get(m);
+            mw[i] = b != null && b.brain instanceof AiSoldier so ? so.mode() + "/" + so.why : "?";
+            role[i] = b == null ? "-" : AiEntry.describe(level, b);
+            cornerSees[i] = held.get(1).isAlive() && held.get(1).hasLineOfSight(m) ? cornerSees[i] < 0 ? ticks : cornerSees[i] : -1;
+            knownSees[i] = held.get(0).isAlive() && held.get(0).hasLineOfSight(m) ? knownSees[i] < 0 ? ticks : knownSees[i] : -1;
+            if (place(m).equals("front")) frontAt[i] = ticks;
             if (!in[i] && m.getX() >= HX0 && m.getX() <= HX1 + 1 && m.getZ() >= HZ0 && m.getZ() <= HZ1 + 1) {
                 in[i] = true;
                 if (firstIn < 0) {
@@ -110,6 +129,18 @@ final class AiCheckSlice {
 
     private boolean byWayIn(Mob m) {
         return Math.hypot(m.getX() - DX - 1, m.getZ() - HZ1 - 1.5) <= BY_WAY_IN;
+    }
+
+    /**
+     * where it is: before the way in (the cells straight out from it, six deep, a block either side), beside it (by the
+     * wall, three deep), in the house, else on the way
+     */
+    private String place(Mob m) {
+        double x = m.getX(), z = m.getZ();
+        if (x >= HX0 && x <= HX1 + 1 && z >= HZ0 && z <= HZ1 + 1) return "inside";
+        if (z >= HZ1 + 1 && z < HZ1 + 7 && x >= DX - 1 && x < DX + 3) return "front";
+        if (z >= HZ1 + 1 && z < HZ1 + 4 && x >= HX0 - 2 && x < HX1 + 3) return "stack";
+        return "way";
     }
 
     private String by(Mob m) {
@@ -175,6 +206,9 @@ final class AiCheckSlice {
         atWayIn = 0;
         java.util.Arrays.fill(in, false);
         java.util.Arrays.fill(fell, false);
+        java.util.Arrays.fill(cornerSees, -1);
+        java.util.Arrays.fill(knownSees, -1);
+        java.util.Arrays.fill(frontAt, -1);
         AiCheck.clearShots(level);
         AiEntry.on = true;
         AiEntry.frag = true;
@@ -226,6 +260,7 @@ final class AiCheckSlice {
     static final String[] CORNER = {"none in", "down", "known of", "not known of"};
 
     private boolean finish() {
+        check.out(String.format(Locale.ROOT, "     slice: fallen before any went in: before the way in %d, beside it %d, on the way there %d", where[0], where[1], where[2]));
         check.out(String.format(Locale.ROOT, "     slice: places beside the way in moved out of sight of the room %d, left in it %d", AiEntry.stackMoved - stackMoved0, AiEntry.stackSeen - stackSeen0));
         check.out(String.format(Locale.ROOT, "     slice: entries all gone in %d, ticks from in to all in their places %.1f a time", AiEntry.goes - goes0, AiEntry.goes == goes0 ? 0.0 : (AiEntry.goTicks - goTicks0) / (double) (AiEntry.goes - goes0)));
         AiEntry.on = entryOn;
