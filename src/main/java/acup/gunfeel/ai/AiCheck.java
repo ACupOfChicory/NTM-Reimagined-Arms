@@ -202,6 +202,8 @@ public final class AiCheck {
                                     AiVoice.total() > 0 && AiVoice.mostASecond(AiVoice.heard) <= VOICE_SECOND);
                         }
                         at[0]++;
+                        // a stage's own switch put back for the next (heard turns off hearing kept by its own)
+                        AiBots.heardKeeps = true;
                         clearShots(check.level);
                     } else if (counted) AiLegsLog.tick(check.level, AiBots.all(check.level));
                     done = at[0] >= stages.size();
@@ -211,6 +213,7 @@ public final class AiCheck {
                     done = true;
                 }
                 if (!done) return;
+                AiBots.heardKeeps = true;
                 AiVoice.counting = false;
                 out.add("     " + check.map.info());
                 out.add("     senses: " + Senses.info());
