@@ -1,0 +1,26 @@
+{
+  "type": "hbm:ammo_press",
+  "order": 11522,
+  "pattern": [
+    " A ",
+    " B ",
+    " C "
+  ],
+  "key": {
+    "A": {
+      "ingredient": "#c:ingots/rubber"
+    },
+    "B": {
+      "ingredient": "#hbm:dusts/any_smokeless"
+    },
+    "C": {
+      "ingredient": "hbm:casing_shotshell"
+    }
+  },
+  "output_items": [
+    {
+      "id": "ntmgunfeel:ammo_g12_rubber_slug",
+      "count": 12
+    }
+  ]
+}
