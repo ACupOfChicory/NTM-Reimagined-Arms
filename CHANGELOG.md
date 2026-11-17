@@ -8,6 +8,12 @@
 - The small nuclear blasts' shock wave now shows as a ring rolling out over
   the ground as a bomb's does, at a bomb's pace, out to about five times the
   blast's radius, instead of specks of smoke where it struck.
+- The small nuclear blasts (the Fat Mine, the Fat Man's standard shells, the
+  artillery mini nuke and the rest) now lay the ground round them waste
+  within the blast's radius as a nuke does: grass and leaves dead, plants and
+  mushrooms gone, now and then uranium ore turned to schrabidium. Logs,
+  planks and coal stay as they are. Server key `miniNukeWaste` (`false`: no
+  waste, as NTM's own).
 
 ## X1456
 
