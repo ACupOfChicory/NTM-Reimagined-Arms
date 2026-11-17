@@ -39,6 +39,11 @@ public final class TargetMemory {
         /** where and when it went out of sight */
         public double lostX, lostY, lostZ;
         public long lostTick;
+        /**
+         * when a sound it heard itself came from where this one went out of sight (echo): it is there still, its search
+         * does not run out; Long.MIN_VALUE: none. Where it was lost and the clearing made of it stay as they were.
+         */
+        public long heardTick = Long.MIN_VALUE;
 
         Contact(int id) {
             this.id = id;
@@ -212,7 +217,7 @@ public final class TargetMemory {
             Contact c = contacts.get(i);
             long gone = tick - c.lostTick;
             if (c.state == State.LOST && gone > profile.hold()) c.state = State.SEARCH;
-            if (c.state == State.SEARCH && gone > profile.hold() + profile.search()) contacts.remove(i);
+            if (c.state == State.SEARCH && tick - fresh(c) > profile.hold() + profile.search()) contacts.remove(i);
         }
         if (noise != null && tick - noise.tick > profile.search()) noise = null;
     }
@@ -276,6 +281,38 @@ public final class TargetMemory {
         return true;
     }
 
+    /** a sound from where a known target went out of sight keeps it so long at most once in this many ticks */
+    static final int ECHO_EVERY = 100;
+    /** that far from where it was lost a sound is from it, blocks at least (else the ear's error, AiBots.hear) */
+    static final double ECHO_NEAR = 3;
+
+    /** the last that tells of the contact: its going out of sight, or a sound from there since */
+    static long fresh(Contact c) {
+        return Math.max(c.lostTick, c.heardTick);
+    }
+
+    /**
+     * A sound the mob heard itself (AiBots.hear; not what a stand puts in), seeming to come from x y z, within near
+     * blocks of where a known target went out of sight: the target is still there, it is not forgotten while it is
+     * heard (hearing is knowing, as sight is). It is not seen: it stays LOST or SEARCH, where it was lost; its search
+     * goes on widening as before (searchRadius: the way in may be round the far side). Hearing it once in ECHO_EVERY ticks is enough. Not what the noise does
+     * (heard, after this; a sound got used to is still from there).
+     */
+    public void echo(double x, double y, double z, long tick, double near) {
+        double r = Math.max(ECHO_NEAR, near);
+        for (Contact c : contacts) {
+            if (!c.known() || c.state == State.VISIBLE) continue;
+            if (c.heardTick != Long.MIN_VALUE && tick - c.heardTick < ECHO_EVERY) continue;
+            double dx = x - c.lostX, dz = z - c.lostZ;
+            if (dx * dx + dz * dz > r * r || Math.abs(y - c.lostY) > Math.max(ECHO_NEAR, Math.min(r, 4))) continue;
+            c.heardTick = tick;
+            echoes++;
+        }
+    }
+
+    /** the stands: sounds that kept a lost target known */
+    public static int echoes;
+
     // ------------------------------------------------------------------ what to act on
 
     /** the id of the target {@link #focus} gave last (its looks see all its parts), -1 for none */
@@ -305,7 +342,8 @@ public final class TargetMemory {
         return best;
     }
 
-    /** how far from where it was lost a target may be by now, blocks (searchSpeed for the time past the hold) */
+    /** how far from where it was lost a target may be by now, blocks (searchSpeed for the time past the hold; a sound
+     *  from there since does not draw it in: the way to it may be round the far side) */
     public double searchRadius(Contact c, long tick) {
         double seconds = Math.max(0, tick - c.lostTick - profile.hold()) / 20.0;
         return Math.min(32, 2 + profile.searchSpeed() * seconds);

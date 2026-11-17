@@ -596,7 +596,19 @@ public final class AiBots {
     static void hear(AiBot b, double x, double y, double z, double distance, long tick, boolean loud, boolean hurt, double error, double min) {
         double sigma = Math.max(min, error * distance);
         var rng = b.mob.getRandom();
-        b.memory.heard(x, y, z, x + rng.nextGaussian() * sigma, y + rng.nextGaussian() * Math.min(sigma, 2), z + rng.nextGaussian() * sigma,
+        double px = x + rng.nextGaussian() * sigma, py = y + rng.nextGaussian() * Math.min(sigma, 2), pz = z + rng.nextGaussian() * sigma;
+        // from where one it knows of went out of sight: it is there still (two of the ear's errors: most such sounds)
+        if (heardKeeps()) b.memory.echo(px, py, pz, tick, 2 * sigma);
+        b.memory.heard(x, y, z, px, py, pz,
                 tick, loud, hurt);
     }
+
+    /** the stands: false to have a sound from where a target was lost not keep it known (TargetMemory.echo) */
+    public static boolean heardKeeps = true;
+    public static final String HEARD_KEEPS_KEY = "aiHeardKeeps";
+
+    static boolean heardKeeps() {
+        return heardKeeps && acup.gunfeel.ReaimTimes.flag(HEARD_KEEPS_KEY, true);
+    }
+
 }

@@ -125,6 +125,36 @@ class SensesTest {
     }
 
     @Test
+    void aTargetHeardWhereItWentOutOfSightIsNotForgottenNorSeen() {
+        TargetMemory near = new TargetMemory(P), far = new TargetMemory(P), none = new TargetMemory(P);
+        for (TargetMemory m : new TargetMemory[] {near, far, none}) {
+            m.look();
+            m.seen(1, 10, 64, 0, 0, 0);
+            m.endLook(0);
+            m.look();
+            m.endLook(1);
+            assertEquals(TargetMemory.State.LOST, m.contact(1).state);
+        }
+        long end = 3L * (P.hold() + P.search());
+        int kept = 0;
+        for (long t = 2; t <= end; t++) {
+            if (t % 50 == 0) {
+                // heard where it was lost (within the ear's error, 6 here), and far from it
+                near.echo(14, 64, 3, t, 6);
+                far.echo(40, 64, 0, t, 6);
+            }
+            for (TargetMemory m : new TargetMemory[] {near, far, none}) m.update(t);
+            if (near.contact(1) != null && near.contact(1).heardTick == t) kept++;
+        }
+        assertNotNull(near.contact(1), "heard, it is not forgotten");
+        assertEquals(TargetMemory.State.SEARCH, near.contact(1).state, "nor seen");
+        assertEquals(10, near.contact(1).lostX, 1e-9, "where it was lost stays");
+        assertTrue(kept <= end / TargetMemory.ECHO_EVERY + 1, "once in ECHO_EVERY ticks at most: " + kept);
+        assertNull(far.contact(1), "a sound from elsewhere is not from it");
+        assertNull(none.contact(1));
+    }
+
+    @Test
     void lostTargetStaysWhereItWentOutOfSight() {
         TargetMemory m = new TargetMemory(P);
         long t = 0;
