@@ -72,8 +72,9 @@ class MiniNukeCloudTest {
         // a bomb's: 150 ticks, 100 puffs a tick; a Fat Mine's (scale 0.1) shorter and thinner
         assertEquals(150, MiniNukeCloud.shockTicks(5));
         assertEquals(100, MiniNukeCloud.shockPuffs(1));
-        // out to five radii at a bomb's 1.5 blocks a tick, puffs enough and big enough to read as a ring
-        assertEquals(33, MiniNukeCloud.shockTicks(0.1));
+        // out to three radii (where the waste ends) at a bomb's 1.5 blocks a tick, puffs enough and big enough to read as a ring
+        assertEquals(20, MiniNukeCloud.shockTicks(0.1));
+        assertEquals(MiniNukeCloud.wasteRadius(10F), MiniNukeCloud.shockTicks(0.1) * 1.5, 1e-6);
         assertEquals(60, MiniNukeCloud.shockPuffs(0.1));
         assertEquals(2.5F, MiniNukeCloud.shockWidth(0.5F));
         assertEquals(1F, MiniNukeCloud.shockHeight(0.2F));
@@ -82,5 +83,24 @@ class MiniNukeCloudTest {
         assertEquals(1.5, MiniNukeCloud.shockMotion(0.1) * 0.1 * 0.25, 1e-9);
         assertTrue(MiniNukeCloud.shockTicks(0.08) < MiniNukeCloud.shockTicks(0.2));
         assertTrue(MiniNukeCloud.shockTicks(0.001) >= 8 && MiniNukeCloud.shockPuffs(0.001) >= 8);
+    }
+
+    @Test
+    void theRingLeavesSmokeLyingAsBefore() {
+        // NTM's own puffs as many a tick as before the ring (40 at a Fat Mine's), out to four radii (27 ticks)
+        assertEquals(40, MiniNukeCloud.smokePuffs(0.1));
+        assertEquals(27, MiniNukeCloud.smokeTicks(0.1));
+        assertTrue(MiniNukeCloud.smokeTicks(0.1) >= MiniNukeCloud.shockTicks(0.1), "the smoke as far as the ring goes");
+        // of a tick's 60 + 40 the ring's 60, spread through it
+        int ring = 0, run = 0, most = 0;
+        for (long n = 0; n < 100; n++) {
+            boolean r = MiniNukeCloud.ringPuff(n, 60, 40);
+            if (r) ring++;
+            run = r ? run + 1 : 0;
+            most = Math.max(most, run);
+        }
+        assertEquals(60, ring);
+        assertTrue(most <= 2, "spread, not in a lump");
+        assertTrue(MiniNukeCloud.ringPuff(5, 60, 0), "no smoke: all the ring's");
     }
 }

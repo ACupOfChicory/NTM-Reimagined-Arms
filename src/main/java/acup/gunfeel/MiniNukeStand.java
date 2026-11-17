@@ -70,6 +70,8 @@ final class MiniNukeStand {
     private static final int[] RING_N = new int[4];
     // the share of the ring's puffs within 2 blocks of its median distance (a ring, not a disc), and that median
     private static final double[] RING_BAND = new double[4], RING_MID = new double[4];
+    // the smoke the ring leaves lying (NTM's shock puffs, not the ring's)
+    private static final int[] SMOKE_N = new int[4];
     private static final List<String> ROWS = new ArrayList<>();
 
     private MiniNukeStand() {
@@ -114,7 +116,7 @@ final class MiniNukeStand {
         } catch (Exception e) {
             ClientSmoke.check(false, "мини-нюк: папка " + DIR + ": " + e);
         }
-        ROWS.add("scene\tmode\trep\tbase_ms\tframe_ms\tp95_ms\tfps\tclouds\tscale\tpuffs_max\ttop_blocks\tring_blocks\theat_1s\tr_1s\tg_1s\tb_1s\theat_3s\tr_3s\tg_3s\tb_3s\tring_05s\tring_1s\tring_2s\tring_3s\tpuffs_05s\tpuffs_1s\tpuffs_2s\tpuffs_3s\tmid_05s\tmid_1s\tmid_2s\tmid_3s\tband_05s\tband_1s\tband_2s\tband_3s\twaste_r10\tgrass_r10\twaste_r20\tgrass_r20\twaste_r30\tgrass_r30\twaste_passes");
+        ROWS.add("scene\tmode\trep\tbase_ms\tframe_ms\tp95_ms\tfps\tclouds\tscale\tpuffs_max\ttop_blocks\tring_blocks\theat_1s\tr_1s\tg_1s\tb_1s\theat_3s\tr_3s\tg_3s\tb_3s\tring_05s\tring_1s\tring_2s\tring_3s\tpuffs_05s\tpuffs_1s\tpuffs_2s\tpuffs_3s\tmid_05s\tmid_1s\tmid_2s\tmid_3s\tband_05s\tband_1s\tband_2s\tband_3s\tsmoke_05s\tsmoke_1s\tsmoke_2s\tsmoke_3s\twaste_r10\tgrass_r10\twaste_r20\tgrass_r20\twaste_r30\tgrass_r30\twaste_passes");
         run = 0;
         phase = 0;
         last = System.nanoTime();
@@ -157,6 +159,7 @@ final class MiniNukeStand {
                 java.util.Arrays.fill(COLOUR, Double.NaN);
                 java.util.Arrays.fill(RING_R, Double.NaN);
                 java.util.Arrays.fill(RING_N, -1);
+                java.util.Arrays.fill(SMOKE_N, -1);
                 trigger(0);
                 triggerAt = phaseAt = now;
                 phase = 3;
@@ -314,17 +317,22 @@ final class MiniNukeStand {
         if (mc.level != null) for (Entity e : mc.level.entitiesForRendering()) {
             if (!(e instanceof EntityNukeTorex t)) continue;
             for (EntityNukeTorex.Cloudlet c : t.cloudlets) {
-                if (c.type != EntityNukeTorex.TorexType.SHOCK) continue;
+                if (c.type != EntityNukeTorex.TorexType.SHOCK || !MiniNukeCloud.ringPuff(c)) continue;
                 r = Math.max(r, Math.hypot(c.posX - t.getX(), c.posZ - t.getZ()));
                 n++;
             }
         }
         RING_R[at] = r;
         RING_N[at] = n;
+        int smoke = 0;
+        if (mc.level != null) for (Entity e : mc.level.entitiesForRendering())
+            if (e instanceof EntityNukeTorex t) for (EntityNukeTorex.Cloudlet c : t.cloudlets)
+                if (c.type == EntityNukeTorex.TorexType.SHOCK && !MiniNukeCloud.ringPuff(c)) smoke++;
+        SMOKE_N[at] = smoke;
         java.util.List<Double> ds = new java.util.ArrayList<>();
         if (mc.level != null) for (Entity e : mc.level.entitiesForRendering())
             if (e instanceof EntityNukeTorex t) for (EntityNukeTorex.Cloudlet c : t.cloudlets)
-                if (c.type == EntityNukeTorex.TorexType.SHOCK) ds.add(Math.hypot(c.posX - t.getX(), c.posZ - t.getZ()));
+                if (c.type == EntityNukeTorex.TorexType.SHOCK && MiniNukeCloud.ringPuff(c)) ds.add(Math.hypot(c.posX - t.getX(), c.posZ - t.getZ()));
         java.util.Collections.sort(ds);
         double mid = ds.isEmpty() ? Double.NaN : ds.get(ds.size() / 2);
         long in = ds.stream().filter(d -> Math.abs(d - mid) <= 2).count();
@@ -359,8 +367,8 @@ final class MiniNukeStand {
 
         String mode = modeB() ? "B" : "A";
         int[] g = ground();
-        ROWS.add(String.format(Locale.ROOT, "%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.0f\t%d\t%.3f\t%d\t%.1f\t%.1f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d", scene(), mode, rep(), baseMs, ms, p95,
-                ms > 0 ? 1000 / ms : 0, clouds, scale, puffs, top, ring, COLOUR[0], COLOUR[1], COLOUR[2], COLOUR[3], COLOUR[4], COLOUR[5], COLOUR[6], COLOUR[7], RING_R[0], RING_R[1], RING_R[2], RING_R[3], RING_N[0], RING_N[1], RING_N[2], RING_N[3], RING_MID[0], RING_MID[1], RING_MID[2], RING_MID[3], RING_BAND[0], RING_BAND[1], RING_BAND[2], RING_BAND[3], g[0], g[1], g[2], g[3], g[4], g[5], MiniNukeCloud.wastePasses));
+        ROWS.add(String.format(Locale.ROOT, "%s\t%s\t%d\t%.2f\t%.2f\t%.2f\t%.0f\t%d\t%.3f\t%d\t%.1f\t%.1f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t%d\t%d\t%d\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\t%.2f\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d", scene(), mode, rep(), baseMs, ms, p95,
+                ms > 0 ? 1000 / ms : 0, clouds, scale, puffs, top, ring, COLOUR[0], COLOUR[1], COLOUR[2], COLOUR[3], COLOUR[4], COLOUR[5], COLOUR[6], COLOUR[7], RING_R[0], RING_R[1], RING_R[2], RING_R[3], RING_N[0], RING_N[1], RING_N[2], RING_N[3], RING_MID[0], RING_MID[1], RING_MID[2], RING_MID[3], RING_BAND[0], RING_BAND[1], RING_BAND[2], RING_BAND[3], SMOKE_N[0], SMOKE_N[1], SMOKE_N[2], SMOKE_N[3], g[0], g[1], g[2], g[3], g[4], g[5], MiniNukeCloud.wastePasses));
         GunFeel.LOGGER.info("[mininuke] {}", ROWS.getLast());
         if (modeB()) {
             if (scene().equals("far")) {

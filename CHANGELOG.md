@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The small nuclear blasts' shock ring now leaves the old smoke lying over
+  the ground behind it, and dies out where their waste ends; that waste now
+  reaches about three times the blast's radius, whole to about twice it and
+  thinning out in patches beyond, the nuclear .50 round's the same way.
+
 ## X1484
 
 - An AI soldier's armour now keeps radiation out as a player's does. NTM let

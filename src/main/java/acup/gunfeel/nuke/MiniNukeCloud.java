@@ -149,9 +149,9 @@ public final class MiniNukeCloud {
     }
 
     // the ticks a small cloud's shock ring grows (1.5 blocks a tick as a bomb's, NTM's bombs: 150 at any size): to
-    // five times the blast's radius
+    // three times the blast's radius, where its waste ends (wasteRadius)
     public static int shockTicks(double scale) {
-        return (int) Math.max(8, Math.min(150, Math.round(scale / SCALE_PER_BLOCK * 5 / 1.5)));
+        return (int) Math.max(8, Math.min(150, Math.round(scale / SCALE_PER_BLOCK * WASTE_TIMES / 1.5)));
     }
 
     // a shock ring puff's width and height at least, blocks: NTM's are the scale times 5 and 2, half a block at a Fat
@@ -184,7 +184,7 @@ public final class MiniNukeCloud {
 
     // the ground laid waste round a small blast out to this many times its radius (within it the crater is bare), and
     // the passes made (the stand)
-    static final float WASTE_TIMES = 2F;
+    static final float WASTE_TIMES = 3F, WASTE_WHOLE = 2F;
     public static int wastePasses;
 
     public static float wasteRadius(float blast) {
@@ -192,6 +192,19 @@ public final class MiniNukeCloud {
     }
 
     private static Mark lastWaste;
+
+    // a blast of this radius's ground laid waste (MiniWasteMutator, one more pass of NTM's rays, no harm and no sound):
+    // whole out to WASTE_WHOLE times it, dying away in patches to wasteRadius
+    public static void lay(ServerLevel level, double x, double y, double z, float size) {
+        // (the pass is an ExplosionVNT too: the blast's radius it would leave for the cloud's size kept as it was)
+        Mark kept = hint;
+        try {
+            MiniWasteMutator.apply(new com.hbm.explosion.vanillant.ExplosionVNT(level, x, y, z, wasteRadius(size)), size * WASTE_WHOLE, wasteRadius(size)).explode();
+        } finally {
+            hint = kept;
+        }
+        wastePasses++;
+    }
 
     // NTM's muke packet (MixinMiniNukeSend, before the blast or after it): the ground round the blast laid waste as a
     // nuke's is (MiniWasteMutator: grass, leaves and plants dead or gone, uranium ore to schrabidium; logs, planks,
@@ -209,14 +222,7 @@ public final class MiniNukeCloud {
             lastWaste = new Mark(level, x, y, z, TINY_VOLLEY_SIZE, time);
         }
         float size = tiny ? TINY_VOLLEY_SIZE : sizeAt(level, x, y, z, time);
-        // (the pass is an ExplosionVNT too: the blast's radius it would leave for the cloud's size kept as it was)
-        Mark kept = hint;
-        try {
-            MiniWasteMutator.apply(new com.hbm.explosion.vanillant.ExplosionVNT(level, x, y, z, wasteRadius(size))).explode();
-        } finally {
-            hint = kept;
-        }
-        wastePasses++;
+        lay(level, x, y, z, size);
     }
 
     // NTM's bomb at scale 1: its heat at the start (EntityNukeTorex.simulateTick: (int) (50 * s * s))
@@ -237,6 +243,27 @@ public final class MiniNukeCloud {
 
     public static int shockPuffs(double scale) {
         return (int) Math.max(SHOCK_PUFFS, Math.min(100, Math.round(100 * scale / 0.25)));
+    }
+
+    // the smoke the ring leaves lying over the ground behind it: NTM's own puffs (still, long lived), as many a tick as
+    // before the ring (a bomb's 100 at scale 0.25, fewer for a smaller cloud), while it is within four radii
+    public static int smokePuffs(double scale) {
+        return (int) Math.max(8, Math.min(100, Math.round(100 * scale / 0.25)));
+    }
+
+    public static int smokeTicks(double scale) {
+        return (int) Math.max(8, Math.min(150, Math.round(scale / SCALE_PER_BLOCK * 4 / 1.5)));
+    }
+
+    // of a tick's puffs (ring, then smoke, n counted on over the ticks) whether the n-th is one of the ring's: the two
+    // spread evenly through the tick
+    public static boolean ringPuff(long n, int ring, int smoke) {
+        return smoke <= 0 || n * smoke % (ring + smoke) >= smoke;
+    }
+
+    // a puff of the ring's (the stand): its short life
+    public static boolean ringPuff(EntityNukeTorex.Cloudlet c) {
+        return c.cloudletLife == SHOCK_LIFE;
     }
 
     // client: the colours of NTM's types 0 and 1 (EntityNukeTorex.Cloudlet.updateColor) under the mod's two types
