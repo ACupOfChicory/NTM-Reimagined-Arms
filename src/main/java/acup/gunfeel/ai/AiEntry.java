@@ -643,7 +643,7 @@ public final class AiEntry {
     /**
      * The slicing's places for those of the stack at each end of the opening (one a side): from where on the outer
      * side, SLICE_FAR blocks off at most, the room's cells are seen through it, picked so each shows SLICE_NEW or more
-     * none before did, gone through from the widest angle to the nearest the opening's line; the gun at each on what it
+     * none before did, gone through from the furthest from the opening to the nearest; the gun at each on what it
      * shows first. Where none is off the opening's line (a passage along the wall it is in): none (SLICE_LINE). False
      * when there is none to do (a turn, a big room, nothing seen from round it).
      */
@@ -746,11 +746,12 @@ public final class AiEntry {
             all.or(sees.get(best));
         }
         if (picked.isEmpty()) return;
-        // far to near: the widest angle off the opening's line first
+        // far to near: the furthest from the opening first (it shows a sliver of the room, from where one in there sees a
+        // sliver of it), by the jamb last; at one distance the widest angle first
         picked.sort((a, b) -> {
             long[] pa = spots.get(a), pb = spots.get(b);
-            int c = Double.compare(Math.abs(Math.atan2(pb[2], pb[1])), Math.abs(Math.atan2(pa[2], pa[1])));
-            return c != 0 ? c : Double.compare(pb[1] * pb[1] + pb[2] * pb[2], pa[1] * pa[1] + pa[2] * pa[2]);
+            int c = Long.compare(pb[1] * pb[1] + pb[2] * pb[2], pa[1] * pa[1] + pa[2] * pa[2]);
+            return c != 0 ? c : Double.compare(Math.abs(Math.atan2(pb[2], pb[1])), Math.abs(Math.atan2(pa[2], pa[1])));
         });
         long[] arc = new long[picked.size()];
         Vec3[] aims = new Vec3[picked.size()];
