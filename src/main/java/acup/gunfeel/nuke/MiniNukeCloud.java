@@ -245,20 +245,10 @@ public final class MiniNukeCloud {
         return (int) Math.max(SHOCK_PUFFS, Math.min(100, Math.round(100 * scale / 0.25)));
     }
 
-    // the smoke the ring leaves lying over the ground behind it: NTM's own puffs (still, long lived), as many a tick as
-    // before the ring (a bomb's 100 at scale 0.25, fewer for a smaller cloud), while it is within four radii
+    // the smoke the ring leaves lying over the ground behind it (MixinMiniNukeTorex): NTM's own shock puffs, as many a
+    // tick as before the ring (a bomb's 100 at scale 0.25, fewer for a smaller cloud)
     public static int smokePuffs(double scale) {
         return (int) Math.max(8, Math.min(100, Math.round(100 * scale / 0.25)));
-    }
-
-    public static int smokeTicks(double scale) {
-        return (int) Math.max(8, Math.min(150, Math.round(scale / SCALE_PER_BLOCK * 4 / 1.5)));
-    }
-
-    // of a tick's puffs (ring, then smoke, n counted on over the ticks) whether the n-th is one of the ring's: the two
-    // spread evenly through the tick
-    public static boolean ringPuff(long n, int ring, int smoke) {
-        return smoke <= 0 || n * smoke % (ring + smoke) >= smoke;
     }
 
     // a puff of the ring's (the stand): its short life

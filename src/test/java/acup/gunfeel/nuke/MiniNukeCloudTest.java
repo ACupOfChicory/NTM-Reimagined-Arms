@@ -87,20 +87,8 @@ class MiniNukeCloudTest {
 
     @Test
     void theRingLeavesSmokeLyingAsBefore() {
-        // NTM's own puffs as many a tick as before the ring (40 at a Fat Mine's), out to four radii (27 ticks)
+        // NTM's own puffs as many a tick as before the ring: 40 at a Fat Mine's
         assertEquals(40, MiniNukeCloud.smokePuffs(0.1));
-        assertEquals(27, MiniNukeCloud.smokeTicks(0.1));
-        assertTrue(MiniNukeCloud.smokeTicks(0.1) >= MiniNukeCloud.shockTicks(0.1), "the smoke as far as the ring goes");
-        // of a tick's 60 + 40 the ring's 60, spread through it
-        int ring = 0, run = 0, most = 0;
-        for (long n = 0; n < 100; n++) {
-            boolean r = MiniNukeCloud.ringPuff(n, 60, 40);
-            if (r) ring++;
-            run = r ? run + 1 : 0;
-            most = Math.max(most, run);
-        }
-        assertEquals(60, ring);
-        assertTrue(most <= 2, "spread, not in a lump");
-        assertTrue(MiniNukeCloud.ringPuff(5, 60, 0), "no smoke: all the ring's");
+        assertEquals(100, MiniNukeCloud.smokePuffs(1));
     }
 }
