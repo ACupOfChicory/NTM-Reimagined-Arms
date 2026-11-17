@@ -352,6 +352,22 @@ final class AiHatch {
         LEVELS.remove(level);
     }
 
+    /** stand trace: walks to a way up a shaft that failed (AiSoldier), where and who stood by; at most WAY_UP_FAILS kept */
+    public static final List<String> wayUpFails = new ArrayList<>();
+    static final int WAY_UP_FAILS = 20;
+
+    static void wayUpFailed(AiBot bot, ServerLevel level, long up, int misses) {
+        if (wayUpFails.size() >= WAY_UP_FAILS) return;
+        StringBuilder by = new StringBuilder();
+        for (AiBot b : AiBots.bots(level)) {
+            if (b == bot || !b.mob.isAlive() || b.mob.distanceToSqr(bot.mob) > 9) continue;
+            by.append(String.format(java.util.Locale.ROOT, " #%d %.1f %.1f %.1f%s", b.mob.getId(), b.mob.getX(), b.mob.getY(), b.mob.getZ(),
+                    b.brain instanceof AiSoldier o ? " " + o.mode() + "/" + o.why : ""));
+        }
+        wayUpFails.add(String.format(java.util.Locale.ROOT, "tick %d #%d at %.2f %.2f %.2f, to %s, miss %d [%s], by:%s", level.getGameTime(), bot.mob.getId(), bot.mob.getX(),
+                bot.mob.getY(), bot.mob.getZ(), BlockPos.of(up).toShortString(), misses, bot.mover.state(), by.length() == 0 ? " none" : by));
+    }
+
     private static PerLevel of(ServerLevel level) {
         return LEVELS.computeIfAbsent(level, k -> new PerLevel());
     }

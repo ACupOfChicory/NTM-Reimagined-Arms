@@ -7,6 +7,21 @@
   the soldier sees and shoots from, so a shot at the head drawn is a shot at
   the head it has. The head itself nods less in a flinch.
 
+## X1589
+
+- AI soldiers going into a room after their own grenade are ready for
+  whoever it left alive: one still standing in there, even off to the side
+  where they are not looking, is noticed sooner and shot, though not in
+  under a quarter of a second. Before, a wounded enemy thrown into a corner
+  by the blast often fired first at the man in the doorway.
+
+## X1580
+
+- AI soldiers who find no way to the ladder up a shaft after a lost enemy
+  try again a moment later instead of standing at its foot searching for
+  good, and while they are stuck one of their squad waiting its turn goes
+  up in their place.
+
 ## X1575
 
 - AI soldiers break into a run and slow from it smoothly, without a jolt
