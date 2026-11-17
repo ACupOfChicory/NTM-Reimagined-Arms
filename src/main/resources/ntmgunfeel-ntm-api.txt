@@ -1020,8 +1020,6 @@ MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet type Lcom/h
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$TorexType SHOCK Lcom/hbm/entity/effect/EntityNukeTorex$TorexType;
 MINI_NUKE_CLOUD field com/hbm/explosion/ExplosionNukeSmall PARAMS_MEDIUM Lcom/hbm/explosion/ExplosionNukeSmall$MukeParams;
 MINI_NUKE_CLOUD field com/hbm/explosion/ExplosionNukeSmall$MukeParams blastRadius F
-MINI_NUKE_CLOUD field com/hbm/explosion/ExplosionNukeSmall$MukeParams miniNuke Z
-MINI_NUKE_CLOUD field com/hbm/explosion/ExplosionNukeSmall$MukeParams safe Z
 MINI_NUKE_CLOUD field com/hbm/explosion/vanillant/ExplosionVNT posX D
 MINI_NUKE_CLOUD field com/hbm/explosion/vanillant/ExplosionVNT posY D
 MINI_NUKE_CLOUD field com/hbm/explosion/vanillant/ExplosionVNT posZ D
