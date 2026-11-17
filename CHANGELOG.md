@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers keep clear of the whole blast of a grenade one of their squad
+  throws in through a bunker's slit or drops down a shaft, not just its
+  nearest part. Squad mates behind a wall from the slit's grenade wait
+  there until it goes off instead of walking on into the open.
+
 ## X1547
 
 - An AI squad gathering beside a doorway no longer stands where a foe inside
@@ -12,10 +19,6 @@
 
 ## X1538
 
-- AI soldiers keep clear of the whole blast of a grenade one of their squad
-  throws in through a bunker's slit or drops down a shaft, not just its
-  nearest part. Squad mates behind a wall from the slit's grenade wait
-  there until it goes off instead of walking on into the open.
 - AI soldiers no longer walk into the blast of their own squad's grenade
   thrown into a room before an entry. Squad mates who are not part of that
   entry and stand behind a wall from it wait there until it goes off,
