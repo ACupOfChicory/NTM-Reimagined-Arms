@@ -357,7 +357,7 @@ final class StaffPlan {
         return o.kind == null || o.group < 0 || o.kind == Kind.HOLD || o.kind == Kind.RESERVE || o.kind == Kind.SCOUT;
     }
 
-    /** lost more than half of it, or most of it out of rounds */
+    /** lost more than half of it, or most of it at red (a magazine or none left; AiCommander.red) */
     static boolean breaks(Squad s) {
         return s.out || s.was > 0 && s.alive * 2 < s.was;
     }

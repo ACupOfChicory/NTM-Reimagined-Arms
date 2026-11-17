@@ -223,7 +223,7 @@ public final class AiCommander {
         long givenAt = Long.MIN_VALUE;
         boolean late;
         /**
-         * its squad's reports (C5, AiReports): made already (contact, out of rounds, there, cannot get through); losses
+         * its squad's reports (C5, AiReports): made already (contact, at red (AMMO), there, cannot get through); losses
          * reported (1 a third, 2 half); pinned down: most of it suppressed since, pinned since (reported), alive then
          */
         boolean saidContact, saidAmmo, saidThere, saidBlocked;
@@ -556,14 +556,18 @@ public final class AiCommander {
                 sz += b.mob.getZ() / s.bots.size();
                 if (!b.mob.isAlive()) continue;
                 alive++;
-                boolean empty = supply && red(b);
-                if (empty) out++;
+                if (supply && red(b)) out++;
+                // its strength: one with no round besides its gun's at a third (red, a magazine left, still fights)
+                boolean empty = supply && !b.gunner.ammo.infinite() && b.gunner.ammo.reserve() <= 0 && b.gunner.capacity() > 0;
                 strength += StaffPlan.weight(AiRole.of(b).ordinal()) * Math.min(1, b.mob.getHealth() / b.mob.getMaxHealth()) * (empty ? 0.3 : 1);
                 sideX += b.mob.getX();
                 sideZ += b.mob.getZ();
                 all++;
             }
             Job job = job(s, now);
+            // out of rounds: most of it at red; once back for it, till none of it is (one filled by its supplier is no
+            // reason to send it on while the rest are still at red: it would only fall back again)
+            boolean outOf = out * 2 > alive || out > 0 && job != null && job.kind == StaffPlan.Kind.BACK;
             // a squad split on the way: the squad before it with the same task (the plan gives them one)
             int twin = job == null ? -1 : jobs.indexOf(job);
             jobs.add(job);
@@ -577,7 +581,7 @@ public final class AiCommander {
                 job.late = true;
                 expired++;
             }
-            own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), out * 2 > alive, job == null ? null : job.kind,
+            own.add(new StaffPlan.Squad(sx, sz, strength, job == null ? alive : job.alive(), job == null ? alive : job.bots.size(), outOf, job == null ? null : job.kind,
                     job == null ? 0 : afresh ? now - StaffPlan.KEEP : job.since, group, job != null && job.there, avoid, asleep(s), pair && job.ready != Long.MIN_VALUE, pair ? job.due : Long.MAX_VALUE,
                     job == null || !reports() ? Long.MIN_VALUE : job.pinnedAt, job != null && job.pinnedAt != Long.MIN_VALUE && job.alive() < job.aliveAtPin,
                     pair && job.partner != null && job.partner.alive() > 0 && !job.late, twin));
@@ -1364,10 +1368,6 @@ public final class AiCommander {
     }
 
     /**
-     * a squad of the side reported (AiCrossing: an enemy across water, places to cross found): its staff looks at its
-     * tasks again soon
-     */
-    /**
      * a soldier at "red" (the field manual's ammunition status): a magazine or none left besides the gun's. Most of a
      * squad so, it is out (StaffPlan: back, as black was before) and says so (AMMO): one magazine sooner than empty, so
      * that a squad running dry one soldier after another is not sent on just before it falls back (the short war's
@@ -1377,6 +1377,10 @@ public final class AiCommander {
         return !b.gunner.ammo.infinite() && b.gunner.capacity() > 0 && b.gunner.ammo.reserve() <= b.gunner.capacity();
     }
 
+    /**
+     * a squad of the side reported (AiCrossing: an enemy across water, places to cross found): its staff looks at its
+     * tasks again soon
+     */
     public static void reported(ServerLevel level, String team) {
         Side side = LEVELS.computeIfAbsent(level, l -> new HashMap<>()).get(team);
         if (side == null) return;
@@ -1388,7 +1392,7 @@ public final class AiCommander {
 
     /**
      * The squads' reports (C5), every LOOK ticks: contact, losses, pinned down (most of it suppressed PIN_AFTER ticks;
-     * over once none has been for PIN_QUIET), out of rounds, at its place. Each once for its task (losses at a third,
+     * over once none has been for PIN_QUIET), most of it at red (AMMO), at its place. Each once for its task (losses at a third,
      * at half; pinned again after it was over).
      */
     private static void look(ServerLevel level, long now) {
