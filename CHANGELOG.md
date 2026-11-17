@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## X1437
 
 - An AI soldier now notices an enemy right at its back, within about a block
   and a half, even one standing silent: a little slower than one in front of
@@ -12,6 +12,35 @@
 - The small nuclear blasts' mushroom cloud now starts hot, fiery orange (green
   for balefire) and greys as it cools, as a bomb's does, instead of grey from
   the start.
+
+## X1434
+
+- Three new rounds for NTM's guns, made in NTM's ammo press:
+  - **12 Gauge Rubber Slug** for NTM's 12 gauge shotguns (all but the
+    Shredder): latex, smokeless powder and a shotshell casing give six, rubber
+    in place of the latex twelve. A hit does 6 damage to one with no armour,
+    less through armour as any bullet, and never takes anyone below 4 health:
+    it cannot kill. It pushes the one hit back about 3 blocks (less from afar,
+    heavy mobs not at all). A player hit is slowed by 60 % for 1.5 seconds and
+    has their movement mixed up for 4: forward and back, left and right, jump
+    and sneak swap (whatever keys they are bound to; sprint, attack and use
+    stay). An AI soldier hit is slowed as well and its aim swings off for 4
+    seconds. An undead mob (not a boss) runs from the shooter for 4 seconds
+    and cannot be frightened again for 10 more.
+  - **5.56mm and 7.62mm Duplex Rounds**, wherever NTM's soft point round of
+    the calibre goes: twice the lead and powder of it, as many rounds. A shot
+    fires two bullets at once, the second just behind the first and a few
+    milliradians off its line, so both go the same way. Each bullet goes
+    through things as the soft point does and does 70 % of its damage.
+  - **.50 BMG Nuclear Round** for the AMAT rifles only (the AMAT, the
+    Subtlety and the Penance): two americium-242 nuggets, a schrabidium
+    nugget, two TATB charges and a steel large casing give one. It does no
+    damage of its own: wherever it hits, at any range and point blank too, it
+    goes off as a mini nuke a little smaller than NTM's Fat Mine (80 % of its
+    blast and radiation), which breaks no blocks. It wears the rifle out from
+    new in 3 shots (AMAT), 6 (Subtlety) or 10 (Penance); wear spreads its
+    shots a quarter as much as other rounds', and a worn-out rifle does not
+    fire it at all (other rounds it still fires).
 
 ## X1424
 

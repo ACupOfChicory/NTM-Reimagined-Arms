@@ -246,7 +246,8 @@ public final class AiGunner {
             com.hbm.items.weapon.sedna.Receiver rec = gun.getConfig(stack, 0).getReceivers(stack)[0];
             double spread = rec.getInnateSpread(stack) + b.spread * rec.getAmmoSpread(stack) + rec.getHipfireSpread(stack);
             double at = spread <= 1e-4 ? 40 : Math.max(8, Math.min(40, 0.5 / spread));
-            if (b.projectilesMax > 1) return Math.min(at, 12);
+            // buckshot, not a Duplex round's two bullets (a rifle's)
+            if (b.projectilesMax > 1 && !(acup.gunfeel.compat.Feature.DUPLEX.on() && acup.gunfeel.ammo.Duplex.is(b))) return Math.min(at, 12);
             if (rec.getBaseDamage(stack) * b.damageMult >= 25 && rec.getDelayAfterFire(stack) >= 20) return Math.max(at, 32);
             return at;
         } catch (RuntimeException e) {
@@ -536,6 +537,12 @@ public final class AiGunner {
             p = sight.pitch;
             // on target as far as it knows: a kick it has not noticed yet left out
             on = AiAim.onTarget(skill, eye.x, eye.y, eye.z, sight.seenYaw, sight.seenPitch, aim.x, aim.y, aim.z, halfHeight);
+        }
+        // a rubber slug's confusion swings the aim off (it fires all the same, as it believes it is on)
+        if (acup.gunfeel.compat.Feature.RUBBER_SLUG.on()) {
+            float[] off = acup.gunfeel.ammo.RubberServer.drift(mob);
+            y += off[0];
+            p = Math.clamp(p + off[1], -90F, 90F);
         }
         face(y, p, skill);
         return on;

@@ -76,6 +76,31 @@ public final class BalanceFinal {
         }
     }
 
+    /**
+     * a hit of {@code projectile} (fired with {@code from}) that does {@code share} of a shot of the same gun with
+     * {@code as} (a Duplex round's bullet: of the SP's): hitAs, and {@code share} of its own damage where hitAs leaves
+     * it (the balance off, no gun in the shooter's hands, the tables failing), {@code from} being as heavy as {@code as}
+     * in NTM's numbers
+     */
+    public static float shareOf(Entity projectile, LivingEntity shooter, com.hbm.items.weapon.sedna.BulletConfig from,
+            com.hbm.items.weapon.sedna.BulletConfig as, float share) {
+        if (projectile == null || shooter == null || shooter.level().isClientSide() || !BalanceGuns.on()) return share;
+        net.minecraft.world.item.Item gunItem = BalanceGuns.gunOf(shooter);
+        if (gunItem == null) return share;
+        // hitAs's own, but a table failing leaves the share (hitAs would give the whole damage: two bullets of a full SP)
+        try {
+            String gun = gunName(gunItem);
+            String id = gun + "." + ammoName(as);
+            if (on() && gun != null && state().pairs().containsKey(id)) {
+                PAIR.put(projectile, id);
+                SHARE.put(projectile, share);
+            }
+            return share * BalanceGuns.as(gunItem, from, as);
+        } catch (RuntimeException | LinkageError e) {
+            return share;
+        }
+    }
+
     private static float share(DamageSource source) {
         Float k = SHARE.get(source.getDirectEntity());
         return k == null ? 1F : k;

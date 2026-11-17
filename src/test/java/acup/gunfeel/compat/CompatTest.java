@@ -128,8 +128,8 @@ class CompatTest {
         MixinProbe.Classes doctored = n -> n.equals(LEGO) ? lego : real.get(n);
         Compat.Result r = HbmMixinPlugin.evaluate(mixins(), doctored, api());
         assertNotNull(r);
-        assertEquals(Set.of(Feature.SPREAD, Feature.SHOCK), r.off().keySet(), r.off().toString());
-        assertEquals(Set.of("MixinLegoSpread", "MixinShockSpread"), r.skipped().keySet());
+        assertEquals(Set.of(Feature.SPREAD, Feature.SHOCK, Feature.NUCLEAR_BMG50), r.off().keySet(), r.off().toString());
+        assertEquals(Set.of("MixinLegoSpread", "MixinShockSpread", "MixinNuclearWear", "MixinNuclearCanFire"), r.skipped().keySet());
     }
 
     @Test
