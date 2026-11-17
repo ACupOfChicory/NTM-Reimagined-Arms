@@ -154,9 +154,11 @@ def fit(clip, neck, times, plant=False, body=None, feet=None, loop=False, length
 
 
 HEAD_MID = np.array([0.0, -4.0, 0.0])  # the head box's middle from its pivot (the neck), px, Y down
-# the head's own pose the flinch is added over (the mod adds the nod after it, BotPoser.add): level, and looking 30
-# degrees up, down and aside, as a mob aiming does; the neck's move is worked out for the level head only
-LOOKS = tuple(euler_to_mat(e) for e in ((0, 0, 0), (30, 0, 0), (-30, 0, 0), (0, 30, 0), (0, -30, 0)))
+# the head's own pose the flinch is added over: level only. The mod adds the nod after the head's own pose P, and for
+# a pinned clip (BotPoser.add, pinned) moves the head, trunk, arms and hips by -(P - I)(D - I)C, so the head's middle
+# goes as it would looking straight ahead, whichever way it looks (X1603). Before that the nod was cut till it held at
+# 30 degrees up, down and aside too (X1592: 18-81% of it kept)
+LOOKS = (np.eye(3),)
 UPPER = ("head", "body", "right_arm", "left_arm")
 
 
@@ -186,7 +188,7 @@ def pin_head(clip, times, keep=0.4, length=None):
     the head's own nod (the head turns about its middle, its neck and the trunk under it go the other way), the trunk
     keeps the clip's turn about the neck, the hips go with it and the legs are fitted under them (fit). Over a straight
     leg the neck cannot go up, and the neck's move is right for a level head only: where the head's middle would
-    still be off by more than `keep` px, level or looking 30 degrees up, down or aside (LOOKS), the nod is cut till it
+    still be off by more than `keep` px (LOOKS: the head level; the mod keeps any other look as that), the nod is cut till it
     is not. Returns the clip (all ten parts) and, frame by frame, how far the head's middle is off
     its first place (px) and how much of the nod is kept."""
     times = list(times)
