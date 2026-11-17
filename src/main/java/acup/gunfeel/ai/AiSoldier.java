@@ -510,6 +510,24 @@ public final class AiSoldier implements AiBrain {
         // a burst at the place for those on the move goes on only while the decision below is that again
         boolean wasSuppressing = suppressing;
         suppressing = false;
+        // going in, just through the way in: its gun on the dead corner of its side, whatever it heard or was hit by
+        // (one of it killed in there: those not in yet hold by the way in, guns on the killer); a foe in sight it fights
+        if (AiEntry.on() && (c == null || c.state != TargetMemory.State.VISIBLE)) {
+            AiEntry.Look look = AiEntry.entering(this, bot, level, tick);
+            // (a hit is not let go: after its corner it turns to it; holding, or on its killed one's killer, it takes it
+            // at once; another entry's grenade out near it, it keeps from that first)
+            if (look != null && look.why() != Why.ENTRY_CORNER && n != null && n.hurt && n.tick != hitSeen) look = null;
+            if (look != null && (AiEntry.holds(bot, level) || AiBunker.holds(bot, level))) look = null;
+            if (look != null) {
+                if (spot != null) drop(bot);
+                mode(Mode.SEARCH, tick);
+                why = look.why();
+                watch = look.at();
+                bot.gunner.aim(look.at());
+                bot.gunner.fire(false);
+                return;
+            }
+        }
         // shot from where it does not look: it turns there, and its cover, seen into from there, is no cover
         if (n != null && n.hurt && n.tick != hitSeen && (c == null || c.state != TargetMemory.State.VISIBLE)) {
             hitSeen = n.tick;
