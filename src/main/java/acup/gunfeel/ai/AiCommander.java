@@ -151,6 +151,11 @@ public final class AiCommander {
     /** a pair's time: the way round at this pace (blocks a tick, its bounds and all) half as long again, and PAIR_MORE more, PAIR_MOST at most; ticks */
     static final double PAIR_PACE = 0.15;
     static final int PAIR_MORE = 600, PAIR_MOST = 1800;
+    /**
+     * a pair made again (its other gone before it was ready) keeps the time it had; its other dead and the new one not
+     * at its place yet: this long more at least, ticks (the new one is not late the moment it comes)
+     */
+    static final int PAIR_GRACE = 200;
     /** pinning or holding: after a foe lost no farther than this from its place, blocks */
     static final double LEASH = 24;
     /** there (within LEASH), the one going round at its group this far off the pinning one at least: round, ready */
@@ -161,6 +166,8 @@ public final class AiCommander {
     static final long UNDER_FIRE = 40;
     /** the stands: pairs made, those whose one going round got there (or into a fight) in time, the ticks that took in all, those whose time ran out */
     public static int paired, coupled, expired;
+    /** the stands: pairs made again, those whose time was the one before, up the moment they were made, their other dead (given PAIR_GRACE) */
+    public static int pairedAgain, keptTime, upAtOnce, otherDied, graced;
     public static long coupleTicks;
 
     /** the stands: tasks given, by kind (StaffPlan.Kind's order) */
@@ -206,6 +213,9 @@ public final class AiCommander {
         /** the pair's other (C4: pinning and going round, of the same group), its time up at due, the one going round there (or in a fight) at ready */
         @Nullable Job partner;
         long due = Long.MAX_VALUE, ready = Long.MIN_VALUE, pairedAt;
+        /** a pair it was in undone before it was ready (C4): that pair's time (Long.MAX_VALUE: none), its other dead then */
+        long dueWas = Long.MAX_VALUE;
+        boolean otherDead;
         /** when the staff last gave it (to the squad, or to the parts of a squad split on the way) */
         long givenAt = Long.MIN_VALUE;
         boolean late;
@@ -1776,6 +1786,9 @@ public final class AiCommander {
         for (List<Job> l : List.of(pins, flanks))
             for (Job j : l)
                 if (j.partner != null && j.ready == Long.MIN_VALUE && (j.partner.partner != j || !pins.contains(j.partner) && !flanks.contains(j.partner))) {
+                    // its time goes on with it: a pair made again does not start the way round's time afresh
+                    j.dueWas = Math.min(j.dueWas, j.due);
+                    j.otherDead = j.partner.alive() == 0;
                     j.partner = null;
                     j.due = Long.MAX_VALUE;
                 }
@@ -1800,11 +1813,30 @@ public final class AiCommander {
                 f.partner = p;
                 p.partner = f;
                 f.pairedAt = p.pairedAt = now;
-                f.due = p.due = now + Math.min(PAIR_MOST, (long) (d / PAIR_PACE * 1.5) + PAIR_MORE);
+                f.due = p.due = time(f, p, now + Math.min(PAIR_MOST, (long) (d / PAIR_PACE * 1.5) + PAIR_MORE), now);
                 paired++;
                 break;
             }
         }
+    }
+
+    /**
+     * a new pair's time: its own (fresh), or the time one of the two had in a pair undone before it was ready, if
+     * sooner; that pair's other dead and the new one not at its place yet, PAIR_GRACE from now at least
+     */
+    static long time(Job f, Job p, long fresh, long now) {
+        long was = Math.min(f.dueWas, p.dueWas);
+        boolean dead = f.otherDead || p.otherDead, grace = f.otherDead && !p.there || p.otherDead && !f.there;
+        f.otherDead = p.otherDead = false;
+        if (was == Long.MAX_VALUE) return fresh;
+        pairedAgain++;
+        if (dead) otherDied++;
+        long kept = grace ? Math.max(was, now + PAIR_GRACE) : was;
+        if (kept >= fresh) return fresh;
+        keptTime++;
+        if (kept > was) graced++;
+        if (kept <= now) upAtOnce++;
+        return kept;
     }
 
     private static boolean contains(int[] a, int x) {

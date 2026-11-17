@@ -1018,6 +1018,9 @@ final class AiCheckWar {
             if (c4[0] > 0) check.check(String.format(Locale.ROOT, "war: near (C4), the staff pairs its squads and the one going round is ready in time: %d pairs, %d ready in time"
                     + " (half at least), %d out of time", c4[1], c4[2], c4[3]), c4[1] > 0 && c4[2] * 2 >= c4[1]);
         }
+        check.out(String.format(Locale.ROOT, "     war, pairs made again (C4): %d; the time one had before kept %d, up the moment they were made %d; its other dead %d"
+                + " (given more time, the new one not at its place yet: %d)", AiCommander.pairedAgain, AiCommander.keptTime, AiCommander.upAtOnce, AiCommander.otherDied,
+                AiCommander.graced));
         // C5: the squads' reports, the staff's answer, no flapping
         StringBuilder kinds = new StringBuilder();
         for (AiReports.Kind k : AiReports.Kind.values()) kinds.append(' ').append(k.name().toLowerCase(Locale.ROOT)).append(' ').append(AiReports.made[k.ordinal()]);
