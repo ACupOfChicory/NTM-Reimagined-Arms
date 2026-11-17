@@ -97,6 +97,16 @@ final class AiCheckBypass {
                     fell[i] = true;
                     if (col && m.getY() < top() - 1 && m.getY() > floor() + 2) results.get(results.size() - 1)[4]++;
                     if (byWayIn(m)) fellAtDoor++;
+                    // (who shot it, where it was, and whether it knew of that one from one of its own shot down before)
+                    var by = m.getLastDamageSource();
+                    var who = by == null ? null : by.getEntity();
+                    AiBot db = AiBots.get(m);
+                    TargetMemory.Contact kc = db == null || who == null ? null : db.memory.contact(who.getId());
+                    check.out(String.format(Locale.ROOT, "     bypass %d, fell at %d: %.1f %.1f %.1f %s%s, by %s %s; it knew of it %s",
+                            round + 1, ticks, m.getX(), m.getY(), m.getZ(), db != null && db.brain instanceof AiSoldier so ? so.mode() + "/" + so.why : "?",
+                            byWayIn(m) ? " (by the way in)" : "", by == null ? "?" : by.type().msgId(),
+                            who == null ? "-" : String.format(Locale.ROOT, "%s at %.1f %.1f", held.contains(who) ? "one below" : squad.contains(who) ? "its own" : "another", who.getX(), who.getZ()),
+                            kc == null ? "not" : kc.state + (kc.mateDown != Long.MIN_VALUE ? " (told " + (level.getGameTime() - kc.mateDown) + " ticks before)" : "")));
                 }
                 continue;
             }
