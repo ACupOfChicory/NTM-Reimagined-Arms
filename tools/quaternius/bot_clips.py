@@ -73,7 +73,7 @@ TURNS_ONLY = {"hit_knock"}
 # to 23 cm more. So each is fitted (fit.pin_head): the head's middle kept where it was as the hit came, the neck and
 # the trunk under it going the other way, the trunk's fold about the neck the clip's, the legs fitted under the hips.
 # Over a straight leg the neck cannot rise, so a nod that would still lower the head's middle by more than
-# HEAD_KEEP px is cut (hit_back's 31 degrees, hit_knock's 55)
+# HEAD_KEEP px is cut (kept: hit_chest 62%, hit_head 95%, hit_fold all, hit_back 82%, hit_knock 47%)
 HEAD_PINNED = ("hit_chest", "hit_head", "hit_fold", "hit_back", "hit_knock")
 HEAD_KEEP = 0.4
 

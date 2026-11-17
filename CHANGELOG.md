@@ -1,5 +1,12 @@
 # Changelog
 
+## X1609
+
+- An AI soldier hit nods its head again as much as the flinch has it, up to
+  all of it, still with the head where the soldier sees and shoots from. Before,
+  most of the nod was cut so the head would stay put when looking up, down or
+  aside.
+
 ## X1606
 
 - An AI soldier that comes into sight already running, or is put back on its
