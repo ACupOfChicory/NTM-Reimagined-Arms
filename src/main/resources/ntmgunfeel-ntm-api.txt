@@ -146,6 +146,7 @@ BALANCE field com/hbm/entity/projectile/EntityBulletBeamBase damage F
 BALANCE field com/hbm/items/armor/ItemModShield shield F
 BALANCE field com/hbm/items/armor/ModArmorItem$Suit DIGAMMA Lcom/hbm/items/armor/ModArmorItem$Suit;
 BALANCE field com/hbm/items/armor/ModArmorItem$Suit DNS Lcom/hbm/items/armor/ModArmorItem$Suit;
+BALANCE field com/hbm/items/armor/ModArmorItem$Suit EUPHEMIUM Lcom/hbm/items/armor/ModArmorItem$Suit;
 BALANCE field com/hbm/items/food/MedicalSyringeItem$Type MEDX Lcom/hbm/items/food/MedicalSyringeItem$Type;
 BALANCE field com/hbm/items/food/MedicalSyringeItem$Type SUPER_STIMPAK Lcom/hbm/items/food/MedicalSyringeItem$Type;
 BALANCE field com/hbm/items/weapon/sedna/BulletConfig ammoItem Ljava/util/function/Supplier;
@@ -998,6 +999,8 @@ MINI_NUKE_CLOUD class com/hbm/packet/toclient/MukePayload
 MINI_NUKE_CLOUD field com/hbm/blocks/ModBlocks MINE_FAT Lcom/hbm/registration/RegistryHandle;
 MINI_NUKE_CLOUD field com/hbm/entity/ModEntities NUKE_TOREX Lcom/hbm/registration/RegistryHandle;
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex cloudlets Ljava/util/List;
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex heat D
+MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex maxAge I
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorB D
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorG D
 MINI_NUKE_CLOUD field com/hbm/entity/effect/EntityNukeTorex$Cloudlet colorR D

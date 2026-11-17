@@ -61,8 +61,8 @@ page. They are alphas: expect bugs and back up your world.
   against armour, next to the loaded one.
 - A 12 Gauge Electroshock Shell for NTM's 12 gauge shotguns (all but the
   Shredder), made in NTM's ammo press, at the tier of NTM's 10 gauge and 12
-  gauge magnum shells: a capacitor, a copper coil, smokeless powder and an
-  advanced buckshot casing give six. One round, about 2 damage. A
+  gauge magnum shells: three tantalum capacitors, a gold coil, smokeless powder
+  and an advanced buckshot casing give six. One round, about 2 damage. A
   hit shocks for 2 seconds, which then wear off smoothly over 3 more: the HUD
   (other mods' too, not the chat or menus) glitches and shakes, the view
   shakes and drifts on its own, and whoever was hit, an AI soldier or any mob
@@ -84,9 +84,10 @@ page. They are alphas: expect bugs and back up your world.
   for 10.
 - 5.56mm and 7.62mm Duplex Rounds wherever NTM's soft point round of the
   calibre goes (ammo press: four lead ingots, four smokeless powder, two small
-  casings give 16 and 12). Each shot fires two bullets at once, the second a
-  quarter of a block behind the first and about 3 milliradians off its line;
-  each bullet goes through things as a soft point and does 70 % of its damage.
+  weapon steel casings give 16 and 12). Each shot fires two bullets at once,
+  the second a quarter of a block behind the first and about 3 milliradians
+  off its line; each bullet goes through things as a soft point and does 70 %
+  of its damage.
 - A .50 BMG Nuclear Round for the AMAT rifles only (ammo press: two
   americium-242 nuggets, a schrabidium nugget, two TATB charges and a steel
   large casing give one). It does no damage of its own and goes off where it

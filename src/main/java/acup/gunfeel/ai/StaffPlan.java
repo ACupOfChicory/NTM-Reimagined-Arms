@@ -20,8 +20,8 @@ import org.jspecify.annotations.Nullable;
  * <li>else it advances (scouts).
  * </ul>
  * PER squads to a group at most; more where the side loses soldiers to it (R5b: the group's room). A squad that lost
- * more than half of it, or most of which is out of rounds, falls back: from the nearest group to the nearest squad of
- * its own side not falling back, or BACK blocks away from the group. With no group at all, each free squad scouts a
+ * more than half of it, or most of which is at red (a magazine or none left besides the gun's: AiCommander.red),
+ * falls back: from the nearest group to the nearest squad of its own side not falling back, or BACK blocks away from the group. With no group at all, each free squad scouts a
  * sector of the ring round the side's middle (RING blocks off), one after another as the side's sector turns. Any
  * other squad left is the reserve and stays where it is. A squad keeps its task KEEP ticks at least while its group is
  * still there (falling back aside); one that went round and got there advances next. A pair (C4) keeps its tasks till
@@ -78,10 +78,17 @@ final class StaffPlan {
      * knows, FAR, the staff moving it); in a fight now; a pair's (C4: pinning and going round) time up at this tick
      * (Long.MAX_VALUE: none); pinned down since (C5: its report; Long.MIN_VALUE: not), losing more since, its pair's
      * other alive and in time (help on its way); the squad before it with the very same task (-1: none: a squad split
-     * on the way, as the squads are made again as they move, is one squad to the plan: the same task, one place).
+     * on the way, as the squads are made again as they move, is one squad to the plan: the same task, one place); the
+     * place of its task still good (its group about where it was when the place was picked); one of it at red now (not
+     * most: AiCommander.red, within RED_WAIT).
      */
     record Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
-            boolean far, boolean contact, long due, long pinned, boolean worse, boolean helped, int twin) {
+            boolean far, boolean contact, long due, long pinned, boolean worse, boolean helped, int twin, boolean stands, boolean red) {
+        Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
+                boolean far, boolean contact, long due, long pinned, boolean worse, boolean helped, int twin) {
+            this(x, z, strength, alive, was, out, kind, since, group, there, avoid, far, contact, due, pinned, worse, helped, twin, false, false);
+        }
+
         Squad(double x, double z, double strength, int alive, int was, boolean out, @Nullable Kind kind, long since, int group, boolean there, int avoid,
                 boolean far, boolean contact, long due, long pinned, boolean worse, boolean helped) {
             this(x, z, strength, alive, was, out, kind, since, group, there, avoid, far, contact, due, pinned, worse, helped, -1);
@@ -151,7 +158,9 @@ final class StaffPlan {
                 out[i] = out[s.twin];
                 continue;
             }
-            if (out[i] != null || s.kind == null || s.group < 0 || s.group >= groups.size() || s.group == s.avoid || !s.paired() && now - s.since >= KEEP) continue;
+            // one of it at red: its task kept past KEEP while its group is there (not sent on afresh, to fall back as the
+            // next of it goes red)
+            if (out[i] != null || s.kind == null || s.group < 0 || s.group >= groups.size() || s.group == s.avoid || !s.paired() && !s.red && now - s.since >= KEEP) continue;
             if (s.kind == Kind.RESERVE || s.kind == Kind.BACK || s.kind == Kind.FLANK && s.there) continue;
             // a pair (C4): the one going round there or in a fight advances; the time up, both do
             if (s.kind == Kind.FLANK && s.contact || s.late(now)) continue;
@@ -170,7 +179,9 @@ final class StaffPlan {
                             pz = squads.get(j).z;
                         }
                     Task f = flank(grid, g, s.group, px, pz, s.x, s.z);
-                    yield f != null ? f : area(g, s.group);
+                    // no way round found now (the squads moved): the place it goes for kept while it is still good
+                    // (AiCommander keeps it), not an advance or a scout instead
+                    yield f != null ? f : s.stands ? new Task(Kind.FLANK, s.group, s.x, s.z, PLACE, g.x, g.z) : area(g, s.group);
                 }
                 default -> null;
             };
@@ -357,7 +368,7 @@ final class StaffPlan {
         return o.kind == null || o.group < 0 || o.kind == Kind.HOLD || o.kind == Kind.RESERVE || o.kind == Kind.SCOUT;
     }
 
-    /** lost more than half of it, or most of it out of rounds */
+    /** lost more than half of it, or most of it at red (a magazine or none left; AiCommander.red) */
     static boolean breaks(Squad s) {
         return s.out || s.was > 0 && s.alive * 2 < s.was;
     }

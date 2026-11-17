@@ -18,6 +18,52 @@
 - A new order from the side's commander now calls a squad off clearing such a
   building. An order it already had before the fight doesn't.
 
+## X1468
+
+- AI soldiers spawned with /armsai in a full DNS, FAU or euphemium set now
+  have the same invulnerability pool as a player in it: hits are called off
+  while it lasts, then a vulnerability window opens and the pool recovers.
+  Other mobs are unchanged.
+
+## X1466
+
+- The 5.56mm and 7.62mm Duplex Rounds now take small weapon steel casings in
+  the ammo press instead of small gunmetal casings. The rest of the recipe is
+  the same.
+- The 12 gauge electroshock shell now takes three tantalum capacitors and a
+  gold coil in the ammo press instead of a capacitor and a copper coil.
+
+## X1463
+
+- An AI soldier at the foot or top of a shaft its side climbs no longer goes
+  off to other cover while one of its own on the ladder is in its line: it
+  waits its turn and comes up with the rest.
+
+## X1459
+
+- AI squads change their orders less often for nothing. A squad flanking an
+  enemy whose way round is lost keeps its place while the enemy stays near;
+  a squad scouting for an enemy it then finds pushes on under the same order
+  instead of starting over; and a squad with a soldier down to his last
+  magazine is not sent forward again just before it falls back for rounds.
+
+## X1456
+
+- An AI squad now falls back for rounds a magazine sooner: once most of its
+  soldiers have one magazine or none left besides the one in the gun, not
+  only once they are empty. Squads running dry one soldier after another are
+  no longer sent forward just before they turn back. Its supplier now tops up
+  a soldier with one magazine left too, and the squad goes back into the
+  fight once none of it is short. A soldier left short with no rounds brought
+  for about a minute fights with what it has, so a squad without a supplier
+  does not stand back for good.
+
+## X1448
+
+- The small nuclear blasts' mushroom cloud now starts hot, fiery orange (green
+  for balefire) and greys as it cools, as a bomb's does, instead of grey from
+  the start.
+
 ## X1442
 
 - The new rounds now have tracers. Both bullets of a Duplex round draw the

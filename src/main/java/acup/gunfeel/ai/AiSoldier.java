@@ -13,6 +13,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -942,7 +943,7 @@ public final class AiSoldier implements AiBrain {
         // each holding fire for the other 1600 ticks)
         long still = mode == Mode.TO_COVER && !bot.mover.arrived() ? still(bot, tick) : 0;
         if (still > BLOCKED_MOVE && g.blockedTicks > BLOCKED_MOVE && AiSquads.mayMove(bot)
-                && bot.mob.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0) {
+                && bot.mob.getAttributeValue(Attributes.MOVEMENT_SPEED) > 0 && !byLadder(bot)) {
             g.blockedTicks = 0;
             g.fire(false);
             unreachable.add(spot.cell());
@@ -1425,6 +1426,22 @@ public final class AiSoldier implements AiBrain {
         }
         lastStillAsk = tick;
         return tick - stillSince;
+    }
+
+    /** one of its own on a ladder this near, blocks across: a shaft its side goes up or down */
+    static final double LADDER_NEAR = 2.5;
+
+    /**
+     * on a ladder, or by one of its own on one: at a shaft's foot or top with its side climbing it, the one in its
+     * line is on the ladder, and it waits its turn (taken off to other cover, it lost its foe and stayed below)
+     */
+    private static boolean byLadder(AiBot bot) {
+        Mob m = bot.mob;
+        if (m.onClimbable()) return true;
+        AABB near = m.getBoundingBox().inflate(LADDER_NEAR, 4, LADDER_NEAR);
+        for (Mob o : m.level().getEntitiesOfClass(Mob.class, near, o -> o != m && o.isAlive() && o.onClimbable()))
+            if (AiTeams.own(m, o)) return true;
+        return false;
     }
     /** a step and a half to the left or right of the line to at, to a cell the map has */
     private void sidestep(AiBot bot, ServerLevel level, Vec3 at) {

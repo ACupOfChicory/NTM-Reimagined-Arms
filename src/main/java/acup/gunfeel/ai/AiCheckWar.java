@@ -233,6 +233,7 @@ final class AiCheckWar {
     private int[] given0 = new int[StaffPlan.Kind.values().length];
     /** AiCommander.joinedCrossing when the stage began */
     private int joined0 = -1;
+    private long found0 = -1;
     private int strays0;
     /** per round: {alive, idle} and the tasks given in it */
     private final List<long[]> idles = new ArrayList<>();
@@ -293,6 +294,8 @@ final class AiCheckWar {
     /** the staff's tasks counted already: a squad's change once, not once for each of it */
     private final java.util.Set<AiCommander.Job> changeCounted = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
     private final long[] changesOf = new long[MODES], flapsOf = new long[MODES];
+    /** with the staff's tasks: soldiers' looks, and of them falling back (BACK) */
+    private long tasksLooks, backLooks;
     private final java.util.Map<String, Integer> flapKinds = new java.util.TreeMap<>();
     /** the pinned round's fire begun (the side knows of the player: a task for its group) */
     private boolean pinFire;
@@ -367,7 +370,12 @@ final class AiCheckWar {
             Object j = jb == null ? null : jb.kind;
             Object[] was = lastJob.get(m.getId());
             // a flap: a change within FLAP of its last change (its first task given is none)
-            if (was == null) lastJob.put(m.getId(), new Object[] {j, Long.MIN_VALUE});
+            if (was == null) lastJob.put(m.getId(), new Object[] {j, Long.MIN_VALUE, jb});
+            // a scout that found its group advances on it: the same task (AiCommander.scoutsFound), no change; a change
+            // after it within FLAP of finding it a flap still
+            else if (j != null && was[0] != j && was[2] == jb) lastJob.put(m.getId(), new Object[] {j, now, jb});
+            // a new task of the same kind (another group): no change, but the task it has now is this one
+            else if (j != null && was[0] == j && was[2] != jb) lastJob.put(m.getId(), new Object[] {j, was[1], jb});
             else if (j != null && was[0] != j) {
                 // a squad's change once (the task is the squad's: each of it changes with it), by the first of it seen
                 if (was[0] != null && changeCounted.add(jb)) {
@@ -388,7 +396,7 @@ final class AiCheckWar {
                         }
                     }
                 }
-                lastJob.put(m.getId(), new Object[] {j, now});
+                lastJob.put(m.getId(), new Object[] {j, now, jb});
             }
         }
         if (mode() >= TASKS) {
@@ -463,6 +471,11 @@ final class AiCheckWar {
             AiBot b = AiBots.get(m);
             if (b == null || !m.isAlive()) continue;
             alive++;
+            // with the staff's tasks: falling back (BACK: losses, rounds at red, broken contact)
+            if (mode() >= TASKS) {
+                tasksLooks++;
+                if (AiCommander.has(b, now) && b.order.job != null && b.order.job.kind == StaffPlan.Kind.BACK) backLooks++;
+            }
             if (b.memory.focus(m.getX(), m.getZ()) == null && !AiCommander.has(b, now)) {
                 idle++;
                 // why (a soldier waiting for its squad's way has its order already: never here)
@@ -769,6 +782,7 @@ final class AiCheckWar {
         offWhy.clear();
         given0 = AiCommander.given.clone();
         if (joined0 < 0) joined0 = AiCommander.joinedCrossing;
+        if (found0 < 0) found0 = AiCommander.scoutsFound;
         strays0 = AiCommander.strays;
         firstSeenFrom = -1;
         madeBefore = 0;
@@ -1090,12 +1104,15 @@ final class AiCheckWar {
                 kinds, AiCommander.askedN, AiCommander.askedN == 0 ? 0 : (double) AiCommander.askedLag / AiCommander.askedN, AiCommander.askedMost, AiCommander.broke));
         StringBuilder fl = new StringBuilder();
         for (int on = TASKS; on < MODES; on++) if (changesOf[on] > 0) fl.append(String.format(Locale.ROOT, " %s %d of %d;", MODE_NAMES[on], flapsOf[on], changesOf[on]));
+        check.out(String.format(Locale.ROOT, "     war, with the staff's tasks, the soldiers falling back (BACK) %.1f%% of their time (%d looks)",
+                tasksLooks == 0 ? 0 : 100.0 * backLooks / tasksLooks, tasksLooks));
         check.out("     war, task changes within " + FLAP + " ticks by mode:" + fl + " by kind " + flapKinds);
         // flaps were there before C5 (C4b's war, 60 rounds: 110 of 1032 changes, FLAPS_BEFORE: scouting to advancing,
         // falling back out of rounds and back); the reports' answers (most orders now) add none to speak of
         // by squads' tasks (each of a squad changes with it), not by soldiers; a help to a squad pinned down no flap; at
         // most what chance gives at the rate before C5 (flapsAllowed: n changes, k flaps, the most allowed)
         check.out(String.format(Locale.ROOT, "     war: come into a squad crossing a river, given its crossing's order: %d", AiCommander.joinedCrossing - Math.max(0, joined0)));
+        check.out(String.format(Locale.ROOT, "     war: squads scouting a group that found it, advancing on it as the same task (not a change): %d", AiCommander.scoutsFound - Math.max(0, found0)));
         if (jobChanges > 0) check.check(String.format(Locale.ROOT, "war: a squad's task changed again within %d ticks of the last: n %d, k %d (%.1f%%), %d allowed (%.1f%% before C5,"
                 + " %.0f%% by chance at most); %d of them given in answer to a report; %d sent to help one pinned down, not counted", FLAP, jobChanges, flaps, 100.0 * flaps / jobChanges,
                 flapsAllowed(jobChanges), 100 * FLAPS_BEFORE, 100 * FLAP_LEVEL, flapsAnswered, flapsHelp), flaps <= flapsAllowed(jobChanges));

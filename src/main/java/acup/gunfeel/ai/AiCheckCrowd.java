@@ -186,6 +186,9 @@ final class AiCheckCrowd {
             shooter.discard();
             own.discard();
         }
+        // the glass, the door and the stone taken away: the next stages (prone) use this field
+        for (int i = 0; i < names.length; i++)
+            for (int h = 0; h < 3; h++) level.setBlock(new BlockPos(wx, y + h, z + i * 3), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
         check.check("a shot at a place short of one of its own: it holds fire with it behind nothing, glass or a shut door past the place, fires with it behind stone ("
                 + got.toString().trim() + ")", ok);
     }
