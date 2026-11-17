@@ -1,5 +1,10 @@
 # Changelog
 
+## X1401
+
+- AI squads: a pinning-and-flanking pair that is made again (the squads swapping roles, one sent to scout and
+  back, or a partner lost) keeps the time it had for the way round instead of starting it afresh.
+
 ## X1393
 
 - An AI squad after an enemy down a shaft that is too deep for a grenade, or
