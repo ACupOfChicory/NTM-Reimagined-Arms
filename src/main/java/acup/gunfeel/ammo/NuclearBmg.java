@@ -17,6 +17,7 @@ import com.hbm.saveddata.satellites.SatelliteDetector;
 import com.hbm.sound.ModSounds;
 
 import acup.gunfeel.DebugLog;
+import acup.gunfeel.nuke.MiniWasteMutator;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
@@ -79,11 +80,12 @@ public final class NuclearBmg {
         blast(level, hit.x + dir.getStepX() * 0.25, hit.y + dir.getStepY() * 0.25, hit.z + dir.getStepZ() * 0.25);
     }
 
-    /** the Fat Mine's blast (BlockLandmineFat.explodeVariant) times SCALE, no blocks broken */
+    /** the Fat Mine's blast (BlockLandmineFat.explodeVariant) times SCALE, no blocks broken, a nuke's waste laid */
     public static void blast(ServerLevel level, double x, double y, double z) {
         float damage = NuclearRule.damage(ExplosionData.MINE_NUKE_DAMAGE.get());
         ExplosionVNT vnt = new ExplosionVNT(level, x, y, z, NuclearRule.size());
-        // no block allocator nor processor: the blast breaks nothing
+        // the blast breaks nothing, but what its rays reach dies as under a nuke (MiniWasteMutator)
+        MiniWasteMutator.apply(vnt);
         vnt.setEntityProcessor(new EntityProcessorCrossSmooth(NuclearRule.MINE_NODE, damage).withRangeMod(NuclearRule.MINE_RANGE_MOD));
         vnt.setPlayerProcessor(new PlayerProcessorStandard());
         vnt.explode();
@@ -91,6 +93,8 @@ public final class NuclearBmg {
         SatelliteDetector.reportEvent(level, 300, SatelliteDetector.BurstIntensity.LOW, x, z);
         NuclearFx.miniNuke(level, x, y, z, NuclearRule.size());
         level.playSound(null, x, y, z, (SoundEvent) ModSounds.GUN_MINI_NUKE_EXPLOSION.get(), SoundSource.BLOCKS, NuclearRule.MINE_VOLUME, 0.9F);
+        // the waste out past the blast, dying away at its edge, as a mini nuke's (MiniNukeCloud.lay)
+        acup.gunfeel.nuke.MiniNukeCloud.lay(level, x, y, z, NuclearRule.size());
     }
 
     /** the wear a shot of the round leaves on {@code stack}'s config {@code index} (MixinNuclearWear) */

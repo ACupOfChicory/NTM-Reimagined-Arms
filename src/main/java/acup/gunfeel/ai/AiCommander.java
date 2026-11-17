@@ -270,6 +270,8 @@ public final class AiCommander {
         int lead;
         int[] ids = new int[0];
         long until, nextLeg = Long.MIN_VALUE, lastInside = Long.MIN_VALUE;
+        /** the tick it was given as a new order (one kept on, its time made longer, keeps it) */
+        long givenAt = Long.MIN_VALUE;
         /** how far off the area it was when its last leg failed (or the first one began) */
         double failedAt = Double.MAX_VALUE;
         /** ticks in the area so far; legs failed one after another */
@@ -951,7 +953,7 @@ public final class AiCommander {
             }
             // none within reach: its order runs out, it is on its own
             if (best == null) continue;
-            Order o = best.job == mine.job ? mine : new Order();
+            Order o = best.job == mine.job ? mine : fresh(now);
             o.job = best.job;
             o.x = best.x;
             o.z = best.z;
@@ -1057,7 +1059,7 @@ public final class AiCommander {
         int of = job.members.size();
         Way way = t.kind() == StaffPlan.Kind.RESERVE ? null : way(level, team, s, t.x(), t.z());
         for (AiBot b : s.bots) {
-            Order o = b.order != null && b.order.job == job ? b.order : new Order();
+            Order o = b.order != null && b.order.job == job ? b.order : fresh(now);
             o.job = job;
             o.x = t.x();
             o.z = t.z();
@@ -1145,7 +1147,7 @@ public final class AiCommander {
         int i = 0;
         for (AiBot b : s.bots) {
             // the same group (one of its members still in it): the same order, its time in the area kept
-            Order o = b.order != null && b.order.job == null && g.any(b.order.ids) ? b.order : new Order();
+            Order o = b.order != null && b.order.job == null && g.any(b.order.ids) ? b.order : fresh(now);
             o.x = x;
             o.z = z;
             o.r = r;
@@ -1319,6 +1321,18 @@ public final class AiCommander {
         return on() && bot.order != null && tick <= bot.order.until;
     }
 
+    /** a new order, given now */
+    static Order fresh(long now) {
+        Order o = new Order();
+        o.givenAt = now;
+        return o;
+    }
+
+    /** whether an order was given as a new one after that tick (not one kept on from before it) */
+    static boolean givenSince(@Nullable Order o, long since) {
+        return o != null && o.givenAt > since;
+    }
+
     /**
      * its order now if its way crosses water ahead of it (the staff's crossing: crossX/Z the near bank's point,
      * crossKind how, farX/Z where to gather past the far bank), else null; once past the far bank, null for good
@@ -1353,7 +1367,7 @@ public final class AiCommander {
         Order by = null;
         for (AiBot c : cj.members) if (c.order != null && c.order.job == cj && c.order.crossKind != null) by = c.order;
         if (by == null) return;
-        Order o = new Order();
+        Order o = fresh(now);
         o.job = cj;
         o.x = by.x;
         o.z = by.z;

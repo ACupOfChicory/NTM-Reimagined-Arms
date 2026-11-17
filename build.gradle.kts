@@ -150,6 +150,8 @@ neoForge {
             systemProperty("ntmgunfeel.shockStand",providers.gradleProperty("shockStand").isPresent.toString())
             // -PnewAmmoStand: the rubber slug, the Duplex rounds and the nuclear .50 in the game (NewAmmoStand)
             systemProperty("ntmgunfeel.newAmmoStand",providers.gradleProperty("newAmmoStand").isPresent.toString())
+            // -PnewAmmoStand=short: the magazines, the bags and the nuclear .50 only (no rubber slug, no Duplex)
+            systemProperty("ntmgunfeel.newAmmoStandMode",providers.gradleProperty("newAmmoStand").getOrElse(""))
             // -PgunHitStand: a player hit by an NTM gun, no knockback nor tilt by default (GunHitStand)
             systemProperty("ntmgunfeel.gunHitStand",providers.gradleProperty("gunHitStand").isPresent.toString())
             // -PproneFireStand: no shot while crawling, for a player and a mannequin (ProneFireStand)
