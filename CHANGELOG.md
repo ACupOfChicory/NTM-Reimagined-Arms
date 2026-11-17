@@ -1,5 +1,13 @@
 # Changelog
 
+## X1380
+
+- An AI soldier keeping a way out under fire while its squad moves no longer
+  opens up on the place the enemy was last seen and then swings onto the way
+  out: its first burst waits the moment it takes to pick the way out. Looking
+  or firing out round its cover, it steps out at a side it can see the place
+  from, where its cover has more than one.
+
 ## X1375
 
 - AI squads moved by their staff while far from every player now cross a river
