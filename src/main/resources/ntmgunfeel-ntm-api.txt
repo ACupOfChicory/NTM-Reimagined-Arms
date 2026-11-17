@@ -1037,10 +1037,12 @@ MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex getScaleVal ()D
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex getTorexType ()B
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex getX ()D
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex getZ ()D
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex level ()Lnet/minecraft/world/level/Level;
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex registerPalette (ILcom/hbm/entity/effect/EntityNukeTorex$Palette;)V
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setPos (DDD)V
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setScale (F)Lcom/hbm/entity/effect/EntityNukeTorex;
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex setTorexType (I)Lcom/hbm/entity/effect/EntityNukeTorex;
+MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet <init> (Lcom/hbm/entity/effect/EntityNukeTorex;DDDFIILcom/hbm/entity/effect/EntityNukeTorex$TorexType;)V
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet getScale ()F
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet setMotion (D)Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;
 MINI_NUKE_CLOUD method com/hbm/entity/effect/EntityNukeTorex$Cloudlet setScale (FF)Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;
