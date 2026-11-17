@@ -259,6 +259,8 @@ public final class AiSoldier implements AiBrain {
     private long steppedFrom = Long.MIN_VALUE;
     // for the stands: flanks it went on, bursts at a place it fired for those on the move
     public int flanks, flankTries, suppressions;
+    /** the stands: shots fired to keep a target's head down (suppress), and ticks such fire was held for one of its own in the line */
+    static int suppressShots, suppressHolds;
 
     /** a grenade: it stands this long while its arm goes over (the pose's throw), ticks */
     static final int THROW_TICKS = 12;

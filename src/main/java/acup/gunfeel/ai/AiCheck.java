@@ -198,6 +198,9 @@ public final class AiCheck {
                         check.out(String.format(java.util.Locale.ROOT, "     pinned down in %s: %.1f%% of %d mob ticks (aiSuppression %s)", names.get(at[0]),
                                 AiBots.botTicks == 0 ? 0 : 100.0 * AiBots.pinnedTicks / AiBots.botTicks, AiBots.botTicks, AiUnderFire.on()));
                         AiBots.botTicks = AiBots.pinnedTicks = 0;
+                        check.out(String.format(java.util.Locale.ROOT, "     suppressing fire in %s: shots %d, ticks held for one of its own in the line %d (aiLeadLine %s)",
+                                names.get(at[0]), AiSoldier.suppressShots, AiSoldier.suppressHolds, AiBots.leadLine));
+                        AiSoldier.suppressShots = AiSoldier.suppressHolds = 0;
                         if (names.get(at[0]).equals("battle")) {
                             check.check("the battle: the mobs call out, no squad more than " + VOICE_SECOND + " lines a second",
                                     AiVoice.total() > 0 && AiVoice.mostASecond(AiVoice.heard) <= VOICE_SECOND);

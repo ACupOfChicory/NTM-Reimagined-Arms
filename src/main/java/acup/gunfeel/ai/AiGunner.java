@@ -368,14 +368,20 @@ public final class AiGunner {
             // NTM sends the bullet along the body's turn (getYRot), not the head's
             double yaw = Math.toRadians(mob.getYRot()), pitch = Math.toRadians(mob.getXRot());
             Vec3 body = new Vec3(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+            // the bullet leaves NTM's gun at its muzzle, off the eye to the side and down, and flies along the body's
+            // line from there (AiBots.leadLine)
+            Vec3 from = AiBots.leadLine ? muzzle(eye, stack) : eye;
             friend = AiBots.friendInLine(level, mob, eye, aim, cone)
-                    || AiBots.wideLine && AiBots.friendInLine(level, mob, eye, eye.add(mob.getViewVector(1F).scale(far)), cone)
-                    || AiBots.wideLine && AiBots.friendInLine(level, mob, eye, eye.add(body.scale(far)), cone);
+                    || AiBots.wideLine && AiBots.friendInLine(level, mob, from, from.add(mob.getViewVector(1F).scale(far)), cone)
+                    || AiBots.wideLine && AiBots.friendInLine(level, mob, from, from.add(body.scale(far)), cone);
         }
+        if (AiBots.friendTrace && shoot) checked = new Checked(level.getGameTime(), AiLean.eye(mob), AiBots.leadLine ? muzzle(AiLean.eye(mob), stack) : AiLean.eye(mob),
+                aim, mob.getViewVector(1F), mob.getYRot(), mob.getXRot(), AiBots.wideLine ? clearCone() : CLEAR_CONE, friend, checkLine);
         if (friend) {
             // one of its own between it and the target: it holds fire
             shoot = false;
             holds++;
+            if (suppresses()) AiSoldier.suppressHolds++;
         }
         blockedTicks = held(blockedTicks, friend, shoot, holdsOver);
         covered = shoot && ownCover(level);
@@ -459,6 +465,49 @@ public final class AiGunner {
         return acup.gunfeel.ProneFire.on(mob.getMainHandItem());
     }
 
+    /**
+     * Where its gun's bullet starts: the eye and the receiver's projectile offset (scoped when it aims), turned with
+     * the body as EntityBulletBaseMK4 turns it (NTM's offset is forward, up, aside; its Vec3 the other way round)
+     */
+    @SuppressWarnings("rawtypes")
+    Vec3 muzzle(Vec3 eye, ItemStack stack) {
+        ItemGunBaseNT gun = gun();
+        if (gun == null) return eye;
+        Vec3 off;
+        try {
+            com.hbm.items.weapon.sedna.Receiver r = gun.getConfig(stack, 0).getReceivers(stack)[0];
+            off = ItemGunBaseNT.getIsAiming(stack) ? r.getProjectileOffsetScoped(stack) : r.getProjectileOffset(stack);
+        } catch (RuntimeException e) {
+            return eye;
+        }
+        if (off == null) return eye;
+        return eye.add(new Vec3(off.z, off.y, off.x).xRot((float) Math.toRadians(-mob.getXRot())).yRot((float) Math.toRadians(-mob.getYRot())));
+    }
+
+    // the stands: it fires to keep a target's head down (AiSoldier.suppress)
+    private boolean suppresses() {
+        AiBot b = AiBots.get(mob);
+        return b != null && b.brain instanceof AiSoldier so && so.why == AiThoughts.Why.SUPPRESS;
+    }
+
+    /** the stands (AiBots.friendTrace): the last line check that let a shot go, as it was then */
+    record Checked(long tick, Vec3 eye, Vec3 from, Vec3 aim, Vec3 look, float yaw, float pitch, double cone, boolean friend, boolean on) {
+    }
+
+    /** the stands: a shot as NTM let it go, the shooter's pose then and where its own stood */
+    record Snap(long tick, Vec3 eye, Vec3 look, float yaw, float pitch, @Nullable Checked checked, java.util.Map<Mob, Vec3> own) {
+    }
+
+    private @Nullable Checked checked;
+    final java.util.ArrayDeque<Snap> snaps = new java.util.ArrayDeque<>();
+
+    private void snap(ServerLevel level, long tick) {
+        java.util.Map<Mob, Vec3> own = new java.util.HashMap<>();
+        for (Mob m : AiBots.ownNear(level, mob, 24)) own.put(m, m.getBoundingBox().getCenter());
+        snaps.addLast(new Snap(tick, AiLean.eye(mob), mob.getViewVector(1F), mob.getYRot(), mob.getXRot(), checked, own));
+        while (snaps.size() > 30) snaps.removeFirst();
+    }
+
     /** the tick NTM last let a shot of its go (AiShots; Long.MIN_VALUE: none yet) */
     long shotTick() {
         return shotTick;
@@ -466,8 +515,10 @@ public final class AiGunner {
 
     /** NTM let a shot of its go (AiShots), counted once a tick */
     void shot(long tick) {
+        if (AiBots.friendTrace && mob.level() instanceof ServerLevel level) snap(level, tick);
         if (tick == shotTick) return;
         shotTick = tick;
+        if (suppresses()) AiSoldier.suppressShots++;
         fresh++;
     }
 
