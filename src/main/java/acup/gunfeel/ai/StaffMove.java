@@ -539,6 +539,32 @@ final class StaffMove {
         }
     }
 
+    /**
+     * the stands' C3 trace (-PaiCheckWarDump): a bound missed, one line a soldier of the squad: its half, awake, going by
+     * the bounds (steps), its place for this mode and how far off, its speed, its last step by the mode (how long ago, a
+     * hold), its way (on it, its tail, straight legs), its walk, its mode, the nearest of the half going
+     */
+    static void trace(AiCommander.Job j, long now, java.util.function.ToIntFunction<AiBot> id, java.util.function.Consumer<String> out) {
+        State st = j.move;
+        List<AiBot> of = squad(j);
+        int[] half = halves(of, st);
+        for (int i = 0; i < of.size(); i++) {
+            AiBot b = of.get(i);
+            AiCommander.Order o = b.order;
+            double near = Double.MAX_VALUE;
+            for (int k = 0; k < of.size(); k++)
+                if (k != i && half[k] == st.moving) near = Math.min(near, of.get(k).mob.position().distanceTo(b.mob.position()));
+            String way = o == null ? "-" : o.route == null ? (o.noRoute ? "straight(noRoute)" : o.noTail ? "straight(noTail)" : o.walked != null ? "straight(walked)" : "straight")
+                    : (o.onTail ? "tail " : "way ") + o.at + "/" + o.route.size();
+            out.accept(String.format(java.util.Locale.ROOT, "%d %s %d %s set%d turnAge%d id%d act%d steps%d since%d cell%d covered%d d%.2f in%d at%d v%.3f moveAgo%s hold%d %s | %s | %s near%.1f",
+                    System.identityHashCode(j), j.kind, st.turn, half[i] == st.moving ? "G" : "c", st.set ? 1 : 0, now - st.turnAt, id.applyAsInt(b), b.active ? 1 : 0,
+                    steps(b) ? 1 : 0, o != null && o.coverSince == st.since ? 1 : 0, o != null && o.coverCell != Long.MIN_VALUE ? 1 : 0, o != null && o.covered ? 1 : 0,
+                    o == null ? -1 : Math.hypot(o.coverX - b.mob.getX(), o.coverZ - b.mob.getZ()), o != null && inPlace(b, o) ? 1 : 0, o != null && atCover(b, o) ? 1 : 0,
+                    b.mob.getDeltaMovement().horizontalDistance(), o == null || o.moveAt == Long.MIN_VALUE ? "-" : Long.toString(now - o.moveAt), o != null && o.moveHold ? 1 : 0,
+                    way, b.mover.state(), b.brain instanceof AiSoldier s ? s.mode() + "/" + s.why : "-", near == Double.MAX_VALUE ? -1 : near));
+        }
+    }
+
     static int covered(AiCommander.Job j) {
         State st = j.move;
         if (st.mode != Mode.BOUND || st.turn == 0 || !quiet(j)) return 0;
