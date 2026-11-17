@@ -187,6 +187,9 @@ public final class AiCheck {
                         AiCommander.on = List.of("commander", "war", "wall").contains(names.get(at[0]));
                         AiVoice.reset();
                         AiVoice.counting = true;
+                        // the shots that hit their own traced in the entry (AiBots.friendTrace); suppressing fire counted
+                        AiBots.friendTrace = names.get(at[0]).equals("entry");
+                        AiSoldier.counting = true;
                     }
                     boolean counted = at[0] < stages.size() && legsIn.contains(names.get(at[0]));
                     if (at[0] < stages.size() && stages.get(at[0]).getAsBoolean()) {

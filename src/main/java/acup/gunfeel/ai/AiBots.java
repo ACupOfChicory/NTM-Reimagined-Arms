@@ -463,7 +463,7 @@ public final class AiBots {
                 double t = rel.dot(u), side = rel.subtract(u.scale(t)).length();
                 double grow = 0.3 + t * tan + (wideLine ? near(t) : 0);
                 o.append(String.format(java.util.Locale.ROOT, "%n       %s: along %.2f, off %.2f, kept clear %.2f (+half %.2f), len %.1f, crosses %s",
-                        names[i], t, side, grow, hw, len, crosses(box, org, u, org.add(u.scale(len + 1)), len, tan)));
+                        names[i], t, side, grow, hw, len, crosses(box, vc, org, u, org.add(u.scale(len + 1)), len, tan)));
             }
         }
         return o.toString();
@@ -523,7 +523,7 @@ public final class AiBots {
      * off: where they stand, from the eye (the stands' "before", -PaiLeadLineOff)
      */
     static boolean leadLine = !Boolean.getBoolean("ntmgunfeel.aiLeadLineOff");
-    /** ticks a shot leaves after its line was checked, at most (the gun is ticked before the goals: the next tick's) */
+    /** ticks from the check to the bullet's first move (the stands: the trigger goes down at the check, the bullet moves the next tick) */
     static final double LEAD_FIRE = 1;
     /** a step one of its own takes a tick, counted at most (blocks): a teleport is no step */
     static final double LEAD_STEP = 1;
@@ -544,6 +544,8 @@ public final class AiBots {
     static final double BESIDE = 1.8, BEHIND_DEGREES = 160;
     /** near the shooter the cone is this much wider, blocks, out to NEAR_LINE (a held trigger fires once more after one steps in) */
     static final double NEAR_MARGIN = 0.4, NEAR_LINE = 4;
+    /** past NEAR_LINE the near margin fades out by this far, blocks (leadLine) */
+    static final double NEAR_FADE = 6;
 
     /** the near margin at t blocks along the line: NEAR_MARGIN out to NEAR_LINE, then (leadLine) less and less out to NEAR_FADE, not cut off at once */
     static double near(double t) {
@@ -551,8 +553,6 @@ public final class AiBots {
         if (!leadLine || t >= NEAR_FADE) return 0;
         return NEAR_MARGIN * (NEAR_FADE - t) / (NEAR_FADE - NEAR_LINE);
     }
-
-    static final double NEAR_FADE = 6;
 
     // whether the entity stands close beside the shooter's eye, anywhere but right behind it (the stands: 0.5 to 1.3
     // blocks off, 40 to 125 degrees off the look, hit by the bullet's first tick)
@@ -569,24 +569,29 @@ public final class AiBots {
     // whether the entity is in the cone from `from` along u (len long, widening by tan a block)
     private static boolean crosses(LivingEntity m, Vec3 from, Vec3 u, Vec3 end, double len, double tan, double speed) {
         net.minecraft.world.phys.AABB box = m.getBoundingBox();
+        Vec3 center = box.getCenter();
         if (speed > 0) {
-            // its last step, carried on for as long as the shot takes to leave and to get to it
-            double dx = m.getX() - m.xo, dy = m.getY() - m.yo, dz = m.getZ() - m.zo, step = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            // its last step, carried on for as long as the shot takes to leave and to get to it (a player's: as its
+            // client moves it, its old place is not the last tick's)
+            Vec3 known = m instanceof Player ? m.getKnownMovement() : null;
+            double dx = known != null ? known.x : m.getX() - m.xo, dy = known != null ? known.y : m.getY() - m.yo, dz = known != null ? known.z : m.getZ() - m.zo;
+            double step = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (step > 1e-4) {
                 if (step > LEAD_STEP) {
                     dx *= LEAD_STEP / step;
                     dy *= LEAD_STEP / step;
                     dz *= LEAD_STEP / step;
                 }
-                double ticks = LEAD_FIRE + Math.max(0, box.getCenter().subtract(from).dot(u)) / speed;
+                double ticks = LEAD_FIRE + Math.max(0, center.subtract(from).dot(u)) / speed;
                 box = box.expandTowards(dx * ticks, dy * ticks, dz * ticks);
             }
         }
-        return crosses(box, from, u, end, len, tan);
+        return crosses(box, center, from, u, end, len, tan);
     }
 
-    private static boolean crosses(net.minecraft.world.phys.AABB box, Vec3 from, Vec3 u, Vec3 end, double len, double tan) {
-        double t = box.getCenter().subtract(from).dot(u);
+    // whether the box (grown by the cone at the distance along the line of center, where it stands) crosses the line
+    private static boolean crosses(net.minecraft.world.phys.AABB box, Vec3 center, Vec3 from, Vec3 u, Vec3 end, double len, double tan) {
+        double t = center.subtract(from).dot(u);
         if (t <= 0 || t > len + 1) return false;
         net.minecraft.world.phys.AABB grown = box.inflate(0.3 + t * tan + (wideLine ? near(t) : 0));
         return grown.contains(from) || grown.clip(from, end).isPresent();

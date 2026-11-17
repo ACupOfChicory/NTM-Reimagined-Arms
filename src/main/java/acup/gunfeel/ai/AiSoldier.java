@@ -261,6 +261,8 @@ public final class AiSoldier implements AiBrain {
     public int flanks, flankTries, suppressions;
     /** the stands: shots fired to keep a target's head down (suppress), and ticks such fire was held for one of its own in the line */
     static int suppressShots, suppressHolds;
+    /** the stands count them (AiCheck) */
+    static boolean counting;
 
     /** a grenade: it stands this long while its arm goes over (the pose's throw), ticks */
     static final int THROW_TICKS = 12;

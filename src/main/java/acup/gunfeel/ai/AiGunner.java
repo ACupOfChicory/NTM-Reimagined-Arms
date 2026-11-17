@@ -381,7 +381,7 @@ public final class AiGunner {
             // one of its own between it and the target: it holds fire
             shoot = false;
             holds++;
-            if (suppresses()) AiSoldier.suppressHolds++;
+            if (AiSoldier.counting && suppresses()) AiSoldier.suppressHolds++;
         }
         blockedTicks = held(blockedTicks, friend, shoot, holdsOver);
         covered = shoot && ownCover(level);
@@ -518,7 +518,7 @@ public final class AiGunner {
         if (AiBots.friendTrace && mob.level() instanceof ServerLevel level) snap(level, tick);
         if (tick == shotTick) return;
         shotTick = tick;
-        if (suppresses()) AiSoldier.suppressShots++;
+        if (AiSoldier.counting && suppresses()) AiSoldier.suppressShots++;
         fresh++;
     }
 
