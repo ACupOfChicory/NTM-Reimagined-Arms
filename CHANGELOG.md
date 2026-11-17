@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- AI soldiers waiting their turn while two of their squad go after a lost
+  enemy a long way, such as up a deep shaft, no longer forget that enemy
+  and stay behind for good: they keep it in mind while the others are still
+  searching, and follow when their turn comes.
 - AI soldiers keep clear of the whole blast of a grenade one of their squad
   throws in through a bunker's slit or drops down a shaft, not just its
   nearest part. Squad mates behind a wall from the slit's grenade wait

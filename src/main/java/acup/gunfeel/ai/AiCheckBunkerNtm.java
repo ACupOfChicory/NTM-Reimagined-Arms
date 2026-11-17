@@ -250,16 +250,50 @@ final class AiCheckBunkerNtm {
         return bt.name() + " byHand " + bt.canOpenByHand();
     }
 
+    /**
+     * The cells round the hub one of the squad stands free in (a floor under it, nothing in its box), nearest first:
+     * the hub is cramped, a place a block aside of it may be in a wall (one put there choked to death, the stands)
+     */
+    private List<Vec3> freeByHub() {
+        List<Vec3> out = new ArrayList<>();
+        int bx = BlockPos.getX(hub), by = BlockPos.getY(hub), bz = BlockPos.getZ(hub);
+        for (int dx = -4; dx <= 4; dx++)
+            for (int dz = -4; dz <= 4; dz++)
+                for (int dy = -1; dy <= 1; dy++) {
+                    BlockPos feet = new BlockPos(bx + dx, by + dy, bz + dz);
+                    if (level.getBlockState(feet.below()).getCollisionShape(level, feet.below()).isEmpty()) continue;
+                    double x = feet.getX() + 0.5, z = feet.getZ() + 0.5;
+                    if (!level.noCollision(new net.minecraft.world.phys.AABB(x - 0.3, feet.getY(), z - 0.3, x + 0.3, feet.getY() + 1.95, z + 0.3))) continue;
+                    out.add(new Vec3(x, feet.getY(), z));
+                }
+        Vec3 c = new Vec3(bx + 0.5, by, bz + 0.5);
+        out.sort(java.util.Comparator.comparingDouble(v -> v.distanceToSqr(c)));
+        return out;
+    }
+
+    /** one of a team put at the k-th free cell by the hub (or the hub, none free); null if none could be made there */
+    private @org.jspecify.annotations.Nullable Mob atHub(List<Vec3> free, int k, String team) {
+        Vec3 at = free.isEmpty() ? new Vec3(BlockPos.getX(hub) + 0.5, BlockPos.getY(hub), BlockPos.getZ(hub) + 0.5) : free.get(Math.min(k, free.size() - 1));
+        List<Mob> made = AiSpawn.spawn(level, at, AiSpawn.Kind.DUMMY, 1, null);
+        if (made.isEmpty()) {
+            check.out(String.format(Locale.ROOT, "     bunkerntm: none could be made by the hub at %.1f %.1f %.1f (%d free cells)", at.x, at.y, at.z, free.size()));
+            return null;
+        }
+        Mob m = made.get(0);
+        if (!free.isEmpty()) m.setPos(at.x, at.y, at.z);
+        AiTeams.join(level, m, team);
+        return m;
+    }
+
     private void spawn() {
         roundAt = ticks;
         hatchDown0 = AiHatch.down;
         held0 = new int[] {AiHatch.held, AiHatch.smokedDown, AiHatch.contained};
         AiHatch.on = hatchOn && round % 2 == 1;
-        double hx = BlockPos.getX(hub) + 0.5, hy = BlockPos.getY(hub), hz = BlockPos.getZ(hub) + 0.5;
+        List<Vec3> free = freeByHub();
         for (int i = 0; i < INSIDE; i++) {
-            Mob m = AiSpawn.spawn(level, new Vec3(hx, hy, hz), AiSpawn.Kind.DUMMY, 1, null).get(0);
-            m.setPos(hx + (i == 0 ? 0 : 1), hy, hz);
-            AiTeams.join(level, m, "ntmbunker_in" + round);
+            Mob m = atHub(free, i, "ntmbunker_in" + round);
+            if (m == null) continue;
             // they hold the hub (up the ladder they went at the squad, and the fight was in the shaft)
             var speed = m.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
             if (speed != null) speed.setBaseValue(0);
@@ -286,6 +320,7 @@ final class AiCheckBunkerNtm {
                 if (b != null) b.memory.seen(o.getId(), o.getX(), o.getY(), o.getZ(), now, 0);
                 if (ob != null) ob.memory.seen(m.getId(), m.getX(), m.getY(), m.getZ(), now, 0);
             }
+        double hx = BlockPos.getX(hub) + 0.5, hy = BlockPos.getY(hub), hz = BlockPos.getZ(hub) + 0.5;
         if (round == 0) check.out(String.format(Locale.ROOT, "     bunkerntm: %d in the hub at %.1f %.1f %.1f, %d of the squad on the ground at %.1f %d %.1f", INSIDE, hx, hy, hz, SQUAD, sx, sy, sz));
     }
 
@@ -389,7 +424,6 @@ final class AiCheckBunkerNtm {
         // (on: the foe on the ground is a still target, no grenade comes down; the way up a shaft is AiHatch's)
         AiHatch.on = hatchOn;
         AiHatch.forget(level);
-        double hx = BlockPos.getX(hub) + 0.5, hy = BlockPos.getY(hub), hz = BlockPos.getZ(hub) + 0.5;
         double fx = BlockPos.getX(hatch) + 10.5, fz = BlockPos.getZ(hatch) + 0.5;
         int fy = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(fx), (int) Math.floor(fz));
         // a still target on the ground (no AI of its own: it does not come down to them)
@@ -400,22 +434,53 @@ final class AiCheckBunkerNtm {
         upFoe.setPos(fx, fy, fz);
         level.addFreshEntity(upFoe);
         AiTeams.join(level, upFoe, "ntmbunker_inup");
+        List<Vec3> free = freeByHub();
         for (int i = 0; i < SQUAD; i++) {
-            Mob m = AiSpawn.spawn(level, new Vec3(hx, hy, hz), AiSpawn.Kind.DUMMY, 1, null).get(0);
-            m.setPos(hx + (i % 2), hy, hz + (i / 2));
-            AiTeams.join(level, m, "ntmbunker_outup");
+            Mob m = atHub(free, i, "ntmbunker_outup");
+            if (m == null) continue;
             squad.add(m);
             upped[i] = false;
+            upDownTold[i] = false;
         }
         AiBots.refreshTargets(level);
         long now = level.getGameTime();
         for (Mob m : squad) if (AiBots.get(m) instanceof AiBot b) b.memory.seen(upFoe.getId(), upFoe.getX(), upFoe.getY(), upFoe.getZ(), now, 0);
     }
 
+    /** the trace of the way up: each of the squad every UP_TRACE ticks, and how one fell (its fall and what hurt it) */
+    static final int UP_TRACE = 50;
+    private final float[] upHealth = new float[SQUAD];
+    private final float[] upFall = new float[SQUAD];
+    private final boolean[] upDownTold = new boolean[SQUAD];
+
+    private String upOne(Mob m) {
+        if (!(AiBots.get(m) instanceof AiBot b) || !(b.brain instanceof AiSoldier so)) return "-";
+        TargetMemory.Contact c = upFoe == null ? null : b.memory.contact(upFoe.getId());
+        long now = level.getGameTime();
+        return String.format(Locale.ROOT, "#%d %.1f %.1f %.1f %s/%s climb %s hunt %s foe %s", m.getId(), m.getX(), m.getY(), m.getZ(), so.mode(), so.why, m.onClimbable(),
+                upFoe == null ? "-" : AiSquads.mayHunt(b, upFoe.getId()), c == null ? "none" : c.state + " lost " + (now - c.lostTick) + " ago");
+    }
+
     private boolean upTick(int rt) {
         int up = 0;
+        if (rt % UP_TRACE == 0) {
+            StringBuilder sb = new StringBuilder();
+            for (Mob m : squad) if (m.isAlive()) sb.append(' ').append(upOne(m)).append(';');
+            check.out(String.format(Locale.ROOT, "       up trace, tick %d:%s", rt, sb));
+        }
         for (int i = 0; i < squad.size(); i++) {
             Mob m = squad.get(i);
+            float h = m.isAlive() ? m.getHealth() : 0;
+            if (rt <= 1) upHealth[i] = h;
+            if (h < upHealth[i] && !upDownTold[i]) {
+                var by = m.getLastDamageSource();
+                check.out(String.format(Locale.ROOT, "       up trace, tick %d: #%d hurt %.1f (left %.1f) at %.2f %.2f %.2f by %s (%s), its fall %.1f, climbing %s", rt, m.getId(), upHealth[i] - h, h,
+                        m.getX(), m.getY(), m.getZ(), by == null ? "?" : by.type().msgId(), by == null || by.getEntity() == null ? "-" : by.getEntity().getType().toShortString(), upFall[i],
+                        m.onClimbable()));
+                if (h <= 0) upDownTold[i] = true;
+            }
+            upHealth[i] = h;
+            upFall[i] = (float) m.fallDistance;
             if (!upped[i] && m.isAlive() && m.getY() >= ground - 0.1) upped[i] = true;
             if (upped[i]) up++;
         }
