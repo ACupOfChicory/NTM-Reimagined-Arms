@@ -1771,8 +1771,8 @@ public final class AiSoldier implements AiBrain {
     /**
      * One of its squad on the move, a target out of sight a moment ago: from its cover, a burst every few seconds at
      * the bunker's slit they went behind (AiBunker), else at the way out it watches (wayOut, not null; the first burst
-     * waits till it is chosen), else at the place they went out of sight; out at a peek it sees that from, or up over
-     * low cover, and back in. The base of fire fires at where they went, a long burst, reloads less, and steps out
+     * waits till it is chosen), else at the place they went out of sight; out at a peek it sees that from if it has one,
+     * or up over low cover, and back in. The base of fire fires at the slit or where they went, a long burst, reloads less, and steps out
      * beside its cover where that is in the way. The target there keeps its head down, or shows it.
      */
     private void suppress(AiBot bot, TargetMemory.Contact c, long tick, @Nullable Vec3 wayOut) {
@@ -1796,8 +1796,8 @@ public final class AiSoldier implements AiBrain {
             if (reload) g.reload();
             crouch = low && bot.mover.arrived();
             // its way out still to be chosen (ExitSpots.mayPick put it off): the burst waits for it, not begun where they went
-            // (the base of fire fires where they went: no way out for it)
-            if (bot.mover.arrived() && !reload && !g.reloading() && g.loaded() != 0 && tick >= nextSuppress && (base || !exitPending())) {
+            // (the base of fire fires where they went, one at a bunker's slit fires at that: no way out for them)
+            if (bot.mover.arrived() && !reload && !g.reloading() && g.loaded() != 0 && tick >= nextSuppress && (base || slit != null || !exitPending())) {
                 suppressing = true;
                 suppressSince = tick;
                 // its one burst: a rifleman's usual one, the base of fire's a long one
