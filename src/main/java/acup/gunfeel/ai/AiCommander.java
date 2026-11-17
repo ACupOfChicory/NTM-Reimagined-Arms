@@ -213,7 +213,10 @@ public final class AiCommander {
         /** the pair's other (C4: pinning and going round, of the same group), its time up at due, the one going round there (or in a fight) at ready */
         @Nullable Job partner;
         long due = Long.MAX_VALUE, ready = Long.MIN_VALUE, pairedAt;
-        /** a pair it was in undone before it was ready (C4): that pair's time (Long.MAX_VALUE: none), its other dead then */
+        /**
+     * a pair it was in (or the task it had before at the same group was in) undone before it was ready (C4): that
+     * pair's time (Long.MAX_VALUE: none), its other dead then
+     */
         long dueWas = Long.MAX_VALUE;
         boolean otherDead;
         /** when the staff last gave it (to the squad, or to the parts of a squad split on the way) */
@@ -979,6 +982,10 @@ public final class AiCommander {
         // falling back, the losses still counted from those it had before (not from those it has left)
         Job job = same ? had
                 : new Job(t.kind(), now, t.kind() == StaffPlan.Kind.BACK && had != null ? had.bots : List.copyOf(s.bots), ids);
+        // a pair's time goes on with a new task at the same group (C4: the two changing over, one sent to scout the
+        // group's place and back): a pair made with it again does not start the way round's time afresh
+        if (!same && had != null && g != null && g.any(had.ids))
+            job.dueWas = Math.min(had.dueWas, had.partner != null && had.ready == Long.MIN_VALUE ? had.due : Long.MAX_VALUE);
         // its contact and its being pinned down go on with its new task (C5): not reported again, not forgotten
         if (!same && had != null) {
             job.saidContact = had.saidContact;
@@ -1877,6 +1884,8 @@ public final class AiCommander {
     private static void ready(ServerLevel level, Job f, long now) {
         if (f.ready != Long.MIN_VALUE || f.partner == null || !pairs() || now >= f.due) return;
         f.ready = f.partner.ready = now;
+        // ready in time: a later pair of either is a pair of its own
+        f.dueWas = f.partner.dueWas = Long.MAX_VALUE;
         coupled++;
         coupleTicks += now - f.pairedAt;
         for (AiBot b : f.members)
