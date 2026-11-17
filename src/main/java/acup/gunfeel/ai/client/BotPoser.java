@@ -8,6 +8,7 @@ import net.minecraft.util.Mth;
 
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Puts an AI mob's HumanoidModel parts where {@link BotAnimator.Frame} says, after vanilla's setupAnim (walk, look,
@@ -103,6 +104,25 @@ public final class BotPoser {
     /** how far the run's legs are in at this speed, 0 .. 1 */
     static float running(float speed) {
         return BotAnimator.smooth((speed - RUN_FROM) / (RUN_FULL - RUN_FROM));
+    }
+
+    /**
+     * The legs' pace (walkPos a tick) with a stand's gait clips in place of the mod's ({@code o}, BotGaitOverride;
+     * {@code own} the mod's own pace): each clip with its own pace (blocks a second) goes as far through its step as
+     * the mob goes along (speed, blocks a tick), so its foot down stands
+     */
+    static float pace(float own, float speed, float heading, @Nullable BotGaitOverride o) {
+        if (o == null) return own;
+        String[] names = { o.walk(), o.jog(), o.sprint() };
+        float[] at = { o.walkSpeed(), o.jogSpeed(), o.sprintSpeed() }, ws = gaitWeights(speed, heading);
+        float out = own;
+        for (int i = 0; i < 3; i++) {
+            BotClip clip = names[i] == null || at[i] <= 0F || ws[i] <= 0F ? null : BotClips.get(names[i]);
+            if (clip == null || clip.length() <= 0F) continue;
+            // a step of the clip a cycle: it goes at[i] * its length blocks
+            out += ws[i] * (CYCLE * speed / (at[i] * clip.length()) - own);
+        }
+        return out;
     }
 
     /** the share of vanilla's pace the steps go at (Config.botRunGait tempo), 1 at a walk */
@@ -229,6 +249,11 @@ public final class BotPoser {
         float move = upright * (1F - BotAnimator.smooth(f.crouch()))
                 * BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM));
         float[] gw = gaitWeights(f.speed(), f.heading());
+        // a stand's gait clips in place of the mod's (BotGalleryStand; null for every mob out of one): their share of
+        // the gait going ahead
+        BotGaitOverride o = BotGaitOverride.of(f.entity());
+        float swapped = o == null ? 0F : (o.walk() != null ? gw[0] : 0F) + (o.jog() != null ? gw[1] : 0F) + (o.sprint() != null ? gw[2] : 0F);
+        float bare = o != null && o.bare() ? move * swapped : 0F;
         float run = move * (gw[1] * JOG_RUN + gw[2]), alert = BotAnimator.smooth(f.alert());
         float gun = f.arm(AiPose.HOLD) * upright;
         if (gun > 0F) {
@@ -261,7 +286,7 @@ public final class BotPoser {
 
         // on the move: the legs from the clips (crouching: vanilla's crouched legs, the clips' would lower the hips
         // and the eye the server keeps)
-        if (move > 0F) gait(p, f.speed(), f.heading(), walkPos, move, a);
+        if (move > 0F) gait(p, f.speed(), f.heading(), walkPos, move, a, o);
 
         // the knees, slower than the clips: vanilla swings straight legs (xRot cos(pos 0.6662) 1.4 speed); a leg
         // swinging forward lifts its foot. The elbows: bent a little with no gun, more as it walks; with a gun the
@@ -282,8 +307,9 @@ public final class BotPoser {
         }
         // the foot it stands on, on the ground (walking back, the leg going forward); on the run and walking in a
         // fight its knee bent (stoop)
-        float tac = alert * move * (1F - run), knees = RUN_BEND * run + TAC_BEND * tac;
-        plant(p, upright * (1F - crawl), walkPos, move * gw[3], walk, knees);
+        float tac = alert * move * (1F - run), knees = (RUN_BEND * run + TAC_BEND * tac) * (1F - bare);
+        // a clip put in bare: its foot down is on the floor already (BotGaitOverride.bare)
+        plant(p, upright * (1F - crawl) * (1F - bare), walkPos, move * gw[3], walk, knees);
         float free = f.arm(AiPose.NO_GUN) * upright;
         if (free > 0F) {
             float bend = free * (ELBOW_FREE + ELBOW_WALK * walk);
@@ -295,6 +321,9 @@ public final class BotPoser {
         // with the trunk (a combat sprint, not a light-footed jog); a walk in a fight a little forward (a tactical
         // walk); calm, a stroll as the clips have it
         stoop(p, RUN_LEAN * run + TAC_LEAN * tac, knees, gun * run);
+        // the hips (and all over them) down as far as a stand's clips' legs are made for, on top of the stoop's
+        float drop = o == null ? 0F : o.drop() * move * swapped;
+        if (drop > 0F) for (ModelPart part : new ModelPart[] { p.head, p.body, p.rightArm, p.leftArm, p.rightLeg, p.leftLeg }) part.y += drop;
 
         // in the air (a jump up a block, a fall): the legs of a jump, one knee drawn up
         float c = BotAnimator.smooth(f.crouch()) * upright;
@@ -611,10 +640,20 @@ public final class BotPoser {
      * the pace the game moves it at. Moves the legs w of the way from vanilla's.
      */
     static void gait(Parts p, float speed, float heading, float walkPos, float w, float[] a) {
+        gait(p, speed, heading, walkPos, w, a, null);
+    }
+
+    /** ... with a stand's clips in place of the mod's ({@code o}, BotGaitOverride), played at their own stride */
+    static void gait(Parts p, float speed, float heading, float walkPos, float w, float[] a, @Nullable BotGaitOverride o) {
         float u = walkPos / CYCLE;
         float[][] acc = new float[LEGS.length][3];
         float total = 0F;
         String[] names = gaitClips(heading);
+        if (o != null) {
+            if (o.walk() != null) names[0] = o.walk();
+            if (o.jog() != null) names[1] = o.jog();
+            if (o.sprint() != null) names[2] = o.sprint();
+        }
         float[] ws = gaitWeights(speed, heading);
         for (int i = 0; i < names.length; i++) {
             if (ws[i] <= 1e-4F) continue;
@@ -626,8 +665,11 @@ public final class BotPoser {
             total += ws[i];
         }
         if (total <= 0F) return;
-        // ahead only (the walk's, the jog's and the sprint's share): the clips back and aside swing about another middle
-        float wide = 1F + (stride(speed) - 1F) * (ws[0] + ws[1] + ws[2]);
+        // ahead only (the walk's, the jog's and the sprint's share): the clips back and aside swing about another middle;
+        // a stand's clips at their own stride
+        float ahead = (o != null && o.walk() != null ? 0F : ws[0]) + (o != null && o.jog() != null ? 0F : ws[1])
+                + (o != null && o.sprint() != null ? 0F : ws[2]);
+        float wide = 1F + (stride(speed) - 1F) * ahead;
         for (int b = 0; b < LEGS.length; b++) {
             ModelPart part = p.get(LEGS[b]);
             if (part == null) continue;

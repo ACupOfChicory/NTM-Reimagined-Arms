@@ -214,7 +214,7 @@ public final class BotAnimator {
             float sent = a.sent.at(e.getInterpolation().yRot(), own), head = a.sentHead.at(headSent(e), own);
             a.turn(fight || moving ? sent : Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot),
                     fight || moving ? head : Mth.rotLerp(partial, e.yHeadRotO, e.yHeadRot), Math.max(a.alert, a.arms[AiPose.AIM]), own);
-            a.move(e.getX() - e.xo, e.getZ() - e.zo, a.bodyYaw, now);
+            a.move(e.getX() - e.xo, e.getZ() - e.zo, a.bodyYaw, now, BotGaitOverride.of(e.getId()));
             // the push a hit gives it comes as its motion before it shows as steps
             a.push = (float) e.getDeltaMovement().horizontalDistance();
             a.fly(!e.onGround() && !e.isInWater() && !e.isInLava() && !e.isPassenger() && !e.onClimbable() && !e.isFallFlying(),
@@ -276,6 +276,11 @@ public final class BotAnimator {
      * SPEED_FOLLOW a tick, the heading (from where the body faces) turns to it while it moves.
      */
     void move(double dx, double dz, float bodyYaw, double now) {
+        move(dx, dz, bodyYaw, now, null);
+    }
+
+    /** ... {@code gait}: a stand's gait clips in place of the mod's, each at its own pace (BotPoser.pace) */
+    void move(double dx, double dz, float bodyYaw, double now, @Nullable BotGaitOverride gait) {
         float dt = Double.isNaN(movedAt) ? Float.POSITIVE_INFINITY : (float) Math.max(0.0, now - movedAt);
         movedAt = now;
         float s = (float) Math.sqrt(dx * dx + dz * dz);
@@ -293,7 +298,7 @@ public final class BotAnimator {
         walk += (Math.min(s * 4F, 1F) - walk) * kw;
         if (dt <= 20F) {
             // on the run, fewer steps by the player's choice (Config.botRunGait tempo; vanilla's pace at a walk)
-            float on = (walkWas + walk) / 2F * dt * BotPoser.tempo(speed);
+            float on = dt * BotPoser.pace((walkWas + walk) / 2F * BotPoser.tempo(speed), speed, heading, gait);
             if (s < BotPoser.MOVE_FROM) {
                 // only where it goes on faster than its fading walk would: a tick with no step in a run (a late
                 // packet) leaves the run's pace as it was
