@@ -84,9 +84,10 @@ page. They are alphas: expect bugs and back up your world.
   for 10.
 - 5.56mm and 7.62mm Duplex Rounds wherever NTM's soft point round of the
   calibre goes (ammo press: four lead ingots, four smokeless powder, two small
-  casings give 16 and 12). Each shot fires two bullets at once, the second a
-  quarter of a block behind the first and about 3 milliradians off its line;
-  each bullet goes through things as a soft point and does 70 % of its damage.
+  weapon steel casings give 16 and 12). Each shot fires two bullets at once,
+  the second a quarter of a block behind the first and about 3 milliradians
+  off its line; each bullet goes through things as a soft point and does 70 %
+  of its damage.
 - A .50 BMG Nuclear Round for the AMAT rifles only (ammo press: two
   americium-242 nuggets, a schrabidium nugget, two TATB charges and a steel
   large casing give one). It does no damage of its own and goes off where it
