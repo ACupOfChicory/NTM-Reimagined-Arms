@@ -14,7 +14,8 @@ import acup.gunfeel.nuke.MiniNukeCloud;
 
 // Client: a small nuclear blast's cloud (MiniNukeCloud) grows its shock ring as a bomb's, 1.5 blocks a tick, out to
 // five times its radius (a bomb's: 150 ticks, 225 blocks), with puffs big and many enough to read as a ring going
-// out over the ground (NTM's are the scale times 5 wide: specks of smoke at a Fat Mine's); it has no condensation
+// out over the ground at its edge (NTM's are the scale times 5 wide, still and long lived: specks of smoke over all
+// its disc at a Fat Mine's); it has no condensation
 // rings (a bomb's form at world heights 130 and 170 whatever its size: 70 blocks over a mine), and is hot at first as
 // a bomb's is (NTM's heat, cut to a whole number, is none under scale 0.142: grey from the start). Not applied: the
 // bomb's ring and rings, a grey cloud.
@@ -46,6 +47,16 @@ public abstract class MixinMiniNukeTorex {
         if (cloud.type == EntityNukeTorex.TorexType.SHOCK && MiniNukeCloud.mini((EntityNukeTorex) (Object) this))
             return cloud.setScale(MiniNukeCloud.shockWidth(wide), MiniNukeCloud.shockHeight(high));
         return cloud.setScale(wide, high);
+    }
+
+    // the shock ring's puffs going out with the ring and short lived: a band at its edge, not a disc of smoke
+    @Redirect(method = "simulateTick(IZ)I", at = @At(value = "INVOKE",
+            target = "Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;setMotion(D)Lcom/hbm/entity/effect/EntityNukeTorex$Cloudlet;"))
+    private EntityNukeTorex.Cloudlet gunfeel$shockMotion(EntityNukeTorex.Cloudlet cloud, double mult) {
+        EntityNukeTorex self = (EntityNukeTorex) (Object) this;
+        if (cloud.type != EntityNukeTorex.TorexType.SHOCK || !MiniNukeCloud.mini(self)) return cloud.setMotion(mult);
+        cloud.cloudletLife = MiniNukeCloud.shockLife();
+        return cloud.setMotion(MiniNukeCloud.shockMotion(self.getScaleVal()));
     }
 
     @ModifyConstant(method = "simulateTick(IZ)I", constant = @Constant(intValue = 220))

@@ -166,6 +166,22 @@ public final class MiniNukeCloud {
         return Math.max(SHOCK_HIGH, ntm);
     }
 
+    // NTM's shock ring is laid down a tick at a time at 1.5 blocks a tick more, its puffs going out at the scale times
+    // 0.25 a tick (still at a small one's) and living up to 400 ticks: under scale 1 the ring left behind fills its
+    // disc, smoke all over the ground and no ring to see. A small cloud's puffs ride the ring out at its own pace and
+    // live SHOCK_LIFE ticks: a band at its edge, the ground behind it clear
+    static final double SHOCK_PACE = 1.5;
+    static final int SHOCK_LIFE = 10;
+
+    // the motion NTM's shock puff is given (its own speed: the scale times 0.25) for it to go out SHOCK_PACE a tick
+    public static double shockMotion(double scale) {
+        return SHOCK_PACE / Math.max(1e-3, scale * 0.25);
+    }
+
+    public static int shockLife() {
+        return SHOCK_LIFE;
+    }
+
     // NTM's bomb at scale 1: its heat at the start (EntityNukeTorex.simulateTick: (int) (50 * s * s))
     static final double BOMB_HEAT = 50;
 
