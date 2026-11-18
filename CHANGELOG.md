@@ -6,6 +6,29 @@
   their legs slowing into a squat, and get up out of it into a run (or, aiming,
   into a walk) with a person's first steps.
 
+## X1640
+
+- A hit marker round the crosshair when your shot hurts someone: white strokes
+  on the body, red on the head, a quiet tick or ding, and a bell on a kill.
+  It covers NTM's bullets, beams and blasts, and replaces the electroshock
+  shell's own mark. Setting `hitMarker`.
+- A red arc round the crosshair shows where damage you take came from and stays
+  pointing there as you turn. Setting `damageIndicator`.
+
+## X1637
+
+- The M2 and the AM-180 overheat. About 180 rounds of the M2 in one burst, or
+  three magazines of the AM-180 one after another, take the barrel to its
+  hottest; it cools in about a minute, four times as fast in water or rain.
+  Hot, the barrel smokes at the muzzle and hisses, the shot spreads up to four
+  times the gun's own and the barrel wears up to five times as fast. The
+  AM-180 jams in the burst; the M2's round left in a hot chamber can go off on
+  its own a moment after the trigger is let go. The heat shows as a bar under
+  the gun's condition in the HUD. AI soldiers fire shorter bursts as their
+  barrel warms and wait for it to cool near the top. The minigun's turning
+  barrels do not overheat. The server key `gunOverheat` scales the heat, `0`
+  turns it off.
+
 ## X1633
 
 - AI soldiers creeping along with their gun up, aiming or shooting, walk as a

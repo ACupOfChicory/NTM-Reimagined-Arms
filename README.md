@@ -50,10 +50,26 @@ page. They are alphas: expect bugs and back up your world.
   chestplate is enough.
 - A bullet flies where the player looked in the frame of the click, and a burst
   follows the camera.
+- The M2 and the AM-180 overheat (the minigun's turning barrels do not): about
+  180 rounds of the M2 in one burst, or three magazines of the AM-180 one
+  after another, and the barrel is at its hottest. It cools in about a
+  minute, four times as fast in water or rain. A hot barrel smokes at the
+  muzzle and hisses, its heat shows as a bar under the gun's condition, the
+  shot spreads up to four times the gun's own and the barrel wears up to five
+  times as fast. The AM-180 jams in the burst; the M2 fires from a closed bolt,
+  so a round left in its hot chamber can go off on its own a moment after the
+  trigger is let go. AI soldiers fire shorter bursts as their barrel warms and
+  wait for it to cool near the top (server key `gunOverheat`).
 
 ### Ammo and HUD
 
 - An ammo counter in the bottom-right corner instead of NTM's.
+- A hit marker round the crosshair when your shot hurts someone: four short
+  white strokes on the body, red ones on the head, with a quiet tick or ding,
+  and a bell on a kill. Any NTM gun's bullets, beams and blasts, the
+  electroshock shell's too.
+- When you take damage, a red arc round the crosshair shows where it came from
+  and stays pointing there as you turn.
 - Tap Y to lock the gun's ammo type: it keeps that type, also once empty. Hold
   Y for an ammo wheel: point at a type with the mouse and left-click to reload
   with it; letting go of Y without a click changes nothing. Under the type you
@@ -513,6 +529,8 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `aimOnRightButton` | `true` | Aim with the right button |
 | `clickAim` | `true` | Bullets fly where the click was aimed |
 | `cornerHud` | `true` | Corner ammo counter instead of NTM's |
+| `hitMarker` | `true` | A mark round the crosshair and a quiet sound when your shot hurts someone (red on the head, a bell on a kill) |
+| `damageIndicator` | `true` | An arc round the crosshair towards where damage you take came from |
 | `ammoMenu` | `steel` | Look of the ammo wheel: `steel`, `petals`, `bubbles`, `ntm`, `glass`, `arc` |
 | `quality` | `high` | Impact effects: `low`, `medium`, `high`, `realism` |
 | `hitVolume` | `2` | Loudness of hit sounds, 0 to 4 |
@@ -566,6 +584,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `shockGlitch`, `shockGlitchMin` | `1`, `0.5` | The most the HUD glitches, and the least share of it a player may turn their own down to |
 | `shockCamera`, `shockShake` | `45`, `0.6` | How fast the view drifts on its own at most (degrees a second), and how much it shakes (degrees) |
 | `gunshotRange` | `1` | How far shots are heard, players and AI bots alike: silenced 16 blocks, energy weapons 24, pistols 48, shotguns and launchers 64, rifles 80, machine guns 96, anti-materiel rifles 128; the part over 16 scaled (`0`: 16 for all, as in NTM) |
+| `gunOverheat` | `1` | The M2's and the AM-180's barrels heat up: times the heat each shot adds (`0`: they never heat) |
 | `miniNukeCloud` | `true` | NTM's small nuclear blasts drawn as the mushroom cloud of NTM's bombs, sized to the blast (`false`: NTM's own flash and wave) |
 | `gunHitKnockback`, `gunHitTilt` | `false` | `true`: a player hit by an NTM gun's bullet or beam is thrown back as in vanilla; their view tilts with the hit |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |

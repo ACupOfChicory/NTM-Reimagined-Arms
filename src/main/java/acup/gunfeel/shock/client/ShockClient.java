@@ -9,30 +9,26 @@ import acup.gunfeel.shock.ShockPayloads;
 import acup.gunfeel.shock.ShockServer;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.sounds.SoundEvent;
 import net.minecraft.util.Mth;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 
 /**
- * Client: what a shock does to the player shocked (the server tells: ShockServer) and the shooter's mark. For the
- * shock's length: the whole HUD glitches and shakes (ShockHud; its strength the server's shockGlitch times the
- * player's own shockGlitch, never under shockGlitchMin of the server's), the view shakes a little (shockShake) and
- * turns about on its own (shockCamera degrees a second at most: two slow waves each way, so it wanders off and back,
- * and the player's aim with it). All of it at full for shockSeconds, then wearing off smoothly over the server's fade
- * (ShockServer.envelope, the same as the slowing's: the view narrows with that by the game's own rule for slowness).
- * As strong as the glitch: discharges and a light vignette at the screen's edges (ShockArcs).
+ * Client: what a shock does to the player shocked (the server tells: ShockServer); the shooter has the hit marker of
+ * any shot (HitMarkerClient). For the shock's length: the whole HUD glitches and shakes (ShockHud; its strength the
+ * server's shockGlitch times the player's own shockGlitch, never under shockGlitchMin of the server's), the view
+ * shakes a little (shockShake) and turns about on its own (shockCamera degrees a second at most: two slow waves each
+ * way, so it wanders off and back, and the player's aim with it). All of it at full for shockSeconds, then wearing off
+ * smoothly over the server's fade (ShockServer.envelope, the same as the slowing's: the view narrows with that by the
+ * game's own rule for slowness). As strong as the glitch: discharges and a light vignette at the screen's edges
+ * (ShockArcs).
  */
 public final class ShockClient {
     private ShockClient() {
     }
 
-    private static final float MARK_SECONDS = 0.45F;
     private static final Random RANDOM = new Random();
 
     // the shock now: its start and its time at full in game ticks (the client's own count), the waves of the view's turn
@@ -41,18 +37,12 @@ public final class ShockClient {
     private static int length;
     private static final float[] WAVES = new float[8];
     private static long lastFrame;
-    // the shooter's mark: when, and whether it shocked
-    private static long markAt = Long.MIN_VALUE;
-    private static boolean markTook;
-    // the stand: shocks seen, marks (and those that shocked), the view's turn so far (degrees)
-    public static int shocks, marks, marksTook;
+    // the stand: shocks seen, the view's turn so far (degrees)
+    public static int shocks;
     public static float turned;
 
     public static void init(IEventBus modBus) {
         ShockHud.init(modBus);
-        modBus.addListener(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent.class,
-                e -> e.registerAbove(net.neoforged.neoforge.client.gui.VanillaGuiLayers.CROSSHAIR,
-                        Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_mark"), ShockClient::mark));
         // the discharges and the light vignette at the screen's edges, over the camera's own overlays
         modBus.addListener(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent.class,
                 e -> e.registerAbove(net.neoforged.neoforge.client.gui.VanillaGuiLayers.CAMERA_OVERLAYS,
@@ -74,7 +64,6 @@ public final class ShockClient {
     public static void clear() {
         start = Long.MIN_VALUE;
         length = 0;
-        markAt = Long.MIN_VALUE;
     }
 
     // ---- the packets
@@ -98,15 +87,6 @@ public final class ShockClient {
         shocks++;
         turned = 0F;
         if (TestLog.client) GunFeel.LOGGER.info("[shock] start ticks={}", ticks);
-    }
-
-    public static void mark(ShockPayloads.Mark p) {
-        markAt = System.nanoTime();
-        markTook = p.took();
-        marks++;
-        if (p.took()) marksTook++;
-        SoundEvent s = BuiltInRegistries.SOUND_EVENT.getValue(Identifier.fromNamespaceAndPath("hbm", "weapon.tesla"));
-        if (s != null) Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(s, p.took() ? 1.9F : 1.5F, 0.35F));
     }
 
     /** the client's game ticks (ShockArcs' pictures) */
@@ -195,26 +175,5 @@ public final class ShockClient {
         e.setYaw(e.getYaw() + y);
         e.setPitch(e.getPitch() + x);
         e.setRoll(e.getRoll() + r);
-    }
-
-    // ---- the shooter's mark: four short sparks round the crosshair, bluish white, gone in under half a second
-
-    private static void mark(GuiGraphicsExtractor g, DeltaTracker delta) {
-        Minecraft mc = Minecraft.getInstance();
-        if (markAt == Long.MIN_VALUE || mc.player == null || mc.gui.hud.isHidden()) return;
-        float age = (System.nanoTime() - markAt) / 1e9F;
-        if (age >= MARK_SECONDS) return;
-        float a = 1F - age / MARK_SECONDS;
-        int cx = g.guiWidth() / 2, cy = g.guiHeight() / 2;
-        int color = ((int) (a * 255F) << 24) | (markTook ? 0x9FD8FF : 0xCFCFCF);
-        int in = 4, out = markTook ? 9 : 7;
-        for (int d = in; d <= out; d++) {
-            // a spark jags a pixel off its line now and then
-            int j = ((d * 7 + (int) (age * 40F)) % 5 == 0) ? 1 : 0;
-            g.fill(cx + d, cy + d - j, cx + d + 1, cy + d + 1 - j, color);
-            g.fill(cx - d - 1, cy + d - j, cx - d, cy + d + 1 - j, color);
-            g.fill(cx + d, cy - d - 1 + j, cx + d + 1, cy - d + j, color);
-            g.fill(cx - d - 1, cy - d - 1 + j, cx - d, cy - d + j, color);
-        }
     }
 }
