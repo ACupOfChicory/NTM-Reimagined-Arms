@@ -31,6 +31,8 @@ public final class GunFeelMod {
             if (dist.isClient()) acup.gunfeel.gl54.Gl54Client.init(modBus);
         }
         acup.gunfeel.gas.GasSetup.init(modBus, dist);
+        // the hit marker and the damage indicator round the crosshair
+        if (dist.isClient()) acup.gunfeel.hitmarker.client.HitMarkerClient.init(modBus);
         // the 12 gauge electroshock shell
         if (Feature.SHOCK.on()) {
             acup.gunfeel.shock.ShockAmmo.register(modBus);
@@ -110,6 +112,7 @@ public final class GunFeelMod {
         acup.gunfeel.ai.AiEvents.register();
         acup.gunfeel.ai.AiUnderFire.init();
         HeadDamage.register();
+        acup.gunfeel.hitmarker.HitMarkers.register();
         DamageCap.register();
         BalanceLog.register();
         BalanceKit.register();
@@ -200,9 +203,8 @@ public final class GunFeelMod {
                 r.playToClient(acup.gunfeel.shock.ShockPayloads.Shock.TYPE, acup.gunfeel.shock.ShockPayloads.Shock.CODEC, (p, ctx) -> {
                     if (Feature.SHOCK.on()) ctx.enqueueWork(() -> acup.gunfeel.shock.client.ShockClient.shock(p));
                 });
-                r.playToClient(acup.gunfeel.shock.ShockPayloads.Mark.TYPE, acup.gunfeel.shock.ShockPayloads.Mark.CODEC, (p, ctx) -> {
-                    if (Feature.SHOCK.on()) ctx.enqueueWork(() -> acup.gunfeel.shock.client.ShockClient.mark(p));
-                });
+                r.playToClient(acup.gunfeel.hitmarker.HitMarkerPayload.TYPE, acup.gunfeel.hitmarker.HitMarkerPayload.CODEC,
+                        (p, ctx) -> ctx.enqueueWork(() -> acup.gunfeel.hitmarker.client.HitMarkerClient.receive(p)));
                 r.playToClient(GunHitPayload.TYPE, GunHitPayload.CODEC, (p, ctx) -> ctx.enqueueWork(GunHitClient::receive));
                 r.playToClient(acup.gunfeel.ammo.RubberPayload.TYPE, acup.gunfeel.ammo.RubberPayload.CODEC, (p, ctx) -> {
                     if (Feature.RUBBER_SLUG.on()) ctx.enqueueWork(() -> acup.gunfeel.ammo.client.RubberClient.confuse(p));
@@ -232,7 +234,7 @@ public final class GunFeelMod {
                 r.playToClient(acup.gunfeel.water.WaterBlastPayload.TYPE, acup.gunfeel.water.WaterBlastPayload.CODEC);
                 r.playToClient(SuppressionBlastPayload.TYPE, SuppressionBlastPayload.CODEC);
                 r.playToClient(acup.gunfeel.shock.ShockPayloads.Shock.TYPE, acup.gunfeel.shock.ShockPayloads.Shock.CODEC);
-                r.playToClient(acup.gunfeel.shock.ShockPayloads.Mark.TYPE, acup.gunfeel.shock.ShockPayloads.Mark.CODEC);
+                r.playToClient(acup.gunfeel.hitmarker.HitMarkerPayload.TYPE, acup.gunfeel.hitmarker.HitMarkerPayload.CODEC);
                 r.playToClient(GunHitPayload.TYPE, GunHitPayload.CODEC);
                 r.playToClient(acup.gunfeel.ammo.RubberPayload.TYPE, acup.gunfeel.ammo.RubberPayload.CODEC);
                 acup.gunfeel.smoke.SmokeNet.payloads(r);

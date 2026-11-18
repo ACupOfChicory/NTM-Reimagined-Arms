@@ -61,6 +61,10 @@ public final class Config {
     // size of the rounds in water (flying, sunk) on top of the size of NTM's casing of the round
     public static float waterBodyScale = 1F;
     public static boolean cornerHud = true;
+    // the hit marker round the crosshair when your shot hurts someone, its sounds (HitMarkerClient)
+    public static boolean hitMarker = true;
+    // the arc round the crosshair towards where damage you take came from (HitMarkerClient)
+    public static boolean damageIndicator = true;
     public static String ammoMenu = "steel";
     public static int ammoMenuColor = 0xFF8C1A;
     // Both-hands grip. Each arm runs from its hand back along a fixed direction (camera frame: +X left,
@@ -245,6 +249,9 @@ public final class Config {
             waterBodyLife: seconds such a round lies on the bottom
             waterBodyScale: size of the rounds seen in water, 1 = matched to the casings NTM drops, 0.25..4
             cornerHud: TaCZ-style ammo counter in the bottom-right corner instead of NTM's
+            hitMarker: a mark round the crosshair and a quiet sound when your shot hurts someone (red on the head,
+              a bell on a kill)
+            damageIndicator: an arc round the crosshair towards where damage you take came from
             ammoMenu: look of the ammo menu (hold Y): steel, petals, bubbles, ntm, glass, arc
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
             arms: draw the player's arms holding the gun with both hands; their model follows the skin,
@@ -551,6 +558,8 @@ public final class Config {
         float bodyScale = num(p, "waterBodyScale", waterBodyScale);
         if (Float.isFinite(bodyScale)) waterBodyScale = Math.clamp(bodyScale, 0.25F, 4F);
         cornerHud = bool(p, "cornerHud", cornerHud);
+        hitMarker = bool(p, "hitMarker", hitMarker);
+        damageIndicator = bool(p, "damageIndicator", damageIndicator);
         ammoMenu = p.getProperty("ammoMenu", ammoMenu).trim().toLowerCase(java.util.Locale.ROOT);
         try {
             ammoMenuColor = Integer.parseInt(p.getProperty("ammoMenuColor", String.format("%06x", ammoMenuColor)).trim().replace("#", ""), 16) & 0xFFFFFF;
@@ -701,6 +710,8 @@ public final class Config {
         p.setProperty("waterBodyLife", Float.toString(waterBodyLife));
         p.setProperty("waterBodyScale", Float.toString(waterBodyScale));
         p.setProperty("cornerHud", Boolean.toString(cornerHud));
+        p.setProperty("hitMarker", Boolean.toString(hitMarker));
+        p.setProperty("damageIndicator", Boolean.toString(damageIndicator));
         p.setProperty("ammoMenu", ammoMenu);
         p.setProperty("ammoMenuColor", String.format("%06x", ammoMenuColor));
         p.setProperty("arms", Boolean.toString(arms));

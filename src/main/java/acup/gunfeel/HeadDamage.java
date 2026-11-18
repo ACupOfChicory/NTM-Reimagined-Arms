@@ -23,6 +23,8 @@ public final class HeadDamage {
     private static final ThreadLocal<Pending> PENDING=new ThreadLocal<>();
     /** the target of the hurt under way when the hit is on its head (DamageCap: the head's cap) */
     private static final ThreadLocal<LivingEntity> HEAD=new ThreadLocal<>();
+    // the target of the attack under way, whatever its part
+    private static final ThreadLocal<LivingEntity> ATTACK=new ThreadLocal<>();
     private HeadDamage() {}
 
     public static void register() {
@@ -44,15 +46,29 @@ public final class HeadDamage {
     /** the bullet's hit on {@code target}: {@code hurt} with {@code damage}, its part's multiplier taken after the armour */
     public static boolean attack(LivingEntity target,float damage,float multiplier,Hurt hurt) {
         var head=HEAD.get();
+        var attacked=ATTACK.get();
         if(multiplier>=ModelHeads.multiplier(true,false)-1e-3F) HEAD.set(target); else HEAD.remove();
+        ATTACK.set(target);
         try {
             if(standBeforeArmor) return hurt.hurt(damage*multiplier);
             var previous=PENDING.get();
             if(multiplier!=1F) PENDING.set(new Pending(target,multiplier)); else PENDING.remove();
             try { return hurt.hurt(damage); }
             finally { if(previous!=null) PENDING.set(previous); else PENDING.remove(); }
-        } finally { if(head!=null) HEAD.set(head); else HEAD.remove(); }
+        } finally {
+            if(head!=null) HEAD.set(head); else HEAD.remove();
+            if(attacked!=null) ATTACK.set(attacked); else ATTACK.remove();
+        }
     }
+    /** {@code hurt} of a gun's on {@code target} with no part's multiplier (a blast on the body): a shot's all the same */
+    public static boolean shot(LivingEntity target,java.util.function.BooleanSupplier hurt) {
+        var attacked=ATTACK.get();
+        ATTACK.set(target);
+        try { return hurt.getAsBoolean(); }
+        finally { if(attacked!=null) ATTACK.set(attacked); else ATTACK.remove(); }
+    }
+    /** the hurt under way on {@code target} is a shot's, through {@link #attack} or {@link #shot} (the hit marker, HitMarkers) */
+    public static boolean inAttack(LivingEntity target) { return ATTACK.get()==target; }
     /** the hurt under way on {@code target} is a hit on its head (through {@link #attack}) */
     public static boolean onHead(LivingEntity target) { return HEAD.get()==target; }
     /** an MK4 bullet's damage on {@code target} before the armour; its part's multiplier: {@link #multiplier} */

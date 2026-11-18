@@ -21,16 +21,4 @@ public final class ShockPayloads {
             return TYPE;
         }
     }
-
-    /** the player's shock shell hit someone; took: it shocked them (false: they were shocked or immune already) */
-    public record Mark(boolean took) implements CustomPacketPayload {
-        public static final Type<Mark> TYPE = new Type<>(Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_mark"));
-        public static final StreamCodec<RegistryFriendlyByteBuf, Mark> CODEC = CustomPacketPayload.codec((p, b) -> b.writeBoolean(p.took),
-                b -> new Mark(b.readBoolean()));
-
-        @Override
-        public Type<? extends CustomPacketPayload> type() {
-            return TYPE;
-        }
-    }
 }

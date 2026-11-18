@@ -1,5 +1,14 @@
 # Changelog
 
+## X1640
+
+- A hit marker round the crosshair when your shot hurts someone: white strokes
+  on the body, red on the head, a quiet tick or ding, and a bell on a kill.
+  It covers NTM's bullets, beams and blasts, and replaces the electroshock
+  shell's own mark. Setting `hitMarker`.
+- A red arc round the crosshair shows where damage you take came from and stays
+  pointing there as you turn. Setting `damageIndicator`.
+
 ## X1637
 
 - The M2 and the AM-180 overheat. About 180 rounds of the M2 in one burst, or
