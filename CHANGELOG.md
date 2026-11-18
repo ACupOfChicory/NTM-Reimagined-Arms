@@ -8,6 +8,27 @@
   bots in power armour made plain. They are drawn NTM's fast way again. The
   hitboxes are the same as before.
 
+## X1679
+
+- NTM's white phosphorus now lets out this mod's smoke: a dense white cloud
+  about 20 blocks across that hides what is behind it as a smoke grenade does
+  and stays while the phosphorus burns (about half a minute). The hand grenade
+  gets it in place of NTM's faint white haze, which is much lighter on the
+  frame rate, inside the cloud above all. The rocket, the artillery shell (the
+  cluster shell's too) and the HIMARS rocket get the same cloud, the 40 mm
+  round a smaller one (about 16 blocks); the artillery and HIMARS get it in
+  place of their short mushroom puff, keeping the flash of the blast. The
+  blasts, the fire on the ground with its flames, the hand grenade's sparks,
+  the burning and the blocks set alight are NTM's as before. With smoke turned
+  off on the server all of them stay as NTM had them.
+
+## X1676
+
+- The cloud NTM's chemical thrower leaves no longer hurts the one who fired it
+  until 3 seconds after the last of their gas has come out into it, as the
+  stream itself never does, so spraying a wall at point-blank range no longer
+  kills the shooter at once. After that it hurts them like anyone else.
+
 ## X1674
 
 - NTM's phosgene creeper now leaves a phosgene cloud of this mod's gas (doses,

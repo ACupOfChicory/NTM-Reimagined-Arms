@@ -106,7 +106,10 @@ public final class GasServer {
                 if (gas == GasKind.MUSTARD && time % GasRules.FLOOR_EVERY == 0) markFloor(level, c);
                 int[] b = c.grid.box();
                 AABB box = new AABB(c.baseX() + b[0], c.baseY() + b[1], c.baseZ() + b[2], c.baseX() + b[3] + 1, c.baseY() + b[4] + 1, c.baseZ() + b[5] + 1);
+                // a chemical thrower's cloud leaves its own thrower alone for a while (ChemSpare)
+                int spared = acup.gunfeel.compat.Feature.NTM_GAS.on() ? ChemClouds.spares(level, c) : -1;
                 for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && !e.isSpectator())) {
+                    if (e.getId() == spared) continue;
                     BlockPos head = BlockPos.containing(e.getEyePosition());
                     float v = Math.min(1F, c.cell(head.getX(), head.getY(), head.getZ()));
                     if (v <= 0F) continue;
