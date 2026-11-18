@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers' legs no longer pass through each other as they turn on the spot,
+  set off or pull up, and a soldier going straight back from a run no longer
+  starts to pull up on the way (its legs jolted).
+
 ## X1622
 
 - AI soldiers set off from standing and pull up from a walk or a run the way

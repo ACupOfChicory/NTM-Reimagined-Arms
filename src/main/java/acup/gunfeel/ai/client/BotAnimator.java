@@ -283,6 +283,8 @@ public final class BotAnimator {
     private double movedAt = Double.NaN;
     /** its step the last tick and the tick before (blocks); the stand's gait clips (move) */
     float step, stepWas;
+    /** the game's yaw of the way its last step went (degrees; NaN put somewhere or not yet gone) */
+    private float stepWay = Float.NaN;
     private long stepTick = Long.MIN_VALUE;
     private @Nullable BotGaitOverride swap;
 
@@ -419,6 +421,7 @@ public final class BotAnimator {
         if (s > TELEPORT) {
             // put somewhere (a teleport, a ride): it stands where it is now
             speed = walk = gait = gaitVel = velX = velZ = velXv = velZv = tiltX = tiltZ = tiltXv = tiltZv = leanPace = leanPaceFor = 0F;
+            stepWay = Float.NaN;
             freshFor = 0F;
             return;
         }
@@ -460,6 +463,7 @@ public final class BotAnimator {
         if (s > 1e-3F) {
             // the game's yaw: 0 is +z, 90 is -x; the mob's right is 90 more than where it faces
             float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+            stepWay = yaw;
             float to = Mth.wrapDegrees(yaw - bodyYaw) * Mth.DEG_TO_RAD;
             // and no faster than HEADING_TURN: turned right round (a sprint ahead, then back) the legs go from one
             // clip to the next over a third of a second, not in a tick; from a stand at once
@@ -695,7 +699,9 @@ public final class BotAnimator {
     static final float START_MOST = 0.1F;
     /**
      * a start or a stop only going this far aside at most (degrees from where the body faces), its legs turned that
-     * way; going farther aside under way (MOVE_WAY_OVER more) it goes out
+     * way; going farther aside under way (MOVE_WAY_OVER more) it goes out. Going in, the way drawn (heading) and its
+     * last step's own: the heading comes round over a third of a second, so going back from a run it is still ahead a
+     * few ticks (a stop came in there, and the feet's lock snapped the legs to it)
      */
     static final float MOVE_WAY_MOST = 45F, MOVE_WAY_OVER = 15F;
     /**
@@ -841,7 +847,8 @@ public final class BotAnimator {
         if (sec > 0F) yawRate += ((bodyYaw - lastYaw) / sec - yawRate) * (1F - (float) Math.exp(-RATE_FOLLOW * sec));
         lastYaw = bodyYaw;
         settleFor = Math.max(0F, settleFor - dt);
-        float rate = Math.abs(yawRate), aside = Math.abs(heading) * Mth.RAD_TO_DEG;
+        float rate = Math.abs(yawRate), aside = Math.abs(heading) * Mth.RAD_TO_DEG,
+                stepAside = Float.isNaN(stepWay) ? 0F : Math.abs(Mth.wrapDegrees(stepWay - bodyYaw));
         // a start or a stop goes by the way gone from the frame it came in (the frame's own way went before it)
         boolean under = move != null;
         if (move == null) {
@@ -850,7 +857,7 @@ public final class BotAnimator {
             if (!upright || !BotMoves.on()) return;
             // a start or a stop with the body turning no faster than a turn on the spot is played (turning round as it
             // goes, its feet would cross)
-            if (!placed || aside > MOVE_WAY_MOST || rate > MOVE_TURN_MOST || !(startMove(x, z) || stopMove())) {
+            if (!placed || aside > MOVE_WAY_MOST || stepAside > MOVE_WAY_MOST || rate > MOVE_TURN_MOST || !(startMove(x, z) || stopMove())) {
                 if (!still || !planted) return;
                 float feetYaw = (footYaw[0] + footYaw[1]) / 2F, off = bodyYaw - feetYaw;
                 if (Math.abs(off) < MOVE_TURN_FROM || rate < MOVE_STILL || rate > MOVE_TURN_MOST || off * yawRate <= 0F) return;
