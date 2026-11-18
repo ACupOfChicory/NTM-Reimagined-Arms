@@ -381,6 +381,11 @@ public final class WalkSprint {
         return wall;
     }
 
+    /** For the stand: the gun the last apply was for (its wall's weight and turn are that gun's). */
+    static Item appliedNow() {
+        return appliedItem;
+    }
+
     static float sprintShareNow() {
         return sprintShare;
     }

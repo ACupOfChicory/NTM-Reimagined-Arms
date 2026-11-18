@@ -42,7 +42,7 @@ import org.joml.Vector3f;
 //    lies in the world as far forward along the look as its depth says;
 //  - the G3 pressed against the wall: a fire key held lowers the muzzle (the gun stays back); the shot
 //    is logged (where the bullets go, the husk behind the wall): not a check of the gun at a wall;
-//  - a gun drawn in the open is not turned up; drawn at the wall it stays out of the wall's pose while NTM's draw
+//  - every NTM gun with a third person scale drawn in the open is not turned up (only the frames drawn with it); drawn at the wall it stays out of the wall's pose while NTM's draw
 //    animation plays, and so does one whose reload key starts an animation (it comes back after);
 //  - running into the wall the sprint pose gives way to the wall's (its weight at most 1 - the wall's); running along
 //    the wall (on the left and on the right) and up a flight of stairs (running, walking, looking down) the gun is not
@@ -75,6 +75,12 @@ final class GunWallStand {
     private static int animFrames, overShare, run;
     private static String overText;
     private static final Set<String> ANIMS = new java.util.TreeSet<>();
+    // only the frames WalkSprint applied for this gun (null: any)
+    private static net.minecraft.world.item.Item trackItem;
+    // the guns drawn in the open, the next one, and those turned up
+    private static final List<net.minecraft.world.item.Item> ALL = new ArrayList<>();
+    private static int drawn;
+    private static final List<String> RAISED = new ArrayList<>();
     // up the stairs: the look down (degrees) and running or walking
     private static final float[] STAIR_PITCH = {0F, 20F, 0F, 35F};
     private static final boolean[] STAIR_SPRINT = {true, true, false, true};
@@ -263,24 +269,39 @@ final class GunWallStand {
                     check(n > 0, "выстрел в упор: пуля вылетела (" + n + ")");
                     // not a check: the bullets are the coordinator's (they pass the wall from 2 blocks on this stand too)
                     log("выстрел в упор: дальше всех по z {} (стена до {}), зомби {} → {}", f(maxZ), WALL_Z + 1, f(zombieHealth), f(h));
-                    // a gun drawn in the open, from the G3 held and measured
+                    // every gun drawn in the open, one after another, from the G3 held there and settled
                     look(5F, 0F, 0F);
-                    hold("hbm:gun_light_revolver");
+                    ALL.clear();
+                    for (var item : BuiltInRegistries.ITEM) if (item instanceof ItemGunBaseNT && GunAtWall.thirdPersonScale(item) > 0F) ALL.add(item);
+                    drawn = 0;
+                    RAISED.clear();
+                    wait(30, 19);
+                }
+                case 19 -> {
+                    var item = ALL.get(drawn);
+                    hold(new ItemStack(item));
                     startTrack(Double.NEGATIVE_INFINITY);
-                    wait(60, 20);
+                    trackItem = item;
+                    wait(40, 20);
                 }
                 case 20 -> {
-                    drawnInTheOpen("револьвер");
-                    hold("hbm:gun_g3");
-                    startTrack(Double.NEGATIVE_INFINITY);
-                    wait(60, 21);
+                    track = false;
+                    String id = BuiltInRegistries.ITEM.getKey(ALL.get(drawn)).toString();
+                    log("{} достали в поле: вес до {}, вверх до {}°, анимации {}", id, f(maxWall), f(maxPitch), ANIMS);
+                    if (maxWall > 0.02F || maxPitch > 1F) RAISED.add(id + " " + f(maxWall) + "/" + f(maxPitch) + "°");
+                    if (++drawn < ALL.size()) {
+                        step = 19;
+                        return;
+                    }
+                    check(RAISED.isEmpty(), "достали в поле " + ALL.size() + " пушек: ни одна не задирается (" + RAISED + ")");
+                    // drawn pressed against the wall, the last gun settled there first
+                    look(0.3F, 0F, 0F);
+                    wait(30, 21);
                 }
                 case 21 -> {
-                    drawnInTheOpen("G3");
-                    // drawn pressed against the wall
-                    look(0.3F, 0F, 0F);
                     hold("hbm:gun_light_revolver");
                     startTrack(Double.NEGATIVE_INFINITY);
+                    trackItem = BuiltInRegistries.ITEM.getValue(Identifier.parse("hbm:gun_light_revolver"));
                     wait(80, 22);
                 }
                 case 22 -> {
@@ -407,6 +428,7 @@ final class GunWallStand {
 
     private static void startTrack(double minZ) {
         track = true;
+        trackItem = null;
         trackMinZ = minZ;
         maxY = Double.NEGATIVE_INFINITY;
         maxWall = maxPitch = maxShare = maxWallAnim = 0F;
@@ -417,7 +439,7 @@ final class GunWallStand {
     }
 
     private static void trackFrame(Minecraft mc) {
-        if (mc.player.getZ() < trackMinZ) return;
+        if (mc.player.getZ() < trackMinZ || trackItem != null && WalkSprint.appliedNow() != trackItem) return;
         float w = WalkSprint.wallNow(), pt = WalkSprint.wallPitchNow(), s = WalkSprint.sprintShareNow();
         maxY = Math.max(maxY, mc.player.getY());
         maxWall = Math.max(maxWall, w);
@@ -434,13 +456,6 @@ final class GunWallStand {
                 minPitchAnim = Math.min(minPitchAnim, pt);
             }
         }
-    }
-
-    // drawn in the open: never turned up nor drawn back
-    private static void drawnInTheOpen(String what) {
-        track = false;
-        log("{} достали в поле: вес до {}, вверх до {}°, анимации {}", what, f(maxWall), f(maxPitch), ANIMS);
-        check(maxWall <= 0.02F && maxPitch <= 1F, what + " достали в поле: пушка не задирается (вес до " + f(maxWall) + ", вверх до " + f(maxPitch) + "°)");
     }
 
     private static void keys(boolean up, boolean sprint) {
