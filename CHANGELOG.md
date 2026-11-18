@@ -1,5 +1,14 @@
 # Changelog
 
+## X1663
+
+- Smoke and gas no longer leak through a shut NTM door. Before, they went
+  through the secure access, sliding (QE), cargo, water and sliding seal doors,
+  the metal, office, bunker and red doors and the steel trapdoor as if they were
+  open. Every NTM door, the silo hatches and the blast door included, now holds
+  them while shut and lets them through once open, as vanilla doors and
+  trapdoors do.
+
 ## X1660
 
 - Close to a wall, the gun in your hands (first person) is drawn back and its

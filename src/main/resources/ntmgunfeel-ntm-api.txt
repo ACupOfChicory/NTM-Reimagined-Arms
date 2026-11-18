@@ -314,6 +314,8 @@ CLICK_AIM field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/h
 CLICK_AIM method com/hbm/client/Keybinds isGunHeld ()Z
 CLICK_AIM method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/entity/player/Player;)Lcom/hbm/extprop/HbmPlayerProps;
 CLICK_AIM method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
+CORE class com/hbm/blockentity/BlockEntityDoorGeneric
+CORE class com/hbm/blockentity/machine/BlockEntityBlastDoor
 CORE class com/hbm/blocks/generic/BlockWoodBarrier
 CORE class com/hbm/blocks/generic/BlockWoodStructure
 CORE class com/hbm/client/Keybinds
@@ -515,6 +517,10 @@ CORE field com/hbm/particle/ParticleSpentCasing rotationYaw F
 CORE field com/hbm/particle/SpentCasing casingMap Ljava/util/HashMap;
 CORE field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 CORE field com/hbm/util/DamageClass PHYSICAL Lcom/hbm/util/DamageClass;
+CORE method com/hbm/blockentity/BlockEntityDoorGeneric close ()V
+CORE method com/hbm/blockentity/BlockEntityDoorGeneric open ()V
+CORE method com/hbm/blockentity/machine/BlockEntityBlastDoor close ()V
+CORE method com/hbm/blockentity/machine/BlockEntityBlastDoor open ()V
 CORE method com/hbm/blocks/generic/BlockWoodBarrier panel (Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind ordinal ()I
 CORE method com/hbm/blocks/generic/BlockWoodStructure$Kind values ()[Lcom/hbm/blocks/generic/BlockWoodStructure$Kind;
