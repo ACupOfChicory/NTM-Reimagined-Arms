@@ -156,7 +156,7 @@ public final class NtmMeshHits {
             DRAW.set(frame);
             DRAW_TEXTURE.set(ModelTextureMask.texture(type));
             int before=frame.boxes().size();
-            var captured=new SubmittedModelGeometry(buffer);
+            var captured=SubmittedModelGeometry.of(buffer);
             try {
                 renderer.render(pose, captured);
                 if(frame.boxes().size()==before) {
