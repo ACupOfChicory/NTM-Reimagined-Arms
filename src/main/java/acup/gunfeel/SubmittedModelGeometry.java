@@ -118,9 +118,10 @@ class SubmittedModelGeometry implements VertexConsumer {
         }
     }
 
-    List<ModelBox> boxes(PrimitiveTopology topology,Identifier texture,boolean blended,double x,double y,double z) {
+    // ntm: the geometry is NTM's own (its renderer is NTM's): its pieces are outlined on their own (ModelMesh.grouped)
+    List<ModelBox> boxes(PrimitiveTopology topology,Identifier texture,boolean blended,boolean ntm,double x,double y,double z) {
         if(overflow) throw new IllegalArgumentException("слишком много вершин custom geometry");
-        return capture(recorded(),topology,texture,blended,x,y,z);
+        return capture(recorded(),topology,texture,blended,ntm,x,y,z);
     }
     /** what is read off so far: x, y, z, u, v a vertex */
     float[] recorded() { return Arrays.copyOf(vertices,count*5); }
@@ -128,6 +129,10 @@ class SubmittedModelGeometry implements VertexConsumer {
     // Отдельная функция принимает настоящий поток вершин и пригодна для
     // проверки разными моделями, включая не использующие ModelPart.
     static List<ModelBox> capture(float[] raw,PrimitiveTopology topology,Identifier texture,boolean blended,
+            double x,double y,double z) {
+        return capture(raw,topology,texture,blended,false,x,y,z);
+    }
+    static List<ModelBox> capture(float[] raw,PrimitiveTopology topology,Identifier texture,boolean blended,boolean ntm,
             double x,double y,double z) {
         if(raw.length%5!=0 || raw.length>MAX_VERTICES*5) throw new IllegalArgumentException("поток вершин");
         if(topology!=PrimitiveTopology.QUADS && topology!=PrimitiveTopology.TRIANGLES) return List.of();
@@ -148,6 +153,7 @@ class SubmittedModelGeometry implements VertexConsumer {
             if(basis!=null) {
                 float[] data=triangles(raw,at,count,stride,basis);
                 var shape=geometry(data,texture,blended && count==24);
+                if(ntm) for(var mesh:shape.meshes()) if(!mesh.grouped) mesh.grouped=true;
                 shape.append(result,"submitted",basis.matrix(),x,y,z);
             }
             at+=count;
@@ -231,8 +237,6 @@ class SubmittedModelGeometry implements VertexConsumer {
         if(geometry==null) {
             if(CACHE.size()>=MAX_SHAPES) CACHE.remove(CACHE.keySet().iterator().next());
             geometry=ModelSurfaceGeometry.bake(raw,shell?null:ModelTextureMask.mask(texture));
-            // a piece NTM drew, in its own box: F3+B outlines it on its own (ModelMesh.grouped)
-            for(var mesh:geometry.meshes()) mesh.grouped=true;
             CACHE.put(key,geometry);
         }
         return geometry;

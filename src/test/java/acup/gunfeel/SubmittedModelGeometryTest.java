@@ -57,6 +57,22 @@ class SubmittedModelGeometryTest {
         assertTrue(actual.stream().allMatch(box -> box.mesh()!=0));
         assertTrue(actual.stream().noneMatch(box -> box.clip(1.5,.5,-1,1.5,.5,1)>=0));
     }
+    // F3+B outlines on their own only the pieces NTM's renderers draw (ModelMesh.grouped), and not one Flywheel has
+    // also taken: a mesh is one object for equal triangles, whoever took them
+    @Test void onlyNtmsPiecesGoOnTheirOwnAndFlywheelsMarkWins() {
+        float[] raw={0,0,0,0,0, 1,0,0,1,0, .7F,1,0,1,1, .2F,1,0,0,1};
+        var other=SubmittedModelGeometry.capture(raw,PrimitiveTopology.QUADS,null,false,false,0,0,0);
+        assertFalse(other.isEmpty());
+        assertTrue(other.stream().allMatch(box -> box.mesh()!=0));
+        assertTrue(other.stream().noneMatch(box -> ModelMesh.grouped(box.mesh())),"another mod's custom geometry goes with the cubes");
+        var ntm=SubmittedModelGeometry.capture(raw,PrimitiveTopology.QUADS,null,false,true,0,0,0);
+        assertEquals(other,ntm);
+        assertTrue(ntm.stream().allMatch(box -> ModelMesh.grouped(box.mesh())),"NTM's own piece goes on its own");
+        for(var box:ntm) ModelMesh.get(box.mesh()).flywheel=true;
+        assertTrue(ntm.stream().noneMatch(box -> ModelMesh.grouped(box.mesh())),"one Flywheel has also taken goes with the cubes");
+        SubmittedModelGeometry.capture(raw,PrimitiveTopology.QUADS,null,false,true,0,0,0);
+        assertTrue(ntm.stream().noneMatch(box -> ModelMesh.grouped(box.mesh())),"whichever took it last");
+    }
     @Test void invalidForeignStreamsAreRejectedBeforeBakingOrAllocatingMasks() {
         float[] raw=new float[20]; raw[0]=Float.NaN;
         assertThrows(IllegalArgumentException.class,() -> SubmittedModelGeometry.capture(raw,PrimitiveTopology.QUADS,null,false,0,0,0));

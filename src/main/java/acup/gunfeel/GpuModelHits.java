@@ -192,6 +192,8 @@ public final class GpuModelHits {
                         || material.transparency()==dev.engine_room.flywheel.api.material.Transparency.ORDER_INDEPENDENT
                         || material.transparency()==dev.engine_room.flywheel.api.material.Transparency.TRANSLUCENT_ALPHA_REPLACE;
                 var geometry=!avatar && translucent && unmasked.solid()?unmasked:ModelSurfaceGeometry.bake(data,ModelTextureMask.mask(texture));
+                // F3+B outlines Flywheel's pieces with the mob's cubes (ModelMesh.flywheel)
+                for(var piece:geometry.meshes()) piece.flywheel=true;
                 String suffix=texture.getPath().contains("/sheep_wool")?ModelWool.SUFFIX:"";
                 var b=geometry.bounds();
                 if(texture.getPath().equals("textures/entity/slime/slime.png") && Math.abs(b[3]-b[0]-.5F)<1e-6

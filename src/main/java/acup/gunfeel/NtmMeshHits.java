@@ -150,6 +150,9 @@ public final class NtmMeshHits {
         Frame frame = SUBMIT.get();
         if (frame == null || beam(type)) return renderer;
         PENDING.put(frame, Boolean.TRUE);
+        // every mob's custom geometry comes here, NTM's (its suits: com.hbm.client.render) and any other mod's; only
+        // NTM's pieces are outlined on their own in F3+B (ModelMesh.grouped)
+        boolean ntm=renderer.getClass().getName().startsWith("com.hbm.");
         return (pose, buffer) -> {
             Frame previous = DRAW.get();
             var previousTexture=DRAW_TEXTURE.get();
@@ -163,7 +166,7 @@ public final class NtmMeshHits {
                     long started=MobBenchMetrics.start();
                     try {
                         var offset=frame.offset();
-                        frame.boxes().addAll(captured.boxes(type.primitiveTopology(),DRAW_TEXTURE.get(),type.hasBlending(),
+                        frame.boxes().addAll(captured.boxes(type.primitiveTopology(),DRAW_TEXTURE.get(),type.hasBlending(),ntm,
                                 offset.x,offset.y,offset.z));
                     } catch(RuntimeException ex) {
                         frame.incomplete()[0]=true;

@@ -47,11 +47,13 @@ public final class ModelMesh {
     double[] boundsData() { return root.bounds(); }
     // Объёмная часть для крупных мобов (PlaneHitPolicy), вычисляется один раз.
     volatile java.util.Optional<ModelMesh> volume;
-    // a piece of one of NTM's own models (its suits, its OBJ models: ModelMeshCapture, and what NTM draws itself:
-    // SubmittedModelGeometry): F3+B outlines the piece's group on its own, in its own box (ModelContours.split); the
-    // other meshes (Flywheel's, GpuModelHits) with the mob's cubes, as before
-    volatile boolean grouped;
-    static boolean grouped(long id) { var mesh=get(id); return mesh!=null && mesh.grouped; }
+    // grouped: a piece of one of NTM's own models (its suits, its OBJ models: ModelMeshCapture, and what NTM's renderers
+    // draw themselves: SubmittedModelGeometry); flywheel: a piece Flywheel draws (GpuModelHits). F3+B outlines a piece
+    // that is NTM's alone on its own, in its own box (ModelContours.split), the rest with the mob's cubes, as before. A
+    // mesh is one object for equal triangles whoever took them: one Flywheel has also taken goes with the cubes, the
+    // same whichever took it first.
+    volatile boolean grouped,flywheel;
+    static boolean grouped(long id) { var mesh=get(id); return mesh!=null && mesh.grouped && !mesh.flywheel; }
     public static ModelMesh get(long id) { return CACHE.get(id); }
     public static ModelMesh register(ModelMesh mesh) {
         ModelMesh old = CACHE.get(mesh.id);

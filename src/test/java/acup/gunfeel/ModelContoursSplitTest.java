@@ -81,6 +81,12 @@ class ModelContoursSplitTest {
                 box("mesh/root/head",new Matrix4f(),0,.5F,0,.5F,.5F,.5F,FLYWHEEL.id()));
         assertEquals(flywheelOnly,ModelContours.split(flywheelOnly).together(),"a vanilla model under CrankShaft is outlined as before");
         assertTrue(ModelContours.split(flywheelOnly).groups().isEmpty());
+        // equal triangles are one mesh whoever took them: one NTM and Flywheel have both taken goes with the cubes
+        var both=ModelMesh.register(new ModelMesh(new float[]{0,0,0, 1,0,0, .3F,1,0, 0,0,0, .3F,1,0, 0,.6F,1}));
+        both.grouped=true; both.flywheel=true;
+        var shared=List.of(box("mesh/root/body",new Matrix4f(),0,0,0,.5F,.5F,.5F,both.id()));
+        assertEquals(shared,ModelContours.split(shared).together());
+        assertTrue(ModelContours.split(shared).groups().isEmpty());
     }
 
     @Test void aGroupIsBuiltOnceWhateverThePose() {

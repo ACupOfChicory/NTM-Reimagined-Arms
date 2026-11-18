@@ -325,8 +325,8 @@ public final class ModelContours {
     // another, and the group is outlined on its own in its own box, the same outline whatever the pose, so it is built
     // once and only its matrix moves. What a group loses is what lay between it and the rest: a seam where it lies
     // flush on another part is not taken out. The rest goes to collect whole, which leaves out an inner layer itself (so
-    // the list, the key its background builds go by, is the same whatever the pose); a group inside the one it belongs
-    // to is left out here by the same rule.
+    // the list, the key its background builds go by, is the same whatever the pose); a group inside any other part is
+    // left out here. A part of the rest inside a group stays (collect does not see the group): the mask hides it.
     record Split(List<ModelBox> together,List<List<ModelBox>> groups) {}
     static Split split(List<ModelBox> boxes) {
         List<ModelBox> together=new ArrayList<>(boxes.size());
