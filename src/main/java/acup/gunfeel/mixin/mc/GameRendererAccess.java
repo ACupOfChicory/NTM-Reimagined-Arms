@@ -14,6 +14,9 @@ public interface GameRendererAccess {
     @Invoker("bobView")
     void gunfeel$bobView(CameraRenderState camera, PoseStack pose);
 
+    @Invoker("bobHurt")
+    void gunfeel$bobHurt(CameraRenderState camera, PoseStack pose);
+
     @Accessor("featureRenderDispatcher")
     FeatureRenderDispatcher gunfeel$features();
 }

@@ -33,6 +33,8 @@ final class SmokeCloudStand {
     static final boolean ENABLED = !DIR.isBlank();
     // -PsmokePoses=glass: the glass scenes (glassFrame) instead of the ordinary poses
     private static final boolean GLASS = "glass".equals(System.getProperty("ntmgunfeel.smokePoses", ""));
+    // -PsmokePoses=compare: the same frame drawn each way of SmokeCompare.VARIANTS (compareFrame)
+    private static final boolean COMPARE = System.getProperty("ntmgunfeel.smokePoses", "").startsWith("compare");
     private static final int Y = 100;
     private static final String[] QUALITIES = {"off", "slices", "low", "medium", "high", "ultra"};
 
@@ -55,7 +57,7 @@ final class SmokeCloudStand {
     private static final int SHED_X0 = -80, SHED_X1 = -72, SHED_Z0 = 44, SHED_Z1 = 52;
 
     private static final int SKY_Y = 188;
-    private static final List<Pose> POSES = GLASS ? List.of() : poses(List.of(
+    private static final List<Pose> POSES = GLASS || COMPARE ? List.of() : poses(List.of(
             new Pose("outside", 0.5, Y + 3.2, 4.5, 0F, 8F, false),
             new Pose("inside", 6.5, Y + 1.6, 30.5, 0F, 0F, false),
             new Pose("inside-y135-p30", 6.5, Y + 1.6, 30.5, 135F, 30F, false),
@@ -81,7 +83,7 @@ final class SmokeCloudStand {
     private static int pose, quality = -1, frames, phase, drifted;
     private static final float[] wind = new float[2];
     private static long last, spawnedAt;
-    private static long[] cardAt = {0, 0};
+    private static long[] cardAt = {0, 0}, partsAt = SmokeStats.cardMark();
     private static boolean reference = true;
     private static final List<Long> TIMES = new ArrayList<>();
     private static final List<String> ROWS = new ArrayList<>();
@@ -133,7 +135,8 @@ final class SmokeCloudStand {
         } catch (Exception e) {
             ClientSmoke.check(false, "дым: папка " + DIR + ": " + e);
         }
-        ROWS.add("pose\tquality\tclouds_drawn\tframe_ms\tp95_ms\tfps\tcard_ms\tat_camera");
+        ROWS.add(COMPARE ? "pose\tvariant\tclouds_drawn\tframe_ms\tp95_ms\tfps\tcard_ms\tat_camera\tcard_parts_ms\tglass"
+                : "pose\tquality\tclouds_drawn\tframe_ms\tp95_ms\tfps\tcard_ms\tat_camera\tcard_parts_ms");
         phase = 0;
         last = System.nanoTime();
     }
@@ -188,6 +191,10 @@ final class SmokeCloudStand {
             glassFrame();
             return;
         }
+        if (COMPARE) {
+            compareFrame();
+            return;
+        }
         long now = System.nanoTime();
         long dt = now - last;
         last = now;
@@ -219,7 +226,10 @@ final class SmokeCloudStand {
                     return;
                 }
                 frames++;
-                if (frames == 61) cardAt = new long[]{SmokeStats.cardNanos, SmokeStats.cardFrames};
+                if (frames == 61) {
+                    cardAt = new long[]{SmokeStats.cardNanos, SmokeStats.cardFrames};
+                    partsAt = SmokeStats.cardMark();
+                }
                 if (frames > 60) TIMES.add(dt);
                 if (frames == 660) {
                     shoot(p, reference ? "none" : QUALITIES[quality]);
@@ -347,8 +357,10 @@ final class SmokeCloudStand {
         int drawn = Math.max(acup.gunfeel.smoke.client.SmokeAtlas.drawn().size(), acup.gunfeel.smoke.client.SmokeSlices.drawnLast());
         long cardFrames = SmokeStats.cardFrames - cardAt[1];
         double card = cardFrames > 0 ? (SmokeStats.cardNanos - cardAt[0]) / 1e6 / cardFrames : 0;
-        String r = String.format(Locale.ROOT, "%s\t%s\t%d\t%.3f\t%.3f\t%.0f\t%.3f\t%.2f", p.name, q, q.equals("none") || q.equals("off") ? 0 : drawn, avg, p95,
-                avg > 0 ? 1000 / avg : 0, card, SmokeFog.atCamera());
+        String r = String.format(Locale.ROOT, "%s\t%s\t%d\t%.3f\t%.3f\t%.0f\t%.3f\t%.2f\t%s", p.name, q, q.equals("none") || q.equals("off") ? 0 : drawn, avg, p95,
+                avg > 0 ? 1000 / avg : 0, card, SmokeFog.atCamera(), SmokeStats.cardParts(partsAt));
+        // compare: how the smoke told glass from the rest (none, alpha, chain = the transparency chain)
+        if (COMPARE) r += "\t" + acup.gunfeel.smoke.client.SmokeRender.glassMode();
         ROWS.add(r);
         SmokeClouds known = SmokeClient.current();
         if (known != null) for (SmokeClouds.Cloud c : known.clouds()) {
@@ -501,6 +513,115 @@ final class SmokeCloudStand {
                         gScene++;
                         gStage = 0;
                     } else gFrames = -1;
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
+    // ---- compare (-PsmokePoses=compare): per pose, the clouds let grow, then the game's ticks frozen (/tick freeze) and
+    // the noise's time held (SmokeRender.standSeconds), so every frame is the same; then each way of drawing them
+    // (SmokeCompare.VARIANTS, the first one twice more at the end: the noise floor) set, 30 frames to settle, 300
+    // timed, a shot <dir>/<pose>-<variant>.png and a row. High quality, the sky's clouds on.
+    // glass-front: stained glass between the eye and the clouds; glass-behind: behind them
+    private static final List<Pose> COMPARE_POSES = List.of(
+            new Pose("outside", 0.5, Y + 3.2, 4.5, 0F, 8F, false),
+            new Pose("inside", 6.5, Y + 1.6, 30.5, 0F, 0F, false),
+            new Pose("inside-y135-p30", 6.5, Y + 1.6, 30.5, 135F, 30F, false),
+            new Pose("inside-y-135-p-30", 6.5, Y + 1.6, 30.5, -135F, -30F, false),
+            new Pose("wall", -59.5, Y + 1.6, 8.5, 0F, -5F, true),
+            new Pose("shed", -75.5, Y + 1.6, 36.5, 0F, 0F, false, 0, true),
+            new Pose("sky", 0.5, SKY_Y - 6, 4.5, 0F, -16F, false, 1),
+            new Pose("glass-front", 0.5, 101.6, 4.5, 0F, 0F, false),
+            new Pose("glass-behind", 0.5, 101.6, 4.5, 0F, 0F, false)).stream()
+            .filter(p -> !System.getProperty("ntmgunfeel.smokePoses", "").startsWith("compare:")
+                    || List.of(System.getProperty("ntmgunfeel.smokePoses").substring(8).split("\\+")).contains(p.name)).toList();
+    private static int cPose, cVariant, cStage, cFrames;
+
+    private static int glassKind(Pose p) {
+        return p.name.equals("glass-front") ? 0 : p.name.equals("glass-behind") ? 3 : -1;
+    }
+
+    private static void command(String c) {
+        var server = Minecraft.getInstance().getSingleplayerServer();
+        server.submit(() -> server.getCommands().performPrefixedCommand(server.createCommandSourceStack().withSuppressedOutput(), c)).join();
+    }
+
+    private static void compareFrame() {
+        long now = System.nanoTime();
+        long dt = now - last;
+        last = now;
+        if (cPose >= COMPARE_POSES.size()) {
+            done();
+            return;
+        }
+        Pose p = COMPARE_POSES.get(cPose);
+        place(p);
+        List<String> variants = acup.gunfeel.smoke.client.SmokeCompare.VARIANTS;
+        switch (cStage) {
+            case 0 -> {
+                teleport(p);
+                Minecraft.getInstance().options.cloudStatus().set(net.minecraft.client.CloudStatus.FANCY);
+                Config.smokeMaxClouds = 16;
+                Config.smokeQuality = "high";
+                for (Scene o : SCENES) glassBlocks(o.kind, false);
+                if (glassKind(p) >= 0) glassBlocks(glassKind(p), true);
+                clear();
+                cFrames = 0;
+                cStage = 1;
+            }
+            case 1 -> {
+                SmokeClouds known = SmokeClient.current();
+                if (SmokeFog.atCamera() > 0.002F || known != null && !known.clouds().isEmpty()) {
+                    cFrames = 0;
+                    return;
+                }
+                if (++cFrames < 30) return;
+                spawn(p);
+                cStage = 2;
+            }
+            case 2 -> {
+                if ((now - spawnedAt) / 1e9 < 3.5) return;
+                SmokeClouds all = SmokeClient.current();
+                int n = all == null ? 0 : all.clouds().size();
+                int want = p.wall || p.shed ? 1 : 8;
+                if (n < want && (now - spawnedAt) / 1e9 < 10) return;
+                if (n < want) ClientSmoke.check(false, "дым: клиент получил " + n + " облаков");
+                command("tick freeze");
+                acup.gunfeel.smoke.client.SmokeRender.standSeconds = 1234.5F;
+                cVariant = 0;
+                // the world (chunks, the sky's clouds) settles in the first frames after the clouds are frozen
+                cFrames = -200;
+                cStage = 3;
+            }
+            case 3 -> {
+                // the variants, then the first one twice more
+                int at = cVariant < variants.size() ? cVariant : 0;
+                String name = cVariant < variants.size() ? variants.get(cVariant) : variants.get(0) + (cVariant - variants.size() + 2);
+                if (cFrames == -200 || cFrames == 0 && cVariant > 0) acup.gunfeel.smoke.client.SmokeCompare.set(variants.get(at));
+                cFrames++;
+                if (cFrames == 31) {
+                    cardAt = new long[]{SmokeStats.cardNanos, SmokeStats.cardFrames};
+                    partsAt = SmokeStats.cardMark();
+                    TIMES.clear();
+                }
+                if (cFrames > 30) TIMES.add(dt);
+                if (cFrames == 330) {
+                    shootNamed(p.name + "-" + name);
+                    row(p, name);
+                }
+                if (cFrames >= 340) {
+                    cFrames = 0;
+                    if (++cVariant >= variants.size() + 2) {
+                        acup.gunfeel.smoke.client.SmokeCompare.set(variants.get(0));
+                        acup.gunfeel.smoke.client.SmokeCompare.reset();
+                        acup.gunfeel.smoke.client.SmokeRender.standSeconds = Float.NaN;
+                        command("tick unfreeze");
+                        if (glassKind(p) >= 0) glassBlocks(glassKind(p), false);
+                        cPose++;
+                        cStage = 0;
+                    }
                 }
             }
             default -> {

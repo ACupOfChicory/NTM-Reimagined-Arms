@@ -183,6 +183,12 @@ neoForge {
             // -PwpScenes=g40,arty10: only those scenes; -PwpRounds=1: once over (WpStand)
             systemProperty("ntmgunfeel.wpScenes",providers.gradleProperty("wpScenes").orElse("").get())
             systemProperty("ntmgunfeel.wpRounds",providers.gradleProperty("wpRounds").orElse("2").get())
+            // -PparticleStand=<dir>: what particles cost a frame by source (NTM's grenades, phosphorus, flamethrower, chemical thrower,
+            // rifles, C4, shell, Fat Mine), with them, without them and with their drawing off (ParticleStand);
+            // -PparticleScenes=he1,wp3 only those, -PparticleRounds=1 once over
+            systemProperty("ntmgunfeel.particleStand",providers.gradleProperty("particleStand").orElse("").get())
+            systemProperty("ntmgunfeel.particleScenes",providers.gradleProperty("particleScenes").orElse("").get())
+            systemProperty("ntmgunfeel.particleRounds",providers.gradleProperty("particleRounds").orElse("3").get())
             // -PminiNukeStand=<dir>: NTM's small nuclear blasts, its particles against the bombs' cloud (MiniNukeStand)
             systemProperty("ntmgunfeel.miniNukeStand",providers.gradleProperty("miniNukeStand").orElse("").get())
             // -PminiNukeScenes=mine,bmg50: only these scenes
@@ -208,7 +214,7 @@ neoForge {
             // -PsmokeFabulous: the stand runs with improved transparency (the transparency chain) on
             systemProperty("ntmgunfeel.smokeFabulous",providers.gradleProperty("smokeFabulous").isPresent.toString())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
-            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("chemStand").isPresent || providers.gradleProperty("wpStand").isPresent || providers.gradleProperty("miniNukeStand").isPresent || providers.gradleProperty("gasStand").isPresent || providers.gradleProperty("gl54Stand").isPresent || providers.gradleProperty("fragStand").isPresent || providers.gradleProperty("gl54ReflexStand").isPresent || providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
+            jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("chemStand").isPresent || providers.gradleProperty("wpStand").isPresent || providers.gradleProperty("particleStand").isPresent || providers.gradleProperty("miniNukeStand").isPresent || providers.gradleProperty("gasStand").isPresent || providers.gradleProperty("gl54Stand").isPresent || providers.gradleProperty("fragStand").isPresent || providers.gradleProperty("gl54ReflexStand").isPresent || providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame
             providers.gradleProperty("gcLog").orNull?.let { jvmArgument("-Xlog:gc*:file=$it:uptime,time") }
             systemProperty("ntmgunfeel.checkClient", layout.buildDirectory.file("clientcheck/result.txt").get().asFile.path)
@@ -760,13 +766,13 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
     val fire = name == "runFireStand"
     val blast = name == "runBlastStand"
     val holes = name == "runBenchHoles"
-    val smoke = name == "runCheckClient" && (providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("chemStand").isPresent || providers.gradleProperty("wpStand").isPresent || providers.gradleProperty("gasStand").isPresent)
+    val smoke = name == "runCheckClient" && (providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("chemStand").isPresent || providers.gradleProperty("wpStand").isPresent || providers.gradleProperty("particleStand").isPresent || providers.gradleProperty("gasStand").isPresent)
     val mobs = name == "runCheckMobs" || review
     val selfTest = providers.gradleProperty("mobReviewSelfTest").isPresent || providers.gradleProperty("headLabelSelfTest").isPresent
     // a trace scenario on every gun (-Pscenario, -PscenarioGuns=all) plays for about half an hour; the shapes stand
     // (-PshapesStand) takes every machine in turn
     val scenario = providers.gradleProperty("scenario").isPresent || providers.gradleProperty("shapesStand").isPresent || providers.gradleProperty("fenceSeam").isPresent || providers.gradleProperty("fenceAir").isPresent
-    timeout.set(if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes || bench || bots || blast || smoke) 30 else 8))
+    timeout.set(if(providers.gradleProperty("particleStand").isPresent) Duration.ofMinutes(45) else if(survey) Duration.ofMinutes(40) else if(review && !selfTest) Duration.ofDays(1) else if((mobs && !selfTest) || scenario) Duration.ofHours(if(scenario) 2 else 1) else Duration.ofMinutes(if(holes || bench || bots || blast || smoke) 30 else 8))
     val result = if(fire) "firestand/result.txt" else if(bots) "botstand/result.txt" else if(blast) "blaststand/result.txt" else if(stand) "glassstand/result.txt" else if(holes) "holebench/result.txt" else if(bench) "mobbench/result.txt" else if(review) "mobreview/result.txt" else if (mobs) "mobcheck/result.txt" else "clientcheck/result.txt"
     doFirst {
         if(holes || review || stand) {

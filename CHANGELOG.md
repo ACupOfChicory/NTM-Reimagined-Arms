@@ -9,6 +9,36 @@
   against the mob, the line between them is now drawn. Other mobs are outlined
   as before.
 
+## X1699
+
+- Smoke and gas clouds cost less to draw. A cloud that fills only part of the
+  screen no longer costs as much as one that fills all of it. Smoke in front of
+  the sky's clouds or of glass far behind it is no longer drawn twice. A ray
+  through dense smoke stops when 3% of the light is left (was 1%), too little
+  to see. Each step of a cloud takes about a tenth less time on both the
+  client and the server.
+- Dense smoke in front of glass or the sky's clouds no longer has holes a pixel
+  or two wide in it.
+- With the Vulkan renderer the game no longer stops at an error while loading
+  its resources: three of the smoke's shaders did not load there.
+
+## X1690
+
+- A block of NTM's C4 or semtex going off no longer stutters the game for the
+  next two or three seconds. NTM's blast threw a puff and a smoke at every
+  block it reached, tens of thousands of particles for one block of C4. It now
+  puffs and smokes at no more than 1,500 of those blocks, spread evenly over
+  the blast: the flash is the same, the white puffs it leaves behind are
+  sparser. NTM's torpedo, crashing plane, volatile and gold creepers,
+  discharge beam and bursting boilers use the same effect and get the same
+  limit. The blast itself, the blocks it breaks and its damage are as before.
+- NTM's spent casings lying still on the ground cost the game next to nothing
+  while they lie. NTM worked out every casing's fall against the blocks around
+  it every tick, lying ones too, which in a long firefight added up with the
+  number of casings on the ground. A casing that has come to rest now sleeps
+  until the block under it changes; it looks and lies exactly as before, and
+  still falls if the ground under it is blown away.
+
 ## X1687
 
 - Mobs in NTM's power armour and suits, and NTM's own mobs, no longer slow

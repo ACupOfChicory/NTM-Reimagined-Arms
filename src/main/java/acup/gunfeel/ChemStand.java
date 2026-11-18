@@ -103,7 +103,7 @@ final class ChemStand {
             ClientSmoke.check(false, "химия: папка " + DIR + ": " + e);
         }
         ROWS.add("scenario\tt_s\tclouds\tmists\tblobs\tmspt\tsmoke\tgas_us\tpackets_s\tzombie_hp\tdoses");
-        FRAMES.add("scenario\tframe_ms\tp95_ms\tfps\tclouds_drawn");
+        FRAMES.add("scenario\tframe_ms\tp95_ms\tfps\tclouds_drawn\tcard_parts_ms");
         scenario = 0;
         phase = 0;
         last = System.nanoTime();
@@ -187,6 +187,9 @@ final class ChemStand {
         mc.player.setDeltaMovement(Vec3.ZERO);
     }
 
+    // the card's passes when the frames began to be timed
+    private static long[] partsAt = acup.gunfeel.smoke.client.SmokeStats.cardMark();
+
     static void frame() {
         long now = System.nanoTime();
         long dt = now - last;
@@ -211,7 +214,10 @@ final class ChemStand {
                 phase = 1;
             }
             case 1 -> {
-                if (t >= 3 && t < 13) TIMES.add(dt);
+                if (t >= 3 && t < 13) {
+                    if (TIMES.isEmpty()) partsAt = acup.gunfeel.smoke.client.SmokeStats.cardMark();
+                    TIMES.add(dt);
+                }
                 if (t >= 13 && !TIMES.isEmpty()) frames(s);
                 if (sample < SAMPLES.length && t >= SAMPLES[sample]) {
                     sample(s, SAMPLES[sample]);
@@ -236,8 +242,8 @@ final class ChemStand {
         double avg = t.stream().mapToLong(Long::longValue).average().orElse(0) / 1e6;
         double p95 = t.get(Math.min(t.size() - 1, (int) (t.size() * 0.95))) / 1e6;
         SmokeClouds known = SmokeClient.current();
-        String r = String.format(Locale.ROOT, "%s\t%.3f\t%.3f\t%.0f\t%d", s.name, avg, p95, avg > 0 ? 1000 / avg : 0,
-                known == null ? 0 : known.clouds().size());
+        String r = String.format(Locale.ROOT, "%s\t%.3f\t%.3f\t%.0f\t%d\t%s", s.name, avg, p95, avg > 0 ? 1000 / avg : 0,
+                known == null ? 0 : known.clouds().size(), acup.gunfeel.smoke.client.SmokeStats.cardParts(partsAt));
         FRAMES.add(r);
         GunFeel.LOGGER.info("[chemstand] {}", r);
     }
