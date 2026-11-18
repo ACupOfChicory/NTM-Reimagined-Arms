@@ -325,8 +325,11 @@ public final class WalkSprint {
         sprint = approach(sprint, sprintOn, dt, SPRINT_IN, drop ? SPRINT_DROP : SPRINT_OUT);
         // flying (creative flight, gliding) the sprint pose stands without its swing
         fly = approach(fly, player.getAbilities().flying || player.isFallFlying(), dt, FLY_IN, FLY_IN);
-        // the gun at a wall comes in by how far into it the gun would go, its muzzle lowered while firing or aiming
+        // the gun at a wall comes in by how far into it the gun would go, its muzzle lowered while firing or aiming; an
+        // NTM animation other than a shot's takes it out while it plays (the animation shows whole, nothing held back)
+        boolean givesWay = busy && GunAtWall.givesWay(HbmAnimations.getGunAnimation(0));
         float wallTo = GunAtWall.into(player, item);
+        if (givesWay) wallTo = 0F;
         wall = wall < wallTo ? Math.min(wallTo, wall + dt / GunAtWall.IN) : Math.max(wallTo, wall - dt / GunAtWall.OUT);
         wallLow = approach(wallLow, firing || aiming >= 0.05F, dt, GunAtWall.LOWER, GunAtWall.OUT);
         // a gun not yet measured would turn around the last gun's middle: it stays at rest until gunPlaced measures it,
@@ -334,7 +337,7 @@ public final class WalkSprint {
         if (measuredItem != item) walk = sprint = wall = wallPitch = 0F;
         // the muzzle turned up as far as it takes to stay before the wall, drawn back by how far in
         float wallBack = GunAtWall.back(ease(wall), length, PIVOT.length()) * (1F - Math.clamp(aiming, 0F, 1F));
-        float pitchTo = measuredItem == item ? GunAtWall.pitchNow(item, PIVOT, wallBack * length) : 0F;
+        float pitchTo = measuredItem == item && !givesWay ? GunAtWall.pitchNow(item, PIVOT, wallBack * length) : 0F;
         float rate = GunAtWall.MAX_PITCH * dt;
         wallPitch = wallPitch < pitchTo ? Math.min(pitchTo, wallPitch + rate / GunAtWall.IN) : Math.max(pitchTo, wallPitch - rate / GunAtWall.OUT);
         if (TestLog.frames()) TestLog.c(-1, "gunAtWall", "item", item, "wall", wall, "wallTo", wallTo, "low", wallLow, "pitch", wallPitch, "pitchTo", pitchTo,
@@ -349,7 +352,9 @@ public final class WalkSprint {
         }
         float d = groundDist;
         float uw = phase(d - walkFrom), us = phase(d - sprintFrom);
-        float ws = ease(walk) * Config.walkSway * (1F - ease(sprint)), ss = ease(sprint) * Config.sprintPose;
+        // the wall's pose takes the place of the walk's and the sprint's, all of it pressed against the wall
+        float others = GunAtWall.others(wall);
+        float ws = ease(walk) * Config.walkSway * (1F - ease(sprint)) * others, ss = ease(sprint) * Config.sprintPose * others;
         boolean pistol = pistol(Config.kickPreset);
         sprintShare = ss;
         Pose w = walk(uw, aiming, pistol, ws), s = sprint(us, ease(fly), pistol, ss);

@@ -85,10 +85,14 @@ ARMS field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 ARMS field com/hbm/main/ResourceManager coilgun Lcom/hbm/render/loader/HFRWavefrontObject;
 ARMS field com/hbm/main/ResourceManager m2 Lcom/hbm/render/loader/HFRWavefrontObject;
 ARMS field com/hbm/main/ResourceManager stinger Lcom/hbm/render/loader/HFRWavefrontObject;
+ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE_EMPTY Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation INSPECT Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD_CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD_END Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation SPINDOWN Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation SPINUP Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/BusAnimationKeyframe$IType SIN_DOWN Lcom/hbm/render/anim/BusAnimationKeyframe$IType;
 ARMS field com/hbm/render/anim/BusAnimationKeyframe$IType SIN_FULL Lcom/hbm/render/anim/BusAnimationKeyframe$IType;
 ARMS field com/hbm/render/anim/BusAnimationKeyframe$IType SIN_UP Lcom/hbm/render/anim/BusAnimationKeyframe$IType;
@@ -122,6 +126,7 @@ ARMS method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraf
 ARMS method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 ARMS method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation name ()Ljava/lang/String;
+ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation ordinal ()I
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation valueOf (Ljava/lang/String;)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation values ()[Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/render/anim/BusAnimation addBus (Ljava/lang/String;Lcom/hbm/render/anim/BusAnimationSequence;)Lcom/hbm/render/anim/BusAnimation;

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- The gun at a wall: drawing a gun in the open no longer sometimes turns it up
+  as if at a wall, and running or walking up stairs, over slabs or past a low
+  ledge no longer raises it (a ledge no higher than a step is not a wall). A
+  reload, an inspection, a jam or drawing the gun now plays in full: the gun
+  comes out of its pose at the wall while the animation runs and goes back
+  after (firing keeps the gun drawn back as before). Closer to a wall the
+  run's and the walk's swing give way to the wall's pose instead of adding to
+  it, and pressed against the wall only the wall's pose is left.
+
 ## X1663
 
 - Smoke and gas no longer leak through a shut NTM door. Before, they went
