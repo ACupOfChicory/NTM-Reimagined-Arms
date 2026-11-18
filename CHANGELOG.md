@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Close to a wall, the gun in your hands (first person) is drawn back and its
+  muzzle raised instead of reaching into the block, the more the closer you
+  stand. How far a gun reaches is taken from its own model, at the size NTM
+  draws it in other players' hands. Blocks you can walk through, like grass, do
+  not count. You can still fire: holding the fire key or aiming brings the
+  muzzle back level while the gun stays drawn back. `gun_fireext` and
+  `gun_pa_ranged`, which have no NTM gun model, are left as they are.
+
 ## X1654
 
 - ⚠ Breaks compatibility: the botMoves config key is gone, and with it
