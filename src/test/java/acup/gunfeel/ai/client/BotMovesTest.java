@@ -330,6 +330,69 @@ class BotMovesTest {
         n[5] = v.z;
     }
 
+    @Test
+    void aTouchOfNoLengthIsNoStance() {
+        // the recordings' first or last sample with a foot on the floor (a turn's lifting foot at its start: both feet
+        // down there, it came in from nought and played ahead of the body)
+        for (String name : new String[] { "turn90_right_swat", "turn90_left_stand", "turn180_right_cmu69_14", "start_run_cmu143_03" }) {
+            BotMoves.Move m = BotMoves.get(name);
+            assertNotNull(m, name);
+            for (float[] s : m.stances())
+                for (int i = 0; i + 1 < s.length; i += 2) assertTrue(s[i + 1] > s[i], name + ": a stance " + s[i] + ".." + s[i + 1]);
+        }
+        // a turn comes in where both its feet first stand
+        assertEquals(0.4F, BotMoves.get("turn90_right_swat").downFrom(0F), 1e-4F);
+    }
+
+    @Test
+    void aRunTurnedBackPlaysNoStopAndNoLegJumps() {
+        // the hit stand's clips: a walk, a run (0.33 a tick), then back at once (0.10 a tick) facing the same way;
+        // the whole frame as BotAnimator.frame lays it, 100 frames a tick. The heading comes round over some ticks:
+        // the step going back is no stop
+        BotAnimator a = new BotAnimator();
+        double z = 0, zo = 0;
+        float[] last = null;
+        float worst = 0F;
+        String where = "";
+        int per = 100;
+        for (int i = 60 * per; i < 115 * per; i++) {
+            int tick = i / per;
+            float partial = (i % per) / (float) per;
+            if (i % per == 0) {
+                zo = z;
+                z -= tick < 70 ? 0.19 : tick < 95 ? 0.33 : -0.10; // facing -z (yaw 180): ahead is -z
+            }
+            double now = tick + partial, at = zo + (z - zo) * partial;
+            a.turn(180F, 180F, 1F, now);
+            a.move(0, z - zo, a.bodyYaw, now, null, tick);
+            BotAnimator.Frame f = a.step(new acup.gunfeel.ai.AiPose(acup.gunfeel.ai.AiPose.STAND, (byte) 0, (byte) 0, 0, acup.gunfeel.ai.AiPose.HOLD, acup.gunfeel.ai.AiPose.NONE, 0, (short) 0, acup.gunfeel.ai.AiPose.FIGHT),
+                    tick, partial, 0, false, (float) now, 1);
+            a.moves(true, a.still() >= 1F - 1e-4F, now, 180F, 0.0, at);
+            a.feet(0.0, at, Math.max(a.still(), a.pathFeet), now);
+            if (tick >= 95) assertEquals(0, a.moving().length, "a move going back at " + now);
+            BotAnimator.Frame g = new BotAnimator.Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
+                    a.speed, a.heading, -1F, a.walk, a.walkPos, f.alert(), a.air, f.dashed(), a.bodyYaw, a.headYaw, a.feetOut.snapshot(), a.gait,
+                    null, a.moving());
+            BotPoser.Parts p = BotPoserTest.parts();
+            BotPoser.apply(p, g, 0F, g.walk(), g.walkPos());
+            float[] legs = { p.rightLeg().xRot, p.rightLeg().yRot, p.rightLeg().zRot, p.rightShin().xRot, p.rightShin().yRot, p.rightShin().zRot,
+                    p.leftLeg().xRot, p.leftLeg().yRot, p.leftLeg().zRot, p.leftShin().xRot, p.leftShin().yRot, p.leftShin().zRot };
+            if (last != null) for (int k = 0; k < 4; k++) {
+                org.joml.Quaternionf qa = new org.joml.Quaternionf().rotationZYX(last[k * 3 + 2], last[k * 3 + 1], last[k * 3]);
+                org.joml.Quaternionf qb = new org.joml.Quaternionf().rotationZYX(legs[k * 3 + 2], legs[k * 3 + 1], legs[k * 3]);
+                float d = 2F * (float) Math.acos(Math.min(1F, Math.abs(qa.dot(qb))));
+                if (d > worst) {
+                    worst = d;
+                    where = String.format(java.util.Locale.ROOT, "part %d at %.2f", k, now);
+                }
+            }
+            last = legs;
+        }
+        // the sprint's own shin swings 2.5 radians a tick at full speed (0.025 a frame here: BotMoveClipsTest); a
+        // stop's legs taken in half a tick by the lock went 4.8
+        assertTrue(worst < 0.04F, "a leg jumped " + worst + " rad, " + where);
+    }
+
     /** standing 30 ticks, then going so */
     static double[] fromStanding(double... then) {
         double[] out = new double[30 + then.length];

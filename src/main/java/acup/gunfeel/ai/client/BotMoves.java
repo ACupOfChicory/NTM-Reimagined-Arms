@@ -242,10 +242,16 @@ public final class BotMoves {
                 from = i;
             }
             // a stop's legs coming together after its last pass (apart, then side by side, not crossing): that is its
-            // last, where they first come within PASS_APART / 4
+            // last, where they come within PASS_APART / 4 for good (after the last time they are PASS_APART / 2 apart:
+            // on the way they may come near and go apart again, CMU 104_57 to 2 degrees at 1.38 s, then 11)
             if (!out.isEmpty() && apart != 0 && "stop".equals(m.kind()) && Math.abs(d[n]) < PASS_APART / 2F) {
-                int at = n;
-                for (int j = from; j <= n; j++)
+                int at = n, last = from;
+                for (int j = n; j >= from; j--)
+                    if (Math.abs(d[j]) >= PASS_APART / 2F) {
+                        last = j;
+                        break;
+                    }
+                for (int j = last; j <= n; j++)
                     if (Math.abs(d[j]) < PASS_APART / 4F) {
                         at = j;
                         break;
@@ -357,13 +363,22 @@ public final class BotMoves {
         return out;
     }
 
+    /**
+     * a foot's stances, from and to; a touch of no length (the recording's first or last sample on the floor, the foot
+     * lifting from it or coming down on it there) is none: a turn would come in from its very start, both feet taken as
+     * down there, the foot it lifts at once locked and the turn played on ahead of the body (a foot sliding as it went
+     * out)
+     */
     private static float[] pairs(JsonArray a) {
         float[] out = new float[a.size() * 2];
+        int n = 0;
         for (int i = 0; i < a.size(); i++) {
             JsonArray p = a.get(i).getAsJsonArray();
-            out[i * 2] = p.get(0).getAsFloat();
-            out[i * 2 + 1] = p.get(1).getAsFloat();
+            float from = p.get(0).getAsFloat(), to = p.get(1).getAsFloat();
+            if (!(to > from)) continue;
+            out[n++] = from;
+            out[n++] = to;
         }
-        return out;
+        return java.util.Arrays.copyOf(out, n);
     }
 }
