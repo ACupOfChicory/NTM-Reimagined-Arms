@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Smoke and gas clouds cost less to draw. A cloud that fills only part of the
+  screen no longer costs as much as one that fills all of it. Smoke in front of
+  the sky's clouds or of glass far behind it is no longer drawn twice. A ray
+  through dense smoke stops when 3% of the light is left (was 1%), too little
+  to see. Each step of a cloud takes about a tenth less time on both the
+  client and the server.
+- Dense smoke in front of glass or the sky's clouds no longer has holes a pixel
+  or two wide in it.
+
 ## X1674
 
 - NTM's phosgene creeper now leaves a phosgene cloud of this mod's gas (doses,

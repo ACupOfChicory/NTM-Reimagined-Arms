@@ -34,8 +34,8 @@ class SmokeShaderLinkTest {
         Matcher g = Pattern.compile("vec4 Groups\\[(\\d+)\\];").matcher(resource("include/smoke_info.glsl"));
         if (!g.find()) throw new AssertionError("no Groups[] in smoke_info.glsl");
         assertEquals(SmokeAtlas.SLOTS * 2, Integer.parseInt(g.group(1)));
-        // the matrix, four vectors, the clouds, the groups
-        assertEquals(64 + 4 * 16 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16, SmokeRender.UBO_SIZE);
+        // the matrix, four vectors, the inverse matrix, the clouds, the groups
+        assertEquals(64 + 4 * 16 + 64 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16, SmokeRender.UBO_SIZE);
         // the noise's lattice repeats where the anchor steps
         assertEquals(SmokeRender.ANCHOR * 0.9F, constant(resource("core/smoke_march.fsh"), "PERIOD"), 1e-3F);
         // and every octave's scale is a whole number, so its jump is a whole number of periods

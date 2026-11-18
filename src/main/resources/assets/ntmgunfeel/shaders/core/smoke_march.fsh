@@ -2,6 +2,7 @@
 
 #moj_import <minecraft:projection.glsl>
 #moj_import <ntmgunfeel:smoke_info.glsl>
+#moj_import <ntmgunfeel:smoke_ray.glsl>
 
 uniform sampler2D SmokeAtlas;
 uniform sampler2D SceneDepth;
@@ -89,6 +90,10 @@ void main() {
     // the part in front of the nearest translucent surface (SceneDepth is the depth with them): only where one is
     float raw0 = texelFetch(OpaqueDepth, dpx, 0).r;
     if (raw <= raw0 + max(1e-7, raw0 * 2e-4)) discard;
+    // all the smoke ends before that surface: the march to the world is the same, the composite takes that one (its
+    // test has a smaller margin, so whatever is left out here it takes from there)
+    mat4 pvr = ProjMat * View;
+    if (smokeEndsBefore(gl_FragCoord.xy * vec2(Screen.x, Extra.z), vec2(textureSize(SceneDepth, 0)), raw, 0.3, pvr)) discard;
 #endif
     if (raw > 0.0) {
         float s = Screen.y > 0.5 ? raw : raw * 2.0 - 1.0;
@@ -111,7 +116,7 @@ void main() {
     float through = 1.0;
     vec3 light = vec3(0.0);
     for (int i = 0; i < 128; i++) {
-        if (i >= steps || through < 0.01) break;
+        if (i >= steps || through < Anchor.w) break;
         vec3 p = dir * t;
         // every cloud of the group at this point: their smoke is one smoke, its extinctions add up and its colour is
         // theirs by how much each puts in

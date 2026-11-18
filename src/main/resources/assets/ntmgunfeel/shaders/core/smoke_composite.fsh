@@ -10,6 +10,10 @@
 //   FrameOpaque the main target (the opaque world). CHAIN_MAIN writes the main target: the world with the smoke
 //   behind the glass over it. CHAIN_GLASS writes the translucent target: the smoke in front of the glass over it.
 //   The chain then lays the glass over the main target as before.
+#moj_import <minecraft:projection.glsl>
+#moj_import <ntmgunfeel:smoke_info.glsl>
+#moj_import <ntmgunfeel:smoke_ray.glsl>
+
 uniform sampler2D FramePost;
 uniform sampler2D FrameOpaque;
 uniform sampler2D SmokeFront;
@@ -29,10 +33,13 @@ bool nearer(float d1, float d0) {
 
 // SmokeFront filtered as texture() would, but a texel whose own pixel has no glass (the march skipped it, so it is
 // empty) is taken from SmokeFull: there the two marches end at the same surface. Else the empty texels next to a pane
-// thin the smoke in front of its edge.
+// thin the smoke in front of its edge. So is a texel whose glass lies beyond all the smoke (smokeEndsBefore, with a
+// smaller margin than the march's: what it left out is taken here).
 vec4 frontAt(vec2 uv) {
     ivec2 low = textureSize(SmokeFront, 0);
-    vec2 scale = vec2(textureSize(Depth0, 0)) / vec2(low);
+    vec2 size = vec2(textureSize(Depth0, 0));
+    vec2 scale = size / vec2(low);
+    mat4 pv = ProjMat * View;
     vec2 c = uv * vec2(low) - 0.5;
     ivec2 i0 = ivec2(floor(c));
     vec2 f = c - vec2(i0);
@@ -41,8 +48,10 @@ vec4 frontAt(vec2 uv) {
         ivec2 o = ivec2(k & 1, k >> 1);
         ivec2 t = clamp(i0 + o, ivec2(0), low - 1);
         // the pixel the march read the depth at (smoke_march.fsh: gl_FragCoord times the scale)
-        ivec2 dpx = ivec2((vec2(t) + 0.5) * scale);
-        bool g = nearer(texelFetch(Depth1, dpx, 0).r, texelFetch(Depth0, dpx, 0).r);
+        vec2 at = (vec2(t) + 0.5) * scale;
+        ivec2 dpx = ivec2(at);
+        float d1 = texelFetch(Depth1, dpx, 0).r;
+        bool g = nearer(d1, texelFetch(Depth0, dpx, 0).r) && !smokeEndsBefore(at, size, d1, 0.15, pv);
         vec4 v = g ? texelFetch(SmokeFront, t, 0) : texelFetch(SmokeFull, t, 0);
         vec2 w = mix(1.0 - f, f, vec2(o));
         sum += v * (w.x * w.y);
