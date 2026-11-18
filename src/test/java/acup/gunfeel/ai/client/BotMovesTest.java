@@ -1084,4 +1084,317 @@ class BotMovesTest {
         System.out.println("bot moves: run past and walked back, the most a frame at 48 a tick:" + all);
         assertTrue(most < 0.25F, "a part turned " + all + " rad in a frame");
     }
+
+    // ---------------------------------------------------------------- down into a crouch and up out of it
+
+    @Test
+    void theDownsAndTheUpsAreReadWithTheirCrouch() {
+        assertEquals(4, BotMoves.downs().size());
+        for (BotMoves.Move m : BotMoves.downs()) {
+            assertTrue(m.low() && m.ends() && !m.starts() && m.path(), m.name());
+            // crouched over its first 0.2 s (the mod's CROUCH_TICKS), then held
+            assertEquals(0F, m.crouchAt(0F), 1e-3F, m.name());
+            assertEquals(1F, m.crouchAt(BotAnimator.CROUCH_TICKS / 20F), 1e-3F, m.name());
+            assertEquals(1F, m.crouchAt(m.clip().length()), 1e-3F, m.name());
+            for (float c : new float[] { 0.1F, 0.5F, 0.9F }) assertEquals(c, m.crouchAt(m.timeAtCrouch(c)), 2e-3F, m.name() + " at " + c);
+            assertEquals(0F, BotAnimator.crouching(m, 0F), 1e-6F);
+            assertEquals(-1F, BotAnimator.crouching(m, 1F), 1e-6F);
+        }
+        for (boolean run : new boolean[] { true, false })
+            for (boolean leftFirst : new boolean[] { true, false }) {
+                BotMoves.Move m = BotMoves.up(run, leftFirst);
+                assertNotNull(m);
+                assertTrue(m.low() && m.starts() && !m.ends(), m.name());
+                assertEquals(run, m.name().contains("_run_"), m.name());
+                // its first step the foot asked for
+                assertEquals(leftFirst, m.firstLift(1) < m.firstLift(0), m.name());
+                assertEquals(1F, m.crouchAt(0F), 1e-3F);
+                assertEquals(0F, m.crouchAt(BotAnimator.CROUCH_TICKS / 20F), 1e-3F);
+                assertEquals(0.5F, m.crouchAt(m.timeAtCrouch(0.5F)), 2e-3F);
+                assertEquals(-1F, BotAnimator.crouching(m, 0F), 1e-6F);
+            }
+        // the others have none
+        BotMoves.Move stop = BotMoves.stops().get(0);
+        assertFalse(stop.low());
+        assertEquals(0F, stop.crouchAt(0.1F));
+        assertEquals(-1F, BotAnimator.crouching(stop, 0.5F), 1e-6F);
+    }
+
+    /**
+     * A mob facing +z going {@code steps} (blocks a tick along +z), the server crouching it on the ticks
+     * {@code crouched} says, laid frame by frame as BotAnimator.frame lays it (48 a tick) and posed; calls
+     * {@code each} with the tick, the animator and the parts after each frame
+     */
+    static void crouchWalk(@org.jspecify.annotations.Nullable BotGaitOverride gait, double[] steps, java.util.function.IntPredicate crouched,
+            boolean aimed, Each each) {
+        BotGaitOverride.BY_ENTITY = id -> gait;
+        try {
+            BotAnimator a = new BotAnimator();
+            double z = 0.0;
+            for (int n = 0; n < steps.length; n++) {
+                double zo = z;
+                z += steps[n];
+                acup.gunfeel.ai.AiPose p = BotPoserTest.pose(crouched.test(n) ? acup.gunfeel.ai.AiPose.CROUCH : acup.gunfeel.ai.AiPose.STAND, 0, 0, 0,
+                        aimed ? acup.gunfeel.ai.AiPose.AIM : acup.gunfeel.ai.AiPose.HOLD, acup.gunfeel.ai.AiPose.NONE, 0, 0)
+                        .withAlert(acup.gunfeel.ai.AiPose.FIGHT);
+                for (int fr = 0; fr < 48; fr++) {
+                    float partial = fr / 48F;
+                    double now = n + partial, pz = zo + (z - zo) * partial;
+                    a.turn(0F, 0F, 1F, now);
+                    a.move(0.0, z - zo, a.bodyYaw, now, BotGaitOverride.of(7), n);
+                    a.fly(false, 0, now);
+                    BotAnimator.Frame f = a.step(p, n, partial, 0, false, (float) now, 7, false);
+                    float low = BotAnimator.smooth(f.crouch());
+                    a.moves(true, low, a.still() >= 1F - 1e-4F, now, 0F, 0.0, pz);
+                    a.feet(0.0, pz, (1F - low) * Math.max(a.still(), a.pathFeet), now);
+                    f = new BotAnimator.Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
+                            a.speed, a.heading, -1F, a.walk, a.walkPos, f.alert(), a.air, f.dashed(), Mth.wrapDegrees(a.bodyYaw),
+                            Mth.wrapDegrees(a.headYaw), a.feetOut.snapshot(), a.gait, null, a.moving());
+                    BotPoser.Parts parts = BotPoserTest.parts();
+                    BotPoser.apply(parts, f, 0F, a.walk, a.walkPos);
+                    each.at(n, a, f, parts);
+                }
+            }
+        } finally {
+            BotGaitOverride.BY_ENTITY = BotGaitOverride.OWN;
+        }
+    }
+
+    /**
+     * the steps as the client draws them: each place the server sends comes a tick later, and the client goes a third
+     * of the way left to the last one it has each tick (vanilla's interpolation of a mob, three steps); the pose comes
+     * at once
+     */
+    static double[] lagged(double[] steps) {
+        return lagged(steps, 1, 0);
+    }
+
+    /**
+     * the same with the server sending its place every few ticks (a mob's tracker: every third, more when its pose
+     * changes), from the tick given on: each place sent the client goes to over three ticks, evenly (vanilla's
+     * InterpolationHandler)
+     */
+    static double[] lagged(double[] steps, int every, int phase) {
+        double[] out = new double[steps.length];
+        double server = 0.0, sent = Double.NaN, drawn = 0.0;
+        int left = 0;
+        for (int n = 0; n < steps.length; n++) {
+            double was = drawn;
+            if (left > 0) {
+                drawn += (sent - drawn) / left;
+                left--;
+            }
+            server += steps[n];
+            // sent at the tick's end, there the next
+            if ((n - phase) % every == 0) {
+                sent = server;
+                left = 3;
+            }
+            out[n] = drawn - was;
+        }
+        return out;
+    }
+
+    interface Each {
+        void at(int tick, BotAnimator a, BotAnimator.Frame f, BotPoser.Parts parts);
+    }
+
+    /** the most a part turns in a frame, and the frames a down (an up) played, crouchWalk's */
+    static float[] crouchJump(@org.jspecify.annotations.Nullable BotGaitOverride gait, double[] steps, java.util.function.IntPredicate crouched,
+            boolean aimed) {
+        float[] r = { 0F, 0F, 0F, -1F };
+        BotPoser.Parts[] prev = { null };
+        int[] fr = { 0 };
+        crouchWalk(gait, steps, crouched, aimed, (n, a, f, parts) -> {
+            if (prev[0] != null) {
+                float j = BotPoserTest.jump(prev[0], parts);
+                if (j > r[0]) {
+                    r[0] = j;
+                    r[3] = n + (fr[0] % 48) / 48F;
+                }
+            }
+            fr[0]++;
+            prev[0] = parts;
+            for (BotAnimator.Moving mv : f.moves())
+                if (mv.low()) {
+                    if (BotMoves.downs().stream().anyMatch(d -> d.clip() == mv.clip())) r[1]++;
+                    else r[2]++;
+                }
+        });
+        return r;
+    }
+
+    /** the mob AI going into cover: a run (0.27), crouched as it comes there (AiMover.arrived), on a few ticks and stopped at once (vanilla's) */
+    static final double[] INTO_COVER = concat(repeat(0.27, 30), new double[] { 0.27, 0.27, 0.27, 0.12, 0.03, 0.005 }, repeat(0.0, 40));
+
+    @Test
+    void runningIntoCoverItGoesDownIntoTheCrouchAsAPersonDoes() {
+        // crouched three ticks before it stops (the crouch not yet whole), and crouched as it stops (whole when its
+        // stop comes): each plays a down, no part turning 0.25 rad in a frame of 48 a tick (a run turned back: 0.19),
+        // nor more than 0.02 past the mod's own crouch where that turns more
+        StringBuilder all = new StringBuilder();
+        for (int from : new int[] { 30, 33 })
+            for (BotGaitOverride o : new BotGaitOverride[] { null, BotGaits.variant(0), BotGaits.variant(21) }) {
+                java.util.function.IntPredicate crouched = n -> n >= from;
+                float[] r = crouchJump(o, INTO_COVER, crouched, false);
+                BotAnimator.lowMoves = false;
+                float[] was;
+                try {
+                    was = crouchJump(o, INTO_COVER, crouched, false);
+                } finally {
+                    BotAnimator.lowMoves = true;
+                }
+                all.append(String.format(java.util.Locale.ROOT, " [from %d %s: %.3f, own crouch %.3f, down %d frames]", from,
+                        o == null ? "mod" : o.jog(), r[0], was[0], (int) r[1]));
+                assertTrue(r[1] > 48F, "a down played " + r[1] + " frames" + all);
+                assertEquals(0F, was[1]);
+                assertTrue(r[0] < Math.max(0.25F, was[0] + 0.02F), "a part turned " + all);
+            }
+        System.out.println("bot moves: into cover, the most a frame at 48 a tick:" + all);
+    }
+
+    @Test
+    void aStopUnderWayAsTheCrouchComesGoesOverToADown() {
+        // the mob AI stopped in its place, crouched there a tick after (bot.mover.arrived): the stop under way goes over
+        // to a down, the stop fading out under it, no part jumping
+        double[] steps = concat(repeat(0.27, 30), new double[] { 0.08, 0.05, 0.03, 0.02, 0.01 }, repeat(0.0, 40));
+        boolean[] stop = { false }, both = { false };
+        float[] most = { 0F };
+        BotPoser.Parts[] prev = { null };
+        crouchWalk(null, steps, n -> n >= 33, false, (n, a, f, parts) -> {
+            if (prev[0] != null) most[0] = Math.max(most[0], BotPoserTest.jump(prev[0], parts));
+            prev[0] = parts;
+            BotAnimator.Moving[] mv = f.moves();
+            if (n < 33 && mv.length == 1 && !mv[0].low()) stop[0] = true;
+            if (mv.length == 2 && !mv[0].low() && mv[1].low()) both[0] = true;
+        });
+        assertTrue(stop[0], "a stop played first");
+        assertTrue(both[0], "the stop went over to a down, fading out under it");
+        assertTrue(most[0] < 0.25F, "a part turned " + most[0] + " rad in a frame");
+    }
+
+    @Test
+    void outOfTheCrouchItGetsUpIntoARunOrAimedIntoAWalk() {
+        // crouched still, then up and off at once (AiSoldier leaving its cover): an up plays, into the run (aimed, the
+        // walk); no part turning 0.25 rad in a frame of 48 a tick, nor more than 0.02 past the mod's own crouch where
+        // that turns more
+        double[] steps = concat(repeat(0.0, 20), new double[] { 0.03, 0.06, 0.1, 0.15, 0.2, 0.24 }, repeat(0.27, 30));
+        StringBuilder all = new StringBuilder();
+        for (boolean aimed : new boolean[] { false, true })
+            for (BotGaitOverride o : new BotGaitOverride[] { null, BotGaits.variant(0), BotGaits.variant(21) }) {
+                java.util.function.IntPredicate crouched = n -> n < 20;
+                String[] up = { null };
+                crouchWalk(o, steps, crouched, aimed, (n, a, f, parts) -> {
+                    for (BotAnimator.Moving mv : f.moves())
+                        if (mv.low()) for (boolean run : new boolean[] { true, false })
+                            for (boolean left : new boolean[] { true, false })
+                                if (BotMoves.up(run, left).clip() == mv.clip()) up[0] = BotMoves.up(run, left).name();
+                });
+                float[] r = crouchJump(o, steps, crouched, aimed);
+                BotAnimator.lowMoves = false;
+                float[] was;
+                try {
+                    was = crouchJump(o, steps, crouched, aimed);
+                } finally {
+                    BotAnimator.lowMoves = true;
+                }
+                all.append(String.format(java.util.Locale.ROOT, " [%s %s: %.3f at %.2f, own crouch %.3f at %.2f, %s %d frames]", aimed ? "aimed" : "run",
+                        o == null ? "mod" : o.jog(), r[0], r[3], was[0], was[3], up[0], (int) r[2]));
+                assertNotNull(up[0], "an up played" + all);
+                assertEquals(!aimed, up[0].contains("_run_"), up[0]);
+                assertTrue(r[2] > 48F, "an up played " + r[2] + " frames" + all);
+                assertTrue(r[0] < Math.max(0.25F, was[0] + 0.02F), "a part turned " + all);
+            }
+        System.out.println("bot moves: up out of the crouch, the most a frame at 48 a tick:" + all);
+    }
+
+    /**
+     * into cover and out again as the hit stand has it (BotStand.LOW_STEPS: the run, crouched three ticks before the
+     * stop, crouched still, up and off), its steps drawn late as a client draws them (lagged: the place each tick, or
+     * every third, at each of the three ticks it may come); the most a part turns in a frame from the 20th tick (with
+     * the downs and ups, and without), the frames an up played over half in, the crouch drawn as it came in (-1 none)
+     */
+    static float[] intoCoverAndOutLate(@org.jspecify.annotations.Nullable BotGaitOverride gait, int every, int phase) {
+        double[] steps = lagged(concat(repeat(0.27, 30), new double[] { 0.27, 0.27, 0.27, 0.12, 0.03, 0.005 }, repeat(0.0, 14),
+                new double[] { 0.03, 0.06, 0.1, 0.15, 0.2, 0.24 }, repeat(0.27, 24)), every, phase);
+        float[] r = { 0F, 0F, 0F, -1F };
+        for (int k = 0; k < 2; k++) {
+            int kk = k;
+            BotPoser.Parts[] prev = { null };
+            BotAnimator.lowMoves = k == 0;
+            try {
+                crouchWalk(gait, steps, n -> n >= 30 && n < 50, false, (n, a, f, parts) -> {
+                    if (n >= 20 && prev[0] != null) r[kk] = Math.max(r[kk], BotPoserTest.jump(prev[0], parts));
+                    prev[0] = parts;
+                    for (BotAnimator.Moving mv : f.moves())
+                        if (kk == 0 && mv.low() && BotMoves.downs().stream().noneMatch(d -> d.clip() == mv.clip())) {
+                            if (r[3] < 0F) r[3] = f.crouch();
+                            if (mv.w() > 0.5F) r[2]++;
+                        }
+                });
+            } finally {
+                BotAnimator.lowMoves = true;
+            }
+        }
+        return r;
+    }
+
+    @Test
+    void itGetsUpThoughTheClientDrawsItsStepsLateAndNothingSnaps() {
+        // the crouch comes at once, the steps some three ticks late: got up already as its first step is drawn (the
+        // place sent every third tick, from the third: at least that one), the up still plays (UP_WITHIN); no part
+        // turns past the hit stand's bound (4 rad a tick: 1/12 rad a frame of 48), or where the mod's own crouch turns
+        // that much, 0.01 past it. An up's foot on its way follows the clip's (it was left behind the body on the run,
+        // and the knee snapped as it came in reach at the end of the step: 0.09 rad a frame)
+        StringBuilder all = new StringBuilder();
+        int late = 0;
+        for (BotGaitOverride o : new BotGaitOverride[] { null, BotGaits.variant(0), BotGaits.variant(21) })
+            for (int[] e : new int[][] { { 1, 0 }, { 3, 0 }, { 3, 1 }, { 3, 2 } }) {
+                float[] r = intoCoverAndOutLate(o, e[0], e[1]);
+                all.append(String.format(java.util.Locale.ROOT, " [%s every %d from %d: %.3f, own %.3f, up %d frames from crouch %.2f]",
+                        o == null ? "mod" : o.jog(), e[0], e[1], r[0], r[1], (int) r[2], r[3]));
+                assertTrue(r[2] >= 48F, "an up played" + all);
+                assertTrue(r[0] < Math.max(1F / 12F, r[1] + 0.01F), "a part turned" + all);
+                if (r[3] == 0F) late++;
+            }
+        assertTrue(late >= 3, "an up begun with the crouch gone (UP_WITHIN), each gait" + all);
+        System.out.println("bot moves: into cover and out, drawn late, the most a frame at 48 a tick:" + all);
+    }
+
+    /** the eye (the face's middle, model px) a frame puts on the head (a probe: Frame.probe, the animator's feet untouched) */
+    static org.joml.Vector3f eye(BotAnimator.Frame f) {
+        BotPoser.Parts p = BotPoserTest.parts();
+        BotPoser.apply(p, f, 0F, f.walk(), f.walkPos());
+        return BotPoserTest.inModel(p.head(), new org.joml.Vector3f(0F, -4F, -4F));
+    }
+
+    @Test
+    void theDownsAndTheUpsKeepTheHeadWhereTheCrouchHasIt() {
+        // into cover and out (crouched before it stops and as it does; up into a run, aimed into a walk), each gait:
+        // the eye a frame draws against the same frame's with its downs and ups taken out (the crouch's own, on the
+        // server's eye's time) within 3 cm on each frame (BotStand's clips measure the same in the game). Their legs
+        // are made for the trunk crouched as far as their own share, the hips no lower than a start's or a stop's
+        double[] rise = concat(repeat(0.0, 20), new double[] { 0.03, 0.06, 0.1, 0.15, 0.2, 0.24 }, repeat(0.27, 30));
+        StringBuilder all = new StringBuilder();
+        float most = 0F;
+        for (int scene = 0; scene < 4; scene++)
+            for (BotGaitOverride o : new BotGaitOverride[] { null, BotGaits.variant(0), BotGaits.variant(21) }) {
+                int from = scene == 0 ? 30 : 33;
+                java.util.function.IntPredicate crouched = scene < 2 ? n -> n >= from : n -> n < 20;
+                float[] r = { 0F, 0F };
+                crouchWalk(o, scene < 2 ? INTO_COVER : rise, crouched, scene == 3, (n, a, f, parts) -> {
+                    java.util.List<BotAnimator.Moving> rest = new java.util.ArrayList<>();
+                    for (BotAnimator.Moving mv : f.moves()) if (!mv.low()) rest.add(mv);
+                    if (rest.size() == f.moves().length) return;
+                    r[1]++;
+                    r[0] = Math.max(r[0], eye(f.probe(f.moves())).distance(eye(f.probe(rest.toArray(new BotAnimator.Moving[0])))) * 100F / 16F);
+                });
+                all.append(String.format(java.util.Locale.ROOT, " [%s %s: %.2f cm, %d frames]", new String[] { "down 30", "down 33", "up", "up aimed" }[scene],
+                        o == null ? "mod" : o.jog(), r[0], (int) r[1]));
+                assertTrue(r[1] > 48F, "a down or an up played" + all);
+                most = Math.max(most, r[0]);
+            }
+        System.out.println("bot moves: the head off the crouch's own by the downs and the ups:" + all);
+        assertTrue(most < 3F, "the head " + all);
+    }
 }

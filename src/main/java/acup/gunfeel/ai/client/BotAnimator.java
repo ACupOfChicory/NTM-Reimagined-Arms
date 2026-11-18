@@ -84,6 +84,15 @@ public final class BotAnimator {
             return Float.isNaN(gait) ? BotPoser.gaitOf(speed) : gait;
         }
 
+        /**
+         * the same to pose aside (the stand: with its downs and ups, and without, to set the two side by side), with
+         * these moves under way: its feet its own, the ankles the poser puts in them not going back to the animator
+         */
+        public Frame probe(Moving[] moves) {
+            return new Frame(crouch, lean, arms, act, fading, hits, idleSec, entity, speed, heading, deathSec, walk, walkPos, alert, air,
+                    dashed, bodyYaw, headYaw, feet == null ? null : feet.probe(), gait, kick, moves);
+        }
+
         /** with no turn of its own (the game's body and head) and its feet where the pose puts them */
         public Frame(float crouch, float lean, float[] arms, @Nullable Act act, Act[] fading, Hit[] hits, float idleSec,
                 int entity, float speed, float heading, float deathSec, float walk, float walkPos, float alert, float air,
@@ -189,6 +198,19 @@ public final class BotAnimator {
 
     private double last = Double.NaN;
     private float crouch;
+    /** the crouch the server has it in (1 crouched, 0 not), its weight going there (crouch) */
+    private float crouchGoal;
+    /**
+     * ticks since the server crouched it, on its feet all the while (moves: standing); none crouched (0), or once
+     * off its feet (a slide, a roll: the server keeps it crouched through them), a down played since, or first seen
+     * crouched (or again after a while out of sight), past any DOWN_WITHIN
+     */
+    private float crouchedFor = Float.POSITIVE_INFINITY;
+    /**
+     * ticks since the server stood it up out of a crouch, on its feet all the while; none since (or an up played
+     * since), past any UP_WITHIN
+     */
+    private float uncrouchedFor = Float.POSITIVE_INFINITY;
     /** in a fight, by weight: comes and goes over ALERT_TICKS; a first look takes it at once */
     private float alert;
     private final float[] arms = { 1F, 0F, 0F, 0F, 0F };
@@ -314,12 +336,14 @@ public final class BotAnimator {
             float death = e.deathTime > 0 ? (e.deathTime - 1 + partial) / 20F : -1F;
             // the feet stand where they were put: standing upright and alive, not crouched, not in the air or a dash,
             // and still (or a start or a stop holding them)
-            float upright = (1F - smooth(f.crouch())) * (1F - a.air) * (1F - f.dashed());
-            if (e.deathTime > 0 || e.getSwimAmount(partial) > 0F || e.isPassenger()) upright = 0F;
+            float body = (1F - a.air) * (1F - f.dashed()), low = smooth(f.crouch());
+            if (e.deathTime > 0 || e.getSwimAmount(partial) > 0F || e.isPassenger()) body = 0F;
+            float upright = (1F - low) * body;
             // a move from recordings (BotMoves: a turn on the spot played by its own turn, a start or a stop by its
-            // way) standing upright fully: the feet's lock keeps the feet it has down
+            // way; a down or an up by the crouch, then its way) on its feet fully: the feet's lock keeps the feet it has
+            // down
             var at = e.getPosition(partial);
-            a.moves(upright >= 1F - 1e-4F, a.still() >= 1F - 1e-4F, own, fight || moving ? sent : Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot),
+            a.moves(body >= 1F - 1e-4F, low, a.still() >= 1F - 1e-4F, own, fight || moving ? sent : Mth.rotLerp(partial, e.yBodyRotO, e.yBodyRot),
                     at.x, at.z);
             float stand = upright * Math.max(a.still(), a.pathFeet);
             a.feet(at.x, at.z, stand, own);
@@ -655,7 +679,11 @@ public final class BotAnimator {
      * a move's clip at its time and weight, for BotPoser: its hips down by drop (px), its legs turned about the mob's
      * upright by twist (radians, the model's yRot) from the body
      */
-    public record Moving(BotClip clip, float t, float w, float drop, float twist) {
+    public record Moving(BotClip clip, float t, float w, float drop, float twist, boolean low) {
+        /** not a down nor an up */
+        public Moving(BotClip clip, float t, float w, float drop, float twist) {
+            this(clip, t, w, drop, twist, false);
+        }
     }
 
     public static final Moving[] NO_MOVES = {};
@@ -732,6 +760,30 @@ public final class BotAnimator {
      * (degrees squared)
      */
     static final float STANDS_FROM = 0.1F, LIFTED_OFF = 1e5F;
+    /** crouched no further than this (drawn) is standing up */
+    static final float LOW_NONE = 1e-4F;
+    /**
+     * the downs and the ups played (off: the crouch the mod's own all the way, to set them side by side: a test, the
+     * stand's -PbotLowMoves=off)
+     */
+    static boolean lowMoves = !"off".equals(System.getProperty("ntmgunfeel.botLowMoves"));
+    /**
+     * an up up from its crouch falling this far behind the way the mob goes (s of it: the mob faster than the person
+     * at PATH_PACE_MOST) goes out on the move: the gait's own run from there (played faster still, the recording's
+     * quick knees would jump)
+     */
+    static final float UP_BEHIND = 0.1F;
+    /**
+     * a down only this long (ticks) after the server crouched it: going into cover the AI crouches as it comes within
+     * its reach, a few ticks before it stops, and the client draws its steps some three ticks late. Crouched longer
+     * (moving crouched, after a slide or a roll) it slows down as the crouch's own
+     */
+    static final float DOWN_WITHIN = 15F;
+    /**
+     * an up as late as this (ticks) after the server stood it: the crouch drawn goes at once (CROUCH_TICKS), the steps
+     * come some three ticks late; got up already, the up from where its own crouch is gone, as a start
+     */
+    static final float UP_WITHIN = 10F;
 
     enum MoveStage {
         /** by its turn */
@@ -826,6 +878,21 @@ public final class BotAnimator {
      * feet standing.
      */
     void moves(boolean upright, boolean still, double now, float target, double x, double z) {
+        moves(upright, 0F, still, now, target, x, z);
+    }
+
+    /**
+     * ... {@code standing}: on its feet and alive, not in the air or a dash; {@code low}: crouched this far, as drawn
+     * (0 .. 1). Upright (standing, not crouched) the moves as above. Crouching (the server's crouch, crouchGoal) on
+     * the move and slowing down as a stop would, a down (into a crouch on the spot, BotMoves.downs: the one whose legs
+     * are nearest the gait's, as a stop's); a stop under way as the crouch comes goes over to one. Getting up and
+     * stepping off as a start would, an up (BotMoves.up: into a run, aimed into a walk). While the crouch goes, a down's
+     * or an up's time is where its own crouch share is the one drawn (Move.timeAtCrouch: its legs made for the trunk
+     * there), then by its way as a stop's or a start's.
+     */
+    void moves(boolean standing, float low, boolean still, double now, float target, double x, double z) {
+        // the crouch come (the server's) and not yet drawn: going down already (no start nor stop for a frame)
+        boolean upright = standing && low <= LOW_NONE && crouchGoal < 1F;
         // a second look in a frame at an earlier part of the tick (a shadow, the hitbox taken): as it was
         if (!Double.isNaN(movesAt) && now < movesAt && now >= movesAt - BACK) return;
         float dt = Double.isNaN(movesAt) || now < movesAt ? Float.POSITIVE_INFINITY : (float) (now - movesAt);
@@ -847,11 +914,15 @@ public final class BotAnimator {
         if (!(dt <= 20F) || Float.isNaN(bodyYaw) || Float.isNaN(lastYaw)) {
             move = moveOut = null;
             movePath = false;
+            // a crouch (or a getting up) from before it was seen is not one to go down into (or up out of) now
+            crouchedFor = uncrouchedFor = Float.POSITIVE_INFINITY;
             moveW = moveOutW = legTwist = yawRate = settleFor = pathRate = 0F;
             lastYaw = bodyYaw;
             return;
         }
         float sec = dt / 20F;
+        crouchedFor = crouchGoal < 1F ? 0F : !standing ? Float.POSITIVE_INFINITY : crouchedFor + dt;
+        uncrouchedFor = crouchGoal >= 1F ? 0F : !standing ? Float.POSITIVE_INFINITY : uncrouchedFor + dt;
         if (sec > 0F) yawRate += ((bodyYaw - lastYaw) / sec - yawRate) * (1F - (float) Math.exp(-RATE_FOLLOW * sec));
         lastYaw = bodyYaw;
         settleFor = Math.max(0F, settleFor - dt);
@@ -862,10 +933,14 @@ public final class BotAnimator {
         if (move == null) {
             moveOut = null;
             legTwist = 0F;
-            if (!upright || !BotMoves.on()) return;
+            if (!standing || !BotMoves.on()) return;
             // a start or a stop with the body turning no faster than a turn on the spot is played (turning round as it
-            // goes, its feet would cross)
-            if (!placed || aside > MOVE_WAY_MOST || stepAside > MOVE_WAY_MOST || rate > MOVE_TURN_MOST || !(startMove(x, z) || stopMove())) {
+            // goes, its feet would cross); crouching or getting up, a down or an up
+            if (!upright) {
+                if (!lowMoves || !placed || aside > MOVE_WAY_MOST || stepAside > MOVE_WAY_MOST || rate > MOVE_TURN_MOST
+                        || !(crouchGoal >= 1F ? downMove(low, Float.NaN) : upMove(low))) return;
+            } else if (!placed || aside > MOVE_WAY_MOST || stepAside > MOVE_WAY_MOST || rate > MOVE_TURN_MOST
+                    || !(lowMoves && upMove(low) || startMove(x, z) || stopMove())) {
                 if (!still || !planted) return;
                 float feetYaw = (footYaw[0] + footYaw[1]) / 2F, off = bodyYaw - feetYaw;
                 if (Math.abs(off) < MOVE_TURN_FROM || rate < MOVE_STILL || rate > MOVE_TURN_MOST || off * yawRate <= 0F) return;
@@ -881,11 +956,24 @@ public final class BotAnimator {
             }
         }
         BotMoves.Move m = move;
+        // a stop under way as the crouch comes: over to the down nearest it from as much of its way as is left, the stop
+        // fading out under it (from its own time and weight: begin puts the down's in)
+        float wasT = moveT, wasW = moveW;
+        if (lowMoves && movePath && under && moveStage != MoveStage.FADE && !m.low() && m.ends() && standing && crouchGoal >= 1F
+                && downMove(low, Math.max(0F, m.total() - (moveAt0 + pathAlong)))) {
+            moveOut = m;
+            moveOutT = wasT;
+            moveOutW = wasW;
+            moveSwitched = true;
+            m = move;
+            under = false;
+        }
         float length = m.clip().length();
         if (movePath) {
+            if (moveOut != null && (moveOutW -= dt / MOVE_FADE) <= 0F) moveOut = null;
             // a start goes by all its way (its legs turned the way it goes); a stop by its way on only, the way it went
             // as it came in: going back or aside it has stopped
-            float on = "start".equals(m.kind()) ? gone : gone <= 0F ? 0F : Math.max(0F, (float) (wentX * moveDirX + wentZ * moveDirZ));
+            float on = m.starts() ? gone : gone <= 0F ? 0F : Math.max(0F, (float) (wentX * moveDirX + wentZ * moveDirZ));
             float aside2 = Math.max(0F, gone - on);
             if (dt > 0F) {
                 pathRate = on / dt;
@@ -898,10 +986,10 @@ public final class BotAnimator {
             }
             if (under) pathAlong += on;
             float along = moveAt0 + pathAlong;
-            boolean going = pathRate >= PATH_STILL, start = "start".equals(m.kind());
+            boolean going = pathRate >= PATH_STILL, start = m.starts();
             movePathRate = pathRate + strayRate;
             if (moveStage == MoveStage.FADE) {
-            } else if (!upright) out(false);
+            } else if (m.low() ? !standing || (crouchGoal >= 1F) != m.ends() : !upright) out(false);
             // the body turned round over its feet (the feet it has down would cross): out at once, the lock's steps
             else if (Math.abs(bodyYaw - moveBody0) > MOVE_TWIST_MOST) out(!going);
             // a start gone aside goes out on the move; a stop gone aside or back has stood (strayRate: going it, the
@@ -910,23 +998,37 @@ public final class BotAnimator {
                 if (start) out(false);
                 else stand(m);
             }
+            // a down's or an up's legs are made for the trunk crouched as far as its own share: while the crouch goes,
+            // its time is there, and its way goes on from there after
+            float pinned = crouching(m, low);
             switch (moveStage) {
                 case PLAY -> {
-                    moveT = Math.max(moveT, Math.min(m.timeAt(along), moveT + sec * PATH_PACE_MOST));
+                    if (pinned >= 0F) {
+                        moveT = pinned;
+                        moveAt0 = m.turnedAt(moveT);
+                        pathAlong = 0F;
+                        along = moveAt0;
+                    } else moveT = Math.max(moveT, Math.min(m.timeAt(along), moveT + sec * PATH_PACE_MOST));
                     moveStill = going ? 0F : moveStill + dt;
-                    if (start && going && (moveT >= length - 1e-4F || m.total() - along <= step * MOVE_FADE)) {
+                    if (start && going && (moveT >= length - 1e-4F || m.total() - along <= step * MOVE_FADE
+                            || m.low() && pinned < 0F && m.timeAt(along) - moveT > UP_BEHIND)) {
                         // near its end on the move: the gait goes on from the clip's step (walkPos), the clip fading
                         // out over it
                         out(false);
                     } else if (!start && going && along > m.total() + STOP_OVER) out(false);
-                    else if (moveStill >= MOVE_STILL_TICKS) {
+                    else if (moveStill >= MOVE_STILL_TICKS && pinned < 0F) {
                         moveStage = MoveStage.SETTLE;
                         moveSettled = 0F;
                         moveTo = m.settleAt(moveT, along);
                     }
                 }
                 case SETTLE -> {
-                    // (stood by stand: going on aside it does not come back)
+                    // (stood by stand: going on aside it does not come back). Settling while its crouch goes, not back
+                    // short of where the crouch has it
+                    if (pinned >= 0F) {
+                        moveT = Math.max(moveT, pinned);
+                        moveTo = Math.max(moveTo, moveT);
+                    }
                     if (going && !moveStanding) {
                         moveStage = MoveStage.PLAY;
                         moveStill = 0F;
@@ -947,9 +1049,12 @@ public final class BotAnimator {
             // the gait's own place going over to the clip's as the clip comes in over it (not after: a gait swung on
             // half a step while it still shows)
             moveWMost = Math.max(moveWMost, Math.min(1F, moveW + dt / MOVE_FADE));
-            // never back (the legs and arms going on at a stand at most)
-            float to = (moveCycles + m.cycle(moveT) + moveCycleOff * (1F - smooth(moveWMost))) * BotPoser.CYCLE;
-            walkPos = under ? Math.max(moveWalkPos, to) : to;
+            // never back (the legs and arms going on at a stand at most). A down's not: the gait does not go on from
+            // it, and crouched the walk under it is the crouch's own (its cycle the clip's would whirl it round)
+            if (!(m.low() && m.ends())) {
+                float to = (moveCycles + m.cycle(moveT) + moveCycleOff * (1F - smooth(moveWMost))) * BotPoser.CYCLE;
+                walkPos = under ? Math.max(moveWalkPos, to) : to;
+            }
             moveWalkPos = walkPos;
             // stood: drawn standing as it goes out (the speed drawn follows the steps over some ten ticks, and the lock
             // would let the feet go and the walk come back meanwhile), with the clip, not in a frame: the run's stoop
@@ -1013,7 +1118,9 @@ public final class BotAnimator {
             if (moveStage != MoveStage.FADE && Math.abs(twistOf(move, moveT, along)) > MOVE_TWIST_MOST) out();
         }
         moveW = approach(moveW, moveStage == MoveStage.FADE ? 0F : 1F, dt / MOVE_FADE);
-        if (moveStage == MoveStage.FADE && moveW <= 0F) {
+        // (the one it went over from fading out under it: gone too, not in a frame; a stop gone over to a down that
+        // went out at once)
+        if (moveStage == MoveStage.FADE && moveW <= 0F && (moveOut == null || moveOutW <= 0F)) {
             move = null;
             moveOut = null;
             movePath = false;
@@ -1054,6 +1161,8 @@ public final class BotAnimator {
         moveDirZ = (float) Math.cos(way);
         moveBody0 = bodyYaw;
         move = m;
+        // (its feet come in under it from where they stand now: feet: seatFor)
+        seatFor = null;
         moveStage = MoveStage.PLAY;
         moveT = t0;
         moveW = moveStill = 0F;
@@ -1108,6 +1217,90 @@ public final class BotAnimator {
         if (best == null) return false;
         begin(best, t0);
         return true;
+    }
+
+    /**
+     * A down: crouching and slowing down as a stop would ({@code left} NaN), or a stop under way as the crouch comes
+     * ({@code left}: as much of its way as is left): of the downs the one whose legs there are nearest the ones drawn
+     * (the gait's, or the stop's), a foot standing not lifted at once. From where its crouch share is the one drawn
+     * ({@code low}); crouched fully already, further on as much of its way left as the stop's (STOP_REST of the step).
+     */
+    private boolean downMove(float low, float left) {
+        boolean stopping = !Float.isNaN(left);
+        if (Float.isNaN(gait) || !stopping && (crouchedFor > DOWN_WITHIN || speed < STOP_FROM || step > STOP_DROP * speed
+                || stepWas > STOP_DROP * speed)) return false;
+        float[] g = stopGait, c = stopClip, a = stopA;
+        BotMoves.Move was = move;
+        if (stopping && was != null ? !legs(was.clip(), moveT, g, a) : !BotPoser.gaitLegs(speed, gait, heading, walkPos, aimDrawn(), swap, g, a)) return false;
+        float rest = stopping ? left : STOP_REST * step, off = Float.MAX_VALUE, t0 = 0F;
+        int stands = -1;
+        if (stopping && was != null) {
+            if (was.down(0, moveT) != was.down(1, moveT)) stands = was.down(0, moveT) ? 0 : 1;
+        } else {
+            float u = walkPos / BotPoser.CYCLE - (float) Math.floor(walkPos / BotPoser.CYCLE);
+            stands = u >= STANDS_FROM && u <= 0.5F - STANDS_FROM ? 1 : u >= 0.5F + STANDS_FROM && u <= 1F - STANDS_FROM ? 0 : -1;
+        }
+        BotMoves.Move best = null;
+        for (BotMoves.Move m : BotMoves.downs()) {
+            float t = m.timeAtCrouch(low);
+            if (low >= 1F - LOW_NONE) t = Math.max(t, m.timeAt(m.total() - rest));
+            if (!legs(m.clip(), t, c, a)) continue;
+            float d = legsOff(g, c) + (stands >= 0 && !m.down(stands, t) ? LIFTED_OFF : 0F);
+            if (d < off) {
+                off = d;
+                best = m;
+                t0 = t;
+            }
+        }
+        if (best == null) return false;
+        begin(best, t0);
+        // one a crouch
+        crouchedFor = Float.POSITIVE_INFINITY;
+        return true;
+    }
+
+    /**
+     * An up: got up (crouched still, the crouch going, or gone within UP_WITHIN) and stepping off from still:
+     * into a walk aimed (the mob AI walks shooting), else into a run; of its two (the left foot stepping first, or the
+     * right) the one whose legs are nearest the crouch's down on a knee (BotPoser's crouch at a stand), from where its
+     * crouch share is the one drawn
+     */
+    private boolean upMove(float low) {
+        // (its first step drawn may come in a lump: the server sends a mob's place every third tick, and the client
+        // goes there over three; still as it was, the speed drawn has not come up yet)
+        if (uncrouchedFor > UP_WITHIN || step < START_FROM || speed > START_MOST) return false;
+        boolean run = aimDrawn() < 0.5F;
+        BotClip kneel = BotClips.get(BotClips.KNEEL);
+        float[] g = stopGait, c = stopClip, a = stopA;
+        boolean knelt = kneel != null && legs(kneel, 0F, g, a);
+        BotMoves.Move best = null;
+        float off = Float.MAX_VALUE, t0 = 0F;
+        for (boolean leftFirst : new boolean[] { true, false }) {
+            BotMoves.Move m = BotMoves.up(run, leftFirst);
+            if (m == null) continue;
+            float t = m.timeAtCrouch(low);
+            float d = knelt && legs(m.clip(), t, c, a) ? legsOff(g, c) : 0F;
+            if (d < off) {
+                off = d;
+                best = m;
+                t0 = t;
+            }
+        }
+        if (best == null) return false;
+        begin(best, t0);
+        // one a crouch
+        uncrouchedFor = Float.POSITIVE_INFINITY;
+        return true;
+    }
+
+    /**
+     * a down's or an up's time while the crouch drawn ({@code low}) has not come to its end's: where its own share is
+     * that one; -1 for any other move, or once there
+     */
+    static float crouching(BotMoves.Move m, float low) {
+        if (!m.low()) return -1F;
+        float end = m.crouchAt(m.clip().length());
+        return Math.abs(low - end) <= LOW_NONE ? -1F : m.timeAtCrouch(low);
     }
 
     /** a clip's legs at t (BotPoser.LEGS' rotations, degrees, x y z each) into out; false if one is not there */
@@ -1166,8 +1359,14 @@ public final class BotAnimator {
     Moving[] moving() {
         BotMoves.Move m = move, o = moveOut;
         if (m == null && o == null) return NO_MOVES;
-        if (movePath) return m == null || moveW <= 0F ? NO_MOVES
-                : new Moving[] { new Moving(m.clip(), moveT, smooth(moveW), m.drop(), Mth.DEG_TO_RAD * moveWay) };
+        if (movePath) {
+            java.util.List<Moving> out = new java.util.ArrayList<>(2);
+            float twist = Mth.DEG_TO_RAD * moveWay;
+            // the one going out under it first: the down over it
+            if (o != null && moveOutW > 0F) out.add(new Moving(o.clip(), moveOutT, smooth(moveOutW), o.drop() * (1F - o.crouchAt(moveOutT)), twist, o.low()));
+            if (m != null && moveW > 0F) out.add(new Moving(m.clip(), moveT, smooth(moveW), m.drop() * (1F - m.crouchAt(moveT)), twist, m.low()));
+            return out.isEmpty() ? NO_MOVES : out.toArray(NO_MOVES);
+        }
         float along = moveSide * (bodyYaw - moveFrom);
         java.util.List<Moving> out = new java.util.ArrayList<>(2);
         if (m != null && moveW > 0F)
@@ -1257,6 +1456,14 @@ public final class BotAnimator {
             System.arraycopy(at, 0, f.at, 0, at.length);
             return f;
         }
+
+        /** a copy of its own to pose aside (Frame.probe): what the poser writes in it stays there */
+        Feet probe() {
+            Feet f = new Feet(neutral.clone(), shortOf.clone());
+            f.w = w;
+            System.arraycopy(at, 0, f.at, 0, at.length);
+            return f;
+        }
     }
 
     final Feet feetOut = new Feet();
@@ -1273,6 +1480,9 @@ public final class BotAnimator {
     private final double[] offX = new double[2], offZ = new double[2];
     /** how far through its step a lifted foot was then (BotMoves.Move.swing): the way left goes from there */
     private final float[] swing0 = new float[2], swingLift = new float[2];
+    /** a down's or an up's feet coming in: each one down that far off the clip's (blocks), and the move they are for */
+    private final double[] seatX = new double[2], seatZ = new double[2];
+    private BotMoves.@Nullable Move seatFor;
     /**
      * a foot in a move's step is lifted this much more at the middle of it (px): the recordings' steps on a turn are
      * shuffles some centimetres up, on the mod's legs less, and would be drawn sliding over the floor
@@ -1376,19 +1586,36 @@ public final class BotAnimator {
             for (int k = 0; k < 2; k++) loose[k] = Math.hypot(footX[k] - nx[k], footZ[k] - nz[k]) > DRAG / 16.0;
         feetMoved = moveFeet;
         float stay = 1F - smooth(moveW);
+        // a down's or an up's foot lifted goes as the clip's own does, from as far off it as it was as it lifted: the
+        // clip played as fast as the mob goes, its steps long and quick (from where it stood the foot would be left
+        // behind the body on the run, and catch up at the end of the step, the knee snapping as the leg comes in reach)
+        boolean follow = move != null && move.low();
+        // and its feet down come in where its clip has them as it comes in: from where they stood (an up's from where
+        // the kneel left them, a foot well behind: stood on by a leg stretched nearly straight, the knee snapped as
+        // the clip lifted the heel), each as far off the clip's as that share of the way in is left, standing from there
+        if (!follow || !moveFeet) seatFor = null;
+        else if (seatFor != move) {
+            seatFor = move;
+            for (int k = 0; k < 2; k++) {
+                seatX[k] = footX[k] - nx[k];
+                seatZ[k] = footZ[k] - nz[k];
+            }
+        }
+        float seat = seatFor == null ? 0F : 1F - smooth(moveWMost);
         for (int k = 0; k < 2; k++) {
             boolean down = !moveFeet || moveDown[k];
             if (!down) {
                 // lifted (or the clip gone over to another): from where it is, the way to the clip's left as its step goes
                 if (!lifted[k] || moveSwitched) {
-                    offX[k] = footX[k];
-                    offZ[k] = footZ[k];
+                    offX[k] = follow ? footX[k] - nx[k] : footX[k];
+                    offZ[k] = follow ? footZ[k] - nz[k] : footZ[k];
                     swing0[k] = moveSwing[k];
                     lifted[k] = true;
+                    seatX[k] = seatZ[k] = 0.0;
                 }
                 float v = swing0[k] >= 1F ? 1F : Mth.clamp((moveSwing[k] - swing0[k]) / (1F - swing0[k]), 0F, 1F), u = smooth(v);
-                footX[k] = offX[k] + (nx[k] - offX[k]) * u;
-                footZ[k] = offZ[k] + (nz[k] - offZ[k]) * u;
+                footX[k] = follow ? nx[k] + offX[k] * (1F - u) : offX[k] + (nx[k] - offX[k]) * u;
+                footZ[k] = follow ? nz[k] + offZ[k] * (1F - u) : offZ[k] + (nz[k] - offZ[k]) * u;
                 // a turn's shuffles lifted a little more; a start's and a stop's steps as high as the clip has them over
                 // the other foot (its floor where that one stands; in the air, over the floor already), up to as much
                 // at least: a start's first step goes low, and would be drawn sliding over the floor. Over the other
@@ -1401,6 +1628,9 @@ public final class BotAnimator {
                 // set down where it is (the clip's own by the end of its step), turned as the clip has it
                 lifted[k] = false;
                 moveYaw0[k] = 0F;
+            } else if (seat > 0F && (seatX[k] != 0.0 || seatZ[k] != 0.0)) {
+                footX[k] = nx[k] + seatX[k] * seat;
+                footZ[k] = nz[k] + seatZ[k] * seat;
             }
             if (!lifted[k]) swingLift[k] = 0F;
             if (moveFeet) {
@@ -1535,6 +1765,7 @@ public final class BotAnimator {
 
         float crouchTo = pose.stance() == AiPose.CROUCH || crouching ? 1F : 0F;
         crouch = approach(crouch, crouchTo, dt / CROUCH_TICKS);
+        crouchGoal = crouchTo;
 
         // a way of the arms this build does not know: the gun at the chest
         int to = pose.arms() >= 0 && pose.arms() < arms.length ? pose.arms() : AiPose.HOLD;

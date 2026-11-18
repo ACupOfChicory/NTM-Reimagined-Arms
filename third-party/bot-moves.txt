@@ -2,11 +2,11 @@ AI mob moves from recordings of people
 ======================================
 
 The moves AI mobs play from recordings of people (src/main/resources/assets/ntmgunfeel/animations/bot_moves.json:
-turns on the spot, starts into a run, stops from one; bot_people.animation.json: a grenade's throw;
-bot_gaits.animation.json: runs, sprints and walks ahead, walks aside and back with the gun up) are put on the AI mobs'
-model (Minecraft's humanoid, its arms and legs cut at the elbow and the knee: ten parts) by
-tools/motion/retarget_moves.py and moves_to_mod.py, retarget_actions.py and actions_to_mod.py, retarget_mocap.py and
-gaits_to_mod.py:
+turns on the spot, starts into a run, stops from one, down into a crouch from a walk or a run and up out of it into
+one; bot_people.animation.json: a grenade's throw; bot_gaits.animation.json: runs, sprints and walks ahead, walks
+aside and back with the gun up) are put on the AI mobs' model (Minecraft's humanoid, its arms and legs cut at the
+elbow and the knee: ten parts) by tools/motion/retarget_moves.py, retarget_crouch.py and moves_to_mod.py,
+retarget_actions.py and actions_to_mod.py, retarget_mocap.py and gaits_to_mod.py:
 
   100STYLE by Ian Mason
     https://www.ianxmason.com/100style/  https://zenodo.org/records/8127870
@@ -24,9 +24,18 @@ gaits_to_mod.py:
     104_56, 104_57), 127 (127_06, 127_08), 139 (139_10), 143 (143_02, 143_03)
     Terms: free for all uses; the data itself may not be resold, even converted.
 
+  Open Motion Project by ACCAD/The Ohio State University
+    https://accad.osu.edu/research/motion-lab/mocap-system-and-data
+    Female1_B24_WalkToCrouch, Female1_C26_RunToCrouch, Female1_B25_CrouchToWalk, Female1_C27_CrouchToRun1
+    License: Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+             https://creativecommons.org/licenses/by/3.0/
+
 The recordings were changed: put on the mod's ten parts, each foot down kept standing on the floor in the mob's
 frame for the turn or the way the move was made with, the legs only kept, keys thinned, and a turn to one side
 mirrored for the other. The throw: the upper body only, a short piece of the swing, the head kept at the eye. The
 runs and sprints: one step of both legs looped, the legs only, under hips held at one height, each foot down kept on
 the floor and moved out to its own side (people's feet run nearly on one line), the knees straight ahead; some with
 the steps made longer. The walks the same, slower; the walk aside (Swat_SR) the same, mirrored for the other side.
+The ways down into a crouch and up out of it: the legs only, a piece from the walk or the run to the squat (or from
+the squat to the walk or the run), the hips going down or up as the mod's crouch does over its first fifth of a
+second, each foot down kept on the floor, the knees straight ahead, the feet apart; each mirrored for the other foot.

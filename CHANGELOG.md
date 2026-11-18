@@ -1,5 +1,11 @@
 # Changelog
 
+## X1643
+
+- AI soldiers running into cover drop into a crouch the way a person does,
+  their legs slowing into a squat, and get up out of it into a run (or, aiming,
+  into a walk) with a person's first steps.
+
 ## X1640
 
 - A hit marker round the crosshair when your shot hurts someone: white strokes
