@@ -230,8 +230,11 @@ public final class GunAtWall {
         BlockHitResult hit = player.level().clip(new ClipContext(a, b, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
         if (hit.getType() != HitResult.Type.BLOCK) return 1F;
         float t = (float) (hit.getLocation().distanceTo(a) / len);
-        // a ceiling met from below, a ray starting inside a block: a wall
-        if (ledges <= 0 || hit.isInside() || hit.getDirection() == Direction.DOWN || !ledge(player, hit.getLocation(), b.subtract(a).scale(1.0 / len)))
+        // a ceiling met from below, a ray starting inside a block: a wall; but a ceiling only the ray gone a step higher
+        // over a ledge meets is not where the gun goes (stairs in a low passage)
+        boolean ceiling = hit.getDirection() == Direction.DOWN;
+        if (ceiling && ledges < 2 && !hit.isInside()) return 1F;
+        if (ledges <= 0 || hit.isInside() || ceiling || !ledge(player, hit.getLocation(), b.subtract(a).scale(1.0 / len)))
             return t;
         // over the ledge: the rest of the way a step higher
         Vec3 up = new Vec3(0.0, STEP, 0.0);
@@ -287,13 +290,14 @@ public final class GunAtWall {
     }
 
     /**
-     * An NTM animation the gun at a wall gives way to (it goes out of its pose while it plays): all but a shot's (a fire key
-     * held lowers the muzzle there, the gun stays back) and a barrel spinning up or down; one with no type gives way too.
+     * An NTM animation the gun at a wall gives way to (it goes out of its pose while it plays): all but a shot's, the
+     * other barrel's and a dry click's (a fire key held lowers the muzzle there, the gun stays back) and a barrel spinning
+     * up or down; one with no type gives way too.
      */
     static boolean givesWay(com.hbm.render.anim.AnimationEnums.GunAnimation type) {
         if (type == null) return true;
         return switch (type) {
-            case CYCLE, CYCLE_EMPTY, SPINUP, SPINDOWN -> false;
+            case CYCLE, CYCLE_EMPTY, CYCLE_DRY, ALT_CYCLE, SPINUP, SPINDOWN -> false;
             default -> true;
         };
     }

@@ -132,7 +132,7 @@ class GunAtWallTest {
     void animationsGiveWay() {
         for (var type : com.hbm.render.anim.AnimationEnums.GunAnimation.values()) {
             boolean shot = switch (type.name()) {
-                case "CYCLE", "CYCLE_EMPTY", "SPINUP", "SPINDOWN" -> true;
+                case "CYCLE", "CYCLE_EMPTY", "CYCLE_DRY", "ALT_CYCLE", "SPINUP", "SPINDOWN" -> true;
                 default -> false;
             };
             assertEquals(!shot, GunAtWall.givesWay(type), type.name());

@@ -328,8 +328,7 @@ public final class WalkSprint {
         // the gun at a wall comes in by how far into it the gun would go, its muzzle lowered while firing or aiming; an
         // NTM animation other than a shot's takes it out while it plays (the animation shows whole, nothing held back)
         boolean givesWay = busy && GunAtWall.givesWay(HbmAnimations.getGunAnimation(0));
-        float wallTo = GunAtWall.into(player, item);
-        if (givesWay) wallTo = 0F;
+        float wallTo = givesWay ? 0F : GunAtWall.into(player, item);
         wall = wall < wallTo ? Math.min(wallTo, wall + dt / GunAtWall.IN) : Math.max(wallTo, wall - dt / GunAtWall.OUT);
         wallLow = approach(wallLow, firing || aiming >= 0.05F, dt, GunAtWall.LOWER, GunAtWall.OUT);
         // a gun not yet measured would turn around the last gun's middle: it stays at rest until gunPlaced measures it,

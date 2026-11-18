@@ -85,7 +85,9 @@ ARMS field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 ARMS field com/hbm/main/ResourceManager coilgun Lcom/hbm/render/loader/HFRWavefrontObject;
 ARMS field com/hbm/main/ResourceManager m2 Lcom/hbm/render/loader/HFRWavefrontObject;
 ARMS field com/hbm/main/ResourceManager stinger Lcom/hbm/render/loader/HFRWavefrontObject;
+ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation ALT_CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
+ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE_DRY Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE_EMPTY Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation INSPECT Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
