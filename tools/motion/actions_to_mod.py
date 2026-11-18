@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Put actions made from recordings of people (retarget_actions.py: a grenade's throw) into the mod, as BotClips reads
-them: whole clips (Bedrock 1.8.0, linear keys) by the mod's name for each.
+"""Put actions made from recordings of people (retarget_actions.py: a grenade's throw, a forward roll) into the mod,
+as BotClips reads them: whole clips (Bedrock 1.8.0, linear keys) by the mod's name for each.
 
 Run:  python3 -I tools/motion/actions_to_mod.py <mocap_actions.animation.json> <mocap_actions.clips.json> \
-          src/main/resources/assets/ntmgunfeel/animations/bot_people.animation.json throw_person=throw_cmu79_35a
+          src/main/resources/assets/ntmgunfeel/animations/bot_people.animation.json throw_person=throw_cmu79_35a \
+          roll_person=roll_cmu128_11
       python3 -I tools/motion/test_actions_to_mod.py
 
 Each clip goes in as it is (its keys rounded to DIGITS), played once; its source, license and credit (from the clips'
