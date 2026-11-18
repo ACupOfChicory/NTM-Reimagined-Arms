@@ -116,6 +116,9 @@ public final class AiGunner {
     private int burstShots;
     private long lastShot = Long.MIN_VALUE;
     private float drift;
+    // the barrel's heat: waiting for it to cool, and no pull before this tick (a pause cut into a burst)
+    private boolean cooling;
+    private long heatPauseUntil = Long.MIN_VALUE;
     // shots since its last tick (AiShots: once a tick, whatever the projectiles), and the tick of the last
     private int fresh;
     private long shotTick = Long.MIN_VALUE;
@@ -376,6 +379,8 @@ public final class AiGunner {
                 && !AiWater.swims(mob);
         // a grenadier's shells go only as lobs worked out to burst clear of its own (AiGrenadier), never straight
         if (shoot && exact == null && AiGrenadier.lobsOnly(mob, stack)) shoot = false;
+        // a hot barrel (acup.gunfeel.heat.Overheat): shorter bursts with longer pauses, and near the top it waits for it to cool
+        if (shoot && heatHolds(stack, time)) shoot = false;
         // the line to the aim, the line it looks along now (a burst's kick, a turn not done) and the one its body faces
         // (the bullet's), each in a cone as wide as the gun strays: an automatic's wider
         boolean friend = false;
@@ -573,6 +578,30 @@ public final class AiGunner {
             float[] moved = sight.kick(d[0], d[1], d[2], d[3], k.rebound(), skill);
             face(mob.getYHeadRot() + moved[0], Math.max(-90F, Math.min(90F, mob.getXRot() + moved[1])), skill);
         }
+    }
+
+    /**
+     * The barrel's heat holds its fire (Overheat): from AI_WAIT until it is down to AI_RESUME; warmer than AI_SHORT, a burst
+     * is cut at the gun's aiBurst shots and the pause after it is longer than a burst's gap (BURST_GAP), the hotter the
+     * longer: the next burst starts its climb over.
+     */
+    private boolean heatHolds(ItemStack stack, long time) {
+        acup.gunfeel.heat.Overheat.Gun g = acup.gunfeel.heat.Overheat.Gun.of(stack);
+        if (g == null) return false;
+        float h = acup.gunfeel.heat.Overheat.heat(stack, time);
+        if (h >= acup.gunfeel.heat.Overheat.AI_WAIT) cooling = true;
+        else if (h <= acup.gunfeel.heat.Overheat.AI_RESUME) cooling = false;
+        if (cooling || time < heatPauseUntil) return true;
+        if (h > acup.gunfeel.heat.Overheat.AI_SHORT && burstShots >= g.aiBurst && lastShot != Long.MIN_VALUE && time - lastShot <= BURST_GAP) {
+            heatPauseUntil = time + heatPause(h);
+            return true;
+        }
+        return false;
+    }
+
+    /** the pause after a burst cut by the heat, ticks: just over a burst's gap when warm, three seconds near the top */
+    static int heatPause(float h) {
+        return BURST_GAP + 5 + Math.round(45 * acup.gunfeel.heat.Overheat.ramp(h, acup.gunfeel.heat.Overheat.AI_SHORT, acup.gunfeel.heat.Overheat.AI_WAIT));
     }
 
     // the head, body and look control to this view; the look control turns the head after the goals, so it is given a

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- The M2 and the AM-180 overheat. About 180 rounds of the M2 in one burst, or
+  three magazines of the AM-180 one after another, take the barrel to its
+  hottest; it cools in about a minute, four times as fast in water or rain.
+  Hot, the barrel smokes at the muzzle and hisses, the shot spreads up to four
+  times the gun's own and the barrel wears up to five times as fast. The
+  AM-180 jams in the burst; the M2's round left in a hot chamber can go off on
+  its own a moment after the trigger is let go. The heat shows as a bar under
+  the gun's condition in the HUD. AI soldiers fire shorter bursts as their
+  barrel warms and wait for it to cool near the top. The minigun's turning
+  barrels do not overheat. The server key `gunOverheat` scales the heat, `0`
+  turns it off.
+
 ## X1629
 
 - AI soldiers walk, run and sprint with legs recorded from people, each soldier
