@@ -148,6 +148,8 @@ neoForge {
             systemProperty("ntmgunfeel.suppressionStand",providers.gradleProperty("suppressionStand").isPresent.toString())
             // -PshockStand: the 12 gauge shock shell, its window, spread, immunity, the AI bot and the HUD's glitch (ShockStand)
             systemProperty("ntmgunfeel.shockStand",providers.gradleProperty("shockStand").isPresent.toString())
+            // -PcrosshairStand: the dynamic crosshair: styles by class, gap from the spread, the kick, aiming, a frame (CrosshairStand)
+            systemProperty("ntmgunfeel.crosshairStand",providers.gradleProperty("crosshairStand").isPresent.toString())
             // -PnewAmmoStand: the rubber slug, the Duplex rounds and the nuclear .50 in the game (NewAmmoStand)
             systemProperty("ntmgunfeel.newAmmoStand",providers.gradleProperty("newAmmoStand").isPresent.toString())
             // -PnewAmmoStand=short: the magazines, the bags and the nuclear .50 only (no rubber slug, no Duplex)

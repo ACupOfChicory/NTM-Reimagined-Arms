@@ -153,6 +153,7 @@ public final class ClientSmoke {
                 if(ProneFireStand.ENABLED) { phase=62; mc.gui.setScreen(null); ProneFireStand.start(); return; }
                 if(SuppressionStand.ENABLED) { phase=72; mc.gui.setScreen(null); SuppressionStand.start(); return; }
                 if(ShockStand.ENABLED) { phase=73; mc.gui.setScreen(null); ShockStand.start(); return; }
+                if(CrosshairStand.ENABLED) { phase=78; mc.gui.setScreen(null); CrosshairStand.start(); return; }
                 if(NewAmmoStand.ENABLED) { phase=77; mc.gui.setScreen(null); NewAmmoStand.start(); return; }
                 if(GunHitStand.ENABLED) { phase=74; mc.gui.setScreen(null); GunHitStand.start(); return; }
                 if(SmokeCloudStand.ENABLED) { phase=60; mc.gui.setScreen(null); SmokeCloudStand.start(); return; }
@@ -243,6 +244,7 @@ public final class ClientSmoke {
             if (phase == 72) SuppressionStand.frame();
             if (phase == 73) ShockStand.frame();
             if (phase == 77) NewAmmoStand.frame();
+            if (phase == 78) CrosshairStand.frame();
             if (phase == 74) GunHitStand.frame();
             if (phase == 60) SmokeCloudStand.frame();
             if (phase == 76) MiniNukeStand.frame();
