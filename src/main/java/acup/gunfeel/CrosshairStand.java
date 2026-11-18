@@ -24,7 +24,7 @@ import net.minecraft.world.level.block.Blocks;
 // runCheckClient -PcrosshairStand: the dynamic crosshair (DynamicCrosshair) in the game. On a stone floor under an open
 // sky, the player in survival looks up at the sky:
 //  - each class's style: the G3 a cross, the SPAS-12 a square, the Uzi brackets, the revolver a corner, the
-//    Panzerschreck a ruler; the Stinger keeps NTM's (with its lock-on), and so does every gun with the setting off;
+//    Panzerschreck a ruler; the Stinger keeps NTM's (with its lock-on);
 //  - the gap: the base and the spread NTM and the mod work out now, as TaCZ's inaccuracy × 0.8; crouched it is no
 //    wider than standing, in the air (slow falling) wider;
 //  - a kick (NTM's recoil field, as its recoil lambdas leave it) jumps the gap out and it comes back;
@@ -95,17 +95,7 @@ final class CrosshairStand {
                     check(DynamicCrosshair.took == took0, "Стингер: прицел NTM с захватом цели (кадров наших " + (DynamicCrosshair.took - took0) + ")");
                     hold("hbm:gun_g3", 12);
                 }
-                case 12 -> {
-                    // set once the G3 is in hand: a new gun lays the settings from the file over the ones in memory
-                    Config.dynamicCrosshair = false;
-                    took0 = DynamicCrosshair.took;
-                    wait(10, 13);
-                }
-                case 13 -> {
-                    check(DynamicCrosshair.took == took0, "dynamicCrosshair=false: прицел NTM (кадров наших " + (DynamicCrosshair.took - took0) + ")");
-                    Config.dynamicCrosshair = true;
-                    wait(20, 14);
-                }
+                case 12 -> wait(30, 14);
                 // the gap from the spread: standing, crouched, in the air
                 case 14 -> {
                     standing = DynamicCrosshair.lastGap;
@@ -212,7 +202,6 @@ final class CrosshairStand {
         } catch (Throwable t) {
             GunFeel.LOGGER.error("[crosshair-stand] сбой", t);
             check(false, "без сбоя: " + t);
-            Config.dynamicCrosshair = true;
             ClientSmoke.finish();
             step = 999;
         }

@@ -1,5 +1,10 @@
 # Changelog
 
+## X1656
+
+- ⚠ Breaks compatibility: the dynamicCrosshair config key is gone. The dynamic
+  crosshair is always on; an old config's line is left unread.
+
 ## X1654
 
 - ⚠ Breaks compatibility: the botMoves config key is gone, and with it

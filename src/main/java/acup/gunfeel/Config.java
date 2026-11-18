@@ -65,8 +65,6 @@ public final class Config {
     public static boolean hitMarker = true;
     // the arc round the crosshair towards where damage you take came from (HitMarkerClient)
     public static boolean damageIndicator = true;
-    // the dynamic crosshair in place of NTM's, its style by the gun's class (DynamicCrosshair)
-    public static boolean dynamicCrosshair = true;
     public static String ammoMenu = "steel";
     public static int ammoMenuColor = 0xFF8C1A;
     // Both-hands grip. Each arm runs from its hand back along a fixed direction (camera frame: +X left,
@@ -250,10 +248,6 @@ public final class Config {
             hitMarker: a mark round the crosshair and a quiet sound when your shot hurts someone (red on the head,
               a bell on a kill)
             damageIndicator: an arc round the crosshair towards where damage you take came from
-            dynamicCrosshair: a crosshair that opens with the spread of your shot (standing, moving, in the air)
-              and jumps out on each shot, instead of NTM's; hidden while aiming down the sights where NTM hides its own.
-              By the gun: pistols a corner, SMGs brackets, shotguns a square, launchers and the heaviest a ruler,
-              the rest a cross
             ammoMenu: look of the ammo menu (hold Y): steel, petals, bubbles, ntm, glass, arc
             ammoMenuColor: accent colour of the ammo menu, hex RRGGBB
             arms: draw the player's arms holding the gun with both hands; their model follows the skin,
@@ -559,7 +553,6 @@ public final class Config {
         cornerHud = bool(p, "cornerHud", cornerHud);
         hitMarker = bool(p, "hitMarker", hitMarker);
         damageIndicator = bool(p, "damageIndicator", damageIndicator);
-        dynamicCrosshair = bool(p, "dynamicCrosshair", dynamicCrosshair);
         ammoMenu = p.getProperty("ammoMenu", ammoMenu).trim().toLowerCase(java.util.Locale.ROOT);
         try {
             ammoMenuColor = Integer.parseInt(p.getProperty("ammoMenuColor", String.format("%06x", ammoMenuColor)).trim().replace("#", ""), 16) & 0xFFFFFF;
@@ -711,7 +704,6 @@ public final class Config {
         p.setProperty("cornerHud", Boolean.toString(cornerHud));
         p.setProperty("hitMarker", Boolean.toString(hitMarker));
         p.setProperty("damageIndicator", Boolean.toString(damageIndicator));
-        p.setProperty("dynamicCrosshair", Boolean.toString(dynamicCrosshair));
         p.setProperty("ammoMenu", ammoMenu);
         p.setProperty("ammoMenuColor", String.format("%06x", ammoMenuColor));
         p.setProperty("arms", Boolean.toString(arms));
