@@ -99,8 +99,9 @@ public final class ModelHitDebug {
         // Все контуры кадра одним вызовом: недостающие строятся параллельно,
         // а у уже показанного моба — в фоне; кадр ждёт её, только если прежний
         // контур старше правила (ModelContours.LAG).
-        // Кубы моба — одним контуром, как прежде (ModelContours.split), меши — по группам, каждая своим контуром
-        // в своей коробке: он не зависит от позы, строится один раз, на кадр движется только его матрица.
+        // Группы NTM (броня, его OBJ-модели) — каждая своим контуром в своей коробке: он не зависит от позы,
+        // строится один раз, на кадр движется только его матрица; остальное (кубы, меши Flywheel) — одним
+        // контуром, как прежде (ModelContours.split).
         List<ModelContours.Outline> outlines=null;
         int[] cubes=new int[customs.length],groups=new int[customs.length+1];
         if(!MobBenchMetrics.LEGACY) {
@@ -110,8 +111,8 @@ public final class ModelHitDebug {
             List<List<ModelBox>> parts=new ArrayList<>();
             for(int i=0;i<customs.length;i++) {
                 var split=ModelContours.split(all.get(i));
-                cubes[i]=split.cubes().isEmpty()?-1:lists.size();
-                if(cubes[i]>=0) { lists.add(split.cubes()); listOwners.add(owners.get(i)); }
+                cubes[i]=split.together().isEmpty()?-1:lists.size();
+                if(cubes[i]>=0) { lists.add(split.together()); listOwners.add(owners.get(i)); }
                 groups[i]=parts.size(); parts.addAll(split.groups());
             }
             groups[customs.length]=parts.size();
@@ -121,7 +122,7 @@ public final class ModelHitDebug {
             outlines=ModelContours.outlines(lists,listOwners);
             for(int i=0;i<=customs.length;i++) groups[i]+=first;
             MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
-            // возраст контура кубов — по тем же кубам: контур лежит в системе первого из них
+            // возраст общего контура — по тем же частям: контур лежит в системе первой из них
             if(ContourAge.ENABLED)
                 for(int i=0;i<customs.length;i++) if(customs[i] && cubes[i]>=0) ContourAge.check(TARGETS.get(i).entity(),lists.get(cubes[i]),outlines.get(cubes[i]));
         }

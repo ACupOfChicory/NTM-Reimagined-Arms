@@ -47,6 +47,10 @@ public final class ModelMesh {
     double[] boundsData() { return root.bounds(); }
     // Объёмная часть для крупных мобов (PlaneHitPolicy), вычисляется один раз.
     volatile java.util.Optional<ModelMesh> volume;
+    // a piece of one of NTM's model groups (ModelMeshCapture: its suits, its OBJ models): F3+B outlines the group on
+    // its own, in its own box (ModelContours.split); the other meshes (Flywheel's) with the mob's cubes, as before
+    volatile boolean grouped;
+    static boolean grouped(long id) { var mesh=get(id); return mesh!=null && mesh.grouped; }
     public static ModelMesh get(long id) { return CACHE.get(id); }
     public static ModelMesh register(ModelMesh mesh) {
         ModelMesh old = CACHE.get(mesh.id);

@@ -19,7 +19,9 @@ public final class ModelMeshCapture {
                 for(int a=0;a<3;a++) triangles[at++]=quads[p+a];
                 triangles[at++]=quads[p+3]*us+uo; triangles[at++]=quads[p+4]*vs+vo;
             }
-            return ModelSurfaceGeometry.bake(triangles,ModelTextureMask.mask(texture));
+            var geometry=ModelSurfaceGeometry.bake(triangles,ModelTextureMask.mask(texture));
+            for(var mesh:geometry.meshes()) mesh.grouped=true;
+            return geometry;
         });
     }
 
@@ -33,7 +35,9 @@ public final class ModelMeshCapture {
             }
             float[] triangles = new float[data.size()];
             for (int i = 0; i < triangles.length; i++) triangles[i] = data.get(i);
-            return ModelMesh.register(new ModelMesh(triangles));
+            var mesh = ModelMesh.register(new ModelMesh(triangles));
+            mesh.grouped = true;
+            return mesh;
         });
     }
 

@@ -8,16 +8,22 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.junit.jupiter.api.Test;
 
-// F3+B outlines a mob's cubes together, as before, and each group of its meshes on its own: the pieces of one group of
-// NTM's lie in one box, and that group's outline is the same whatever the pose, so it is built once.
+// F3+B outlines each of NTM's model groups on its own (the pieces of one group lie in one box, and its outline is the
+// same whatever the pose, so it is built once) and the rest of a mob together, as before: its cubes and the meshes
+// that are not NTM's groups (Flywheel's).
 class ModelContoursSplitTest {
     // a closed wedge in the unit box, its two halves two meshes as NTM's pieces of one group would be
-    static final ModelMesh FRONT=ModelMesh.register(new ModelMesh(new float[]{
+    static final ModelMesh FRONT=grouped(ModelMesh.register(new ModelMesh(new float[]{
             0,0,0, 1,0,0, 1,1,0, 0,0,0, 1,1,0, 0,1,0,
-            0,0,0, 0,1,0, 0,0,1, 1,0,0, 1,0,1, 1,1,0}));
-    static final ModelMesh BACK=ModelMesh.register(new ModelMesh(new float[]{
+            0,0,0, 0,1,0, 0,0,1, 1,0,0, 1,0,1, 1,1,0})));
+    static final ModelMesh BACK=grouped(ModelMesh.register(new ModelMesh(new float[]{
             0,0,0, 0,0,1, 1,0,1, 0,0,0, 1,0,1, 1,0,0,
-            0,1,0, 1,1,0, 1,0,1, 0,1,0, 1,0,1, 0,0,1}));
+            0,1,0, 1,1,0, 1,0,1, 0,1,0, 1,0,1, 0,0,1})));
+    // a mesh Flywheel took (a vanilla model's part under CrankShaft): not one of NTM's groups
+    static final ModelMesh FLYWHEEL=ModelMesh.register(new ModelMesh(new float[]{
+            0,0,0, 1,0,0, 0,1,0, 0,0,0, 0,1,0, 0,0,1,
+            0,0,0, 0,0,1, 1,0,0, 1,0,0, 0,0,1, 0,1,0}));
+    static ModelMesh grouped(ModelMesh mesh) { mesh.grouped=true; return mesh; }
 
     static ModelBox box(String part,Matrix4f m,float x,float y,float z,float sx,float sy,float sz,long mesh) {
         var o=m.transformPosition(x,y,z,new Vector3f());
@@ -38,7 +44,7 @@ class ModelContoursSplitTest {
 
     @Test void cubesTogetherMeshesByGroupAnInnerLayerLeftOut() {
         var split=ModelContours.split(mob(new Matrix4f(),.4F));
-        assertEquals(List.of("root/body","root/head","root/head/inner"),split.cubes().stream().map(ModelBox::part).toList(),
+        assertEquals(List.of("root/body","root/head","root/head/inner"),split.together().stream().map(ModelBox::part).toList(),
                 "the cubes in their order, all of them: collect leaves the inner layer out, and the list stays the same");
         // a mesh inside its own is left out here, collect sees a group on its own
         var nested=new ArrayList<>(mob(new Matrix4f(),.4F));
@@ -55,13 +61,26 @@ class ModelContoursSplitTest {
         var boxes=new ArrayList<>(mob(new Matrix4f().translate(3,64,-7),0).subList(0,3));
         var split=ModelContours.split(boxes);
         assertTrue(split.groups().isEmpty());
-        assertEquals(boxes,split.cubes());
+        assertEquals(boxes,split.together());
         ModelContours.clear();
         var before=ModelContours.edges(boxes);
         ModelContours.clear();
-        var now=ModelContours.edges(split.cubes());
+        var now=ModelContours.edges(split.together());
         assertEquals(before.size(),now.size());
         for(int i=0;i<before.size();i++) assertArrayEquals(before.get(i),now.get(i),"the same outline, to the bit");
+    }
+
+    @Test void flywheelsMeshesGoWithTheCubesAsBefore() {
+        var boxes=new ArrayList<>(mob(new Matrix4f(),.4F));
+        boxes.add(2,box("mesh/root/body/tail",new Matrix4f(),.1F,0,.25F,.3F,.3F,.4F,FLYWHEEL.id()));
+        var split=ModelContours.split(boxes);
+        assertEquals(List.of("root/body","root/head","mesh/root/body/tail","root/head/inner"),
+                split.together().stream().map(ModelBox::part).toList(),"in the mob's order, outlined with its cubes");
+        assertEquals(2,split.groups().size(),"NTM's groups as before");
+        var flywheelOnly=List.of(box("mesh/root/body",new Matrix4f(),0,0,0,.5F,.5F,.5F,FLYWHEEL.id()),
+                box("mesh/root/head",new Matrix4f(),0,.5F,0,.5F,.5F,.5F,FLYWHEEL.id()));
+        assertEquals(flywheelOnly,ModelContours.split(flywheelOnly).together(),"a vanilla model under CrankShaft is outlined as before");
+        assertTrue(ModelContours.split(flywheelOnly).groups().isEmpty());
     }
 
     @Test void aGroupIsBuiltOnceWhateverThePose() {

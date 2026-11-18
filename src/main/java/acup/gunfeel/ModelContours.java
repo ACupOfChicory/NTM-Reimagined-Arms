@@ -320,21 +320,23 @@ public final class ModelContours {
         for(int i=0;i<a.size();i++) if(!a.get(i).part().equals(b.get(i).part())) return false;
         return true;
     }
-    // The parts of a mob for F3+B: its cubes, outlined together as before, and its meshes (NTM's suits and mobs) by
-    // group: the pieces of one group of NTM's lie in one box, one after another, and the group is outlined on its own
-    // in its own box, the same outline whatever the pose, so it is built once and only its matrix moves. What the
-    // meshes lose is what lay between parts: a seam where two of them lie flush in one plane is not taken out. The cubes
-    // go to collect all of them, which leaves out an inner layer itself (so the list, the key its background builds go
-    // by, is the same whatever the pose); a mesh inside the one it belongs to is left out here by the same rule.
-    record Split(List<ModelBox> cubes,List<List<ModelBox>> groups) {}
+    // The parts of a mob for F3+B: the pieces of NTM's model groups (its suits, its OBJ models: ModelMesh.grouped) by
+    // group, the rest (cubes, Flywheel's meshes) together as before. The pieces of one group lie in one box, one after
+    // another, and the group is outlined on its own in its own box, the same outline whatever the pose, so it is built
+    // once and only its matrix moves. What a group loses is what lay between it and the rest: a seam where it lies
+    // flush on another part is not taken out. The rest goes to collect whole, which leaves out an inner layer itself (so
+    // the list, the key its background builds go by, is the same whatever the pose); a group inside the one it belongs
+    // to is left out here by the same rule.
+    record Split(List<ModelBox> together,List<List<ModelBox>> groups) {}
     static Split split(List<ModelBox> boxes) {
-        List<ModelBox> cubes=new ArrayList<>(boxes.size());
+        List<ModelBox> together=new ArrayList<>(boxes.size());
         List<List<ModelBox>> groups=new ArrayList<>();
-        int[][] parents=parents(boxes);
+        int[][] parents=null;
         ModelBox last=null;
         for(int b=0;b<boxes.size();b++) {
             var box=boxes.get(b);
-            if(box.mesh()==0) { cubes.add(box); continue; }
+            if(box.mesh()==0 || !ModelMesh.grouped(box.mesh())) { together.add(box); continue; }
+            if(parents==null) parents=parents(boxes);
             boolean nested=false;
             for(int i:parents[b]) if(boxes.get(i).encloses(box)) { nested=true; break; }
             if(nested) continue;
@@ -342,7 +344,7 @@ public final class ModelContours {
             else { var group=new ArrayList<ModelBox>(2); group.add(box); groups.add(group); }
             last=box;
         }
-        return new Split(cubes,groups);
+        return new Split(together,groups);
     }
     // the parts each part could lie inside (its name under theirs, as collect asks it), by the mob's names: a mob's
     // parts are the same from frame to frame, and it is only whether one lies in the other that the pose changes
