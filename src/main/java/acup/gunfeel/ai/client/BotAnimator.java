@@ -21,7 +21,10 @@ import net.minecraft.world.entity.LivingEntity;
  * second change comes halfway; an action fades in and out; a lean takes AiPoseGeometry.leanFrac.
  */
 public final class BotAnimator {
-    /** ticks for a full crouch or stand up */
+    /**
+     * ticks for a full crouch or stand up; the server's eye moves at once, so over these the drawn head trails it by
+     * what is left of the crouch's 4.2 px (pose-contract §6), back within 3 cm from the last
+     */
     static final float CROUCH_TICKS = 4F;
     /** ticks from a stroll to the gun ready, or back */
     static final float ALERT_TICKS = 10F;
