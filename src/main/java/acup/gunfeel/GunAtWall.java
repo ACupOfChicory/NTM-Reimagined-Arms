@@ -10,12 +10,17 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -34,12 +39,15 @@ import org.joml.Vector3f;
  * poses), where they show on screen in the world (the hands' own field of view counted in, as Tracers places the
  * muzzle), in blocks. Each frame two rays go through the world, along the gun (from where it comes before the eyes) to
  * its muzzle and from the eyes to the muzzle, blocks by their collision only (grass and flowers do not stop a gun, glass
- * and fences do), not mobs. The nearer wall gives how far forward the muzzle may reach; the muzzle is turned up as far as
+ * and fences do), not mobs; a ledge no higher than a step where the gun meets it (a stair, a slab, a low wall's top, the
+ * floor) is not a wall: the ray goes on over it a step higher. The nearer wall gives how far forward the muzzle may reach; the muzzle is turned up as far as
  * it takes to stay before it (75° at most), and the gun drawn back by how far into the wall it would go.
  *
  * <p>Only the muzzle's depth is kept before the wall: the gun turned up is not tested against a ceiling or a wall beside
- * it. While an NTM animation moves the gun its last measure at rest stands. Not for the other hand or an akimbo pair
- * (WalkSprint leaves those passes alone).
+ * it. The gun is measured only at rest: while an NTM animation moves it (drawn, reloaded, inspected, fired) its last
+ * measure at rest stands, and a gun just drawn is left as it is until it comes to rest. An NTM animation other than a
+ * shot's takes the gun out of the wall's pose while it plays (WalkSprint), and the wall's pose takes the place of the
+ * walk's and the sprint's (others). Not for the other hand or an akimbo pair (WalkSprint leaves those passes alone).
  *
  * <p>A shot is not held back: the bullet flies as always, and a fire key held or aiming lowers the muzzle back to the
  * front; the gun stays drawn back, but not while aiming (the sights would come nearer the eye).
@@ -53,6 +61,8 @@ public final class GunAtWall {
     static final float BACK = 0.15F;
     /** ...but no more than this share of the gun's middle's distance from the eye (a long gun's L is long). */
     static final float BACK_OF_MIDDLE = 0.35F;
+    /** A ledge no higher than this over where the gun meets it (blocks) is not a wall: a stair, a slab, a low wall's top. */
+    static final float STEP = 0.55F;
     /** Seconds to come in and to go out; a fire key or aiming lowers the muzzle quicker. */
     static final float IN = 0.15F, OUT = 0.25F, LOWER = 0.1F;
 
@@ -125,8 +135,9 @@ public final class GunAtWall {
      * third person scale; to the world's view space and its field of view, as Tracers.view does for the muzzle.
      */
     static void placed(Item item, Vector3f back, Vector3f front, Vector3f drawnFront, Vector3f frontLocal, float localLength) {
-        // while an NTM animation moves the gun (drawn, reloaded, inspected) its last measure at rest stands
-        if (measured == item && com.hbm.render.anim.HbmAnimations.getRelevantAnim(0) != null) return;
+        // only at rest: while an NTM animation moves the gun (drawn, reloaded, inspected, fired) the last measure at rest
+        // stands, a gun just drawn has none yet (drawn, it may point at the floor)
+        if (com.hbm.render.anim.HbmAnimations.getRelevantAnim(0) != null) return;
         measured = null;
         GunGeometry g = Arms.geometry(item);
         float scale = thirdPersonScale(item);
@@ -208,13 +219,36 @@ public final class GunAtWall {
         return camera.position().add(w.x, w.y, w.z);
     }
 
-    /** The share of the way from a to b where the first block's collision is, or 1 for none. */
+    /** The share of the way from a to b where the first block's collision is, or 1 for none; over two ledges at most. */
     private static float ray(LocalPlayer player, Vec3 a, Vec3 b) {
+        return ray(player, a, b, 2);
+    }
+
+    private static float ray(LocalPlayer player, Vec3 a, Vec3 b, int ledges) {
         double len = a.distanceTo(b);
         if (len < 1e-4) return 1F;
-        var hit = player.level().clip(new ClipContext(a, b, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+        BlockHitResult hit = player.level().clip(new ClipContext(a, b, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
         if (hit.getType() != HitResult.Type.BLOCK) return 1F;
-        return (float) (hit.getLocation().distanceTo(a) / len);
+        float t = (float) (hit.getLocation().distanceTo(a) / len);
+        // a ceiling met from below, a ray starting inside a block: a wall; but a ceiling only the ray gone a step higher
+        // over a ledge meets is not where the gun goes (stairs in a low passage)
+        boolean ceiling = hit.getDirection() == Direction.DOWN;
+        if (ceiling && ledges < 2 && !hit.isInside()) return 1F;
+        if (ledges <= 0 || hit.isInside() || ceiling || !ledge(player, hit.getLocation(), b.subtract(a).scale(1.0 / len)))
+            return t;
+        // over the ledge: the rest of the way a step higher
+        Vec3 up = new Vec3(0.0, STEP, 0.0);
+        return t + (1F - t) * ray(player, hit.getLocation().add(up), b.add(up), ledges - 1);
+    }
+
+    /** Whether the block met at p going dir is a ledge: a step above, just inside it, no block's collision. */
+    private static boolean ledge(LocalPlayer player, Vec3 p, Vec3 dir) {
+        Vec3 q = p.add(dir.scale(0.02)).add(0.0, STEP, 0.0);
+        BlockPos pos = BlockPos.containing(q);
+        var level = player.level();
+        for (AABB box : level.getBlockState(pos).getCollisionShape(level, pos, CollisionContext.of(player)).toAabbs())
+            if (box.move(pos).contains(q)) return false;
+        return true;
     }
 
     /** The drawing back at the weight w, in L: BACK, but no more than BACK_OF_MIDDLE of the middle's distance from the eye. */
@@ -253,6 +287,24 @@ public final class GunAtWall {
     /** The pose: the muzzle up by deg, lowered by low (0..1, a fire key or aiming), drawn back by back (in L). */
     static WalkSprint.Pose pose(float deg, float low, float back) {
         return new WalkSprint.Pose(deg * (1F - low), 0F, 0F, 0F, 0F, back);
+    }
+
+    /**
+     * An NTM animation the gun at a wall gives way to (it goes out of its pose while it plays): all but a shot's, the
+     * other barrel's and a dry click's (a fire key held lowers the muzzle there, the gun stays back) and a barrel spinning
+     * up or down; one with no type gives way too.
+     */
+    static boolean givesWay(com.hbm.render.anim.AnimationEnums.GunAnimation type) {
+        if (type == null) return true;
+        return switch (type) {
+            case CYCLE, CYCLE_EMPTY, CYCLE_DRY, ALT_CYCLE, SPINUP, SPINDOWN -> false;
+            default -> true;
+        };
+    }
+
+    /** The walk's and the sprint's poses' share beside the wall's at its weight w: the wall's takes their place. */
+    static float others(float w) {
+        return 1F - WalkSprint.ease(Math.clamp(w, 0F, 1F));
     }
 
     /** The muzzle's turn up for the gun drawn now, for the limit of the last into (WalkSprint.apply). */

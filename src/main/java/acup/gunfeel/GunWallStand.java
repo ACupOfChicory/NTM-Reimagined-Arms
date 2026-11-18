@@ -8,8 +8,10 @@ import java.util.Set;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.client.Keybinds;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
+import com.hbm.render.anim.HbmAnimations;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -22,6 +24,7 @@ import net.minecraft.world.entity.monster.zombie.Zombie;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
@@ -38,7 +41,12 @@ import org.joml.Vector3f;
 //  - a turned camera (yaw ±135°, pitch ±30°) in the open: the muzzle at rest holds the same place in view space, and it
 //    lies in the world as far forward along the look as its depth says;
 //  - the G3 pressed against the wall: a fire key held lowers the muzzle (the gun stays back); the shot
-//    is logged (where the bullets go, the husk behind the wall): not a check of the gun at a wall.
+//    is logged (where the bullets go, the husk behind the wall): not a check of the gun at a wall;
+//  - every NTM gun with a third person scale drawn in the open is not turned up (only the frames drawn with it); drawn at the wall it stays out of the wall's pose while NTM's draw
+//    animation plays, and so does one whose reload key starts an animation (it comes back after);
+//  - running into the wall the sprint pose gives way to the wall's (its weight at most 1 - the wall's); running along
+//    the wall (on the left and on the right) and up a flight of stairs (running, walking, looking down) the gun is not
+//    drawn back or turned up.
 // Lines "[gun-wall] ..." in the log, PASS/FAIL in the report.
 final class GunWallStand {
     static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.gunWallStand");
@@ -58,6 +66,24 @@ final class GunWallStand {
     private static Zombie zombie;
     private static float zombieHealth;
     private static java.lang.reflect.Method gunChanged;
+    // the frames watched: the most of the wall's weight, its turn up and the sprint pose's; while a non-shot NTM
+    // animation plays, the most and the least of the weight and the least of the turn; frames the sprint pose was over
+    // 1 - the wall's weight; the highest feet; nothing watched past trackMinZ (the stairs' top)
+    private static boolean track;
+    private static double trackMinZ, startY, maxY;
+    private static float maxWall, maxPitch, maxShare, maxWallAnim, minWallAnim, minPitchAnim;
+    private static int animFrames, overShare, run;
+    private static String overText;
+    private static final Set<String> ANIMS = new java.util.TreeSet<>();
+    // only the frames WalkSprint applied for this gun (null: any)
+    private static net.minecraft.world.item.Item trackItem;
+    // the guns drawn in the open, the next one, and those turned up
+    private static final List<net.minecraft.world.item.Item> ALL = new ArrayList<>();
+    private static int drawn;
+    private static final List<String> RAISED = new ArrayList<>();
+    // up the stairs: the look down (degrees) and running or walking
+    private static final float[] STAIR_PITCH = {0F, 20F, 0F, 35F};
+    private static final boolean[] STAIR_SPRINT = {true, true, false, true};
 
     private GunWallStand() {
     }
@@ -107,6 +133,9 @@ final class GunWallStand {
                     level.setBlock(O.offset(x, y, z), wall ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), 2);
                 }
             }
+            // a flight of stone stairs going up toward -Z, three wide, seven high, from the floor before the player
+            var stair = Blocks.STONE_STAIRS.defaultBlockState().setValue(StairBlock.FACING, Direction.NORTH);
+            for (int i = 0; i < 7; i++) for (int x = -1; x <= 1; x++) level.setBlock(O.offset(x, i, -2 - i), stair, 2);
             p.setGameMode(GameType.SURVIVAL);
             p.getAbilities().flying = false;
             zombie = EntityTypes.HUSK.create(level, EntitySpawnReason.COMMAND);
@@ -127,6 +156,7 @@ final class GunWallStand {
         if (mc.player == null) return;
         mc.player.setXRot(pitch);
         mc.player.setYRot(yaw);
+        if (track) trackFrame(mc);
         if (step == 999 || now() < until) return;
         try {
             switch (step) {
@@ -239,6 +269,129 @@ final class GunWallStand {
                     check(n > 0, "выстрел в упор: пуля вылетела (" + n + ")");
                     // not a check: the bullets are the coordinator's (they pass the wall from 2 blocks on this stand too)
                     log("выстрел в упор: дальше всех по z {} (стена до {}), зомби {} → {}", f(maxZ), WALL_Z + 1, f(zombieHealth), f(h));
+                    // every gun drawn in the open, one after another, from the G3 held there and settled
+                    look(5F, 0F, 0F);
+                    ALL.clear();
+                    for (var item : BuiltInRegistries.ITEM) if (item instanceof ItemGunBaseNT && GunAtWall.thirdPersonScale(item) > 0F) ALL.add(item);
+                    drawn = 0;
+                    RAISED.clear();
+                    wait(30, 19);
+                }
+                case 19 -> {
+                    var item = ALL.get(drawn);
+                    hold(new ItemStack(item));
+                    startTrack(Double.NEGATIVE_INFINITY);
+                    trackItem = item;
+                    wait(30, 20);
+                }
+                case 20 -> {
+                    track = false;
+                    String id = BuiltInRegistries.ITEM.getKey(ALL.get(drawn)).toString();
+                    log("{} достали в поле: вес до {}, вверх до {}°, анимации {}", id, f(maxWall), f(maxPitch), ANIMS);
+                    if (maxWall > 0.02F || maxPitch > 1F) RAISED.add(id + " " + f(maxWall) + "/" + f(maxPitch) + "°");
+                    if (++drawn < ALL.size()) {
+                        step = 19;
+                        return;
+                    }
+                    check(RAISED.isEmpty(), "достали в поле " + ALL.size() + " пушек: ни одна не задирается (" + RAISED + ")");
+                    // drawn pressed against the wall, the last gun settled there first
+                    look(0.3F, 0F, 0F);
+                    wait(30, 21);
+                }
+                case 21 -> {
+                    hold("hbm:gun_light_revolver");
+                    startTrack(Double.NEGATIVE_INFINITY);
+                    trackItem = BuiltInRegistries.ITEM.getValue(Identifier.parse("hbm:gun_light_revolver"));
+                    wait(80, 22);
+                }
+                case 22 -> {
+                    track = false;
+                    log("револьвер достали вплотную к стене: анимации {}, кадров анимации {}, вес на ней {}..{}, после {}", ANIMS, animFrames,
+                            f(minWallAnim), f(maxWallAnim), f(WalkSprint.wallNow()));
+                    check(animFrames > 0, "доставание у стены: анимация NTM шла (" + ANIMS + ")");
+                    check(maxWallAnim <= 0.02F, "пока пушку достают, она не в позе у стены (вес до " + f(maxWallAnim) + ")");
+                    check(WalkSprint.wallNow() >= 0.9F, "достали — пушка у стены отведена (" + f(WalkSprint.wallNow()) + ")");
+                    hold(loaded("hbm:gun_g3"));
+                    wait(60, 23);
+                }
+                case 23 -> {
+                    log("G3 вплотную перед клавишей перезарядки: вес {}, вверх {}°", f(WalkSprint.wallNow()), f(WalkSprint.wallPitchNow()));
+                    check(WalkSprint.wallNow() >= 0.9F, "G3 у стены перед перезарядкой отведена (" + f(WalkSprint.wallNow()) + ")");
+                    startTrack(Double.NEGATIVE_INFINITY);
+                    gunChanged.invoke(null, 3, true);
+                    wait(1, 24);
+                }
+                case 24 -> {
+                    gunChanged.invoke(null, 3, false);
+                    wait(100, 25);
+                }
+                case 25 -> {
+                    track = false;
+                    log("клавиша перезарядки у стены: анимации {}, кадров {}, вес на ней {}..{}, вверх до {}°, после {}", ANIMS, animFrames,
+                            f(minWallAnim), f(maxWallAnim), f(minPitchAnim), f(WalkSprint.wallNow()));
+                    check(animFrames > 0, "клавиша перезарядки у стены: анимация NTM пошла (" + ANIMS + ")");
+                    check(minWallAnim <= 0.05F && minPitchAnim <= 1F, "на время анимации пушка выходит из позы у стены (вес до " + f(minWallAnim)
+                            + ", вверх до " + f(minPitchAnim) + "°)");
+                    check(WalkSprint.wallNow() >= 0.9F, "анимация кончилась — снова у стены (" + f(WalkSprint.wallNow()) + ")");
+                    // running into the wall
+                    look(5F, 0F, 0F);
+                    wait(30, 26);
+                }
+                case 26 -> {
+                    startTrack(Double.NEGATIVE_INFINITY);
+                    keys(true, true);
+                    wait(40, 27);
+                }
+                case 27 -> {
+                    keys(false, false);
+                    track = false;
+                    log("бег в стену: поза бега до {}, вес стены до {}, кадров бег > 1 − стена: {} ({})", f(maxShare), f(maxWall), overShare, overText);
+                    check(maxShare > 0.3F && maxWall >= 0.9F, "бег в стену: была поза бега и добежал до стены (бег " + f(maxShare) + ", стена " + f(maxWall) + ")");
+                    check(overShare == 0, "бег в стену: поза бега уступает стене, не складывается (" + overShare + " кадров, первый: " + overText + ")");
+                    // along the wall, at 0.4 from its face: on the left (yaw 90 goes to -X), then on the right
+                    place(O.getX() + 5.5, WALL_Z - 0.4, 90F, 0F);
+                    wait(30, 28);
+                }
+                case 28, 30 -> {
+                    startTrack(Double.NEGATIVE_INFINITY);
+                    keys(true, true);
+                    wait(25, step + 1);
+                }
+                case 29, 31 -> {
+                    keys(false, false);
+                    track = false;
+                    String side = step == 29 ? "слева" : "справа";
+                    log("бег вдоль стены ({}): поза бега до {}, вес стены до {}, вверх до {}°", side, f(maxShare), f(maxWall), f(maxPitch));
+                    check(maxShare > 0.3F, "бег вдоль стены (" + side + "): поза бега была (" + f(maxShare) + ")");
+                    check(maxWall <= 0.05F && maxPitch <= 2F, "бег вдоль стены (" + side + "): пушка не отводится (вес до " + f(maxWall) + ", вверх до "
+                            + f(maxPitch) + "°)");
+                    if (step == 29) {
+                        place(O.getX() - 4.5, WALL_Z - 0.4, -90F, 0F);
+                        wait(30, 30);
+                        return;
+                    }
+                    run = 0;
+                    place(O.getX() + 0.5, O.getZ() + 1.5, 180F, STAIR_PITCH[run]);
+                    wait(30, 32);
+                }
+                case 32 -> {
+                    startTrack(O.getZ() - 7.5);
+                    startY = mc.player.getY();
+                    keys(true, STAIR_SPRINT[run]);
+                    wait(STAIR_SPRINT[run] ? 34 : 50, 33);
+                }
+                case 33 -> {
+                    keys(false, false);
+                    track = false;
+                    String what = "лестница " + (STAIR_SPRINT[run] ? "бегом" : "шагом") + ", взгляд вниз " + STAIR_PITCH[run] + "°";
+                    log("{}: поднялся на {}, вес стены до {}, вверх до {}°, поза бега до {}", what, f(maxY - startY), f(maxWall), f(maxPitch), f(maxShare));
+                    check(maxY - startY >= 5.0, what + ": поднялся (" + f(maxY - startY) + ")");
+                    check(maxWall <= 0.05F && maxPitch <= 2F, what + ": пушка не поднимается (вес до " + f(maxWall) + ", вверх до " + f(maxPitch) + "°)");
+                    if (++run < STAIR_PITCH.length) {
+                        place(O.getX() + 0.5, O.getZ() + 1.5, 180F, STAIR_PITCH[run]);
+                        wait(40, 32);
+                        return;
+                    }
                     ClientSmoke.finish();
                     step = 999;
                 }
@@ -271,6 +424,44 @@ final class GunWallStand {
             ClientSmoke.finish();
             step = 999;
         }
+    }
+
+    private static void startTrack(double minZ) {
+        track = true;
+        trackItem = null;
+        trackMinZ = minZ;
+        maxY = Double.NEGATIVE_INFINITY;
+        maxWall = maxPitch = maxShare = maxWallAnim = 0F;
+        minWallAnim = minPitchAnim = Float.POSITIVE_INFINITY;
+        animFrames = overShare = 0;
+        overText = "";
+        ANIMS.clear();
+    }
+
+    private static void trackFrame(Minecraft mc) {
+        if (mc.player.getZ() < trackMinZ || trackItem != null && WalkSprint.appliedNow() != trackItem) return;
+        float w = WalkSprint.wallNow(), pt = WalkSprint.wallPitchNow(), s = WalkSprint.sprintShareNow();
+        maxY = Math.max(maxY, mc.player.getY());
+        maxWall = Math.max(maxWall, w);
+        maxPitch = Math.max(maxPitch, pt);
+        maxShare = Math.max(maxShare, s);
+        if (s > (1F - WalkSprint.ease(w)) * Config.sprintPose + 0.01F && overShare++ == 0) overText = "бег " + f(s) + " при стене " + f(w);
+        if (HbmAnimations.getRelevantAnim(0) != null) {
+            var type = HbmAnimations.getGunAnimation(0);
+            ANIMS.add(String.valueOf(type));
+            if (GunAtWall.givesWay(type)) {
+                animFrames++;
+                maxWallAnim = Math.max(maxWallAnim, w);
+                minWallAnim = Math.min(minWallAnim, w);
+                minPitchAnim = Math.min(minPitchAnim, pt);
+            }
+        }
+    }
+
+    private static void keys(boolean up, boolean sprint) {
+        Minecraft mc = Minecraft.getInstance();
+        mc.options.keyUp.setDown(up);
+        mc.options.keySprint.setDown(sprint);
     }
 
     // the guns with no third person scale of NTM's: the gun at a wall leaves them as they are
@@ -314,6 +505,17 @@ final class GunWallStand {
     private static void place(ServerPlayer p, float d, float yaw, float pitch) {
         p.teleportTo((ServerLevel) p.level(), O.getX() + 0.5, O.getY(), WALL_Z - d, Set.of(), yaw, pitch, false);
         p.setDeltaMovement(Vec3.ZERO);
+    }
+
+    // the feet at x, z on the floor, the camera at yaw and pitch
+    private static void place(double x, double z, float yaw, float pitch) {
+        GunWallStand.yaw = yaw;
+        GunWallStand.pitch = pitch;
+        onServer(p -> {
+            p.teleportTo((ServerLevel) p.level(), x, O.getY(), z, Set.of(), yaw, pitch, false);
+            p.setDeltaMovement(Vec3.ZERO);
+            return null;
+        });
     }
 
     private static void hold(String id) {

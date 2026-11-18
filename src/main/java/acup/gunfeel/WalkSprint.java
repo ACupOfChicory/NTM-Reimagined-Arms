@@ -134,6 +134,8 @@ public final class WalkSprint {
     private static float walk, sprint, calm, fly, sprintHeld;
     // the gun at a wall (GunAtWall): how far in, eased toward the rays' share, and its muzzle lowered by a fire key or aiming
     private static float wall, wallLow, wallPitch;
+    // the sprint pose's weight as applied the last frame, for the stand
+    private static float sprintShare;
     // run, walk or idle for the player, from the last client tick
     private static MoveState state = MoveState.IDLE;
     // the walk distance walked on the ground (the phase), and vanilla's walk distance at the last frame
@@ -323,8 +325,10 @@ public final class WalkSprint {
         sprint = approach(sprint, sprintOn, dt, SPRINT_IN, drop ? SPRINT_DROP : SPRINT_OUT);
         // flying (creative flight, gliding) the sprint pose stands without its swing
         fly = approach(fly, player.getAbilities().flying || player.isFallFlying(), dt, FLY_IN, FLY_IN);
-        // the gun at a wall comes in by how far into it the gun would go, its muzzle lowered while firing or aiming
-        float wallTo = GunAtWall.into(player, item);
+        // the gun at a wall comes in by how far into it the gun would go, its muzzle lowered while firing or aiming; an
+        // NTM animation other than a shot's takes it out while it plays (the animation shows whole, nothing held back)
+        boolean givesWay = busy && GunAtWall.givesWay(HbmAnimations.getGunAnimation(0));
+        float wallTo = givesWay ? 0F : GunAtWall.into(player, item);
         wall = wall < wallTo ? Math.min(wallTo, wall + dt / GunAtWall.IN) : Math.max(wallTo, wall - dt / GunAtWall.OUT);
         wallLow = approach(wallLow, firing || aiming >= 0.05F, dt, GunAtWall.LOWER, GunAtWall.OUT);
         // a gun not yet measured would turn around the last gun's middle: it stays at rest until gunPlaced measures it,
@@ -332,7 +336,7 @@ public final class WalkSprint {
         if (measuredItem != item) walk = sprint = wall = wallPitch = 0F;
         // the muzzle turned up as far as it takes to stay before the wall, drawn back by how far in
         float wallBack = GunAtWall.back(ease(wall), length, PIVOT.length()) * (1F - Math.clamp(aiming, 0F, 1F));
-        float pitchTo = measuredItem == item ? GunAtWall.pitchNow(item, PIVOT, wallBack * length) : 0F;
+        float pitchTo = measuredItem == item && !givesWay ? GunAtWall.pitchNow(item, PIVOT, wallBack * length) : 0F;
         float rate = GunAtWall.MAX_PITCH * dt;
         wallPitch = wallPitch < pitchTo ? Math.min(pitchTo, wallPitch + rate / GunAtWall.IN) : Math.max(pitchTo, wallPitch - rate / GunAtWall.OUT);
         if (TestLog.frames()) TestLog.c(-1, "gunAtWall", "item", item, "wall", wall, "wallTo", wallTo, "low", wallLow, "pitch", wallPitch, "pitchTo", pitchTo,
@@ -341,13 +345,17 @@ public final class WalkSprint {
         // the gun is measured every frame, moving or not (gunPlaced)
         float js = Config.walkSway > 0F && measuredItem == item && Float.isFinite(jump) ? jump * Config.walkSway : 0F;
         if (walk <= 0F && sprint <= 0F && wall <= 0F && wallPitch <= 0F && js == 0F) {
+            sprintShare = 0F;
             applied(pose, item);
             return;
         }
         float d = groundDist;
         float uw = phase(d - walkFrom), us = phase(d - sprintFrom);
-        float ws = ease(walk) * Config.walkSway * (1F - ease(sprint)), ss = ease(sprint) * Config.sprintPose;
+        // the wall's pose takes the place of the walk's and the sprint's, all of it pressed against the wall
+        float others = GunAtWall.others(wall);
+        float ws = ease(walk) * Config.walkSway * (1F - ease(sprint)) * others, ss = ease(sprint) * Config.sprintPose * others;
         boolean pistol = pistol(Config.kickPreset);
+        sprintShare = ss;
         Pose w = walk(uw, aiming, pistol, ws), s = sprint(us, ease(fly), pistol, ss);
         Pose a = GunAtWall.pose(wallPitch, ease(wallLow), wallBack);
         // a pistol in pistolHold is where the measured pistols are: it takes the full drop
@@ -370,6 +378,15 @@ public final class WalkSprint {
     /** For the stand: the gun at a wall's weight now, and its muzzle lowered. */
     static float wallNow() {
         return wall;
+    }
+
+    /** For the stand: the gun the last apply was for (its wall's weight and turn are that gun's). */
+    static Item appliedNow() {
+        return appliedItem;
+    }
+
+    static float sprintShareNow() {
+        return sprintShare;
     }
 
     static float wallPitchNow() {
