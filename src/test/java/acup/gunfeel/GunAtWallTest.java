@@ -126,4 +126,33 @@ class GunAtWallTest {
         assertEquals(0.1F, p.z());
         assertEquals(0F, GunAtWall.pose(40F, 1F, 0.1F).pitch());
     }
+
+    // an NTM animation takes the gun out of the wall's pose, a shot's or a barrel's spin does not
+    @Test
+    void animationsGiveWay() {
+        for (var type : com.hbm.render.anim.AnimationEnums.GunAnimation.values()) {
+            boolean shot = switch (type.name()) {
+                case "CYCLE", "CYCLE_EMPTY", "CYCLE_DRY", "ALT_CYCLE", "SPINUP", "SPINDOWN" -> true;
+                default -> false;
+            };
+            assertEquals(!shot, GunAtWall.givesWay(type), type.name());
+        }
+        assertTrue(GunAtWall.givesWay(null));
+    }
+
+    // the walk's and the sprint's share: all of it with no wall, none pressed against it, less the closer
+    @Test
+    void wallTakesTheirPlace() {
+        assertEquals(1F, GunAtWall.others(0F));
+        assertEquals(0F, GunAtWall.others(1F));
+        assertEquals(0.5F, GunAtWall.others(0.5F), 1e-6F);
+        float last = 1F;
+        for (float w = 0.1F; w <= 1F; w += 0.1F) {
+            float o = GunAtWall.others(w);
+            assertTrue(o <= last);
+            last = o;
+        }
+        assertEquals(1F, GunAtWall.others(-1F));
+        assertEquals(0F, GunAtWall.others(2F));
+    }
 }

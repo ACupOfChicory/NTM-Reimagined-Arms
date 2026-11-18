@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- NTM's phosgene creeper now leaves a phosgene cloud of this mod's gas (doses,
+  gas mask) where it blows up, as big as NTM's mist was, in place of the mist.
+- NTM's chemical thrower now leaves its gas behind where the stream ends: half
+  a gas grenade's worth for every second of stream. Chlorine, phosgene and
+  mustard are this mod's gases. Steam, hot air, cold oxygen, UF6, PuF6 and
+  waste gas become clouds in the fluid's colour that do what NTM's mist of that
+  fluid does: steam scalds, the hotter the worse, cold oxygen freezes and
+  slows, the fluorides burn and contaminate, waste gas contaminates. Burning
+  gases still burn in the stream and leave nothing, as before. With smoke
+  turned off on the server both stay as NTM had them.
+
+## X1671
+
+- The gun at a wall: drawing a gun in the open no longer sometimes turns it up
+  as if at a wall, and running or walking up stairs, over slabs or past a low
+  ledge no longer raises it (a ledge no higher than a step is not a wall). A
+  reload, an inspection, a jam or drawing the gun now plays in full: the gun
+  comes out of its pose at the wall while the animation runs and goes back
+  after (firing keeps the gun drawn back as before). Closer to a wall the
+  run's and the walk's swing give way to the wall's pose instead of adding to
+  it, and pressed against the wall only the wall's pose is left.
+
+## X1665
+
 - Smoke and gas now drift with the wind. The wind is the same over the whole
   world, turns slowly over 10 to 20 minutes and blows by the weather: half a
   block a second in clear weather, a block in the rain, two in a thunderstorm,
@@ -13,16 +37,6 @@
 - Heavy gases (chlorine, phosgene, mustard) can now run 8 blocks down from
   where they burst, twice as far as before, so they flow into cellars and deep
   trenches, and they hug the ground harder in the wind.
-- NTM's phosgene creeper now leaves a phosgene cloud of this mod's gas (doses,
-  gas mask) where it blows up, as big as NTM's mist was, in place of the mist.
-- NTM's chemical thrower now leaves its gas behind where the stream ends: half
-  a gas grenade's worth for every second of stream. Chlorine, phosgene and
-  mustard are this mod's gases. Steam, hot air, cold oxygen, UF6, PuF6 and
-  waste gas become clouds in the fluid's colour that do what NTM's mist of that
-  fluid does: steam scalds, the hotter the worse, cold oxygen freezes and
-  slows, the fluorides burn and contaminate, waste gas contaminates. Burning
-  gases still burn in the stream and leave nothing, as before. With smoke
-  turned off on the server both stay as NTM had them.
 
 ## X1663
 
