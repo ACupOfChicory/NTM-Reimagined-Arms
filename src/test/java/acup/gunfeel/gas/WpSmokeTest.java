@@ -48,6 +48,15 @@ class WpSmokeTest {
         assertFalse(GasKind.gas(WP));
         assertTrue(SmokeClouds.feeds(WP));
         assertEquals(SmokeKind.SMOKE.extinction(), WP.extinction());
+        // the shells' is the same smoke under an id of its own (no sparks), and not one the grenade's feeds
+        SmokeKind shell = SmokeKind.WP_SHELL;
+        assertSame(shell, SmokeKind.byId(shell.id()));
+        assertTrue(shell.id() != WP.id());
+        assertEquals(WP.volume(), shell.volume());
+        assertEquals(WP.hold(), shell.hold());
+        assertEquals(WP.rgb(), shell.rgb());
+        assertEquals(WP.maxAge(), shell.maxAge());
+        assertFalse(GasKind.gas(shell));
     }
 
     @Test

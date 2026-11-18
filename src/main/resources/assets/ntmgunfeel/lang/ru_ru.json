@@ -48,7 +48,7 @@
   "ntmgunfeel.feature.overheat": "Перегрев ствола (M2, AM-180)",
   "ntmgunfeel.feature.mini_nuke_cloud": "Малые ядерные взрывы — облаком ядерных бомб",
   "ntmgunfeel.feature.ntm_gas": "Фосгеновый крипер и химомёт NTM оставляют газовые облака",
-  "ntmgunfeel.feature.ntm_wp": "Граната с белым фосфором NTM выпускает белый дым",
+  "ntmgunfeel.feature.ntm_wp": "Белый фосфор NTM (граната, 40 мм, ракета, артиллерия, HIMARS) выпускает белый дым",
   "ntmgunfeel.feature.ammo_bag": "Сумки для патронов NTM берут патроны мода",
   "ntmgunfeel.feature.prone_fire": "Нет выстрела ползком",
   "ntmgunfeel.feature.mob_ai": "ИИ мобов",

@@ -12,11 +12,18 @@ import java.util.concurrent.atomic.LongAdder;
 
 import com.hbm.entity.ModEntities;
 import com.hbm.entity.grenade.EntityGrenadeUniversal;
+import com.hbm.entity.projectile.EntityArtilleryRocket;
+import com.hbm.entity.projectile.EntityArtilleryShell;
+import com.hbm.entity.projectile.EntityBulletBaseMK4;
+import com.hbm.items.weapon.ItemAmmoArty;
+import com.hbm.items.weapon.ItemAmmoHIMARS;
 import com.hbm.items.weapon.grenade.ItemGrenadeFilling;
 import com.hbm.items.weapon.grenade.ItemGrenadeFilling.EnumGrenadeFilling;
 import com.hbm.items.weapon.grenade.ItemGrenadeFuze.EnumGrenadeFuze;
 import com.hbm.items.weapon.grenade.ItemGrenadeShell.EnumGrenadeShell;
 import com.hbm.items.weapon.grenade.ItemGrenadeUniversal;
+import com.hbm.items.weapon.sedna.factory.XFactory40mm;
+import com.hbm.items.weapon.sedna.factory.XFactoryRocket;
 
 import acup.gunfeel.gas.WpSmoke;
 import acup.gunfeel.smoke.SmokeClouds;
@@ -27,19 +34,25 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
-// runCheckClient -PwpStand=<dir>: NTM's white phosphorus hand grenade through NTM's own code (ItemGrenadeFilling.explode),
-// each scene twice in one run: A with NTM's three hazes (WpSmoke.forced false), B with the mod's white cloud. Scenes on a
-// flat field at clear noon, high smoke quality, the HUD hidden, vsync and the frame limit off: one grenade seen from 22
-// blocks, the camera inside it, three grenades 8 blocks apart seen from 22 blocks and from inside the middle one; all
-// of it twice over. A run: 1.5 s before the burst (the base frame), the burst, 26 s after. At 3, 8, 13, 18 and 23 s a row
+// runCheckClient -PwpStand=<dir>: NTM's white phosphorus through NTM's own code, each scene twice in one run: A as NTM
+// has it (WpSmoke.forced false: the grenade's hazes, the shells' mushroom, the 40 mm and the rocket no smoke), B with the
+// mod's white cloud. Scenes on a flat field at clear noon, high smoke quality, the HUD hidden, vsync and the frame limit
+// off: one hand grenade (ItemGrenadeFilling.explode) seen from 22 blocks, the camera inside it, three grenades 8 blocks
+// apart seen from 22 blocks and from inside the middle one; six 40 mm rounds 0.2 s apart (a grenade launcher's burst),
+// a rocket, an artillery shell, ten artillery shells about (a cluster's) and a HIMARS rocket, all of them seen from 22
+// blocks, each hitting the ground through its own impact (XFactory40mm and XFactoryRocket's phosphorus impact, the
+// shell types' onImpact). -PwpScenes=g40,arty10 only those, -PwpRounds=1 once (default twice over). A run: 1.5 s before
+// the burst (the base frame), the burst, 26 s after. At 3, 8, 13, 18 and 23 s a row
 // (<dir>/wp.tsv): clouds, NTM's hazes on the client, NTM's fires on the ground, the client's particles, the server's ms a
 // tick, the smoke's own time (server, client), the packets since the burst (all, hazes, the smoke's); frame times from
 // 2 to 22 s (<dir>/frames.tsv). Screenshots of the outside scenes in the first round: <scene>-<mode>-{base,5s,10s,20s}.png.
@@ -51,13 +64,35 @@ final class WpStand {
     private static final double[] SAMPLES = {3, 8, 13, 18, 23};
     private static final double[] SHOTS = {5, 10, 20};
     private static final double PRE = 1.5, LENGTH = 26, FRAMES_FROM = 2, FRAMES_TO = 22;
-    private static final int ROUNDS = 2;
+    private static final int ROUNDS = Integer.getInteger("ntmgunfeel.wpRounds", 2);
+    private static final Set<String> ONLY = Set.copyOf(List.of(System.getProperty("ntmgunfeel.wpScenes", "").split(",")));
 
-    private record Scene(String name, int grenades, boolean inside) {
+    private enum What { GRENADE, G40, ROCKET, ARTY, HIMARS }
+
+    // count bursts, every delay seconds after the first, at the offsets (blocks, x and z) from the scene's spot
+    private record Scene(String name, What what, int count, double delay, boolean inside, double[][] at) {
+        Scene(String name, What what, int count, boolean inside) {
+            this(name, what, count, 0, inside, row(count));
+        }
+
+        // a row 8 blocks apart
+        static double[][] row(int n) {
+            double[][] out = new double[n][];
+            for (int i = 0; i < n; i++) out[i] = new double[] {n == 1 ? 0 : -8 + 8 * i, 0};
+            return out;
+        }
     }
 
-    private static final List<Scene> SCENES = List.of(new Scene("out1", 1, false), new Scene("in1", 1, true),
-            new Scene("out3", 3, false), new Scene("in3", 3, true));
+    private static final List<Scene> SCENES = java.util.stream.Stream.of(new Scene("out1", What.GRENADE, 1, false),
+            new Scene("in1", What.GRENADE, 1, true), new Scene("out3", What.GRENADE, 3, false), new Scene("in3", What.GRENADE, 3, true),
+            // a burst of a grenade launcher at a spot: 2 to 3 blocks apart, as a magazine's rounds land
+            new Scene("g40", What.G40, 6, 0.2, false, new double[][] {{0, 0}, {2, 1}, {-2, 2}, {1, -2}, {-1, -1}, {3, -1}}),
+            new Scene("rocket", What.ROCKET, 1, false), new Scene("arty", What.ARTY, 1, false),
+            // a cluster's ten shells strewn some 12 blocks about
+            new Scene("arty10", What.ARTY, 10, 0.1, false, new double[][] {{0, 0}, {9, 3}, {-8, 5}, {4, -9}, {-5, -7}, {12, -4},
+                    {-12, -2}, {2, 11}, {-3, 12}, {7, 8}}),
+            new Scene("himars", What.HIMARS, 1, false))
+            .filter(s -> ONLY.contains("") || ONLY.contains(s.name)).toList();
 
     private record Run(Scene scene, boolean ours, int round) {
         String label() {
@@ -66,7 +101,7 @@ final class WpStand {
     }
 
     private static final List<Run> RUNS = new ArrayList<>();
-    private static int run, phase, sample, shot;
+    private static int run, phase, sample, shot, fired;
     private static long startedAt, last;
     // the run's base frame taken (before the burst)
     private static boolean based;
@@ -144,21 +179,50 @@ final class WpStand {
         return n;
     }
 
-    // the scene's grenades go off through NTM's explode (the burst, the fire on the ground, the blocks set alight, the hazes)
-    private static void burst(Run r) {
+    // bursts from to to (one server task: the grenades of a scene with no delay go off in one tick, as they always did)
+    // go off through NTM's code: the grenade's explode (the burst, the fire on the ground, the blocks set alight, the
+    // hazes), the rounds' phosphorus impact on the ground, the shells' onImpact
+    private static void burst(Run r, int from, int to) {
         var server = Minecraft.getInstance().getSingleplayerServer();
         server.submit(() -> {
             ServerLevel level = server.overworld();
             WpSmoke.forced = r.ours;
-            int n = r.scene.grenades;
-            for (int i = 0; i < n; i++) {
-                double x = GX + (n == 1 ? 0 : -8 + 8 * i);
-                EntityGrenadeUniversal g = new EntityGrenadeUniversal(level,
-                        ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.WP, EnumGrenadeFuze.S3));
-                g.setPos(x, Y + 0.1, GZ);
-                g.setDeltaMovement(Vec3.ZERO);
-                ItemGrenadeFilling.explode(g);
-                g.discard();
+            for (int i = from; i < to; i++) {
+                double x = GX + r.scene.at[i][0], z = GZ + r.scene.at[i][1];
+                BlockHitResult ground = new BlockHitResult(new Vec3(x, Y, z), Direction.UP, BlockPos.containing(x, Y - 1, z), false);
+                switch (r.scene.what) {
+                    case GRENADE -> {
+                        EntityGrenadeUniversal g = new EntityGrenadeUniversal(level,
+                                ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.WP, EnumGrenadeFuze.S3));
+                        g.setPos(x, Y + 0.1, z);
+                        g.setDeltaMovement(Vec3.ZERO);
+                        ItemGrenadeFilling.explode(g);
+                        g.discard();
+                    }
+                    case G40, ROCKET -> {
+                        EntityBulletBaseMK4 b = new EntityBulletBaseMK4(ModEntities.BULLET_MK4.get(), level);
+                        boolean g40 = r.scene.what == What.G40;
+                        b.config = g40 ? XFactory40mm.g40_phosphorus : XFactoryRocket.rocket_rpzb[4];
+                        b.setPos(x, Y + 0.5, z);
+                        b.setDeltaMovement(new Vec3(0, -1, 0));
+                        (g40 ? XFactory40mm.LAMBDA_STANDARD_EXPLODE_PHOSPHORUS : XFactoryRocket.LAMBDA_STANDARD_EXPLODE_PHOSPHORUS).accept(b, ground);
+                        b.discard();
+                    }
+                    case ARTY -> {
+                        EntityArtilleryShell shell = new EntityArtilleryShell(ModEntities.ARTILLERY_SHELL.get(), level);
+                        shell.setPos(x, Y + 0.5, z);
+                        shell.setDeltaMovement(new Vec3(0, -2, 0));
+                        ItemAmmoArty.ArtilleryShellType.PHOSPHORUS.onImpact(shell, ground);
+                        shell.discard();
+                    }
+                    case HIMARS -> {
+                        EntityArtilleryRocket rocket = new EntityArtilleryRocket(ModEntities.HIMARS.get(), level);
+                        rocket.setPos(x, Y + 0.5, z);
+                        rocket.setDeltaMovement(new Vec3(0, -2, 0));
+                        ItemAmmoHIMARS.HIMARSRocketType.SMALL_WP.onImpact(rocket, ground);
+                        rocket.discard();
+                    }
+                }
             }
         }).join();
     }
@@ -230,10 +294,12 @@ final class WpStand {
                 if (t < 0) return;
                 PACKETS.clear();
                 counting = true;
-                burst(r);
+                fired = r.scene.delay == 0 ? r.scene.count : 1;
+                burst(r, 0, fired);
                 phase = 2;
             }
             case 2 -> {
+                while (fired < r.scene.count && t >= fired * r.scene.delay) burst(r, fired, ++fired);
                 if (t >= FRAMES_FROM && t < FRAMES_TO) TIMES.add(dt);
                 if (t >= FRAMES_TO && !TIMES.isEmpty()) frames(r);
                 if (shots(r) && shot < SHOTS.length && t >= SHOTS[shot]) {
@@ -303,12 +369,15 @@ final class WpStand {
             row[0] = String.format(Locale.ROOT, "%s\t%.0f\t%d\t%d\t%d\t%s\t%.3f\t%s\t%s\t%d\t%d\t%d", r.label(), at, clouds, hazes, fires, particles,
                     server.getAverageTickTimeNanos() / 1e6, r.ours && cut > 0 ? cost.substring(0, cut) : "-", r.ours ? clientTick : "-",
                     packets(k -> true), packets(k -> k.equals("hbm:haze")), packets(k -> k.startsWith("ntmgunfeel:smoke")));
-            // what each mode is: A NTM's hazes and no cloud, B a cloud a grenade and no haze; NTM's fire in both
+            // what each mode is: A NTM's (the grenade's hazes) and no cloud; B a cloud a grenade, at least one for a burst
+            // or a cluster (the next ones may feed it), and no haze; NTM's fire on the ground in both (the shells have none)
             if (at == SAMPLES[0]) {
-                int n = r.scene.grenades;
-                if (fires != n) FAILS.add(r.label() + ": огней NTM " + fires + " вместо " + n);
-                if (r.ours ? clouds != n || hazes != 0 : clouds != 0 || hazes != 3 * n)
-                    FAILS.add(r.label() + ": облаков " + clouds + ", дымок NTM " + hazes);
+                int n = r.scene.count;
+                boolean grenade = r.scene.what == What.GRENADE;
+                int wantFires = grenade || r.scene.what == What.G40 || r.scene.what == What.ROCKET ? n : 0;
+                if (fires != wantFires) FAILS.add(r.label() + ": огней NTM " + fires + " вместо " + wantFires);
+                boolean ok = r.ours ? (grenade ? clouds == n : clouds >= 1 && clouds <= n) && hazes == 0 : clouds == 0 && hazes == (grenade ? 3 * n : 0);
+                if (!ok) FAILS.add(r.label() + ": облаков " + clouds + ", дымок NTM " + hazes);
             }
         }).join();
         ROWS.add(row[0]);

@@ -12,10 +12,11 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Client: the sparks off the phosphorus burning on the ground under a white phosphorus cloud ({@link SmokeKind#WP}), as
- * NTM's hazes threw them: each grenade of the cloud {@link #PER_TICK} a tick for {@link #TICKS} ticks, a lava spark on
- * the ground within 7 blocks of a point a normal 4 blocks about its burst. The ground is the first top under the burst
- * (NTM took the column's top, a roof's too). NTM's flames off its fire on the ground are NTM's own.
+ * Client: the sparks off the phosphorus burning on the ground under a white phosphorus hand grenade's cloud
+ * ({@link SmokeKind#WP}), as NTM's hazes threw them: each grenade of the cloud {@link #PER_TICK} a tick for
+ * {@link #TICKS} ticks, a lava spark on the ground within 7 blocks of a point a normal 4 blocks about its burst. The
+ * ground is the first top under the burst (NTM took the column's top, a roof's too). NTM's flames off its fire on the
+ * ground are NTM's own. The rounds' and shells' clouds ({@link SmokeKind#WP_SHELL}) throw none: NTM's had no hazes.
  */
 public final class WpSparks {
     /** Ticks a grenade's sparks go on: NTM's haze lives 600 to 700. */

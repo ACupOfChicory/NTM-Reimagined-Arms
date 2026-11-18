@@ -177,6 +177,9 @@ neoForge {
             systemProperty("ntmgunfeel.chemStand",providers.gradleProperty("chemStand").orElse("").get())
             // -PwpStand=<dir>: NTM's white phosphorus grenade, its hazes against the mod's white cloud: frames, the server's cost, packets (WpStand)
             systemProperty("ntmgunfeel.wpStand",providers.gradleProperty("wpStand").orElse("").get())
+            // -PwpScenes=g40,arty10: only those scenes; -PwpRounds=1: once over (WpStand)
+            systemProperty("ntmgunfeel.wpScenes",providers.gradleProperty("wpScenes").orElse("").get())
+            systemProperty("ntmgunfeel.wpRounds",providers.gradleProperty("wpRounds").orElse("2").get())
             // -PminiNukeStand=<dir>: NTM's small nuclear blasts, its particles against the bombs' cloud (MiniNukeStand)
             systemProperty("ntmgunfeel.miniNukeStand",providers.gradleProperty("miniNukeStand").orElse("").get())
             // -PminiNukeScenes=mine,bmg50: only these scenes
