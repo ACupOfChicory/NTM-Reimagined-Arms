@@ -56,11 +56,14 @@ AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getCap
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Lcom/hbm/items/weapon/sedna/BulletConfig;
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setAmount (Lnet/minecraft/world/item/ItemStack;I)V
 AMMO_CHOICE method com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase setType (Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/BulletConfig;)V
+ARMS class com/hbm/client/Keybinds
 ARMS class com/hbm/client/render/OtherHandCollector
+ARMS class com/hbm/entity/projectile/EntityBulletBaseMK4
 ARMS class com/hbm/items/weapon/sedna/GunConfig
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
 ARMS class com/hbm/items/weapon/sedna/ItemGunBaseNT$SmokeNode
+ARMS class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
 ARMS class com/hbm/render/anim/AnimationEnums$GunAnimation
 ARMS class com/hbm/render/anim/BusAnimation
 ARMS class com/hbm/render/anim/BusAnimationSequence
@@ -73,9 +76,12 @@ ARMS field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_PRIMARY Lcom/hbm/handler/
 ARMS field com/hbm/handler/HbmKeybinds$EnumKeybind GUN_SECONDARY Lcom/hbm/handler/HbmKeybinds$EnumKeybind;
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
+ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 ARMS field com/hbm/items/weapon/sedna/ItemGunBaseNT$SmokeNode alpha D
 ARMS field com/hbm/items/weapon/sedna/factory/Orchestras ORCHESTRA_G3 Ljava/util/function/BiConsumer;
 ARMS field com/hbm/items/weapon/sedna/factory/XFactory556mm LAMBDA_G3_ANIMS Ljava/util/function/BiFunction;
+ARMS field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase acceptedBullets Ljava/util/List;
+ARMS field com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase capacity I
 ARMS field com/hbm/main/ResourceManager coilgun Lcom/hbm/render/loader/HFRWavefrontObject;
 ARMS field com/hbm/main/ResourceManager m2 Lcom/hbm/render/loader/HFRWavefrontObject;
 ARMS field com/hbm/main/ResourceManager stinger Lcom/hbm/render/loader/HFRWavefrontObject;
@@ -91,6 +97,11 @@ ARMS field com/hbm/render/anim/HbmAnimations$Animation startMillis J
 ARMS field com/hbm/render/item/weapon/sedna/ItemRenderWeaponBase interp F
 ARMS field com/hbm/render/loader/GroupObject name Ljava/lang/String;
 ARMS field com/hbm/render/loader/HFRWavefrontObject groups [Lcom/hbm/render/loader/GroupObject;
+ARMS method com/hbm/entity/projectile/EntityBulletBaseMK4 getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
+ARMS method com/hbm/entity/projectile/EntityBulletBaseMK4 getId ()I
+ARMS method com/hbm/entity/projectile/EntityBulletBaseMK4 getX ()D
+ARMS method com/hbm/entity/projectile/EntityBulletBaseMK4 getY ()D
+ARMS method com/hbm/entity/projectile/EntityBulletBaseMK4 getZ ()D
 ARMS method com/hbm/extprop/HbmPlayerProps getData (Lnet/minecraft/world/entity/player/Player;)Lcom/hbm/extprop/HbmPlayerProps;
 ARMS method com/hbm/extprop/HbmPlayerProps getKeyPressed (Lcom/hbm/handler/HbmKeybinds$EnumKeybind;)Z
 ARMS method com/hbm/items/weapon/sedna/GunConfig getAnims (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiFunction;
@@ -101,10 +112,15 @@ ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/w
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT getLastAnim (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setAnimTimer (Lnet/minecraft/world/item/ItemStack;II)V
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsDrawn (Lnet/minecraft/world/item/ItemStack;Z)V
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsEquipped (Lnet/minecraft/world/item/ItemStack;Z)V
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setState (Lnet/minecraft/world/item/ItemStack;ILcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;)V
+ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT setTimer (Lnet/minecraft/world/item/ItemStack;II)V
 ARMS method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext configIndex ()I
 ARMS method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 ARMS method com/hbm/items/weapon/sedna/mags/IMagazine getCapacity (Lnet/minecraft/world/item/ItemStack;)I
 ARMS method com/hbm/items/weapon/sedna/mags/IMagazine setAmount (Lnet/minecraft/world/item/ItemStack;I)V
+ARMS method com/hbm/items/weapon/sedna/mags/IMagazine setType (Lnet/minecraft/world/item/ItemStack;Ljava/lang/Object;)V
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation name ()Ljava/lang/String;
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation valueOf (Ljava/lang/String;)Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS method com/hbm/render/anim/AnimationEnums$GunAnimation values ()[Lcom/hbm/render/anim/AnimationEnums$GunAnimation;

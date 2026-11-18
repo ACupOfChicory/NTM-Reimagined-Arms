@@ -280,6 +280,8 @@ public final class WalkSprint {
     public static void apply(PoseStack pose, LocalPlayer player, ItemStack stack) {
         Item item = stack.getItem();
         long now = System.nanoTime();
+        // the gun out of the hands (no apply for a while): the wall's pose starts over
+        if (last != 0 && now - last > 200_000_000L) wall = wallPitch = wallLow = 0F;
         float dt = last == 0 ? 0F : Math.clamp((now - last) / 1e9F, 0F, 0.1F);
         last = now;
         float partial = ItemRenderWeaponBase.interp;
@@ -329,7 +331,7 @@ public final class WalkSprint {
         // then comes in as usual
         if (measuredItem != item) walk = sprint = wall = wallPitch = 0F;
         // the muzzle turned up as far as it takes to stay before the wall, drawn back by how far in
-        float wallBack = GunAtWall.back(ease(wall), length, PIVOT.length());
+        float wallBack = GunAtWall.back(ease(wall), length, PIVOT.length()) * (1F - Math.clamp(aiming, 0F, 1F));
         float pitchTo = measuredItem == item ? GunAtWall.pitchNow(item, PIVOT, wallBack * length) : 0F;
         float rate = GunAtWall.MAX_PITCH * dt;
         wallPitch = wallPitch < pitchTo ? Math.min(pitchTo, wallPitch + rate / GunAtWall.IN) : Math.max(pitchTo, wallPitch - rate / GunAtWall.OUT);
@@ -456,8 +458,8 @@ public final class WalkSprint {
         inv.transformPosition(front);
         inv.transformPosition(mid);
         // the ends at rest (without the sway and our poses: BASE is the pose before both) for the gun at a wall
-        GunAtWall.placed(item, BASE.transformPosition(back, new Vector3f()), BASE.transformPosition(front, new Vector3f()), drawn, front);
         float len = back.distance(front);
+        GunAtWall.placed(item, BASE.transformPosition(back, new Vector3f()), BASE.transformPosition(front, new Vector3f()), drawn, front, len);
         if (!measurable(len, mid)) {
             // a gun not measured stays still: say so in a trace
             if (TestLog.frames()) TestLog.c(-1, "walkSprintSkip", "item", item, "length", len, "middle", mid);

@@ -103,6 +103,7 @@ public final class GunFeel {
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.generate();
+            if (Feature.ARMS.on()) GunAtWall.reset();
         });
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> {
             if (Feature.MACHINE_MESH.on()) MeshShapes.tick();

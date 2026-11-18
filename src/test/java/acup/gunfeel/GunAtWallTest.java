@@ -36,7 +36,8 @@ class GunAtWallTest {
     @Test
     void muzzleNearTheEyes() {
         assertEquals(1F, GunAtWall.into(0F, 0F, 0.2F));
-        assertTrue(GunAtWall.into(0.99F, 0.5F, 0.4F) <= 1F);
+        // a ray going back toward the eyes: no "all in" share, the wall's share alone
+        assertEquals(0.5F, GunAtWall.into(0.5F, 0.5F, 0.4F), 1e-6F);
     }
 
     // the hands' field of view against the world's: the same, nothing moves; a narrower world (zoomed) draws it in
@@ -86,6 +87,30 @@ class GunAtWallTest {
         // drawn back, it turns less
         assertTrue(GunAtWall.pitch(limit, muzzle, pivot, 1F, c, rest) < deg);
         assertEquals(GunAtWall.MAX_PITCH, GunAtWall.pitch(0.1F, muzzle, pivot, 0F, c, rest));
+        // no limit or no scale: no turn
+        assertEquals(0F, GunAtWall.pitch(Float.NaN, muzzle, pivot, 0F, c, rest));
+        assertEquals(0F, GunAtWall.pitch(limit, muzzle, pivot, 0F, Float.NaN, rest));
+    }
+
+    // a muzzle above or below the turn's middle (a gun held sloping): the turn found still puts it MARGIN before the wall
+    @Test
+    void pitchWithTheMuzzleOffTheAxis() {
+        Vector3f pivot = new Vector3f(0F, 0F, -3F);
+        // below the middle the muzzle first swings forward as it turns: 0.6 would take more than MAX_PITCH there
+        float c = 0.1F, limit = 0.65F;
+        for (float y : new float[] {-1.5F, 1.5F}) {
+            Vector3f muzzle = new Vector3f(0F, y, -8F);
+            float rest = 0.8F;
+            float deg = GunAtWall.pitch(limit, muzzle, pivot, 0F, c, rest);
+            double a = Math.toRadians(deg);
+            float z = -3F + (float) (y * Math.sin(a) + -5F * Math.cos(a));
+            float depth = rest + (-8F - z) * c;
+            assertTrue(deg > 0F && deg < GunAtWall.MAX_PITCH, "y " + y + ": " + deg);
+            assertEquals(limit - GunAtWall.MARGIN, depth, 1e-3F, "y " + y);
+        }
+        // the muzzle above the middle comes back sooner than one below it
+        assertTrue(GunAtWall.pitch(limit, new Vector3f(0F, 1.5F, -8F), pivot, 0F, c, 0.8F)
+                < GunAtWall.pitch(limit, new Vector3f(0F, -1.5F, -8F), pivot, 0F, c, 0.8F));
     }
 
     // drawn back by the weight, no more than a share of the middle's distance; the muzzle lowered by low

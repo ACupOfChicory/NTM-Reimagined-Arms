@@ -37,8 +37,12 @@ import org.joml.Vector3f;
  * and fences do), not mobs. The nearer wall gives how far forward the muzzle may reach; the muzzle is turned up as far as
  * it takes to stay before it (75° at most), and the gun drawn back by how far into the wall it would go.
  *
+ * <p>Only the muzzle's depth is kept before the wall: the gun turned up is not tested against a ceiling or a wall beside
+ * it. While an NTM animation moves the gun its last measure at rest stands. Not for the other hand or an akimbo pair
+ * (WalkSprint leaves those passes alone).
+ *
  * <p>A shot is not held back: the bullet flies as always, and a fire key held or aiming lowers the muzzle back to the
- * front (the gun stays drawn back).
+ * front; the gun stays drawn back, but not while aiming (the sights would come nearer the eye).
  */
 public final class GunAtWall {
     /** The eyes are never nearer a wall than this (the player's half width): there the gun is all the way back. */
@@ -73,15 +77,29 @@ public final class GunAtWall {
         return SCALES.computeIfAbsent(item, GunAtWall::readScale);
     }
 
+    /** On joining a world: the scales read again (resource packs may have changed), no gun measured. */
+    public static void reset() {
+        SCALES.clear();
+        measured = null;
+    }
+
     private static float readScale(Item item) {
         try {
             Identifier id = BuiltInRegistries.ITEM.getKey(item);
             JsonObject model = json(Identifier.fromNamespaceAndPath(id.getNamespace(), "items/" + id.getPath() + ".json")).getAsJsonObject("model");
             if (model == null || !"hbm:gun".equals(model.get("type").getAsString())) return Float.NaN;
             Identifier base = Identifier.parse(model.get("base").getAsString());
-            JsonObject display = json(Identifier.fromNamespaceAndPath(base.getNamespace(), "models/" + base.getPath() + ".json")).getAsJsonObject("display");
-            return scale(display);
+            // the display may come from a parent model, one step up at most
+            JsonObject baseModel = json(Identifier.fromNamespaceAndPath(base.getNamespace(), "models/" + base.getPath() + ".json"));
+            float v = scale(baseModel.getAsJsonObject("display"));
+            if (Float.isNaN(v) && baseModel.has("parent")) {
+                Identifier parent = Identifier.parse(baseModel.get("parent").getAsString());
+                v = scale(json(Identifier.fromNamespaceAndPath(parent.getNamespace(), "models/" + parent.getPath() + ".json")).getAsJsonObject("display"));
+            }
+            return v;
         } catch (Exception e) {
+            // read again on the next world joined (reset)
+            GunFeel.LOGGER.debug("gun at a wall: no third person scale for {}: {}", item, e.toString());
             return Float.NaN;
         }
     }
@@ -106,12 +124,15 @@ public final class GunAtWall {
      * ends at rest and as drawn; and, in the space WalkSprint turns the gun in, the muzzle. Its blocks per unit by its
      * third person scale; to the world's view space and its field of view, as Tracers.view does for the muzzle.
      */
-    static void placed(Item item, Vector3f back, Vector3f front, Vector3f drawnFront, Vector3f frontLocal) {
+    static void placed(Item item, Vector3f back, Vector3f front, Vector3f drawnFront, Vector3f frontLocal, float localLength) {
+        // while an NTM animation moves the gun (drawn, reloaded, inspected) its last measure at rest stands
+        if (measured == item && com.hbm.render.anim.HbmAnimations.getRelevantAnim(0) != null) return;
         measured = null;
         GunGeometry g = Arms.geometry(item);
-        float scale = thirdPersonScale(item), drawnLength = back.distance(front);
-        if (g == null || !(drawnLength > 1e-4F)) return;
-        float c = blocksPerUnit(g.length(), scale, drawnLength);
+        float scale = thirdPersonScale(item);
+        if (g == null || !(localLength > 1e-4F)) return;
+        // in the units WalkSprint turns the gun in (the pitch is solved there)
+        float c = blocksPerUnit(g.length(), scale, localLength);
         if (!(c > 0F)) return;
         Matrix4f view = new Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getModelViewStack());
         Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
