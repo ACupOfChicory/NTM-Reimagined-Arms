@@ -2,13 +2,35 @@
 
 ## Unreleased
 
-- An AI soldier that comes into sight already running, or is put back on its
-  way, is drawn at its own pace at once instead of walking slowly with its
-  feet sliding for half a second.
 - AI soldiers turning slowly on the spot step round the way people do: their
   legs follow a soldier's turn recorded from a person, each foot staying put
   until it steps, the hips turning ahead of the feet and settling as the turn
   ends. `/gunfeel botmoves old` brings back the previous steps.
+
+## X1617
+
+- An AI soldier reloads with the rifle brought up close in front of its chest,
+  muzzle up, and puts the new magazine in just under its line of sight,
+  instead of working low at its hips where it could not see the magazine.
+
+## X1613
+
+- An AI soldier reloading keeps its eyes and head on the threat instead of
+  looking down at the magazine, so its head stays where it sees and is shot
+  from.
+
+## X1609
+
+- An AI soldier hit nods its head again as much as the flinch has it, up to
+  all of it, still with the head where the soldier sees and shoots from. Before,
+  most of the nod was cut so the head would stay put when looking up, down or
+  aside.
+
+## X1606
+
+- An AI soldier that comes into sight already running, or is put back on its
+  way, is drawn at its own pace at once instead of walking slowly with its
+  feet sliding for half a second.
 
 ## X1600
 

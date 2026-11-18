@@ -57,10 +57,22 @@ final class AiCheckSlice {
     /** per round: {arm, left, fallen by the way in, the corner one as the first came in (0 down, 1 known of, 2 not, -1 none in), the hidden one down, the known one down, sliced, entries, grenades in, foes seen slicing} */
     private final List<int[]> results = new ArrayList<>();
 
+    /**
+     * sliceside: the control (the owner's coordinator's ask): the squad starts beside the house, along the wall the way in is
+     * in, out of its line, not straight before it in the open; falls before any goes in there are the AI's own, not the
+     * stand's. Its counts only, no checks.
+     */
+    private final boolean side;
+
     AiCheckSlice(AiCheck check, ServerLevel level, int y) {
+        this(check, level, y, false);
+    }
+
+    AiCheckSlice(AiCheck check, ServerLevel level, int y, boolean side) {
         this.check = check;
         this.level = level;
         this.y = y;
+        this.side = side;
     }
 
     private int arm() {
@@ -230,7 +242,8 @@ final class AiCheckSlice {
         // the first in take that one, their guns on it)
         held.add(spawn(HX1 + 0.5, HZ0 + 0.5, "slice_in" + r, true));
         held.add(spawn(HX0 + 0.5, HZ1 - 1.5, "slice_in" + r, true));
-        for (int i = 0; i < SQUAD; i++) squad.add(spawn(DX - 2.5 + i * 1.5, HZ1 + 16.5, "slice_out" + r, false));
+        for (int i = 0; i < SQUAD; i++)
+            squad.add(side ? spawn(HX0 - 2.5 - i * 1.5, HZ1 + 1.5, "slice_out" + r, false) : spawn(DX - 2.5 + i * 1.5, HZ1 + 16.5, "slice_out" + r, false));
         AiBots.refreshTargets(level);
         long now = level.getGameTime();
         Mob foe = held.get(0);
@@ -287,7 +300,7 @@ final class AiCheckSlice {
         for (int k = 0; k < ARMS; k++)
             check.out(String.format(Locale.ROOT, "     slice: %s: %d rounds, of the squad left %d, fallen by the way in %d; rounds gone in or the one in the corner down %d, it down or known of before any came in %d, not known of as they came in %d; sliced %d; the one in the corner down %d, the known one %d",
                     NAMES[k], s[k][0], s[k][1], s[k][2], s[k][3], s[k][4], s[k][5], s[k][6], s[k][7], s[k][8]));
-        if (!sliceOn) return true;
+        if (!sliceOn || side) return true;
         int[] on = s[0], off = s[1], onBare = s[2], offBare = s[3];
         // (the owner's ask: the corner by the wall with the way in looked into from round it, before going in)
         check.check(String.format(Locale.ROOT, "slice: the opening looked into from round it, the one by the side wall down or known of before any goes in, in most rounds (with a grenade %d of %d, with none %d of %d)",

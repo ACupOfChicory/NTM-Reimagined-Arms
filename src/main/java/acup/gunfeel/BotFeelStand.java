@@ -67,6 +67,11 @@ final class BotFeelStand {
         return new AiPose(stance, (byte) 0, (byte) 0, 0, arms, AiPose.NONE, 0, (short) 0, alert);
     }
 
+    /** ... with an action from the game's tick {@code at} for {@code ticks} */
+    private static AiPose pose(byte stance, byte arms, byte alert, byte action, long at, int ticks) {
+        return new AiPose(stance, (byte) 0, (byte) 0, 0, arms, action, (int) at, (short) ticks, alert);
+    }
+
     private static final AiPose AIMED = pose(AiPose.STAND, AiPose.AIM, AiPose.FIGHT),
             READY = pose(AiPose.STAND, AiPose.HOLD, AiPose.FIGHT), CALM = pose(AiPose.STAND, AiPose.HOLD, AiPose.CALM);
 
@@ -135,7 +140,11 @@ final class BotFeelStand {
                 }
                 // a rifle bullet's damage
                 if (t == 10 || t == 40) m.hurtServer(level, level.damageSources().generic(), 6F);
-            }, t -> AIMED) };
+            }, t -> AIMED),
+            // aimed, a reload (its clip: the arms only, the head on its aim), aimed again
+            new Scene("reload", false, 90, (level, m, t) -> {
+                if (t < 0) place(m, AX, AZ, 180F);
+            }, t -> t >= 20 && t < 60 ? pose(AiPose.STAND, AiPose.AIM, AiPose.FIGHT, AiPose.RELOAD, BotFeelStand.sceneStart + 20, 40) : AIMED) };
 
     /** a turn on the spot by the aim, from facing -Z */
     private static Scene turn(String name, float by) {
