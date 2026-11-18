@@ -82,6 +82,28 @@ public final class GripCommand {
                     c.getSource().sendSuccess(() -> Component.literal("Бег ботов: " + g), false);
                     return 1;
                 })))
+                .then(Commands.literal("botmoves").executes(c -> {
+                    c.getSource().sendSuccess(() -> Component.literal("Ходы ботов: " + Config.botMoves
+                            + " (clips — повороты на месте по записям людей, old — прежние шаги). /gunfeel botmoves <режим>"), false);
+                    return 1;
+                }).then(Commands.argument("mode", StringArgumentType.word())
+                        .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(Config.MOVE_MODES, b))
+                        .executes(c -> {
+                    String g = StringArgumentType.getString(c, "mode").toLowerCase(java.util.Locale.ROOT);
+                    if (!Config.MOVE_MODES.contains(g)) {
+                        c.getSource().sendFailure(Component.literal("Нет такого режима: " + g + " (clips, old)"));
+                        return 0;
+                    }
+                    Config.botMoves = g;
+                    try {
+                        Config.setInFile("botMoves", g);
+                    } catch (java.io.IOException e) {
+                        c.getSource().sendFailure(Component.literal("Не записалось в конфиг: " + e.getMessage()));
+                        return 0;
+                    }
+                    c.getSource().sendSuccess(() -> Component.literal("Ходы ботов: " + g), false);
+                    return 1;
+                })))
                 .then(Commands.literal("quality").executes(c -> {
                     c.getSource().sendSuccess(() -> Component.literal("Качество: " + Config.quality
                             + " (low, medium, high, realism). /gunfeel quality <пресет>"), false);

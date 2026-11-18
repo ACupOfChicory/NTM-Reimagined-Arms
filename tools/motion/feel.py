@@ -471,6 +471,8 @@ def table(bot_path: str, root: str) -> str:
 		"|---|---|---|---|---|---|---|---|"]
 	turn_line("turn90", ["turns_spot"], "turn 90 on the spot")
 	turn_line("turn180", ["turns_spot"], "turn 180 on the spot")
+	turn_line("turn90_slow", ["turns_spot"], "turn 90 on the spot at 100 deg/s")
+	turn_line("turn180_slow", ["turns_spot"], "turn 180 on the spot at 120 deg/s")
 	turn_line("walk_turn90", ["turns_walk"], "turn 90 walking")
 	turn_line("run_turn180", ["turns_run"], "turn 180 running")
 	L += ["", "## Jerk, slide, head", "", "Jerk: deg/frame² at 60 fps, the largest of the ten boxes (p99 / max). Slide: "

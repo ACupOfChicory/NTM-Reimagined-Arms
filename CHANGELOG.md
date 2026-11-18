@@ -5,6 +5,10 @@
 - An AI soldier that comes into sight already running, or is put back on its
   way, is drawn at its own pace at once instead of walking slowly with its
   feet sliding for half a second.
+- AI soldiers turning slowly on the spot step round the way people do: their
+  legs follow a soldier's turn recorded from a person, each foot staying put
+  until it steps, the hips turning ahead of the feet and settling as the turn
+  ends. `/gunfeel botmoves old` brings back the previous steps.
 
 ## X1600
 

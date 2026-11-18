@@ -297,6 +297,9 @@ neoForge {
             if(providers.gradleProperty("botHandStand").isPresent) systemProperty("ntmgunfeel.botHandStand","true")
             // -PbotFeelStand: only how the body moves, frame by frame (BotFeelStand): <name>-feel.tsv, <name>-feel-ticks.tsv
             if(providers.gradleProperty("botFeelStand").isPresent) systemProperty("ntmgunfeel.botFeelStand","true")
+            // -PbotMoves=old|clips: the AI mobs' moves from recordings or the feet's own steps (Config.botMoves), whatever
+            // the client's config has
+            providers.gradleProperty("botMoves").orNull?.let { systemProperty("ntmgunfeel.botMoves", it) }
             systemProperty("ntmgunfeel.suitBendNoBand",providers.gradleProperty("suitBendNoBand").isPresent.toString())
             // -PbotStandJfr: a flight recording of the run beside its table
             if(providers.gradleProperty("botStandJfr").isPresent) jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/ai/bot-stand/$label.jfr").path},settings=profile,dumponexit=true")

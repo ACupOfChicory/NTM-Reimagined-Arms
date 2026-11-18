@@ -329,6 +329,15 @@ public final class BotPoser {
         float tac = alert * move * (1F - run), knees = (RUN_BEND * run + TAC_BEND * tac) * (1F - bare);
         // a clip put in bare: its foot down is on the floor already (BotGaitOverride.bare)
         plant(p, upright * (1F - crawl) * (1F - bare), walkPos, move * gw[3], walk, knees);
+        // a move from recordings holding the legs (BotMoves: a turn on the spot, its feet standing as the body turns),
+        // each over the one before
+        float moved = 0F, twist = 0F;
+        for (BotAnimator.Moving mv : f.moves()) {
+            set(p, mv.clip(), mv.t(), mv.w() * upright, LEGS, a);
+            moved = Math.max(moved, mv.w() * upright * mv.drop());
+            twist = Mth.lerp(mv.w() * upright, twist, mv.twist());
+        }
+        twistLegs(p, twist);
         float free = f.arm(AiPose.NO_GUN) * upright;
         if (free > 0F) {
             float bend = free * (ELBOW_FREE + ELBOW_WALK * walk);
@@ -341,8 +350,9 @@ public final class BotPoser {
         // walk); calm, a stroll as the clips have it
         stoop(p, RUN_LEAN * run + TAC_LEAN * tac, knees, gun * run);
         // the hips (and all over them) down as far as a stand's clips' legs are made for, on top of the stoop's
-        float drop = o == null ? 0F
-                : move * (o.drop() * aheadSwapped + (oBack != null ? oBack.drop() * gw[3] : 0F) + (oSide != null ? oSide.drop() * gw[4] : 0F));
+        // (and a move's, its legs made for it)
+        float drop = moved + (o == null ? 0F
+                : move * (o.drop() * aheadSwapped + (oBack != null ? oBack.drop() * gw[3] : 0F) + (oSide != null ? oSide.drop() * gw[4] : 0F)));
         if (drop > 0F) for (ModelPart part : new ModelPart[] { p.head, p.body, p.rightArm, p.leftArm, p.rightLeg, p.leftLeg }) part.y += drop;
 
         // in the air (a jump up a block, a fall): the legs of a jump, one knee drawn up
@@ -494,6 +504,26 @@ public final class BotPoser {
         lockLeg(p.leftLeg, p.leftShin, feet, 1);
     }
 
+    /**
+     * Both legs turned about the mob's upright (the model's Y through its middle, where it turns on the spot) by yaw
+     * (radians, as the model's yRot: + the way the body turns to its right): the hips go round, each thigh turned so
+     * (the shin goes with it)
+     */
+    static void twistLegs(Parts p, float yaw) {
+        if (yaw == 0F) return;
+        Quaternionf by = new Quaternionf().rotationY(yaw);
+        float c = Mth.cos(yaw), s = Mth.sin(yaw);
+        for (ModelPart thigh : new ModelPart[] { p.rightLeg, p.leftLeg }) {
+            float x = thigh.x, z = thigh.z;
+            thigh.x = c * x + s * z;
+            thigh.z = -s * x + c * z;
+            Vector3f e = new Quaternionf().rotationZYX(thigh.zRot, thigh.yRot, thigh.xRot).premul(by).getEulerAnglesZYX(new Vector3f());
+            thigh.xRot = e.x;
+            thigh.yRot = e.y;
+            thigh.zRot = e.z;
+        }
+    }
+
     /** the thigh and the shin are BotModel.HALF px each: the ankle's distance from the hip, straight */
     private static final float LEG = 2F * BotModel.HALF;
     /**
@@ -513,10 +543,12 @@ public final class BotPoser {
         feet.neutral[k * 3] = a.x;
         feet.neutral[k * 3 + 1] = a.y;
         feet.neutral[k * 3 + 2] = a.z;
+        feet.shortOf[k] = 0F;
         float w = Mth.clamp(feet.w, 0F, 1F);
         if (w <= 0F) return;
         Vector3f hip = new Vector3f(thigh.x, thigh.y, thigh.z);
         Vector3f to = new Vector3f(feet.at[k * 4], a.y - feet.at[k * 4 + 2], feet.at[k * 4 + 1]);
+        feet.shortOf[k] = Math.max(0F, to.distance(hip) - LEG);
         to.lerp(new Vector3f(a), 1F - w);
         float twist = feet.at[k * 4 + 3] * w;
         // the knee, a hinge (BotModel), bends one way only: its bend gives the hip-to-ankle distance 2 HALF cos(bend / 2);

@@ -110,6 +110,31 @@ public final class BotClip {
         return true;
     }
 
+    /**
+     * The clip mirrored left for right (the model's X, its left, the other way): each right_ bone takes its left_
+     * twin's keys and the other way round, a turn (x, y, z) as (x, -y, -z), a shift (x, y, z) as (-x, y, z).
+     */
+    BotClip mirrored() {
+        BotClip c = new BotClip(length, mode);
+        for (var e : rotation.entrySet()) c.rotation.put(twin(e.getKey()), mirror(e.getValue(), 1F, -1F, -1F));
+        for (var e : position.entrySet()) c.position.put(twin(e.getKey()), mirror(e.getValue(), -1F, 1F, 1F));
+        return c;
+    }
+
+    static String twin(String bone) {
+        return bone.startsWith("right_") ? "left_" + bone.substring(6) : bone.startsWith("left_") ? "right_" + bone.substring(5) : bone;
+    }
+
+    private static Track mirror(Track t, float x, float y, float z) {
+        float[] v = t.values().clone();
+        for (int i = 0; i < v.length; i += 3) {
+            v[i] *= x;
+            v[i + 1] *= y;
+            v[i + 2] *= z;
+        }
+        return new Track(t.times(), v);
+    }
+
     public float length() {
         return length;
     }
