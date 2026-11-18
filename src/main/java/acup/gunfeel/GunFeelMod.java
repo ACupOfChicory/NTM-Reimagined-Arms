@@ -172,6 +172,7 @@ public final class GunFeelMod {
         MechanismCheck.registerIfAsked();
         WaterCheck.registerIfAsked();
         ExplosiveCheck.registerIfAsked();
+        DoorSmokeCheck.registerIfAsked();
         acup.gunfeel.ai.AiCheck.registerIfAsked();
         acup.gunfeel.ai.bench.AiBench.registerIfAsked();
         TraceHooks.register(dist);
