@@ -28,12 +28,48 @@ import java.io.IOException;
  * cloud grows outward at its {@code fill} and does not stack a second cloud on the first, twice as dense. The cloud
  * thins {@code hold} ticks after the last feed's release. At most {@link #FEEDS_MAX} feeds.
  *
+ * <p>The wind (cells a tick, the one of the cloud's birth for its life: {@link SmokeWind}) carries what is in a cell with
+ * no roof over it downwind (second order, so the cloud keeps its shape), less in the four cells behind a wall
+ * ({@link #LEE}). Under a roof (something closed above the cell, or over its column above the box) it only reaches in
+ * from an opening, {@link #DRAUGHT} less a cell further in: there the cells mix with their neighbours and the draught
+ * takes {@link #AIRING} of the gas out, so a room with an open window or door airs out (faster the stronger the wind)
+ * and a shut one keeps its gas. A heavy gas sinks faster in it. The box follows the cloud downwind ({@link #drift}): when
+ * the blown smoke nears the box's downwind side, the box moves {@link #SHIFT} cells along and reads the cells that came
+ * in; what it leaves behind upwind is at most {@link #DROP_MAX} of the cloud.
+ *
  * <p>Only the box of occupied cells and one cell around it is stepped.
  */
 public final class SmokeGrid {
     public static final int SX = 25, SY = 13, SZ = 25, CELLS = SX * SY * SZ;
     /** The burst cell inside the box: 12 cells to either side, 4 down and 8 up. */
     public static final int OX = 12, OY = 4, OZ = 12;
+    /** The burst cell's height in the box for a heavy gas: 8 cells down and 4 up, to run down into a cellar or a trench. */
+    public static final int OY_HEAVY = 8;
+    /** Cells behind a wall the wind is weaker in: right behind it a fifth, then two fifths, up to the whole past four. */
+    public static final int LEE = 4;
+    /** Under a roof: the draught a cell further in from an opening, and how many cells in it reaches at most. */
+    public static final float DRAUGHT = 0.75F;
+    public static final int DRAUGHT_DEPTH = 8;
+    /** How fast the air mixes under a roof, per cell a tick of wind and per draught; at most {@link #MIX_MAX} a tick. */
+    public static final float MIX = 6F, MIX_MAX = 1F / 8F;
+    /**
+     * The share of a cell under a roof the draught takes out a tick, per cell a tick of wind and per draught: the air
+     * that comes in at an opening and goes out again takes the gas with it.
+     */
+    public static final float AIRING = 0.4F;
+    /**
+     * Below this (a tenth of {@link #GONE}) the wind takes nothing from a cell, and a cell in the wind that got nothing
+     * in the step is emptied: the cloud's front runs at most a cell ahead of its smoke and the thin trail behind it goes.
+     * Without it the edges smear out to the box's sides at next to nothing, and the box (the work) grows by half again
+     * for smoke no one sees; with it a cloud in the clear loses some 2% more over its life.
+     */
+    public static final float TAIL = 0.002F;
+    /** The box moves this many cells downwind once the smoke comes within {@link #EDGE} cells of its side. */
+    public static final int SHIFT = 4, EDGE = 3;
+    /** Share of the cloud the box may leave behind upwind when it moves (the thin tail the wind smeared out). */
+    public static final float DROP_MAX = 0.03F;
+    /** How far a box can have moved, cells: farther than any cloud lives to drift, for a grid from the network. */
+    public static final int SHIFT_MAX = 4096;
     /** Below this a thinning cell is empty. */
     public static final float GONE = 0.02F;
     /** Ticks the middle of a blast's hole waits before its smoke comes back (its edge: none). */
@@ -47,9 +83,17 @@ public final class SmokeGrid {
     private record Feed(int from, int[] cells, float each) {
     }
 
-    /** Whether the cell at box coordinates x, y, z is closed to smoke (a full block, a liquid, an unloaded chunk). */
+    /**
+     * Whether the cell at x, y, z is closed to smoke (a full block, a liquid, an unloaded chunk). The coordinates are the
+     * box's as it was when the cloud was born: a box that moved downwind asks for its cells by them ({@link #drift}).
+     */
     public interface Mask {
         boolean closed(int x, int y, int z);
+
+        /** Whether something is over the column x, z above the box's top (a roof there): no wind under it. */
+        default boolean roofed(int x, int z) {
+            return false;
+        }
     }
 
     private final SmokeKind kind;
@@ -57,26 +101,50 @@ public final class SmokeGrid {
     private final float amount;
     private final float[] d = new float[CELLS], next = new float[CELLS];
     private final long[] closed = new long[(CELLS + 63) >>> 6];
+    // the columns with a roof above the box
+    private final long[] roof = new long[(SX * SZ + 63) >>> 6];
     // smoke a blast pushed out of a cell, and the age from which it comes back; made at the first such blast
     private float[] held;
     private int[] back;
     private final float dirX, dirZ;
     private int[] emitters = new int[0];
+    // the emitters as place() found them, in the box the cloud was born with
+    private int[] placed = new int[0];
     private final java.util.List<Feed> feeds = new java.util.ArrayList<>();
     private int age;
     // the occupied cells, inclusive; empty while x1 < x0
     private int x0 = SX, y0 = SY, z0 = SZ, x1 = -1, y1 = -1, z1 = -1;
+    // the wind, cells a tick; none: no air worked out, no box moved
+    private final float windX, windZ, windSpeed;
+    // how much of the wind a cell gets (under a roof: the draught), and the cells under a roof; again once a cell opened
+    // or closed, the box moved or a grid came
+    private float[] air;
+    private long[] sheltered;
+    private boolean anySheltered;
+    private boolean airStale = true, rescan;
+    // how far the box moved downwind from where the cloud was born, cells
+    private int shiftX, shiftZ;
 
     /**
      * @param dirX, dirZ the way the grenade flew (the bomblets fan out along it; a straight-down shot rings them round)
      * @param scale      share of the kind's volume
      */
     public SmokeGrid(SmokeKind kind, long seed, float dirX, float dirZ, float scale) {
+        this(kind, seed, dirX, dirZ, scale, 0F, 0F);
+    }
+
+    /** @param windX, windZ the wind over the cloud's life, cells (blocks) a tick */
+    public SmokeGrid(SmokeKind kind, long seed, float dirX, float dirZ, float scale, float windX, float windZ) {
         this.kind = kind;
         this.seed = seed;
         this.amount = kind.volume() * Math.max(0F, scale);
         this.dirX = dirX;
         this.dirZ = dirZ;
+        float speed = (float) Math.sqrt(windX * windX + windZ * windZ);
+        boolean any = speed > 1e-5F && Float.isFinite(speed);
+        this.windX = any ? windX : 0F;
+        this.windZ = any ? windZ : 0F;
+        this.windSpeed = any ? speed : 0F;
     }
 
     public static int index(int x, int y, int z) {
@@ -89,6 +157,29 @@ public final class SmokeGrid {
 
     public SmokeKind kind() {
         return kind;
+    }
+
+    /** The burst cell's height in the box: {@link #OY}, a heavy gas's {@link #OY_HEAVY}. */
+    public int oy() {
+        return kind.below();
+    }
+
+    /** How far the box moved downwind since the cloud was born, cells along x and z. */
+    public int shiftX() {
+        return shiftX;
+    }
+
+    public int shiftZ() {
+        return shiftZ;
+    }
+
+    /** The wind, cells a tick (0 without). */
+    public float windX() {
+        return windX;
+    }
+
+    public float windZ() {
+        return windZ;
     }
 
     public long seed() {
@@ -175,7 +266,19 @@ public final class SmokeGrid {
 
     /** Reads every cell's mask (when the cloud is born); then {@link #place()}. */
     public void scan(Mask mask) {
-        for (int y = 0; y < SY; y++) for (int z = 0; z < SZ; z++) for (int x = 0; x < SX; x++) setClosed(index(x, y, z), mask.closed(x, y, z));
+        for (int y = 0; y < SY; y++) for (int z = 0; z < SZ; z++) for (int x = 0; x < SX; x++) setClosed(index(x, y, z), mask.closed(x + shiftX, y, z + shiftZ));
+        if (windSpeed > 0F) for (int c = 0; c < SX * SZ; c++) setRoof(c, mask.roofed(c % SX + shiftX, c / SX + shiftZ));
+        airStale = true;
+        rescan = false;
+    }
+
+    private boolean roofAt(int column) {
+        return (roof[column >>> 6] & 1L << column) != 0L;
+    }
+
+    private void setRoof(int column, boolean on) {
+        if (on) roof[column >>> 6] |= 1L << column;
+        else roof[column >>> 6] &= ~(1L << column);
     }
 
     /**
@@ -183,15 +286,33 @@ public final class SmokeGrid {
      * A cell that closes loses its smoke.
      */
     public void refresh(Mask mask, int part, int parts) {
+        // a grid from the server whose box had moved elsewhere: every cell again
+        if (rescan) {
+            scan(mask);
+            for (int i = 0; i < CELLS; i++) if (closedAt(i)) {
+                d[i] = 0F;
+                if (held != null) held[i] = 0F;
+            }
+            return;
+        }
         int from = (int) ((long) part * CELLS / parts), to = (int) ((long) (part + 1) * CELLS / parts);
         for (int i = from; i < to; i++) {
             int x = i % SX, z = i / SX % SZ, y = i / (SX * SZ);
-            boolean c = mask.closed(x, y, z);
+            boolean c = mask.closed(x + shiftX, y, z + shiftZ);
             if (c) {
                 d[i] = 0F;
                 if (held != null) held[i] = 0F;
             }
+            if (c != closedAt(i)) airStale = true;
             setClosed(i, c);
+        }
+        if (windSpeed > 0F) {
+            int columns = SX * SZ, a = (int) ((long) part * columns / parts), b = (int) ((long) (part + 1) * columns / parts);
+            for (int c = a; c < b; c++) {
+                boolean r = mask.roofed(c % SX + shiftX, c / SX + shiftZ);
+                if (r != roofAt(c)) airStale = true;
+                setRoof(c, r);
+            }
         }
     }
 
@@ -200,7 +321,9 @@ public final class SmokeGrid {
      * and the bomblets fanned out along the flight, each as far as it gets before a closed cell.
      */
     public void place() {
-        emitters = cellsAt(OX, OY, OZ, dirX, dirZ, 0);
+        emitters = cellsAt(OX, oy(), OZ, dirX, dirZ, 0);
+        placed = emitters.clone();
+        remap(emitters, shiftX, shiftZ);
     }
 
     /**
@@ -264,17 +387,19 @@ public final class SmokeGrid {
     public void step() {
         if (age < kind.release() && emitters.length > 0) {
             float each = amount / (kind.release() * (float) emitters.length);
-            for (int e : emitters) if (!closedAt(e)) d[e] += each;
+            for (int e : emitters) if (e >= 0 && !closedAt(e)) d[e] += each;
             grow(emitters);
         }
         for (Feed f : feeds) {
             if (age < f.from || age >= f.from + kind.release()) continue;
-            for (int e : f.cells) if (!closedAt(e)) d[e] += f.each;
+            for (int e : f.cells) if (e >= 0 && !closedAt(e)) d[e] += f.each;
             grow(f.cells);
         }
         if (occupied()) {
+            if (windSpeed > 0F && airStale) air();
             if (held != null) giveBack();
             spread();
+            if (windSpeed > 0F) wind();
             if (age >= lastFeed() + kind.release() + kind.hold()) thin();
         }
         age++;
@@ -283,6 +408,7 @@ public final class SmokeGrid {
 
     private void grow(int[] cells) {
         for (int i : cells) {
+            if (i < 0) continue;
             int x = i % SX, z = i / SX % SZ, y = i / (SX * SZ);
             x0 = Math.min(x0, x);
             y0 = Math.min(y0, y);
@@ -350,7 +476,7 @@ public final class SmokeGrid {
                         // only from a dense cell: a thin edge does not trail away up to the top of the box
                         if (lift > 0F) {
                             if (da > liftFrom) f += lift * da;
-                        } else if (db > liftFrom) f += lift * db;
+                        } else if (db > liftFrom) f += (air != null ? lift * (1F + air[b]) : lift) * db;
                         flow(a, b, f, da, db);
                     }
                 } else next[a] -= limit(up * pa + (lift > 0F && da > liftFrom ? lift * da : 0F), da);
@@ -370,6 +496,265 @@ public final class SmokeGrid {
         else return;
         next[a] -= f;
         next[b] += f;
+    }
+
+    // ---- the wind
+
+    private boolean shelteredAt(int i) {
+        return (sheltered[i >>> 6] & 1L << i) != 0L;
+    }
+
+    // how much of the wind each open cell gets: none under a roof (something closed above it in the box, or a roof over
+    // its column), less behind a wall upwind; then under a roof the draught from the cells next to it, DRAUGHT less a cell
+    private void air() {
+        airStale = false;
+        if (air == null) {
+            air = new float[CELLS];
+            sheltered = new long[closed.length];
+        }
+        java.util.Arrays.fill(sheltered, 0L);
+        anySheltered = false;
+        float ux = windX / windSpeed, uz = windZ / windSpeed;
+        for (int z = 0; z < SZ; z++) for (int x = 0; x < SX; x++) {
+            boolean covered = roofAt(z * SX + x);
+            for (int y = SY - 1; y >= 0; y--) {
+                int i = index(x, y, z);
+                if (closedAt(i)) {
+                    covered = true;
+                    air[i] = 0F;
+                } else if (covered) {
+                    sheltered[i >>> 6] |= 1L << i;
+                    anySheltered = true;
+                    air[i] = 0F;
+                } else air[i] = lee(x, y, z, ux, uz);
+            }
+        }
+        float[] was = next;
+        for (int k = 0; k < DRAUGHT_DEPTH; k++) {
+            System.arraycopy(air, 0, was, 0, CELLS);
+            boolean any = false;
+            for (int i = 0; i < CELLS; i++) {
+                if (!shelteredAt(i)) continue;
+                int x = i % SX, z = i / SX % SZ, y = i / (SX * SZ);
+                float m = 0F;
+                if (x > 0) m = Math.max(m, was[i - 1]);
+                if (x + 1 < SX) m = Math.max(m, was[i + 1]);
+                if (z > 0) m = Math.max(m, was[i - SX]);
+                if (z + 1 < SZ) m = Math.max(m, was[i + SX]);
+                if (y > 0) m = Math.max(m, was[i - SX * SZ]);
+                if (y + 1 < SY) m = Math.max(m, was[i + SX * SZ]);
+                float v = m * DRAUGHT;
+                if (v > air[i]) {
+                    air[i] = v;
+                    any = true;
+                }
+            }
+            if (!any) break;
+        }
+    }
+
+    // the wind an open cell with no roof gets: a share by how far upwind the nearest wall is at its height
+    private float lee(int x, int y, int z, float ux, float uz) {
+        for (int k = 1; k <= LEE; k++) {
+            int ax = (int) Math.floor(x + 0.5F - ux * k), az = (int) Math.floor(z + 0.5F - uz * k);
+            if (!inside(ax, y, az)) return 1F;
+            if (closedAt(index(ax, y, az))) return k / (float) (LEE + 1);
+        }
+        return 1F;
+    }
+
+    /** How much of the wind the cell gets, 0 to 1 (0 without wind, in a closed cell, deep under a roof). */
+    public float air(int x, int y, int z) {
+        if (windSpeed == 0F || !inside(x, y, z)) return 0F;
+        if (airStale) air();
+        return air[index(x, y, z)];
+    }
+
+    // the wind's step: a cell with no roof gives its downwind neighbours its share of the wind (a closed one takes none,
+    // out of the box it is lost), the face's value from the cell and its slope (second order, minmod: the cloud keeps its
+    // shape instead of smearing out along the wind); across a face with a roof on either side the two cells mix by the
+    // draught, and a cell under a roof loses AIRING of what it has by its draught
+    private void wind() {
+        int bx0 = Math.max(0, x0 - 1), by0 = Math.max(0, y0 - 1), bz0 = Math.max(0, z0 - 1);
+        int bx1 = Math.min(SX - 1, x1 + 1), by1 = Math.min(SY - 1, y1 + 1), bz1 = Math.min(SZ - 1, z1 + 1);
+        // what is written back: one more around, where the ring's cells carry and mix to
+        int cx0 = Math.max(0, bx0 - 1), cy0 = Math.max(0, by0 - 1), cz0 = Math.max(0, bz0 - 1);
+        int cx1 = Math.min(SX - 1, bx1 + 1), cy1 = Math.min(SY - 1, by1 + 1), cz1 = Math.min(SZ - 1, bz1 + 1);
+        for (int y = cy0; y <= cy1; y++) for (int z = cz0; z <= cz1; z++) {
+            int row = (y * SZ + z) * SX;
+            System.arraycopy(d, row + cx0, next, row + cx0, cx1 - cx0 + 1);
+        }
+        float ax = Math.abs(windX), az = Math.abs(windZ), mixK = MIX * windSpeed, airing = AIRING * windSpeed;
+        int sx = windX > 0F ? 1 : -1, sz = windZ > 0F ? 1 : -1;
+        boolean mixing = anySheltered;
+        for (int y = by0; y <= by1; y++) for (int z = bz0; z <= bz1; z++) {
+            int row = (y * SZ + z) * SX;
+            boolean zUp = z - sz >= 0 && z - sz < SZ, zDown = z + sz >= 0 && z + sz < SZ;
+            for (int x = bx0; x <= bx1; x++) {
+                int a = row + x;
+                if (closedAt(a)) continue;
+                float da = d[a];
+                // out in the open, a cell too thin to carry does nothing in the wind
+                if (!mixing && da < TAIL) continue;
+                float e = air[a];
+                boolean roofed = mixing && shelteredAt(a);
+                if (roofed) {
+                    if (da > 0F && e > 0F) next[a] -= Math.min(airing * e, MIX_MAX) * da;
+                } else if (da >= TAIL && e > 0F) {
+                    if (ax > 0F) carry(a, x - sx >= 0 && x - sx < SX ? a - sx : -1, x + sx >= 0 && x + sx < SX ? a + sx : -1, ax * e);
+                    if (az > 0F) carry(a, zUp ? a - sz * SX : -1, zDown ? a + sz * SX : -1, az * e);
+                }
+                if (mixing) {
+                    if (x + 1 < SX) mix(a, a + 1, roofed, da, mixK);
+                    if (z + 1 < SZ) mix(a, a + SX, roofed, da, mixK);
+                    if (y + 1 < SY) mix(a, a + SX * SZ, roofed, da, mixK);
+                }
+            }
+        }
+        // back into the cells; below TAIL in the wind and given nothing this step: gone
+        for (int y = cy0; y <= cy1; y++) for (int z = cz0; z <= cz1; z++) {
+            int row = (y * SZ + z) * SX;
+            for (int x = cx0; x <= cx1; x++) {
+                int a = row + x;
+                float v = next[a];
+                d[a] = v <= 0F || v < TAIL && v <= d[a] && air[a] > 0F ? 0F : v;
+            }
+        }
+    }
+
+    // what the wind takes from cell a to its downwind neighbour b (-1: out of the box, lost) at Courant number c: the
+    // face's value from a and its slope between the upwind neighbour u and b, minmod; a closed or outside upwind
+    // neighbour is taken as a itself
+    private void carry(int a, int u, int b, float c) {
+        if (b >= 0 && closedAt(b)) return;
+        float da = d[a], du = u >= 0 && !closedAt(u) ? d[u] : da, db = b >= 0 ? d[b] : 0F;
+        float l = da - du, r = db - da, slope = l > 0F && r > 0F ? Math.min(l, r) : l < 0F && r < 0F ? Math.max(l, r) : 0F;
+        float f = c * (da + 0.5F * (1F - c) * slope);
+        if (!(f > 0F)) return;
+        next[a] -= f;
+        if (b >= 0) next[b] += f;
+    }
+
+    private void mix(int a, int b, boolean roofedA, float da, float mixK) {
+        if (closedAt(b) || !roofedA && !shelteredAt(b)) return;
+        float db = d[b];
+        if (da == db) return;
+        float m = Math.min(air[a], air[b]);
+        if (m <= 0F) return;
+        float f = Math.min(mixK * m, MIX_MAX) * (da - db);
+        next[a] -= f;
+        next[b] += f;
+    }
+
+    /**
+     * After a step: when the smoke came within {@link #EDGE} cells of the box's downwind side and the upwind side has
+     * {@link #SHIFT} empty cells, the box moves {@code SHIFT} cells downwind (both ways at once for a slanting wind); the
+     * cells that came in are read from the mask. The same on every side. Returns whether it moved.
+     */
+    public boolean drift(Mask mask) {
+        if (windSpeed == 0F || !occupied()) return false;
+        int dx = 0, dz = 0, top = SX - 1, far = SX - 1 - EDGE;
+        if (windX > 0F && x1 >= far && blown(far, top, 0, top) && light(0, SHIFT - 1, 0, top)) dx = SHIFT;
+        else if (windX < 0F && x0 <= EDGE && blown(0, EDGE, 0, top) && light(SX - SHIFT, top, 0, top)) dx = -SHIFT;
+        if (windZ > 0F && z1 >= far && blown(0, top, far, top) && light(0, top, 0, SHIFT - 1)) dz = SHIFT;
+        else if (windZ < 0F && z0 <= EDGE && blown(0, top, 0, EDGE) && light(0, top, SZ - SHIFT, top)) dz = -SHIFT;
+        if (dx == 0 && dz == 0) return false;
+        move(dx, dz);
+        for (int y = 0; y < SY; y++) for (int z = 0; z < SZ; z++) for (int x = 0; x < SX; x++) {
+            if (inside(x + dx, y, z + dz)) continue;
+            setClosed(index(x, y, z), mask.closed(x + shiftX, y, z + shiftZ));
+        }
+        for (int z = 0; z < SZ; z++) for (int x = 0; x < SX; x++) {
+            if (inside(x + dx, 0, z + dz)) continue;
+            setRoof(z * SX + x, mask.roofed(x + shiftX, z + shiftZ));
+        }
+        return true;
+    }
+
+    // whether these columns (inclusive) hold smoke the wind carries: in an open cell with no roof and wind on it (a cloud
+    // under a roof that spread to the box's side stays where it is, and so does its box)
+    private boolean blown(int ax, int bx, int az, int bz) {
+        if (airStale) air();
+        for (int y = y0; y <= y1; y++) for (int z = Math.max(az, z0); z <= Math.min(bz, z1); z++) for (int x = Math.max(ax, x0); x <= Math.min(bx, x1); x++) {
+            int i = index(x, y, z);
+            if (d[i] >= GONE && air[i] > 0F && !shelteredAt(i)) return true;
+        }
+        return false;
+    }
+
+    // whether these columns (inclusive) hold at most DROP_MAX of the cloud (what blasts hold counted): the box can leave
+    // them behind
+    private boolean light(int ax, int bx, int az, int bz) {
+        if (bx < x0 || ax > x1 || bz < z0 || az > z1) return true;
+        double in = 0, all = 0;
+        for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) {
+            int i = index(x, y, z);
+            float v = d[i] + (held != null ? held[i] : 0F);
+            all += v;
+            if (x >= ax && x <= bx && z >= az && z <= bz) in += v;
+        }
+        return in <= all * DROP_MAX;
+    }
+
+    // the cells, what blasts hold, the walls, the roofs and the cells the smoke comes out of, dx, dz cells back (the box
+    // goes dx, dz on); what leaves the box is gone, what comes in is empty and open until it is read
+    private void move(int dx, int dz) {
+        float[] was = d.clone();
+        long[] wasClosed = closed.clone(), wasRoof = roof.clone();
+        float[] wasHeld = held != null ? held.clone() : null;
+        int[] wasBack = back != null ? back.clone() : null;
+        java.util.Arrays.fill(closed, 0L);
+        java.util.Arrays.fill(roof, 0L);
+        for (int y = 0; y < SY; y++) for (int z = 0; z < SZ; z++) for (int x = 0; x < SX; x++) {
+            int i = index(x, y, z), fx = x + dx, fz = z + dz;
+            if (!inside(fx, y, fz)) {
+                d[i] = 0F;
+                if (held != null) {
+                    held[i] = 0F;
+                    back[i] = 0;
+                }
+                continue;
+            }
+            int j = index(fx, y, fz);
+            d[i] = was[j];
+            if ((wasClosed[j >>> 6] & 1L << j) != 0L) setClosed(i, true);
+            if (held != null) {
+                held[i] = wasHeld[j];
+                back[i] = wasBack[j];
+            }
+        }
+        for (int z = 0; z < SZ; z++) for (int x = 0; x < SX; x++) {
+            int fx = x + dx, fz = z + dz;
+            if (fx >= 0 && fz >= 0 && fx < SX && fz < SZ && (wasRoof[(fz * SX + fx) >>> 6] & 1L << (fz * SX + fx)) != 0L) setRoof(z * SX + x, true);
+        }
+        remap(emitters, dx, dz);
+        for (Feed f : feeds) remap(f.cells, dx, dz);
+        // the box goes along; a strip it left behind (light()) leaves it within the grid, the next step's bounds() tighten it
+        if (occupied()) {
+            x0 = Math.max(0, x0 - dx);
+            x1 = Math.min(SX - 1, x1 - dx);
+            z0 = Math.max(0, z0 - dz);
+            z1 = Math.min(SZ - 1, z1 - dz);
+            if (x1 < x0 || z1 < z0) {
+                x0 = SX;
+                y0 = SY;
+                z0 = SZ;
+                x1 = y1 = z1 = -1;
+            }
+        }
+        shiftX += dx;
+        shiftZ += dz;
+        airStale = true;
+    }
+
+    // box indices dx, dz cells back; one that leaves the box is -1
+    private static void remap(int[] cells, int dx, int dz) {
+        for (int k = 0; k < cells.length; k++) {
+            int i = cells[k];
+            if (i < 0) continue;
+            int x = i % SX - dx, z = i / SX % SZ - dz, y = i / (SX * SZ);
+            cells[k] = inside(x, y, z) ? index(x, y, z) : -1;
+        }
     }
 
     private void thin() {
@@ -437,6 +822,10 @@ public final class SmokeGrid {
     }
 
     private long fold(long h) {
+        if (shiftX != 0 || shiftZ != 0) {
+            h = (h ^ shiftX) * 0x100000001B3L;
+            h = (h ^ shiftZ) * 0x100000001B3L;
+        }
         for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) for (int x = x0; x <= x1; x++) {
             int i = index(x, y, z);
             float v = d[i];
@@ -552,6 +941,8 @@ public final class SmokeGrid {
 
     public void write(DataOutput out) throws IOException {
         out.writeShort(age);
+        out.writeShort(shiftX);
+        out.writeShort(shiftZ);
         out.writeByte(x0);
         out.writeByte(y0);
         out.writeByte(z0);
@@ -565,6 +956,7 @@ public final class SmokeGrid {
             out.writeShort(f.from);
             out.writeFloat(f.each);
             out.writeByte(f.cells.length);
+            // a cell the box left behind: 0xFFFF
             for (int c : f.cells) out.writeShort(c);
         }
         // what blasts hold, with the age it comes back from (an empty grid has no cells and nothing more)
@@ -586,6 +978,8 @@ public final class SmokeGrid {
      */
     public void read(DataInput in) throws IOException {
         int a = in.readUnsignedShort();
+        int sx = in.readShort(), sz = in.readShort();
+        if (Math.abs(sx) > SHIFT_MAX || Math.abs(sz) > SHIFT_MAX || sx % SHIFT != 0 || sz % SHIFT != 0) throw new IOException("bad shift");
         int ax = in.readByte(), ay = in.readByte(), az = in.readByte(), bx = in.readByte(), by = in.readByte(), bz = in.readByte();
         boolean empty = ax == SX && ay == SY && az == SZ && bx == -1 && by == -1 && bz == -1;
         float[] cells = null, keep = null;
@@ -612,7 +1006,8 @@ public final class SmokeGrid {
             int[] at = new int[n];
             for (int j = 0; j < n; j++) {
                 at[j] = in.readUnsignedShort();
-                if (at[j] >= CELLS) throw new IOException("bad feed cell");
+                if (at[j] == 0xFFFF) at[j] = -1;
+                else if (at[j] >= CELLS) throw new IOException("bad feed cell");
             }
             fed.add(new Feed(from, at, each));
         }
@@ -657,6 +1052,16 @@ public final class SmokeGrid {
             }
         }
         age = a;
+        if (sx != shiftX || sz != shiftZ) {
+            // the box is elsewhere than here: the cells the smoke comes out of follow (from where they were placed: one
+            // this copy's box had left behind comes back), the walls are read again
+            emitters = placed.clone();
+            remap(emitters, sx, sz);
+            shiftX = sx;
+            shiftZ = sz;
+            rescan = true;
+            airStale = true;
+        }
         x0 = ax;
         y0 = ay;
         z0 = az;

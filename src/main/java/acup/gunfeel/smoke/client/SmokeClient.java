@@ -64,6 +64,9 @@ public final class SmokeClient {
         return now == null || now != level ? null : SmokeClouds.get(now);
     }
 
+    // the most wind a Spawn can carry, blocks a tick: ten times a thunderstorm's
+    private static final float WIND_MAX = 1F;
+
     /**
      * A cloud to simulate. It comes when the server lets one out and again when this player starts to watch its chunk
      * ({@code ChunkWatchEvent.Sent}, after the chunk itself). The first one can come before the chunk is here: the
@@ -74,8 +77,11 @@ public final class SmokeClient {
     public static void spawn(SmokePayloads.Spawn p) {
         SmokeClouds all = clouds();
         if (all == null) return;
+        // a wind no server sends (not a number, a gale) is taken as none: the copy then goes apart and asks for the grid
+        float wx = p.windX(), wz = p.windZ();
+        if (!(Math.abs(wx) <= WIND_MAX && Math.abs(wz) <= WIND_MAX)) wx = wz = 0F;
         // a cloud past the limit pushes the oldest out, as on the server
-        all.add(p.id(), p.origin(), SmokeKind.byId(p.kind()), p.seed(), p.dirX(), p.dirZ(), p.scale(), p.born(), gone -> TRACKS.remove(gone.id));
+        all.add(p.id(), p.origin(), SmokeKind.byId(p.kind()), p.seed(), p.dirX(), p.dirZ(), p.scale(), wx, wz, p.born(), gone -> TRACKS.remove(gone.id));
         TRACKS.put(p.id(), new Track());
     }
 

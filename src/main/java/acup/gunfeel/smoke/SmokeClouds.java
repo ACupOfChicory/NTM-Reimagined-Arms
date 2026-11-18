@@ -34,6 +34,8 @@ public final class SmokeClouds {
         /** The level's game time the cloud was born at; it is {@code gameTime - born} ticks old. */
         public final long born;
         public final float dirX, dirZ, scale;
+        /** The wind over the cloud, blocks a tick, from its birth on ({@link SmokeWind}). */
+        public final float windX, windZ;
         /** The server: the age whose hash went out last, so a frozen tick does not send it again. */
         int checkedAge = -1;
         // stirs and feeds for an age the grid has not got to yet, by age (the order they came in within one age)
@@ -47,6 +49,8 @@ public final class SmokeClouds {
             this.dirX = dirX;
             this.dirZ = dirZ;
             this.scale = scale;
+            this.windX = grid.windX();
+            this.windZ = grid.windZ();
         }
 
         /**
@@ -57,16 +61,17 @@ public final class SmokeClouds {
             return grid.age() < gameTime - born - 2;
         }
 
+        /** The world block of the grid's cell (0, 0, 0) now: the box moves downwind with the smoke ({@link SmokeGrid#drift}). */
         public int baseX() {
-            return origin.getX() - SmokeGrid.OX;
+            return origin.getX() - SmokeGrid.OX + grid.shiftX();
         }
 
         public int baseY() {
-            return origin.getY() - SmokeGrid.OY;
+            return origin.getY() - grid.oy();
         }
 
         public int baseZ() {
-            return origin.getZ() - SmokeGrid.OZ;
+            return origin.getZ() - SmokeGrid.OZ + grid.shiftZ();
         }
 
         public SmokeKind kind() {
@@ -342,7 +347,8 @@ public final class SmokeClouds {
         }
         int id = all.nextId();
         long seed = level.getRandom().nextLong();
-        Cloud c = all.create(id, origin, kind, seed, dx, dz, scale, level.getGameTime());
+        float[] wind = SmokeWind.at(level);
+        Cloud c = all.create(id, origin, kind, seed, dx, dz, scale, wind[0], wind[1], level.getGameTime());
         // shut in: nothing comes out, and no older cloud is pushed out for it
         if (c.grid.emitters() == 0) return -1;
         // a cloud past the limit pushes the oldest out; the players who had it are told it is gone
@@ -413,9 +419,14 @@ public final class SmokeClouds {
         return nextId++;
     }
 
-    /** A new cloud, its cells read from the world now, not kept yet ({@link #insert}). */
+    /** A new cloud with no wind. */
     public Cloud create(int id, BlockPos origin, SmokeKind kind, long seed, float dirX, float dirZ, float scale, long born) {
-        SmokeGrid grid = new SmokeGrid(kind, seed, dirX, dirZ, scale);
+        return create(id, origin, kind, seed, dirX, dirZ, scale, 0F, 0F, born);
+    }
+
+    /** A new cloud, its cells read from the world now, not kept yet ({@link #insert}); the wind in blocks a tick. */
+    public Cloud create(int id, BlockPos origin, SmokeKind kind, long seed, float dirX, float dirZ, float scale, float windX, float windZ, long born) {
+        SmokeGrid grid = new SmokeGrid(kind, seed, dirX, dirZ, scale, windX, windZ);
         Cloud cloud = new Cloud(id, grid, origin.immutable(), born, dirX, dirZ, scale);
         grid.scan(masks.apply(cloud));
         grid.place();
@@ -443,7 +454,12 @@ public final class SmokeClouds {
     /** {@link #create} and {@link #insert}: the client's cloud from a {@code Spawn}. */
     public Cloud add(int id, BlockPos origin, SmokeKind kind, long seed, float dirX, float dirZ, float scale, long born,
             java.util.function.Consumer<Cloud> gone) {
-        Cloud cloud = create(id, origin, kind, seed, dirX, dirZ, scale, born);
+        return add(id, origin, kind, seed, dirX, dirZ, scale, 0F, 0F, born, gone);
+    }
+
+    public Cloud add(int id, BlockPos origin, SmokeKind kind, long seed, float dirX, float dirZ, float scale, float windX, float windZ, long born,
+            java.util.function.Consumer<Cloud> gone) {
+        Cloud cloud = create(id, origin, kind, seed, dirX, dirZ, scale, windX, windZ, born);
         insert(cloud, gone);
         return cloud;
     }
@@ -467,7 +483,8 @@ public final class SmokeClouds {
 
     /**
      * Steps one cloud up to its age at this game time, at most {@code most} steps; returns how many it took. Before each
-     * step a twentieth of its cells is read from the world again; {@code after} sees the grid after each step.
+     * step a twentieth of its cells is read from the world again, after it the box follows the smoke downwind;
+     * {@code after} sees the grid after each step.
      */
     public int step(Cloud c, long gameTime, int most, java.util.function.Consumer<SmokeGrid> after) {
         long want = gameTime - c.born;
@@ -478,6 +495,7 @@ public final class SmokeClouds {
             c.grid.refresh(mask, c.grid.age() % SmokeMask.PARTS, SmokeMask.PARTS);
             c.due();
             c.grid.step();
+            c.grid.drift(mask);
             if (after != null) after.accept(c.grid);
         }
         return n;

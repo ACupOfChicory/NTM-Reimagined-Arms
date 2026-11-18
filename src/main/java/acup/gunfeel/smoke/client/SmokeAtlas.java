@@ -43,6 +43,8 @@ public final class SmokeAtlas {
         final byte[] now = new byte[SmokeGrid.CELLS];
         final byte[] light = new byte[SmokeGrid.CELLS];
         int lastAge = -1, lightLayer;
+        // the grid's shift the texels are for: a box that moved downwind moves them along
+        int shiftX, shiftZ;
         // tile rows (a row a z of the grid, with the border) of the box last tick and the tick before: a row the cloud
         // left is sent twice more, its "now" and then its "a tick ago" emptied
         int rowLo = 0, rowHi = TILE_H - 1, boxLo = 0, boxHi = TILE_H - 1;
@@ -135,13 +137,23 @@ public final class SmokeAtlas {
             DRAWN.add(s);
             if (s.lastAge == c.grid.age()) continue;
             boolean first = s.lastAge < 0;
+            // the box moved downwind: what was sent and the light go along with the cells, and every row is sent
+            int mx = c.grid.shiftX() - s.shiftX, mz = c.grid.shiftZ() - s.shiftZ;
+            boolean moved = !first && (mx != 0 || mz != 0);
+            if (moved) {
+                move(s.now, mx, mz, (byte) 0);
+                move(s.light, mx, mz, s.light[SmokeGrid.index(SmokeGrid.OX, c.grid.oy(), SmokeGrid.OZ)]);
+            }
+            s.shiftX = c.grid.shiftX();
+            s.shiftZ = c.grid.shiftZ();
             // the light: at first the origin's for every cell, then a layer of the box every 4th tick (light changes
             // slowly, and the client's light lookups are what this costs most)
             if (first) seedLight(s, c);
             if (first || (c.grid.age() + s.index) % 4 == 0) light(s, c, s.lightLayer++);
             // only the rows the cloud is in now or was in last time: the rest stay empty in the texture
             int[] box = c.grid.box();
-            int lo = first ? 0 : Math.min(s.rowLo, box[2]), hi = first ? TILE_H - 1 : Math.max(s.rowHi, Math.min(TILE_H - 1, box[5] + 2));
+            boolean whole = first || moved;
+            int lo = whole ? 0 : Math.min(s.rowLo, box[2]), hi = whole ? TILE_H - 1 : Math.max(s.rowHi, Math.min(TILE_H - 1, box[5] + 2));
             fill(s, c, first, lo, hi);
             s.lastAge = c.grid.age();
             int bl = box[2], bh = Math.min(TILE_H - 1, box[5] + 2);
@@ -153,6 +165,15 @@ public final class SmokeAtlas {
             encoder.writeToTexture(texture, upload, 0, 0, 0, s.index * TILE_H + lo, WIDTH, hi - lo + 1);
         }
         SmokeStats.add(SmokeStats.ATLAS, System.nanoTime() - t0);
+    }
+
+    // a cell's bytes dx, dz cells back (the box went dx, dz on); the cells that came in get {@code empty}
+    private static void move(byte[] a, int dx, int dz, byte empty) {
+        byte[] was = a.clone();
+        for (int y = 0; y < SmokeGrid.SY; y++) for (int z = 0; z < SmokeGrid.SZ; z++) for (int x = 0; x < SmokeGrid.SX; x++) {
+            int fx = x + dx, fz = z + dz;
+            a[SmokeGrid.index(x, y, z)] = SmokeGrid.inside(fx, y, fz) ? was[SmokeGrid.index(fx, y, fz)] : empty;
+        }
     }
 
     // every cell as lit as the cloud's origin, until its layer is looked up

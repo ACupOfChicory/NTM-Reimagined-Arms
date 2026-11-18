@@ -18,6 +18,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.levelgen.Heightmap;
 
 /**
  * Which cells of a cloud are closed to smoke, read from the world (the same on the server and a client): a block whose
@@ -46,14 +47,24 @@ public final class SmokeMask implements SmokeGrid.Mask {
         this.baseZ = baseZ;
     }
 
+    /** The cloud's cells by the box it was born with (a box that moved downwind asks with its shift added). */
     public static SmokeMask of(Level level, SmokeClouds.Cloud cloud) {
-        return new SmokeMask(level, cloud.baseX(), cloud.baseY(), cloud.baseZ());
+        return new SmokeMask(level, cloud.origin.getX() - SmokeGrid.OX, cloud.origin.getY() - cloud.grid.oy(), cloud.origin.getZ() - SmokeGrid.OZ);
     }
 
     @Override
     public boolean closed(int x, int y, int z) {
         pos.set(baseX + x, baseY + y, baseZ + z);
         return closed(level, pos);
+    }
+
+    /**
+     * A roof over the column above the box: the highest block that stops movement or holds a liquid (the heightmap the
+     * client has too: leaves count, a canopy keeps the wind off) is above the box's top.
+     */
+    @Override
+    public boolean roofed(int x, int z) {
+        return level.getHeight(Heightmap.Types.MOTION_BLOCKING, baseX + x, baseZ + z) > baseY + SmokeGrid.SY;
     }
 
     public static boolean closed(Level level, BlockPos pos) {

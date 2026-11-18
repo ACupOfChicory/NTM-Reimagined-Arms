@@ -138,6 +138,8 @@ class SmokeCloudsTest {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(bytes);
         out.writeShort(0);
+        out.writeShort(0);
+        out.writeShort(0);
         for (int v : new int[] {ax, ay, az, bx, by, bz}) out.writeByte(v);
         for (float c : cells) out.writeFloat(c);
         out.writeByte(0);

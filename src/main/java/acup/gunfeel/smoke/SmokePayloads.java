@@ -20,13 +20,17 @@ public final class SmokePayloads {
         return new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath("ntmgunfeel", name));
     }
 
-    /** A cloud was let out (or is there when a player starts to watch its chunk): everything its simulation needs. */
-    public record Spawn(int id, BlockPos origin, int kind, long seed, float dirX, float dirZ, float scale, long born) implements CustomPacketPayload {
+    /**
+     * A cloud was let out (or is there when a player starts to watch its chunk): everything its simulation needs, the
+     * wind of its life included (blocks a tick).
+     */
+    public record Spawn(int id, BlockPos origin, int kind, long seed, float dirX, float dirZ, float scale, float windX, float windZ, long born)
+            implements CustomPacketPayload {
         public static final Type<Spawn> TYPE = typeOf("smoke_spawn");
         public static final StreamCodec<RegistryFriendlyByteBuf, Spawn> CODEC = CustomPacketPayload.codec(Spawn::write, Spawn::read);
 
         public static Spawn of(SmokeClouds.Cloud c) {
-            return new Spawn(c.id, c.origin, c.kind().id(), c.grid.seed(), c.dirX, c.dirZ, c.scale, c.born);
+            return new Spawn(c.id, c.origin, c.kind().id(), c.grid.seed(), c.dirX, c.dirZ, c.scale, c.windX, c.windZ, c.born);
         }
 
         private void write(RegistryFriendlyByteBuf b) {
@@ -37,11 +41,14 @@ public final class SmokePayloads {
             b.writeFloat(dirX);
             b.writeFloat(dirZ);
             b.writeFloat(scale);
+            b.writeFloat(windX);
+            b.writeFloat(windZ);
             b.writeLong(born);
         }
 
         private static Spawn read(RegistryFriendlyByteBuf b) {
-            return new Spawn(b.readVarInt(), b.readBlockPos(), b.readVarInt(), b.readLong(), b.readFloat(), b.readFloat(), b.readFloat(), b.readLong());
+            return new Spawn(b.readVarInt(), b.readBlockPos(), b.readVarInt(), b.readLong(), b.readFloat(), b.readFloat(), b.readFloat(), b.readFloat(),
+                    b.readFloat(), b.readLong());
         }
 
         @Override
