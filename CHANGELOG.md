@@ -7,6 +7,9 @@
   outline worked out once and carried along with the piece, where before the
   whole mob's outline was worked out again for every pose. Where two pieces lie
   flush against each other, the line between them is now drawn.
+
+## X1687
+
 - Mobs in NTM's power armour and suits, and NTM's own mobs, no longer slow
   the game down near the player: taking their hitboxes made NTM draw their
   models a vertex at a time instead of its fast way, which a handful of AI
