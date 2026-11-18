@@ -28,6 +28,13 @@ public final class BotMoves {
     static final String PATH = "/assets/ntmgunfeel/animations/bot_moves.json";
     /** the turns on the spot played, a soldier's (100STYLE Swat_TR1), each to its right; to its left, mirrored */
     static final String TURN_90 = "turn90_right_swat", TURN_180 = "turn180_right_swat";
+    /**
+     * the start played (CMU 143_03: the shortest, the mob AI's quick to its pace), its first step the right foot's;
+     * mirrored, the left's
+     */
+    static final String START = "start_run_cmu143_03";
+    /** the stops, each also mirrored: the one whose legs are nearest the gait's as it slows down is played */
+    static final String[] STOPS = { "stop_run_cmu104_56", "stop_run_cmu104_57", "stop_run_cmu143_02", "stop_run_cmu16_57" };
 
     /**
      * One move.
@@ -141,6 +148,42 @@ public final class BotMoves {
             return false;
         }
 
+        /** played by the way the mob goes (a start, a stop), not by its turn */
+        public boolean path() {
+            return !"turn".equals(kind);
+        }
+
+        /** the end of the foot's (0 right, 1 left) first stance from the start, or its start if it is lifted then */
+        public float firstLift(int foot) {
+            float[] s = stances[foot];
+            for (int i = 0; i + 1 < s.length; i += 2)
+                if (s[i] <= 0F) return s[i + 1];
+            return 0F;
+        }
+
+        /**
+         * Where in vanilla's walk cycle its step is at t (cycles, going on over its steps; walkPos is this many CYCLEs):
+         * its legs passing each other the right going forward a quarter on (BotPoser.phase), the left going forward
+         * three quarters, evenly between; before its first pass and after its last, on at the pace by them at most a
+         * quarter (to the legs furthest apart), a stop's legs coming together after its last held there.
+         */
+        public float cycle(float t) {
+            float[] p = BotMoves.passes(this);
+            int n = p.length / 2;
+            if (n == 0) return 0F;
+            float first = n > 1 ? p[2] - p[0] : 0.5F;
+            if (t <= p[0]) return p[1] - Math.min(0.25F, 0.5F * (p[0] - t) / first);
+            if (n == 1) return "stop".equals(kind) ? p[1] : p[1] + Math.min(0.25F, 0.5F * (t - p[0]) / first);
+            for (int i = 1; i < n; i++)
+                if (t <= p[i * 2]) {
+                    float a = p[(i - 1) * 2], b = p[i * 2];
+                    return p[(i - 1) * 2 + 1] + (p[i * 2 + 1] - p[(i - 1) * 2 + 1]) * (t - a) / (b - a);
+                }
+            if ("stop".equals(kind)) return p[(n - 1) * 2 + 1];
+            float span = p[(n - 1) * 2] - p[(n - 2) * 2];
+            return p[(n - 1) * 2 + 1] + Math.min(0.25F, 0.5F * (t - p[(n - 1) * 2]) / span);
+        }
+
         /** the same move the other way: the legs mirrored (BotClip.mirrored), its turn the other way */
         Move mirrored() {
             float[] c = curve.clone();
@@ -150,6 +193,73 @@ public final class BotMoves {
     }
 
     private static volatile Map<String, Move> moves;
+    private static final Map<String, float[]> PASSES = new java.util.concurrent.ConcurrentHashMap<>();
+    /** the thighs swing at least this far apart between two passes (degrees): its legs standing side by side do not pass */
+    static final float PASS_APART = 8F;
+
+    /**
+     * where a move's legs pass each other (Move.cycle): their times and where in the walk's cycle each is (a quarter the
+     * right going forward, three quarters the left; on by half a cycle each pass), after each other
+     */
+    static float[] passes(Move m) {
+        return PASSES.computeIfAbsent(m.name(), k -> {
+            int n = Math.max(2, Math.round(m.clip().length() * 120F));
+            float[] r = new float[3], l = new float[3], d = new float[n + 1];
+            for (int i = 0; i <= n; i++) {
+                float t = m.clip().length() * i / n;
+                if (!m.clip().rotation("right_leg", t, r) || !m.clip().rotation("left_leg", t, l)) return new float[0];
+                d[i] = r[0] - l[0];
+            }
+            java.util.List<float[]> out = new java.util.ArrayList<>();
+            // each time the thighs swing PASS_APART apart the other way from the last: they passed at the last crossing
+            // since (or, none, from side by side: where they were nearest), the right going forward if it is ahead now
+            int apart = 0, from = 0;
+            float cycle = Float.NaN;
+            for (int i = 0; i <= n; i++) {
+                int way = d[i] >= PASS_APART ? 1 : d[i] <= -PASS_APART ? -1 : 0;
+                if (way == 0 || way == apart) continue;
+                float at = -1F;
+                for (int j = i - 1; j >= from && at < 0F; j--)
+                    if (d[j] != d[j + 1] && Math.signum(d[j]) != Math.signum(d[j + 1])) at = j + d[j] / (d[j] - d[j + 1]);
+                if (at < 0F) {
+                    int near = from;
+                    for (int j = from; j <= i; j++)
+                        if (Math.abs(d[j]) < Math.abs(d[near])) near = j;
+                    // apart from the first (its start mid-step) they did not pass
+                    if (Math.abs(d[near]) < PASS_APART / 2F) at = near;
+                }
+                if (at < 0F) {
+                    apart = way;
+                    from = i;
+                    continue;
+                }
+                // the right's xRot below the left's: the right ahead, gone forward through the pass
+                float u = way < 0 ? 0.25F : 0.75F;
+                cycle = Float.isNaN(cycle) ? u : cycle + ((u - cycle) % 1F + 1F) % 1F;
+                if (!out.isEmpty() && cycle - out.get(out.size() - 1)[1] < 0.25F) cycle += 1F;
+                out.add(new float[] { m.clip().length() * at / n, cycle });
+                apart = way;
+                from = i;
+            }
+            // a stop's legs coming together after its last pass (apart, then side by side, not crossing): that is its
+            // last, where they first come within PASS_APART / 4
+            if (!out.isEmpty() && apart != 0 && "stop".equals(m.kind()) && Math.abs(d[n]) < PASS_APART / 2F) {
+                int at = n;
+                for (int j = from; j <= n; j++)
+                    if (Math.abs(d[j]) < PASS_APART / 4F) {
+                        at = j;
+                        break;
+                    }
+                out.add(new float[] { m.clip().length() * at / n, cycle + 0.5F });
+            }
+            float[] f = new float[out.size() * 2];
+            for (int i = 0; i < out.size(); i++) {
+                f[i * 2] = out.get(i)[0];
+                f[i * 2 + 1] = out.get(i)[1];
+            }
+            return f;
+        });
+    }
 
     private BotMoves() {
     }
@@ -170,6 +280,26 @@ public final class BotMoves {
         }
         return m.get(name);
     }
+
+    /** the start, its first step the left foot's (mirrored) or the right's */
+    public static @Nullable Move start(boolean leftFirst) {
+        return get(leftFirst ? START + "_mirrored" : START);
+    }
+
+    /** the stops and their mirrors there are (looked for each frame a mob slows down: found once) */
+    public static java.util.List<Move> stops() {
+        java.util.List<Move> out = stops;
+        if (out != null) return out;
+        java.util.List<Move> found = new java.util.ArrayList<>(STOPS.length * 2);
+        for (String n : STOPS)
+            for (String v : new String[] { n, n + "_mirrored" }) {
+                Move m = get(v);
+                if (m != null) found.add(m);
+            }
+        return stops = java.util.List.copyOf(found);
+    }
+
+    private static volatile java.util.@Nullable List<Move> stops;
 
     /** the turn on the spot to its left (or right), a quarter or half a turn */
     public static @Nullable Move turn(boolean left, boolean half) {

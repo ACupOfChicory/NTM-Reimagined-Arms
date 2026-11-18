@@ -269,6 +269,454 @@ class BotMovesTest {
         assertEquals(0F, a.legTwist, 0F);
     }
 
+    /**
+     * A mob facing +z (yaw 0) going {@code steps} (blocks a tick along +z; {@code aside} along -x, its right), three
+     * frames a tick laid as BotAnimator.frame lays them, the pose's ankles the move's (pose); calls {@code each} after
+     * each frame with the tick and the place drawn (z, x)
+     */
+    static void walk(BotAnimator a, double[] steps, double aside, java.util.function.BiConsumer<Integer, double[]> each) {
+        walk(a, steps, aside, now -> 0F, each);
+    }
+
+    /** ... its body drawn going to yaw(now) */
+    static void walk(BotAnimator a, double[] steps, double aside, java.util.function.DoubleFunction<Float> yawAt,
+            java.util.function.BiConsumer<Integer, double[]> each) {
+        double[] right = new double[steps.length];
+        for (int n = 0; n < steps.length; n++) right[n] = steps[n] * aside;
+        walk(a, steps, right, yawAt, each);
+    }
+
+    /** ... going {@code right[n]} a tick to its right (along -x) too */
+    static void walk(BotAnimator a, double[] steps, double[] right, java.util.function.DoubleFunction<Float> yawAt,
+            java.util.function.BiConsumer<Integer, double[]> each) {
+        double z = 0.0, x = 0.0;
+        for (int n = 0; n < steps.length; n++) {
+            double zo = z, xo = x;
+            z += steps[n];
+            x -= right[n];
+            for (int i = 0; i < 3; i++) {
+                double now = n + i / 3.0, u = i / 3.0, dz = zo + (z - zo) * u, dx = xo + (x - xo) * u;
+                float yaw = yawAt.apply(now);
+                a.turn(yaw, yaw, 1F, now);
+                a.move(x - xo, z - zo, a.bodyYaw, now, null);
+                a.moves(true, a.still() >= 1F - 1e-4F, now, yaw, dx, dz);
+                a.feet(dx, dz, Math.max(a.still(), a.pathFeet), now);
+                pose(a);
+                each.accept(n, new double[] { dz, dx });
+            }
+        }
+    }
+
+    /** the pose's ankles (Feet.neutral, as BotPoser writes them) the move's legs, else a stand's */
+    static void pose(BotAnimator a) {
+        BotAnimator.Moving[] mv = a.moving();
+        float[] n = a.feetOut.neutral;
+        if (mv.length == 0) {
+            System.arraycopy(new float[] { -1.9F, 24F, 0F, 1.9F, 24F, 0F }, 0, n, 0, 6);
+            return;
+        }
+        // by the move's weight from the legs straight (as the poser lays it over the gait)
+        BotPoser.Parts p = BotPoserTest.parts();
+        BotPoser.set(p, mv[0].clip(), mv[0].t(), mv[0].w(), BotPoser.LEGS, new float[3]);
+        BotPoser.twistLegs(p, mv[0].w() * mv[0].twist());
+        org.joml.Vector3f v = new org.joml.Vector3f();
+        BotPoser.ankle(p.rightLeg(), p.rightShin(), v);
+        n[0] = v.x;
+        n[1] = v.y;
+        n[2] = v.z;
+        BotPoser.ankle(p.leftLeg(), p.leftShin(), v);
+        n[3] = v.x;
+        n[4] = v.y;
+        n[5] = v.z;
+    }
+
+    /** standing 30 ticks, then going so */
+    static double[] fromStanding(double... then) {
+        double[] out = new double[30 + then.length];
+        System.arraycopy(then, 0, out, 30, then.length);
+        return out;
+    }
+
+    static double[] repeat(double step, int ticks) {
+        double[] out = new double[ticks];
+        java.util.Arrays.fill(out, step);
+        return out;
+    }
+
+    static double[] concat(double[]... parts) {
+        return java.util.Arrays.stream(parts).flatMapToDouble(java.util.Arrays::stream).toArray();
+    }
+
+    @Test
+    void aStartsAndAStopsStepsGoUpAsHighAsATurnsAtLeast() {
+        // a walk off (walk_turn90: 0.002 .. 0.15, the start's first step low in the clip) and a stop after it
+        BotAnimator a = new BotAnimator();
+        double[] steps = fromStanding(concat(new double[] { 0.007, 0.012, 0.017, 0.022, 0.03, 0.04, 0.05, 0.07, 0.09, 0.11, 0.13 },
+                repeat(0.15, 30), new double[] { 0.07, 0.07, 0.06, 0.01, 0.01 }, repeat(0.0, 12)));
+        float[] most = { Float.NaN, Float.NaN };
+        int[] stepped = { 0 };
+        walk(a, steps, 0.0, (n, p) -> {
+            float[] y = a.feetOut.neutral;
+            for (int k = 0; k < 2; k++) {
+                // over the foot it stands on (the floor, the clip's: both its legs under the same hips)
+                if (a.lifted(k) && !a.lifted(1 - k) && a.moveFeet) {
+                    float up = y[(1 - k) * 3 + 1] - y[k * 3 + 1] + a.feetOut.at[k * 4 + 2];
+                    most[k] = Float.isNaN(most[k]) ? up : Math.max(most[k], up);
+                } else if (!a.lifted(k) && !Float.isNaN(most[k])) {
+                    assertTrue(most[k] >= 0.9F * BotAnimator.MOVE_LIFT, "foot " + k + " stepped up " + most[k] + " px at " + n);
+                    stepped[0]++;
+                    most[k] = Float.NaN;
+                }
+            }
+        });
+        assertTrue(stepped[0] >= 2, stepped[0] + " steps");
+    }
+
+    @Test
+    void aStartFromStandingStepsOffItsFeetStandingTillTheGaitGoesOnFromItsStep() {
+        // the mob AI's walk off (BotFeelStand start_stop): 0.03, 0.03, 0.05, then 0.16 .. 0.19
+        BotAnimator a = new BotAnimator();
+        double[] steps = fromStanding(concat(new double[] { 0.03, 0.03, 0.05, 0.16, 0.16, 0.16, 0.2 }, repeat(0.19, 30)));
+        int[] firstTick = { -1 }, played = { 0 };
+        float[] clipSlid = { 0F };
+        double[][] at = new double[2][], lock = new double[2][];
+        BotMoves.Move[] start = { null };
+        walk(a, steps, 0.0, (n, p) -> {
+            BotAnimator.Moving[] mv = a.moving();
+            if (mv.length == 1 && firstTick[0] < 0) {
+                firstTick[0] = n;
+                start[0] = BotMoves.start(false).clip() == mv[0].clip() ? BotMoves.start(false) : BotMoves.start(true);
+            }
+            if (a.moveFeet && mv.length == 1 && mv[0].w() >= 1F) {
+                played[0]++;
+                // the clip's own feet down stand where they came down (played by the way gone)
+                double[][] now = ankles(mv[0], a.bodyYaw);
+                for (int k = 0; k < 2; k++) {
+                    double wx = p[1] + now[k][0], wz = p[0] + now[k][1];
+                    // and the lock's
+                    double[] l = BotAnimator.toWorld(a.feetOut.at[k * 4], a.feetOut.at[k * 4 + 1], a.bodyYaw);
+                    l = new double[] { p[1] + l[0], p[0] + l[1] };
+                    float[] st = start[0].stances()[k];
+                    boolean stands = false;
+                    for (int i = 0; i + 1 < st.length; i += 2) stands |= mv[0].t() > st[i] + 0.02F && mv[0].t() < st[i + 1] - 0.02F;
+                    if (!stands) {
+                        at[k] = lock[k] = null;
+                        continue;
+                    }
+                    if (at[k] == null) {
+                        at[k] = new double[] { wx, wz };
+                        lock[k] = l;
+                    }
+                    float d = (float) (Math.hypot(wx - at[k][0], wz - at[k][1]) * 1000.0);
+                    clipSlid[0] = Math.max(clipSlid[0], d);
+                    assertEquals(lock[k][0], l[0], 1e-5, "the lock's foot " + k + " at tick " + n);
+                    assertEquals(lock[k][1], l[1], 1e-5, "the lock's foot " + k + " at tick " + n);
+                }
+            }
+        });
+        assertEquals(30, firstTick[0], "it steps off at once");
+        assertTrue(played[0] > 10, "frames played " + played[0]);
+        // the recording's own feet slide some millimetres a stance (tools/motion); the first frames are its pace bound
+        assertTrue(clipSlid[0] < 15F, "a foot of the clip down went " + clipSlid[0] + " mm");
+        // gone over to the gait, on the run: no move left, the feet the gait's
+        assertEquals(0, a.moving().length);
+        assertFalse(a.moveFeet);
+        assertEquals(0F, a.feetOut.w, 1e-3F);
+    }
+
+    @Test
+    void theGaitGoesOnFromTheStartsStepItsLegsNearest() {
+        BotAnimator a = new BotAnimator();
+        double[] steps = fromStanding(concat(new double[] { 0.03, 0.03, 0.05, 0.16, 0.16, 0.16, 0.2 }, repeat(0.19, 30)));
+        float[] off = { -1F };
+        boolean[] was = { false };
+        walk(a, steps, 0.0, (n, p) -> {
+            BotAnimator.Moving[] mv = a.moving();
+            boolean fading = mv.length == 1 && mv[0].w() < 1F && n > 33;
+            if (fading && !was[0]) {
+                // the frame it went out: the gait's legs where walkPos is now against the clip's
+                float[] g = new float[12], c = new float[12], s = new float[3];
+                assertTrue(BotPoser.gaitLegs(a.speed, a.gait, a.heading, a.walkPos, null, g, s));
+                assertTrue(BotAnimator.legs(mv[0].clip(), mv[0].t(), c, s));
+                float best = Float.MAX_VALUE;
+                for (int i = 0; i < 96; i++) {
+                    assertTrue(BotPoser.gaitLegs(a.speed, a.gait, a.heading, i / 96F * BotPoser.CYCLE, null, g, new float[3]));
+                    best = Math.min(best, BotAnimator.legsOff(g, c));
+                }
+                assertTrue(BotPoser.gaitLegs(a.speed, a.gait, a.heading, a.walkPos, null, g, s));
+                off[0] = BotAnimator.legsOff(g, c);
+                // the nearest of the cycle, a frame's walk on at most
+                assertTrue(off[0] <= best * 1.5F + 50F, "the gait's legs " + off[0] + " off the clip's, at best " + best);
+            }
+            was[0] = fading;
+        });
+        assertTrue(off[0] >= 0F, "gone over to the gait");
+    }
+
+    @Test
+    void aStopFromAWalkHoldsTheFeetFromTheTickItSlowsDownAndStandsOnThem() {
+        // the mob AI's stop from a walk (BotFeelStand start_stop): 0.19, then 0.07, 0.07, 0.06, 0.01, 0.01
+        BotAnimator a = new BotAnimator();
+        double[] steps = concat(repeat(0.19, 40), new double[] { 0.07, 0.07, 0.06, 0.01, 0.01 }, repeat(0.0, 30));
+        int[] first = { -1 }, kept = { 0 };
+        float[] w0 = { -1F }, wIn = { -1F };
+        double[][] at = new double[2][];
+        walk(a, steps, 0.0, (n, p) -> {
+            if (a.moveFeet && first[0] < 0) {
+                first[0] = n;
+                wIn[0] = a.feetOut.w;
+            }
+            // the lock takes the feet within FEET_NOW (half a tick, not in a frame: a straight knee would snap to the
+            // lock's soft bend): from the next tick on, held
+            if (first[0] >= 0 && n == first[0] + 1 && w0[0] < 0F) w0[0] = a.feetOut.w;
+            for (int k = 0; k < 2; k++) {
+                double[] l = BotAnimator.toWorld(a.feetOut.at[k * 4], a.feetOut.at[k * 4 + 1], a.bodyYaw);
+                l = new double[] { p[1] + l[0], p[0] + l[1] };
+                if (!a.moveFeet || !a.moveDown[k] || n <= first[0]) {
+                    at[k] = null;
+                    continue;
+                }
+                if (at[k] == null) at[k] = l;
+                assertEquals(at[k][0], l[0], 1e-5, "foot " + k + " at tick " + n);
+                assertEquals(at[k][1], l[1], 1e-5, "foot " + k + " at tick " + n);
+                kept[0]++;
+            }
+        });
+        assertEquals(41, first[0], "it stops from the second tick it is slow (one is the AI finding its way on)");
+        assertEquals(1F, w0[0], 1e-4F, "the feet held by the next tick");
+        assertTrue(wIn[0] < 0.9F, "the feet taken in a frame (" + wIn[0] + ")");
+        assertTrue(kept[0] > 6, "feet kept " + kept[0]);
+        // stood: the move gone, the feet standing (the lock's), drawn standing
+        assertEquals(0, a.moving().length);
+        assertEquals(1F, a.feetOut.w, 1e-4F);
+        assertEquals(1F, a.still(), 1e-3F);
+    }
+
+    @Test
+    void theStopPlayedHasItsLegsNearestTheGaits() {
+        BotAnimator a = new BotAnimator();
+        double[] steps = concat(repeat(0.19, 40), new double[] { 0.07, 0.07, 0.06, 0.01, 0.01 }, repeat(0.0, 10));
+        float[] off = { -1F, Float.MAX_VALUE };
+        float[][] gaitAt = { null };
+        walk(a, steps, 0.0, (n, p) -> {
+            if (n == 39) {
+                float[] g = new float[12];
+                assertTrue(BotPoser.gaitLegs(a.speed, a.gait, a.heading, a.walkPos, null, g, new float[3]));
+                gaitAt[0] = g;
+            }
+            BotAnimator.Moving[] mv = a.moving();
+            if (mv.length == 1 && off[0] < 0F) {
+                float[] c = new float[12], s = new float[3];
+                assertTrue(BotAnimator.legs(mv[0].clip(), mv[0].t(), c, s));
+                off[0] = BotAnimator.legsOff(gaitAt[0], c);
+                for (BotMoves.Move m : BotMoves.stops()) {
+                    assertTrue(BotAnimator.legs(m.clip(), m.timeAt(m.total() - BotAnimator.STOP_REST * 0.07F), c, s));
+                    off[1] = Math.min(off[1], BotAnimator.legsOff(gaitAt[0], c));
+                }
+            }
+        });
+        assertTrue(off[0] >= 0F, "stopped by a clip");
+        // the gait goes on a third of a tick between: its legs a little on
+        assertTrue(off[0] <= off[1] * 1.5F + 100F, "its legs " + off[0] + " off the gait's, the nearest stop's " + off[1]);
+    }
+
+    @Test
+    void stoppedAndTurningRoundOrGoingBackTheFeetAreTheLocksAgainBeforeTheyWouldCross() {
+        // (aside: run so long, and gone aside so many ticks after slowing down, that the stop has a foot in a step or
+        // setting it down as it goes aside)
+        for (int w = 0; w < 26; w++) {
+            int way = Math.min(w, 2), run = 40 + Math.max(0, w - 2) % 8, after = 2 + Math.max(0, w - 2) / 8;
+            boolean back = way == 1, aside = way == 2;
+            BotAnimator a = new BotAnimator();
+            // a run stopped (BotFeelStand start_stop: 0.04, 0.03, 0.01), then turned round over two ticks, or going back;
+            // or (start_stop's last stop) slowed down to 0.06 a tick and gone aside as fast the third tick
+            double[] steps = aside ? concat(repeat(0.32, run), repeat(0.06, after + 1), repeat(0.0, 24))
+                    : concat(repeat(0.32, 40), new double[] { 0.21, 0.20, 0.19, 0.04, 0.03, 0.01, 0.0 },
+                            repeat(back ? -0.05 : 0.0, 12), repeat(0.0, 10));
+            double[] right = new double[steps.length];
+            if (aside) for (int n = run + after + 1; n < run + after + 13; n++) right[n] = 0.06;
+            float[] most = { 0F }, wWas = { 0F };
+            boolean[] stopped = { false }, held = { false };
+            double[][] last = new double[2][];
+            walk(a, steps, right, now -> way > 0 || now < 47.0 ? 0F : (float) Math.min(180.0, (now - 47.0) * 90.0), (n, p) -> {
+                stopped[0] |= a.moveFeet;
+                BotAnimator.Moving[] mv = a.moving();
+                BotMoves.Move stop = mv.length != 1 ? null
+                        : BotMoves.stops().stream().filter(m -> m.clip() == mv[0].clip()).findFirst().orElse(null);
+                // a stop standing lets go of the feet with both down in the clip (it sets a foot in a step down first;
+                // gone out on the move, its weight goes first)
+                if (held[0] && !a.moveFeet && stop != null)
+                    assertTrue(stop.bothDown(mv[0].t()), "let go of a foot in the air at " + n + " (" + way + ", run " + run + ", aside after " + after + ")");
+                held[0] = a.moveFeet && stop != null;
+                // the feet a move holds turned with the body no farther than MOVE_TWIST_MOST from where it stopped
+                // (stood and turned round, the turn on the spot may step the feet after it: not the stop's)
+                if (a.moveFeet && stop != null && n >= 47) most[0] = Math.max(most[0], Math.abs(a.bodyYaw));
+                for (int k = 0; k < 2; k++) {
+                    double[] l = BotAnimator.toWorld(a.feetOut.at[k * 4], a.feetOut.at[k * 4 + 1], a.bodyYaw);
+                    l = new double[] { p[1] + l[0], p[0] + l[1] };
+                    // the lock's feet go on from where they were (the lock's own steps: no more than a step a frame)
+                    // (held the frame before too: a lock let go has its feet where it last had them)
+                    if (last[k] != null && a.feetOut.w > 0.5F && wWas[0] > 0.5F)
+                        assertTrue(Math.hypot(l[0] - last[k][0], l[1] - last[k][1]) < 0.15, "foot " + k + " jumped at " + n + " (" + way + ", run " + run + ", aside after " + after + ")");
+                    last[k] = l;
+                }
+                wWas[0] = a.feetOut.w;
+            });
+            assertTrue(stopped[0], "stopped by a clip");
+            assertTrue(most[0] <= BotAnimator.MOVE_TWIST_MOST + 10F, "turned " + most[0] + " over the feet it held");
+            if (way > 0) assertEquals(0, a.moving().length);
+        }
+    }
+
+    @Test
+    void feetAMoveLetsGoFarFromThePosesAreSteppedThereNotDragged() {
+        BotAnimator a = new BotAnimator();
+        double now = 0.0;
+        // standing: the lock has its feet
+        for (int i = 0; i < 30; i++, now += 1.0 / 3.0) {
+            a.turn(0F, 0F, 1F, now);
+            pose(a);
+            a.feet(0.0, 0.0, 1F, now);
+        }
+        // a move holds them (both down) as the body goes on 0.6 blocks (a stop's last steps, the clip behind the body),
+        // then lets go: each foot goes on from where it is, stepped
+        a.moveFeet = true;
+        a.moveDown[0] = a.moveDown[1] = true;
+        double z = 0.0, most = 0.0;
+        double[][] last = new double[2][];
+        for (int i = 0; i < 66; i++, now += 1.0 / 3.0) {
+            if (i < 6) z += 0.1;
+            a.moveFeet = i < 6;
+            a.turn(0F, 0F, 1F, now);
+            a.feet(0.0, z, 1F, now);
+            for (int k = 0; k < 2; k++) {
+                double[] l = BotAnimator.toWorld(a.feetOut.at[k * 4], a.feetOut.at[k * 4 + 1], a.bodyYaw);
+                l = new double[] { l[0], z + l[1] };
+                if (last[k] != null) most = Math.max(most, Math.hypot(l[0] - last[k][0], l[1] - last[k][1]));
+                last[k] = l;
+            }
+        }
+        // (the lock's own step of 0.6 blocks goes 0.12 a frame at most)
+        assertTrue(most < 0.15, "a foot went " + most + " blocks in a frame");
+        // and under the body again
+        for (int k = 0; k < 2; k++) assertTrue(Math.abs(last[k][1] - z) < 0.1, "foot " + k + " " + (last[k][1] - z) + " blocks off");
+    }
+
+    @Test
+    void setGoingFastAtOnceStartsNoMove() {
+        // BotFeelStand walk_crouch_walk: 0.19 a tick from the first
+        BotAnimator a = new BotAnimator();
+        boolean[] moved = { false };
+        walk(a, fromStanding(repeat(0.19, 20)), 0.0, (n, p) -> moved[0] |= a.moving().length > 0);
+        assertFalse(moved[0]);
+    }
+
+    @Test
+    void steppingOffTurningRoundStartsNoMove() {
+        BotAnimator a = new BotAnimator();
+        boolean[] moved = { false };
+        // turning round at 400 degrees a second as it steps off (an overshot stop walked back)
+        walk(a, fromStanding(repeat(0.05, 20)), 0.0, now -> now < 27.0 ? 0F : (float) Math.min(180.0, (now - 27.0) * 20.0),
+                (n, p) -> moved[0] |= a.moving().length > 0);
+        assertFalse(moved[0]);
+    }
+
+    @Test
+    void aTickStandingOnTheWayStopsNothing() {
+        BotAnimator a = new BotAnimator();
+        boolean[] moved = { false };
+        walk(a, concat(repeat(0.19, 40), new double[] { 0.0 }, repeat(0.19, 20)), 0.0, (n, p) -> moved[0] |= n >= 40 && a.moving().length > 0);
+        assertFalse(moved[0]);
+    }
+
+    @Test
+    void theWalkGoesOnWithTheStartsStepsAndOnFromThemAsItGoesOut() {
+        BotAnimator a = new BotAnimator();
+        double[] steps = fromStanding(concat(new double[] { 0.03, 0.03, 0.05, 0.16, 0.16, 0.16, 0.2 }, repeat(0.19, 30)));
+        float[] last = { Float.NaN }, most = { 0F };
+        boolean[] seen = { false };
+        walk(a, steps, 0.0, (n, p) -> {
+            seen[0] |= a.moving().length > 0;
+            // from its second tick on (its first comes to the clip's step from a stand, the walk still nought)
+            if (n >= 32 && !Float.isNaN(last[0])) {
+                float d = a.walkPos - last[0];
+                assertTrue(d >= -1e-4F, "walkPos back by " + d + " at tick " + n);
+                most[0] = Math.max(most[0], d);
+            }
+            last[0] = a.walkPos;
+        });
+        assertTrue(seen[0]);
+        // a frame of the walk's own pace (0.19 a tick: some 0.25) or the clip's, never a jump
+        assertTrue(most[0] < 0.8F, "walkPos on by " + most[0] + " in a frame");
+    }
+
+    @Test
+    void aStartsAndAStopsStepsGoOnThroughTheWalksCycle() {
+        java.util.List<BotMoves.Move> all = new java.util.ArrayList<>(BotMoves.stops());
+        all.add(BotMoves.start(false));
+        all.add(BotMoves.start(true));
+        float[] r = new float[3], l = new float[3];
+        for (BotMoves.Move m : all) {
+            float[] p = BotMoves.passes(m);
+            // a start steps off and on; a quick stop may pass once and come to stand
+            assertTrue(p.length >= ("start".equals(m.kind()) ? 4 : 2), m.name() + ": passes " + p.length / 2);
+            float before = -Float.MAX_VALUE;
+            for (float t = 0F; t <= m.clip().length(); t += 0.01F) {
+                float c = m.cycle(t);
+                assertTrue(c >= before - 1e-5F, m.name() + " back at " + t);
+                before = c;
+            }
+            for (int i = 0; i < p.length; i += 2) {
+                // the legs pass there: the right going forward a quarter on, the left three quarters
+                m.clip().rotation("right_leg", p[i] + 0.03F, r);
+                m.clip().rotation("left_leg", p[i] + 0.03F, l);
+                float frac = p[i + 1] - (float) Math.floor(p[i + 1]);
+                assertEquals(frac < 0.5F ? 0.25F : 0.75F, frac, 1e-5F);
+                // just after: the right ahead (its xRot the lower) a quarter on
+                assertEquals(frac < 0.5F, r[0] < l[0], m.name() + " pass at " + p[i]);
+            }
+        }
+        // mirrored, the other leg goes forward at each pass
+        float[] a = BotMoves.passes(BotMoves.start(false)), b = BotMoves.passes(BotMoves.start(true));
+        assertEquals(a.length, b.length);
+        for (int i = 0; i < a.length; i += 2) assertEquals(a[i], b[i], 0.01F);
+    }
+
+    @Test
+    void goingAsideOrBackStartsNorStopsAMove() {
+        for (double aside : new double[] { 1.0, -1.0 }) {
+            // twice as far aside as on (45 degrees each way of +z is the most): 63 degrees, stepping off (0.09 a tick,
+            // a start's pace) and stopping (from 0.22)
+            for (double[] steps : new double[][] { fromStanding(repeat(0.04, 20)),
+                    concat(repeat(0.1, 20), new double[] { 0.03, 0.01 }, repeat(0.0, 10)) }) {
+                BotAnimator a = new BotAnimator();
+                boolean[] moved = { false };
+                walk(a, steps, 2.0 * aside, (n, p) -> moved[0] |= a.moving().length > 0);
+                assertFalse(moved[0], "aside " + aside);
+            }
+        }
+        BotAnimator a = new BotAnimator();
+        boolean[] moved = { false };
+        walk(a, fromStanding(repeat(-0.05, 20)), 0.0, (n, p) -> moved[0] |= a.moving().length > 0);
+        assertFalse(moved[0], "back");
+    }
+
+    @Test
+    void oldMovesNeitherStartNorStop() {
+        String was = System.getProperty("ntmgunfeel.botMoves");
+        System.setProperty("ntmgunfeel.botMoves", "old");
+        try {
+            BotAnimator a = new BotAnimator();
+            boolean[] moved = { false };
+            walk(a, fromStanding(concat(repeat(0.19, 20), new double[] { 0.07, 0.07, 0.06, 0.01 }, repeat(0.0, 10))), 0.0,
+                    (n, p) -> moved[0] |= a.moving().length > 0);
+            assertFalse(moved[0]);
+        } finally {
+            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
+            else System.setProperty("ntmgunfeel.botMoves", was);
+        }
+    }
+
     @Test
     void aLookBackWithinATickChangesNothing() {
         BotAnimator a = new BotAnimator();

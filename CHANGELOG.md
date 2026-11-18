@@ -1,5 +1,12 @@
 # Changelog
 
+## X1622
+
+- AI soldiers set off from standing and pull up from a walk or a run the way
+  people do: their legs play a recorded start and the last steps of a recorded
+  stop, each foot staying where it comes down instead of sliding under them.
+  `/gunfeel botmoves old` brings back the previous steps.
+
 ## X1620
 
 - AI soldiers turning slowly on the spot step round the way people do: their
