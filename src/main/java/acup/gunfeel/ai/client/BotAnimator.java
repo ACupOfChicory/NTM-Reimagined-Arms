@@ -1547,7 +1547,8 @@ public final class BotAnimator {
                 // a reload takes the arms from wherever they are (over the head, firing blind) to its clip's:
                 // slower in (BotPoser.RELOAD_IN)
                 float in = Math.min(1F, t / (actKind == AiPose.SHOT ? SHOT_IN : actKind == AiPose.RELOAD ? BotPoser.RELOAD_IN
-                        : actKind == AiPose.SLIDE || actKind == AiPose.ROLL ? DASH_IN : ACTION_FADE));
+                        : actKind == AiPose.SLIDE || actKind == AiPose.ROLL ? DASH_IN
+                        : actKind == AiPose.THROW && BotPoser.throwsAsAPerson() ? BotPoser.THROW_IN : ACTION_FADE));
                 actW = smooth(Math.min(in, Math.min(1F, (actLen - t) / ACTION_FADE)));
                 act = new Act(actKind, t / actLen, actW, t);
             }

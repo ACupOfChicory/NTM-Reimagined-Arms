@@ -156,6 +156,27 @@ SPDX-FileCopyrightText = [
 ]
 SPDX-License-Identifier = "CC0-1.0"
 
+# AI mob moves from recordings of people: 100STYLE and the CMU database (third-party/bot-moves.txt).
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/animations/bot_moves.json"
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "Ian Mason (100STYLE)",
+    "Carnegie Mellon University (CMU Graphics Lab Motion Capture Database)",
+    "2026 ACupOfChicory",
+]
+SPDX-License-Identifier = "CC-BY-4.0 AND LicenseRef-CMU-Mocap"
+
+# AI mob actions from recordings of people: the CMU database (third-party/bot-moves.txt).
+[[annotations]]
+path = "src/main/resources/assets/ntmgunfeel/animations/bot_people.animation.json"
+precedence = "override"
+SPDX-FileCopyrightText = [
+    "Carnegie Mellon University (CMU Graphics Lab Motion Capture Database)",
+    "2026 ACupOfChicory",
+]
+SPDX-License-Identifier = "LicenseRef-CMU-Mocap"
+
 # AI mob call-outs, spoken by Kokoro-82M (third-party/ai-voices.txt).
 [[annotations]]
 path = "src/main/resources/assets/ntmgunfeel/sounds/ai/voice/v*/*.ogg"

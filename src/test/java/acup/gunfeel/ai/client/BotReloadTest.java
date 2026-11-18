@@ -21,7 +21,7 @@ class BotReloadTest {
             BotPoser.Parts p = BotPoserTest.parts();
             p.head().setRotation(-0.3F, 0.4F, 0F);
             float lx = p.leftArm().xRot, ly = p.leftArm().yRot, lz = p.leftArm().zRot;
-            BotPoser.action(p, new BotAnimator.Act(AiPose.RELOAD, u, 1F, u * 32F), -0.3F, 0.4F, new float[3], new float[3]);
+            BotPoser.action(p, new BotAnimator.Act(AiPose.RELOAD, u, 1F, u * 32F), -0.3F, 0.4F, new float[3], new float[3], null);
             assertEquals(-0.3F, p.head().xRot, 0F, "at " + u);
             assertEquals(0.4F, p.head().yRot, 0F, "at " + u);
             assertEquals(0F, p.head().zRot, 0F, "at " + u);
@@ -45,7 +45,7 @@ class BotReloadTest {
         // the hands where tools/quaternius put them (bot_clips ARMS): the right on the grip, the gun up 35 degrees and in
         // 30; the left at the well, 3 px up the gun, after it is pushed home: some 28 degrees under the line of sight
         BotPoser.Parts p = BotPoserTest.parts();
-        BotPoser.action(p, new BotAnimator.Act(AiPose.RELOAD, 0.85F, 1F, 27F), 0F, 0F, new float[3], new float[3]);
+        BotPoser.action(p, new BotAnimator.Act(AiPose.RELOAD, 0.85F, 1F, 27F), 0F, 0F, new float[3], new float[3], null);
         Vector3f right = hand(p.rightArm(), p.rightForearm()), left = hand(p.leftArm(), p.leftForearm());
         assertEquals(1.0F, right.x, 0.15F);
         assertEquals(-0.94F, right.y, 0.15F);

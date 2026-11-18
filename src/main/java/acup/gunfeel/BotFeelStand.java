@@ -144,7 +144,11 @@ final class BotFeelStand {
             // aimed, a reload (its clip: the arms only, the head on its aim), aimed again
             new Scene("reload", false, 90, (level, m, t) -> {
                 if (t < 0) place(m, AX, AZ, 180F);
-            }, t -> t >= 20 && t < 60 ? pose(AiPose.STAND, AiPose.AIM, AiPose.FIGHT, AiPose.RELOAD, BotFeelStand.sceneStart + 20, 40) : AIMED) };
+            }, t -> t >= 20 && t < 60 ? pose(AiPose.STAND, AiPose.AIM, AiPose.FIGHT, AiPose.RELOAD, BotFeelStand.sceneStart + 20, 40) : AIMED),
+            // aimed, a grenade thrown (AiSoldier.THROW_TICKS), aimed again
+            new Scene("throw", false, 60, (level, m, t) -> {
+                if (t < 0) place(m, AX, AZ, 180F);
+            }, t -> t >= 20 && t < 32 ? pose(AiPose.STAND, AiPose.AIM, AiPose.FIGHT, AiPose.THROW, BotFeelStand.sceneStart + 20, 12) : AIMED) };
 
     /** a turn on the spot by the aim, from facing -Z */
     private static Scene turn(String name, float by) {

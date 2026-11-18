@@ -74,12 +74,31 @@ public final class BotAnimation {
 
     /**
      * After HumanoidModel.translateToHand: a bot's item goes to the end of its forearm, turned with it about the
-     * elbow (the item layer's own shift from there is from the arm's pivot, as vanilla's).
+     * elbow (the item layer's own shift from there is from the arm's pivot, as vanilla's). Through a throw recorded
+     * from a person the rifle goes with the left hand (BotPoser.carried): the right arm's frame vanilla put on is
+     * swapped for that one.
      */
-    public static void hand(HumanoidModel<?> model, net.minecraft.world.entity.HumanoidArm arm,
+    public static void hand(HumanoidRenderState state, HumanoidModel<?> model, net.minecraft.world.entity.HumanoidArm arm,
             com.mojang.blaze3d.vertex.PoseStack pose) {
-        net.minecraft.client.model.geom.ModelPart lower = BotModel.lower(model.getArm(arm));
+        // a bot's this frame only (a state's pose is kept from the last bot frame worked out on it)
+        BotPoseCache cache = state instanceof BotRenderData d && d.gunfeel$bot() != null ? d.gunfeel$pose() : null;
+        BotPoseCache.Model parts = model instanceof BotPoseModel h ? h.gunfeel$botParts() : null;
+        hand(model, arm, pose, cache != null ? cache.carry() : null, parts != null ? parts.parts() : null);
+    }
+
+    /** {@link #hand(HumanoidRenderState, HumanoidModel, net.minecraft.world.entity.HumanoidArm, com.mojang.blaze3d.vertex.PoseStack)}, the carry given */
+    public static void hand(HumanoidModel<?> model, net.minecraft.world.entity.HumanoidArm arm, com.mojang.blaze3d.vertex.PoseStack pose,
+            BotPoser.@Nullable Carry carry, BotPoser.@Nullable Parts parts) {
+        net.minecraft.client.model.geom.ModelPart upper = model.getArm(arm), lower = BotModel.lower(upper);
         if (lower == null) return;
+        if (carry != null && carry.w() > 0F && arm == net.minecraft.world.entity.HumanoidArm.RIGHT && parts != null) {
+            org.joml.Matrix4f to = new org.joml.Matrix4f().translation(upper.x, upper.y, upper.z)
+                    .rotateZYX(upper.zRot, upper.yRot, upper.xRot).scale(upper.xScale, upper.yScale, upper.zScale).invert()
+                    .mul(BotPoser.carried(parts, carry, new org.joml.Matrix4f()));
+            // px to blocks: the turn is the same, the shift a 16th
+            pose.mulPose(to.setTranslation(to.m30() / 16F, to.m31() / 16F, to.m32() / 16F));
+            return;
+        }
         lower.translateAndRotate(pose);
         pose.translate(-lower.x / 16F, -lower.y / 16F, -lower.z / 16F);
     }

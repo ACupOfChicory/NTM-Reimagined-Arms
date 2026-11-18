@@ -1,5 +1,13 @@
 # Changelog
 
+## X1627
+
+- AI soldiers throw a grenade the way a person does: a short overarm swing
+  recorded from a person, their eyes kept on the target, the rifle held in the
+  left hand at their side with its muzzle down, then back in both hands.
+  Crouched, the shoulders stay down through the throw.
+  `/gunfeel botmoves old` brings back the old throw.
+
 ## X1624
 
 - AI soldiers' legs no longer pass through each other as they turn on the spot,
