@@ -80,6 +80,9 @@ final class BotFeelStand {
     /** run_turn180: on its way back */
     private static boolean turned;
 
+    /** the roll scene's roll, ticks in */
+    private static final int ROLL_AT = 15;
+
     /** where the scripted agent stands, facing -Z (yaw 180) */
     private static final double AX = 0.5, AZ = 24.5;
 
@@ -172,7 +175,17 @@ final class BotFeelStand {
             // aimed, a grenade thrown (AiSoldier.THROW_TICKS), aimed again
             new Scene("throw", false, 60, (level, m, t) -> {
                 if (t < 0) place(m, AX, AZ, 180F);
-            }, t -> t >= 20 && t < 32 ? pose(AiPose.STAND, AiPose.AIM, AiPose.FIGHT, AiPose.THROW, BotFeelStand.sceneStart + 20, 12) : AIMED) };
+            }, t -> t >= 20 && t < 32 ? pose(AiPose.STAND, AiPose.AIM, AiPose.FIGHT, AiPose.THROW, BotFeelStand.sceneStart + 20, 12) : AIMED),
+            // a run, a forward roll at half its step, crouched (AiDash: TICKS, ROLL_STEP), the run on
+            new Scene("roll", false, 50, (level, m, t) -> {
+                if (t < 0) {
+                    place(m, -8.5, 19.5, -90F);
+                    return;
+                }
+                boolean rolling = t >= ROLL_AT && t < ROLL_AT + acup.gunfeel.ai.AiDash.TICKS;
+                m.setPos(m.getX() + (rolling ? 0.16 : 0.32), m.getY(), m.getZ());
+            }, t -> t >= ROLL_AT && t < ROLL_AT + acup.gunfeel.ai.AiDash.TICKS
+                    ? pose(AiPose.CROUCH, AiPose.HOLD, AiPose.FIGHT, AiPose.ROLL, BotFeelStand.sceneStart + ROLL_AT, acup.gunfeel.ai.AiDash.TICKS) : READY) };
 
     /** a turn on the spot by the aim, from facing -Z */
     private static Scene turn(String name, float by) {

@@ -44,6 +44,12 @@ public final class BotClips {
      * (CMU 79_35); the left hand keeps the rifle, its arm down at the side
      */
     public static final String THROW_PERSON = "throw_person";
+    /**
+     * ... and a forward roll out of a run (CMU 128_11), the whole body from the dive begun (the trunk bent 90 degrees
+     * forward: BotPoser.ROLL_IN) to the hips up again: the mob's way past the person's put where no leg is down, the
+     * body up to 0.45 blocks behind the mob midway and back on it at the end
+     */
+    public static final String ROLL_PERSON = "roll_person";
 
     private static volatile Map<String, BotClip> clips;
 

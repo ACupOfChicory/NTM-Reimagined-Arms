@@ -689,9 +689,9 @@ public final class BotPoser {
                 }
             }
             case AiPose.SLIDE, AiPose.ROLL -> {
-                // the whole body, the clip squeezed into the action's ticks (UAL Slide_Start and Slide_Exit, UAL Roll):
+                // the whole body, the clip squeezed into the action's ticks (UAL Slide_Start and Slide_Exit; the roll rollClip):
                 // only now may the head leave the eye the server keeps (pose-contract §4); it fades into the crouch
-                BotClip c = BotClips.get(act.kind() == AiPose.SLIDE ? BotClips.SLIDE : BotClips.ROLL);
+                BotClip c = act.kind() == AiPose.SLIDE ? BotClips.get(BotClips.SLIDE) : rollClip();
                 if (c != null) set(p, c, act.u() * c.length(), w, ALL, a);
             }
             case AiPose.DOOR -> {
@@ -718,6 +718,24 @@ public final class BotPoser {
     static @Nullable BotClip throwClip() {
         BotClip c = BotMoves.on() ? BotClips.get(BotClips.THROW_PERSON) : null;
         return c != null ? c : BotClips.get(BotClips.THROW);
+    }
+
+    /** A forward roll: recorded from a person (Config.botMoves clips: BotClips.ROLL_PERSON) or UAL's Roll. */
+    static @Nullable BotClip rollClip() {
+        BotClip c = BotMoves.on() ? BotClips.get(BotClips.ROLL_PERSON) : null;
+        return c != null ? c : BotClips.get(BotClips.ROLL);
+    }
+
+    /**
+     * ticks a roll recorded from a person comes in over: its clip starts with the dive begun, the trunk bent 90 degrees
+     * forward (people go down from a run over more than the mob's roll: AiDash.TICKS), so the body bends into it from
+     * the run over these rather than in BotAnimator.DASH_IN, as UAL's roll and the slide do
+     */
+    static final float ROLL_IN = 4F;
+
+    static boolean rollsAsAPerson() {
+        BotClip c = rollClip();
+        return c != null && c == BotClips.get(BotClips.ROLL_PERSON);
     }
 
     /**

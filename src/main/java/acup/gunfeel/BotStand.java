@@ -89,6 +89,26 @@ final class BotStand {
             new Case("stack", AiPose.STAND, 0, AiPose.STACK, false),
             new Case("crouch_stack", AiPose.CROUCH, 0, AiPose.STACK, false),
             new Case("prone_gun", AiPose.PRONE, 0, AiPose.HOLD, true) };
+    /**
+     * the grid's: the hitbox stand's and a forward roll held at a share of its way, percent (AiPose.ROLL over ROLL_HELD
+     * ticks, begun that share of them before): the body drawn off the mob's place (the roll recorded from a person goes
+     * up to 0.7 blocks behind it) is the one the server's model hits take
+     */
+    private static final int[] ROLL_HELD_AT = { 25, 50, 75 };
+    private static final short ROLL_HELD = 20000;
+    private static final Case[] GRID_CASES = gridCases();
+
+    private static Case[] gridCases() {
+        Case[] out = Arrays.copyOf(CASES, CASES.length + ROLL_HELD_AT.length);
+        for (int i = 0; i < ROLL_HELD_AT.length; i++)
+            out[CASES.length + i] = new Case("roll_" + ROLL_HELD_AT[i], AiPose.CROUCH, 0, AiPose.HOLD, false);
+        return out;
+    }
+
+    /** a held roll's share of its way, percent (ROLL_HELD_AT), or -1 */
+    private static int rollHeld(Case c) {
+        return c.name().startsWith("roll_") ? Integer.parseInt(c.name().substring(5)) : -1;
+    }
 
     private static int step, caseIndex, yawIndex, phase;
     private static long until, measuring, last;
@@ -265,12 +285,12 @@ final class BotStand {
             if (phase == 1) watchPose();
             return;
         }
-        Case c = CASES[caseIndex];
+        Case c = GRID_CASES[caseIndex];
         float yaw = YAWS[yawIndex];
         if (until > 0 && phase == 1) {
             measure(c, yaw);
             phase = 0;
-            if (++caseIndex == CASES.length) {
+            if (++caseIndex == GRID_CASES.length) {
                 caseIndex = 0;
                 if (++yawIndex == YAWS.length) {
                     write();
@@ -278,7 +298,7 @@ final class BotStand {
                     return;
                 }
             }
-            c = CASES[caseIndex];
+            c = GRID_CASES[caseIndex];
             yaw = YAWS[yawIndex];
         }
         // set the case: the mob turned, lying or not, the pose from now (a lean takes 4 ticks, a crouch 4, the arms 4)
@@ -292,8 +312,9 @@ final class BotStand {
             m.setYBodyRot(y);
             m.setYHeadRot(y);
             // as AiSoldier.body: the pose first, then the game's, so the crouching size finds it
-            int at = (int) server.overworld().getGameTime();
-            m.setData(AiPose.Sync.TYPE, new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0, AiPose.FIGHT));
+            int at = (int) server.overworld().getGameTime(), held = rollHeld(cc);
+            m.setData(AiPose.Sync.TYPE, held < 0 ? new AiPose(cc.stance(), (byte) cc.lean(), (byte) 0, at, cc.arms(), AiPose.NONE, 0, (short) 0, AiPose.FIGHT)
+                    : new AiPose(cc.stance(), (byte) 0, (byte) 0, at, cc.arms(), AiPose.ROLL, at - ROLL_HELD * held / 100, ROLL_HELD, AiPose.FIGHT));
             m.setPose(lying ? Pose.SWIMMING : cc.stance() == AiPose.CROUCH ? Pose.CROUCHING : Pose.STANDING);
         }).join();
         long t = now();
@@ -344,7 +365,7 @@ final class BotStand {
             return;
         }
         double err = Double.NaN;
-        if (c.lean() == 0 && !c.lying() && c.arms() == AiPose.HOLD) BASE.put(key, n);
+        if (c.lean() == 0 && !c.lying() && c.arms() == AiPose.HOLD && rollHeld(c) < 0) BASE.put(key, n);
         double[] base = BASE.get(key);
         if (c.lean() != 0 && base != null) {
             // where the server's formula puts the upright head's centre with this lean
@@ -1179,6 +1200,30 @@ final class BotStand {
         }
     }
 
+    /**
+     * The grid over the roll on the move, as drawn now, against the pose the server has (caught a tick or more before,
+     * the mob a step on): noted, not passed or failed (a mob drawn between its ticks is a step behind the server's on
+     * any move); the held roll's grid (GRID_CASES) is the check
+     */
+    private static void rollOnTheMove(int into) {
+        var seenBy = mc().level.getEntity(one.getId());
+        var drawn = seenBy == null ? List.<ModelBox>of() : ModelHits.worldBoxes(seenBy);
+        if (drawn.isEmpty()) {
+            ClientSmoke.check(true, "кувырок на ходу, тик " + into + " (сведения): клиент не нарисовал модель");
+            return;
+        }
+        var rays = BotStandHits.grid(drawn, one.getBoundingBox(), seenBy.getYRot());
+        var server = mc().getSingleplayerServer();
+        BotStandHits.Grid[] got = new BotStandHits.Grid[1];
+        server.submit(() -> got[0] = BotStandHits.server((Mob) server.overworld().getEntity(one.getId()), rays)).join();
+        var g = got[0];
+        ClientSmoke.check(true, String.format(Locale.ROOT, "кувырок на ходу, тик %d (сведения): по модели попаданий %.2f%% из %d, мимо модели %.2f%% из %d,"
+                + " та же зона %.2f%%; коробка %.1f%% и %.1f%%", into, g.inHit() * 100, g.in(), g.outHit() * 100, g.out(), g.zoneSame() * 100,
+                g.boxIn() * 100, g.boxOut() * 100));
+        ROWS.add(String.format(Locale.ROOT, "кувырок на ходу	%d	по модели %.2f%%	мимо %.2f%%	зона %.2f%%", into, g.inHit() * 100, g.outHit() * 100,
+                g.zoneSame() * 100));
+    }
+
     private static void clips() {
         long t = now() - clipsT0;
         if (t < 0 || now() == lastServerTick) return;
@@ -1197,6 +1242,7 @@ final class BotStand {
                 // crouched as it comes into cover from the run (LOW_STEPS), up as it leaves
                 : t >= CLIPS_LOW && t < CLIPS_LOW_UP ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0, AiPose.FIGHT)
                 : AiPose.IDLE;
+        if (t >= CLIPS_ROLL && t < CLIPS_ROLL + acup.gunfeel.ai.AiDash.TICKS && (t - CLIPS_ROLL) % 4 == 3) rollOnTheMove((int) (t - CLIPS_ROLL));
         int leg = LEGS.length - 1;
         while (leg > 0 && t < LEGS[leg].from) leg--;
         Leg l = LEGS[leg];

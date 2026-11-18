@@ -357,8 +357,8 @@ public final class Config {
               same pace; the feet slide less); the mod's own legs only (botMoves old; with clips the runs recorded from
               people go at their own pace, their feet standing). /gunfeel botrungait
             botMoves: AI mobs' moves from recordings of people: clips (a slow turn on the spot, a start, a stop, a
-              grenade's throw, and the legs walking, running and sprinting ahead, each mob its own, as people do them)
-              or old (the feet's own steps, the old throw and legs). /gunfeel botmoves
+              grenade's throw, a forward roll, and the legs walking, running and sprinting ahead, each mob its own, as
+              people do them) or old (the feet's own steps, the old throw, roll and legs). /gunfeel botmoves
             suppressionDarken: how much the screen darkens under fire (bullets past and hitting near, blasts near), 0 to 1,
               times the server's (at most 40 % darker at the edges, 22 % in the middle)
             suppressionMuffle: how much the other sounds go down under fire, 0 to 1, times the server's (the world's down to
