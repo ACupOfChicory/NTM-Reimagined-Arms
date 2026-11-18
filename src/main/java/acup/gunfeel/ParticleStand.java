@@ -61,9 +61,14 @@ import net.minecraft.world.phys.Vec3;
 // at the thrower; four NTM 5.56 rifles at a stone wall for 10 s, their casings thrown as a gun does (CasingCreator), the
 // mod's tracers and hit effects on; NTM's block of C4 (as semtex: a puff and a smoke a block it reached), its C4 charge
 // and an HE artillery shell from 30 blocks; the Fat Mine from 40.
+// The flamethrower once more at the thrower's own eye (flamerfp: the camera a player's, the flames out of the gun's
+// muzzle as NTM's flamethrower has it, the thrower not drawn).
 // Each scene twice a round: N as the game has it, X with every particle refused (ParticleEngine.createParticle and add
-// cancelled, NTM's Flywheel visuals of them taken down): the frame without them. Two rounds, the second X first. In N the
-// particles' drawing is switched off every other 32 frames (ParticleEngine.extract cancelled; NTM's Flywheel visuals are
+// cancelled, NTM's Flywheel visuals of them taken down): the frame without them. A scene with a trial a third time, T:
+// N with a change the game does not have, to see what it would give (wp1, wp3 "notrail": the smoke the phosphorus'
+// lava sparks let out as they tick refused; flamerfp "near": NTM's flames smaller near the camera, none within a
+// block). Rounds alternate N first and X first. In the first round N and T are shot (<scene>-<mode>-<t>s.png). In N and
+// T the particles' drawing is switched off every other 32 frames (ParticleEngine.extract cancelled; NTM's Flywheel visuals are
 // still drawn), so drawn and hidden frames share the machine's load. Timers (the MixinParticleStand* mixins): the
 // particle tick (all and by group), gathering them (extract, by group), handing them over (submit, by group), the quads'
 // vertices (QuadParticleFeatureRenderer.prepareGroup) and their draw (executeGroup), Flywheel's frame and drawing.
@@ -83,9 +88,15 @@ public final class ParticleStand {
 
     private enum What { HE, WP, FLAMER, CHEM, GUNFIRE, C4_BLOCK, C4_CHARGE, ARTY, NUKE }
 
+    private static final String NOTRAIL = "notrail", NEAR = "near";
+
     // count bursts (a row 4 or 8 blocks apart) or a stream of count throwers; the camera dist blocks short of the spot
-    // and up blocks up (a stream: at the thrower)
-    private record Scene(String name, What what, int count, double dist, double up) {
+    // and up blocks up (a stream: behind the thrower, fp at its eye); trial: the T run's change, or none
+    private record Scene(String name, What what, int count, double dist, double up, boolean fp, String trial) {
+        Scene(String name, What what, int count, double dist, double up) {
+            this(name, what, count, dist, up, false, "");
+        }
+
         boolean stream() {
             return what == What.FLAMER || what == What.CHEM || what == What.GUNFIRE;
         }
@@ -96,15 +107,27 @@ public final class ParticleStand {
     }
 
     private static final List<Scene> SCENES = java.util.stream.Stream.of(new Scene("he1", What.HE, 1, 15, 2.5),
-            new Scene("he5", What.HE, 5, 15, 2.5), new Scene("wp1", What.WP, 1, 15, 2.5), new Scene("wp3", What.WP, 3, 15, 2.5),
-            new Scene("flamer", What.FLAMER, 1, 0, 0), new Scene("chem", What.CHEM, 1, 0, 0), new Scene("gunfire", What.GUNFIRE, 4, 0, 0),
+            new Scene("he5", What.HE, 5, 15, 2.5), new Scene("wp1", What.WP, 1, 15, 2.5, false, NOTRAIL),
+            new Scene("wp3", What.WP, 3, 15, 2.5, false, NOTRAIL), new Scene("flamer", What.FLAMER, 1, 0, 0),
+            new Scene("flamerfp", What.FLAMER, 1, 0, 0, true, NEAR), new Scene("chem", What.CHEM, 1, 0, 0), new Scene("gunfire", What.GUNFIRE, 4, 0, 0),
             new Scene("c4block", What.C4_BLOCK, 1, 30, 4), new Scene("c4charge", What.C4_CHARGE, 1, 30, 4), new Scene("arty", What.ARTY, 1, 30, 4),
             new Scene("nuke", What.NUKE, 1, 40, 6))
             .filter(s -> ONLY.contains("") || ONLY.contains(s.name)).toList();
 
-    private record Run(Scene scene, boolean refused, int round) {
+    // N the game's, X no particle, T N with the scene's trial
+    private enum Mode { N, X, T }
+
+    private record Run(Scene scene, Mode mode, int round) {
         String label() {
-            return scene.name + "-" + (refused ? "X" : "N") + "-" + round;
+            return scene.name + "-" + mode + "-" + round;
+        }
+
+        boolean refused() {
+            return mode == Mode.X;
+        }
+
+        String trial() {
+            return mode == Mode.T ? scene.trial : "";
         }
     }
 
@@ -114,6 +137,9 @@ public final class ParticleStand {
     public static boolean hide;
     /** An X run: every particle refused. */
     public static boolean refuse;
+    // a T run's trial ("" none); in the particle tick
+    private static String trial = "";
+    private static boolean ticking;
 
     // a window's sums
     private static final class Acc {
@@ -139,7 +165,7 @@ public final class ParticleStand {
         }
         long aliveSum;
         int aliveSamples, aliveMax;
-        long spawned, refused;
+        long spawned, refused, trimmed;
         // group -> {tick ns, ticks, extract ns, extracts, submit ns, submits, alive sum, alive samples}
         final Map<String, long[]> groups = new TreeMap<>();
 
@@ -163,7 +189,14 @@ public final class ParticleStand {
     private static long adds;
     private static final StackWalker WALKER = StackWalker.getInstance();
 
+    /** ParticleEngine.tick's start. */
+    public static void tickBegin() {
+        ticking = true;
+    }
+
     public static void ticked(long ns, Map<?, ? extends ParticleGroup<?>> groups) {
+        ticking = false;
+        if (trial.equals(NEAR)) near(groups);
         Acc a = cur;
         if (a == null) return;
         a.tickNs += ns;
@@ -238,6 +271,35 @@ public final class ParticleStand {
         if (a != null) a.fwRenderNs += ns;
     }
 
+    // ---------------------------------------------------------------- the near trial
+
+    /** near: NTM's flames full size from 2.5 blocks off the camera, none within 1 (their quad size, which NTM's visual reads). */
+    private static final double NEAR_NONE = 1.0, NEAR_FULL = 2.5;
+    private static final Map<Particle, Float> BASE_SIZE = new IdentityHashMap<>();
+    private static Field quadSize;
+
+    private static void near(Map<?, ? extends ParticleGroup<?>> groups) {
+        Vec3 cam = Minecraft.getInstance().gameRenderer.mainCamera().position();
+        try {
+            if (quadSize == null) {
+                quadSize = net.minecraft.client.particle.SingleQuadParticle.class.getDeclaredField("quadSize");
+                quadSize.setAccessible(true);
+            }
+            BASE_SIZE.keySet().removeIf(p -> !p.isAlive());
+            for (ParticleGroup<?> g : groups.values()) for (Particle p : queue(g)) {
+                if (!(p instanceof com.hbm.client.particle.ParticleFlamethrower f) || !p.isAlive()) continue;
+                Float base = BASE_SIZE.get(p);
+                if (base == null) BASE_SIZE.put(p, base = quadSize.getFloat(f));
+                double d = cam.distanceTo(p.getBoundingBox().getCenter());
+                double k = Math.clamp((d - NEAR_NONE) / (NEAR_FULL - NEAR_NONE), 0, 1);
+                quadSize.setFloat(f, (float) (base * k));
+            }
+        } catch (Exception e) {
+            ClientSmoke.check(false, "частицы: near " + e);
+            trial = "";
+        }
+    }
+
     // ---------------------------------------------------------------- the GPU's time (OpenGL only), read back frames later
 
     /** Parts timed on the GPU: the quad particles' draw (executeGroup), Flywheel's (render, renderOit). */
@@ -300,8 +362,13 @@ public final class ParticleStand {
         }
     }
 
-    /** ParticleEngine.createParticle: true to refuse it (an X run). */
+    /** ParticleEngine.createParticle: true to refuse it (an X run; a notrail T run: the smoke a particle lets out as it ticks). */
     public static boolean refused(ParticleOptions options) {
+        if (ticking && trial.equals(NOTRAIL) && options.getType() == net.minecraft.core.particles.ParticleTypes.SMOKE) {
+            Acc a = cur;
+            if (a != null) a.trimmed++;
+            return true;
+        }
         if (!refuse) return false;
         Acc a = cur;
         if (a != null) a.refused++;
@@ -379,6 +446,7 @@ public final class ParticleStand {
     // the server's: the stream's throwers, ticks left to fire
     private static final List<LivingEntity> THROWERS = new ArrayList<>();
     private static volatile What streaming;
+    private static volatile boolean FP;
     private static volatile int streamLeft;
     private static Fluid chlorine;
     private static String casing;
@@ -395,9 +463,9 @@ public final class ParticleStand {
         savedQuality = Config.smokeQuality;
         Config.smokeQuality = "high";
         for (int r = 0; r < ROUNDS; r++) for (Scene s : SCENES) {
-            boolean xFirst = r % 2 == 1;
-            RUNS.add(new Run(s, xFirst, r));
-            RUNS.add(new Run(s, !xFirst, r));
+            List<Mode> modes = new ArrayList<>(s.trial.isEmpty() ? List.of(Mode.N, Mode.X) : List.of(Mode.N, Mode.T, Mode.X));
+            if (r % 2 == 1) java.util.Collections.reverse(modes);
+            for (Mode m : modes) RUNS.add(new Run(s, m, r));
         }
         var server = mc.getSingleplayerServer();
         server.submit(() -> {
@@ -424,10 +492,10 @@ public final class ParticleStand {
         }
         ROWS.add("run\twindow\tfps\tframe_ms\tdrawn_ms\tdrawn_p95\tdrawn_p99\tdrawn_n\thidden_ms\thidden_p95\thidden_n\talive_avg\talive_max"
                 + "\tspawned_s\trefused_s\ttick_ms\ttick_ms_s\textract_ms\tsubmit_ms\tprepare_ms\texecute_ms\tfw_frame_ms\tfw_render_ms\tload"
-                + "\tcpu_ms\tdrawn_cpu\thidden_cpu\tgpu_quads_ms\tgpu_fw_drawn_ms\tgpu_fw_hidden_ms\tgpu_n");
+                + "\tcpu_ms\tdrawn_cpu\thidden_cpu\tgpu_quads_ms\tgpu_fw_drawn_ms\tgpu_fw_hidden_ms\tgpu_n\ttrimmed_s");
         GROUPS.add("run\twindow\tgroup\talive_avg\ttick_us\textract_us\tsubmit_us");
         CENSUS_ROWS.add("run\tclass\torigin\tadded\tmade_by_ntm\tmade_by_ours\tmade_by_game\tmade_by_other\tmakers");
-        LIVE.add("run\tt_s\tclass\talive\tflywheel");
+        LIVE.add("run\tt_s\tclass\talive\tflywheel\tasleep");
         run = 0;
         phase = 0;
         last = System.nanoTime();
@@ -465,7 +533,9 @@ public final class ParticleStand {
         int tick = STREAM_TICKS - streamLeft;
         for (LivingEntity t : THROWERS) {
             switch (w) {
-                case FLAMER -> level.addFreshEntity(new EntityBulletBaseMK4(t, XFactoryFlamer.flame_diesel, 10F, 0.05F, 0, -0.25, 0.5));
+                // at the eye: out of the muzzle as NTM's flamethrower fires (its receiver's offset 0.75 on, 0.0625 down, 0.25 aside)
+                case FLAMER -> level.addFreshEntity(FP ? new EntityBulletBaseMK4(t, XFactoryFlamer.flame_diesel, 10F, 0.05F, -0.25, -0.0625, 0.75)
+                        : new EntityBulletBaseMK4(t, XFactoryFlamer.flame_diesel, 10F, 0.05F, 0, -0.25, 0.5));
                 case CHEM -> {
                     EntityChemical chem = new EntityChemical(ModEntities.CHEMICAL.get(), level, t, 0, 0, 0);
                     chem.setFluid(chlorine);
@@ -497,6 +567,8 @@ public final class ParticleStand {
                     stand.snapTo(x, Y, GZ - 12, 0F, 0F);
                     stand.setYHeadRot(0F);
                     stand.setNoGravity(true);
+                    // the camera in it
+                    if (s.fp) stand.setInvisible(true);
                     level.addFreshEntity(stand);
                     THROWERS.add(stand);
                 }
@@ -617,13 +689,15 @@ public final class ParticleStand {
         }
     }
 
-    // a stream at its thrower's eye; the rifles from behind them (their casings in sight)
+    // a stream behind its thrower (fp: at its eye, an armour stand's 1.7775); the rifles from behind them (their casings in sight)
     private static Vec3 eye(Scene s) {
+        if (s.fp) return new Vec3(GX - 1, Y + 1.7775, GZ - 12);
         if (s.what == What.GUNFIRE) return new Vec3(GX + 1, Y + 2.2, GZ - 17);
         return s.stream() ? new Vec3(GX, Y + 1.62, GZ - 14.5) : new Vec3(GX, Y + s.up, GZ - s.dist);
     }
 
     private static float pitch(Scene s) {
+        if (s.fp) return 0F;
         if (s.what == What.GUNFIRE) return 12F;
         return s.stream() ? 6F : (float) Math.toDegrees(Math.atan2(s.up - 1, s.dist));
     }
@@ -673,7 +747,12 @@ public final class ParticleStand {
                 purge();
                 CENSUS.clear();
                 adds = 0;
-                refuse = r.refused;
+                refuse = r.refused();
+                trial = r.trial();
+                BASE_SIZE.clear();
+                shot = 0;
+                shotLeft = 0;
+                holeStep = 0;
                 frameNo = 0;
                 window = 0;
                 sampled = 0;
@@ -685,6 +764,7 @@ public final class ParticleStand {
                 if (t < 0) break;
                 close(r);
                 if (r.scene.stream()) {
+                    FP = r.scene.fp;
                     streamLeft = STREAM_TICKS;
                     streaming = r.scene.what;
                 } else burst(r.scene);
@@ -696,13 +776,17 @@ public final class ParticleStand {
                 if (cur != null && t >= cur.to) close(r);
                 if (cur == null && window - 1 < w.length && t >= w[window - 1][0]) open(names[window - 1], w[window - 1][0], w[window - 1][1]);
                 double[] at = r.scene.stream() ? new double[] {6} : new double[] {1, 5};
-                if (!r.refused && sampled < at.length && t >= at[sampled]) live(r, at[sampled++]);
+                if (!r.refused() && sampled < at.length && t >= at[sampled]) live(r, at[sampled++]);
+                double[] shots = r.scene.stream() ? new double[] {6} : new double[] {0.5, 2};
+                if (r.round == 0 && !r.refused() && shotLeft == 0 && shot < shots.length && t >= shots[shot]) shotLeft = 3;
+                if (r.scene.what == What.GUNFIRE && r.mode == Mode.N) hole(r, t);
                 if (t >= r.scene.end()) {
                     if (cur != null) close(r);
                     censusRows(r);
                     write();
                     tearDown();
                     refuse = false;
+                    trial = "";
                     hide = false;
                     run++;
                     phase = 0;
@@ -712,9 +796,65 @@ public final class ParticleStand {
             default -> {
             }
         }
-        // N: the drawing off every other 32 frames
+        // a shot: the drawing on for 3 frames, the second of them shot (the frame before this one, drawn)
+        if (shotLeft > 0 && --shotLeft == 1) {
+            double[] shots = r.scene.stream() ? new double[] {6} : new double[] {0.5, 2};
+            shoot(r, shots[shot++]);
+        }
+        // N and T: the drawing off every other 32 frames
         wasHidden = hide;
-        hide = phase != 0 && !r.refused && (frameNo++ / 32) % 2 == 1;
+        hide = phase != 0 && !r.refused() && shotLeft == 0 && (frameNo++ / 32) % 2 == 1;
+    }
+
+    private static int shot, shotLeft;
+
+    // the rifles' casings lying 1.5 s after the last round (asleep, with MixinCasingSleep): the floor's top under them
+    // taken away, 1.5 s on every one of them a block lower
+    private static final Map<Particle, Double> LYING = new IdentityHashMap<>();
+    private static int holeStep;
+
+    private static void hole(Run r, double t) {
+        if (holeStep == 0 && t >= 11.5) {
+            holeStep = 1;
+            LYING.clear();
+            int asleep = 0;
+            for (ParticleGroup<?> g : groups()) for (Particle p : queue(g)) {
+                if (!(p instanceof com.hbm.particle.ParticleSpentCasing) || !p.isAlive()) continue;
+                Vec3 c = p.getBoundingBox().getCenter();
+                if (Math.abs(c.x - GX) > 6 || c.z < GZ - 13 || c.z > GZ - 6 || c.y > Y + 0.2) continue;
+                LYING.put(p, p.getBoundingBox().minY);
+                if (p instanceof SleepingCasing sc && sc.gunfeel$asleep()) asleep++;
+            }
+            GunFeel.LOGGER.info("[particlestand] {} гильз на полу у стрелков, спят {}", LYING.size(), asleep);
+            var server = Minecraft.getInstance().getSingleplayerServer();
+            server.submit(() -> {
+                var air = Blocks.AIR.defaultBlockState();
+                for (int x = (int) GX - 7; x <= (int) GX + 7; x++) for (int z = (int) GZ - 14; z <= (int) GZ - 5; z++)
+                    server.overworld().setBlock(new BlockPos(x, Y - 1, z), air, 2);
+            }).join();
+        }
+        if (holeStep == 1 && t >= 13) {
+            holeStep = 2;
+            int fell = 0, gone = 0;
+            for (var e : LYING.entrySet()) {
+                if (!e.getKey().isAlive()) gone++;
+                else if (e.getKey().getBoundingBox().minY < e.getValue() - 0.9) fell++;
+            }
+            ClientSmoke.check(LYING.size() - gone > 0 && fell == LYING.size() - gone,
+                    "частицы: " + r.label() + " гильз на полу " + LYING.size() + ", упали в яму " + fell + ", исчезли " + gone);
+            LYING.clear();
+        }
+    }
+
+    private static void shoot(Run r, double at) {
+        Path file = Path.of(DIR, String.format(Locale.ROOT, "%s-%s-%.1fs.png", r.scene.name, r.mode, at));
+        net.minecraft.client.Screenshot.takeScreenshot(Minecraft.getInstance().gameRenderer.mainRenderTarget(), image -> {
+            try (image) {
+                image.writeToFile(file);
+            } catch (Exception e) {
+                GunFeel.LOGGER.error("[particlestand] {}", file, e);
+            }
+        });
     }
 
     private static void open(String name, double from, double to) {
@@ -735,14 +875,14 @@ public final class ParticleStand {
             load = Double.parseDouble(Files.readString(Path.of("/proc/loadavg")).split(" ")[0]);
         } catch (Exception ignored) {
         }
-        String row = String.format(Locale.ROOT, "%s\t%s\t%.0f\t%.3f\t%.3f\t%.3f\t%.3f\t%d\t%.3f\t%.3f\t%d\t%.0f\t%d\t%.0f\t%.0f\t%.4f\t%.3f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.2f\t%.3f\t%.3f\t%.3f\t%.4f\t%.4f\t%.4f\t%d",
+        String row = String.format(Locale.ROOT, "%s\t%s\t%.0f\t%.3f\t%.3f\t%.3f\t%.3f\t%d\t%.3f\t%.3f\t%d\t%.0f\t%d\t%.0f\t%.0f\t%.4f\t%.3f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.2f\t%.3f\t%.3f\t%.3f\t%.4f\t%.4f\t%.4f\t%d\t%.0f",
                 r.label(), a.name, 1000 / Math.max(1e-9, mean(all)), mean(all), mean(a.drawn), pct(a.drawn, 0.95), pct(a.drawn, 0.99), a.drawn.size(),
                 mean(a.hidden), pct(a.hidden, 0.95), a.hidden.size(), a.aliveSamples == 0 ? 0 : a.aliveSum / (double) a.aliveSamples, a.aliveMax,
                 a.spawned / secs, a.refused / secs, a.ticks == 0 ? 0 : a.tickNs / 1e6 / a.ticks, a.tickNs / 1e6 / secs, a.extractNs / 1e6 / nd,
                 a.submitNs / 1e6 / nd, a.prepareNs / 1e6 / nd, a.executeNs / 1e6 / nd, a.fwFrameNs / 1e6 / Math.max(1, all.size()),
                 a.fwRenderNs / 1e6 / Math.max(1, all.size()), load, (sum(a.drawnCpu) + sum(a.hiddenCpu)) / 1e6 / Math.max(1, all.size()),
                 mean(a.drawnCpu), mean(a.hiddenCpu), a.gpuQuadsDrawn / 1e6 / Math.max(1, a.gpuDrawn), a.gpuFwDrawn / 1e6 / Math.max(1, a.gpuDrawn),
-                a.gpuFwHidden / 1e6 / Math.max(1, a.gpuHidden), a.gpuDrawn + a.gpuHidden);
+                a.gpuFwHidden / 1e6 / Math.max(1, a.gpuHidden), a.gpuDrawn + a.gpuHidden, a.trimmed / secs);
         ROWS.add(row);
         GunFeel.LOGGER.info("[particlestand] {}", row);
         for (var e : a.groups.entrySet()) {
@@ -774,19 +914,26 @@ public final class ParticleStand {
     private static void live(Run r, double at) {
         Map<String, int[]> by = new TreeMap<>();
         for (ParticleGroup<?> g : groups()) for (Particle p : queue(g)) {
-            int[] c = by.computeIfAbsent(p.getClass().getName(), k -> new int[2]);
+            int[] c = by.computeIfAbsent(p.getClass().getName(), k -> new int[3]);
             c[0]++;
             if (p instanceof VisualParticle v && v.ownsVisual()) c[1]++;
+            if (p instanceof SleepingCasing sc && sc.gunfeel$asleep()) c[2]++;
         }
         var level = Minecraft.getInstance().level;
         int puffs = 0;
         if (level != null) for (Entity e : level.entitiesForRendering()) if (e instanceof EntityNukeTorex tx) puffs += tx.cloudlets.size();
-        if (puffs > 0) by.put("(entity) com.hbm.entity.effect.EntityNukeTorex cloudlets", new int[] {puffs, 0});
+        if (puffs > 0) by.put("(entity) com.hbm.entity.effect.EntityNukeTorex cloudlets", new int[] {puffs, 0, 0});
         for (var e : by.entrySet())
-            LIVE.add(String.format(Locale.ROOT, "%s\t%.0f\t%s\t%d\t%d", r.label(), at, e.getKey(), e.getValue()[0], e.getValue()[1]));
+            LIVE.add(String.format(Locale.ROOT, "%s\t%.0f\t%s\t%d\t%d\t%d", r.label(), at, e.getKey(), e.getValue()[0], e.getValue()[1], e.getValue()[2]));
     }
 
     private static void censusRows(Run r) {
+        // NTM's standard blast puffs at BlastParticles.MAX of its blocks at most
+        if (r.scene.what == What.C4_BLOCK && !r.refused()) {
+            long[] puffs = CENSUS.get("net.minecraft.client.particle.ExplodeParticle");
+            long n = puffs == null ? 0 : puffs[0];
+            ClientSmoke.check(n > 0 && n <= BlastParticles.MAX, "частицы: " + r.label() + " клубов C4 " + n + " (не больше " + BlastParticles.MAX + ")");
+        }
         for (var e : CENSUS.entrySet()) {
             long[] c = e.getValue();
             StringBuilder m = new StringBuilder();
