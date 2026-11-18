@@ -7,6 +7,9 @@
   left hand at their side with its muzzle down, then back in both hands.
   Crouched, the shoulders stay down through the throw.
   `/gunfeel botmoves old` brings back the old throw.
+
+## X1624
+
 - AI soldiers' legs no longer pass through each other as they turn on the spot,
   set off or pull up, and a soldier going straight back from a run no longer
   starts to pull up on the way (its legs jolted).
