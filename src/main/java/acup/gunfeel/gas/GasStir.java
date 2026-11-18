@@ -36,7 +36,7 @@ public final class GasStir {
     }
 
     private static boolean gas(acup.gunfeel.smoke.SmokeKind kind) {
-        return GasKind.of(kind) != null;
+        return GasKind.gas(kind);
     }
 
     /** A bullet moved from {@code from} to {@code to} this tick. */

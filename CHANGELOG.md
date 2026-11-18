@@ -1,5 +1,18 @@
 # Changelog
 
+## X1674
+
+- NTM's phosgene creeper now leaves a phosgene cloud of this mod's gas (doses,
+  gas mask) where it blows up, as big as NTM's mist was, in place of the mist.
+- NTM's chemical thrower now leaves its gas behind where the stream ends: half
+  a gas grenade's worth for every second of stream. Chlorine, phosgene and
+  mustard are this mod's gases. Steam, hot air, cold oxygen, UF6, PuF6 and
+  waste gas become clouds in the fluid's colour that do what NTM's mist of that
+  fluid does: steam scalds, the hotter the worse, cold oxygen freezes and
+  slows, the fluorides burn and contaminate, waste gas contaminates. Burning
+  gases still burn in the stream and leave nothing, as before. With smoke
+  turned off on the server both stay as NTM had them.
+
 ## X1671
 
 - The gun at a wall: drawing a gun in the open no longer sometimes turns it up

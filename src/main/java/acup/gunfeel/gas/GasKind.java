@@ -62,6 +62,11 @@ public enum GasKind {
         return smoke;
     }
 
+    /** Whether a cloud kind is a gas (this mod's or one of NTM's, {@link NtmGas}) and not smoke. */
+    public static boolean gas(SmokeKind kind) {
+        return of(kind) != null || NtmGas.of(kind) != null;
+    }
+
     /** The gas of a smoke kind, or null for smoke. */
     public static GasKind of(SmokeKind kind) {
         for (GasKind g : values()) if (g.smoke.id() == kind.id()) return g;

@@ -226,7 +226,7 @@ public final class SmokeClouds {
      * {@code GasPoison}); they are drawn as one smoke all the same.
      */
     public static boolean feeds(SmokeKind kind) {
-        return acup.gunfeel.gas.GasKind.of(kind) == null;
+        return !acup.gunfeel.gas.GasKind.gas(kind);
     }
 
     /**
@@ -355,6 +355,29 @@ public final class SmokeClouds {
         all.insert(c, gone -> SmokeNet.ended(level, gone));
         SmokeNet.spawned(level, c);
         return id;
+    }
+
+    /**
+     * Feeds a cloud by its id with {@code scale} of its kind's volume let out at a point, whatever its kind (a gas
+     * stream builds its cloud out: {@code acup.gunfeel.gas.ChemClouds}). False (nothing done) when the cloud is gone,
+     * the point is beyond {@link #FEED_REACH} across of its burst cell or out of its grid's height, the cloud is about to
+     * end or has its feeds.
+     */
+    public static boolean feed(ServerLevel level, int id, Vec3 pos, Vec3 direction, float scale) {
+        SmokeClouds all = get(level);
+        if (all == null || !enabled() || !(scale > 0F)) return false;
+        Cloud host = null;
+        for (Cloud c : all.clouds()) if (c.id == id) host = c;
+        if (host == null || host.grid.age() + STIR_AHEAD > host.grid.maxAge() || host.feedsAll() >= SmokeGrid.FEEDS_MAX) return false;
+        BlockPos at = BlockPos.containing(pos);
+        int x = at.getX() - host.baseX(), y = at.getY() - host.baseY(), z = at.getZ() - host.baseZ();
+        if (Math.abs(x - SmokeGrid.OX) > FEED_REACH || Math.abs(z - SmokeGrid.OZ) > FEED_REACH || y < 0 || y >= SmokeGrid.SY) return false;
+        float len = (float) Math.hypot(direction.x, direction.z);
+        float dx = len > 1e-4F ? (float) direction.x / len : 0F, dz = len > 1e-4F ? (float) direction.z / len : 0F;
+        Feed f = new Feed(host.grid.age() + STIR_AHEAD, at.getX(), at.getY(), at.getZ(), dx, dz, Math.min(4F, scale));
+        if (!host.stir(f)) return false;
+        SmokeNet.fed(level, host, f);
+        return true;
     }
 
     /** Whether this server lets smoke out at all (the {@code smoke} key). */

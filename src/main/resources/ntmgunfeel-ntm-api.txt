@@ -1204,6 +1204,36 @@ MODEL_HITBOXES method com/hbm/render/loader/GroupObject bounds ()[F
 MODEL_HITBOXES method com/hbm/render/loader/GroupObject quads (Z)[F
 MODEL_HITBOXES method com/hbm/render/loader/HFRWavefrontObject partId (Ljava/lang/String;)I
 MODEL_HITBOXES method com/hbm/util/EntityDamageUtil attackEntityFromNT (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/damagesource/DamageSource;FZZDFF)Z
+NTM_GAS class com/hbm/entity/effect/EntityMist
+NTM_GAS class com/hbm/entity/mob/EntityCreeperPhosgene
+NTM_GAS class com/hbm/entity/projectile/EntityChemical
+NTM_GAS class com/hbm/inventory/fluid/NTMFluidProperty
+NTM_GAS class com/hbm/inventory/fluid/trait/FT_VentRadiation
+NTM_GAS field com/hbm/entity/ModEntities CHEMICAL Lcom/hbm/registration/RegistryHandle;
+NTM_GAS field com/hbm/entity/ModEntities CREEPER_PHOSGENE Lcom/hbm/registration/RegistryHandle;
+NTM_GAS field com/hbm/entity/ModEntities MIST Lcom/hbm/registration/RegistryHandle;
+NTM_GAS field com/hbm/entity/projectile/EntityChemical$ChemicalStyle GAS Lcom/hbm/entity/projectile/EntityChemical$ChemicalStyle;
+NTM_GAS method com/hbm/entity/effect/EntityMist <init> (Lnet/minecraft/world/level/Level;)V
+NTM_GAS method com/hbm/entity/effect/EntityMist setPos (DDD)V
+NTM_GAS method com/hbm/entity/effect/EntityMist setType (Lnet/minecraft/world/level/material/Fluid;)Lcom/hbm/entity/effect/EntityMist;
+NTM_GAS method com/hbm/entity/mob/EntityCreeperPhosgene ignite ()V
+NTM_GAS method com/hbm/entity/mob/EntityCreeperPhosgene setNoAi (Z)V
+NTM_GAS method com/hbm/entity/mob/EntityCreeperPhosgene setPos (DDD)V
+NTM_GAS method com/hbm/entity/projectile/EntityChemical <init> (Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;DDD)V
+NTM_GAS method com/hbm/entity/projectile/EntityChemical getChemType ()Lnet/minecraft/world/level/material/Fluid;
+NTM_GAS method com/hbm/entity/projectile/EntityChemical getDeltaMovement ()Lnet/minecraft/world/phys/Vec3;
+NTM_GAS method com/hbm/entity/projectile/EntityChemical getStyleFromType (Lnet/minecraft/world/level/material/Fluid;)Lcom/hbm/entity/projectile/EntityChemical$ChemicalStyle;
+NTM_GAS method com/hbm/entity/projectile/EntityChemical getThrower ()Lnet/minecraft/world/entity/LivingEntity;
+NTM_GAS method com/hbm/entity/projectile/EntityChemical isRemoved ()Z
+NTM_GAS method com/hbm/entity/projectile/EntityChemical level ()Lnet/minecraft/world/level/Level;
+NTM_GAS method com/hbm/entity/projectile/EntityChemical position ()Lnet/minecraft/world/phys/Vec3;
+NTM_GAS method com/hbm/entity/projectile/EntityChemical setFluid (Lnet/minecraft/world/level/material/Fluid;)Lcom/hbm/entity/projectile/EntityChemical;
+NTM_GAS method com/hbm/handler/radiation/RadiationSystemNT incrementRad (Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/BlockPos;DD)V
+NTM_GAS method com/hbm/inventory/fluid/NTMFluidProperties get (Lnet/minecraft/world/level/material/Fluid;)Lcom/hbm/inventory/fluid/NTMFluidProperty;
+NTM_GAS method com/hbm/inventory/fluid/NTMFluidProperty getTrait (Ljava/lang/Class;)Lcom/hbm/inventory/fluid/trait/FluidTrait;
+NTM_GAS method com/hbm/inventory/fluid/NTMFluidProperty hasTrait (Ljava/lang/Class;)Z
+NTM_GAS method com/hbm/inventory/fluid/trait/FT_VentRadiation getRadPerMB ()F
+NTM_GAS method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 NUCLEAR_BMG50 class com/hbm/entity/projectile/EntityBulletBaseMK4
 NUCLEAR_BMG50 class com/hbm/explosion/vanillant/ExplosionVNT
 NUCLEAR_BMG50 class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth
