@@ -22,11 +22,23 @@ class GasGridTest {
     // ground under the burst cell
     private static final SmokeGrid.Mask FIELD = (x, y, z) -> y < OY;
 
+    // The masks and the heights below are smoke's box (the burst cell at OY); a heavy gas's box has its burst cell
+    // higher (OY_HEAVY), so its grid reads them that much lower.
+    private static int up(SmokeGrid g) {
+        return g.oy() - OY;
+    }
+
     private static SmokeGrid grid(SmokeKind kind, SmokeGrid.Mask mask) {
         SmokeGrid g = new SmokeGrid(kind, 5, 1F, 0F, 1F);
-        g.scan(mask);
+        int up = kind.below() - OY;
+        g.scan((x, y, z) -> mask.closed(x, y - up, z));
         g.place();
         return g;
+    }
+
+    // the density at a cell of smoke's box
+    private static float at(SmokeGrid g, int x, int y, int z) {
+        return g.density(x, y + up(g), z);
     }
 
     private static void run(SmokeGrid g, int ticks) {
@@ -36,7 +48,7 @@ class GasGridTest {
     // blocks along +x from the burst cell with C above a level
     private static int reach(SmokeGrid g, float level) {
         int r = 0;
-        for (int x = OX; x < SX; x++) if (g.density(x, OY, OZ) > level) r = x - OX;
+        for (int x = OX; x < SX; x++) if (at(g, x, OY, OZ) > level) r = x - OX;
         return r;
     }
 
@@ -69,7 +81,7 @@ class GasGridTest {
             for (int t = 0; t < k.smoke().maxAge(); t++) {
                 g.step();
                 if (t == 100) peak = reach(g, 0.5F);
-                core = Math.max(core, g.density(OX, OY, OZ));
+                core = Math.max(core, at(g, OX, OY, OZ));
             }
             System.out.println("gas " + k.key + " reach(C>0.5)=" + peak + " cells(C>0.5)@100=? core max " + core);
             assertTrue(Math.abs(peak - want[k.ordinal()]) <= 1.5F, k.key + " reaches " + peak + " blocks, wants about " + want[k.ordinal()]);
@@ -119,7 +131,7 @@ class GasGridTest {
 
     private static float inPit(SmokeGrid g) {
         float sum = 0F;
-        for (int y = OY - 3; y < OY; y++) for (int z = OZ - 2; z <= OZ + 2; z++) for (int x = OX + 3; x <= OX + 7; x++) sum += g.density(x, y, z);
+        for (int y = OY - 3; y < OY; y++) for (int z = OZ - 2; z <= OZ + 2; z++) for (int x = OX + 3; x <= OX + 7; x++) sum += at(g, x, y, z);
         return sum;
     }
 
@@ -156,7 +168,7 @@ class GasGridTest {
             double sum = 0, mass = 0;
             for (int y = 0; y < SY; y++) for (int z = 0; z < SZ; z++) for (int x = 0; x < SX; x++) {
                 float d = g.density(x, y, z);
-                sum += d * y;
+                sum += d * (y - up(g));
                 mass += d;
             }
             h[i] = (float) (sum / mass);

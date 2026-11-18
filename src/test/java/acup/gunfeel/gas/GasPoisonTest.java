@@ -1,7 +1,6 @@
 package acup.gunfeel.gas;
 
 import static acup.gunfeel.smoke.SmokeGrid.OX;
-import static acup.gunfeel.smoke.SmokeGrid.OY;
 import static acup.gunfeel.smoke.SmokeGrid.OZ;
 import static acup.gunfeel.smoke.SmokeGrid.SX;
 import static acup.gunfeel.smoke.SmokeGrid.SZ;
@@ -19,7 +18,11 @@ import acup.gunfeel.smoke.SmokeGrid;
  * of grenades fired one after another at one place, worked out the way the server does it.
  */
 class GasPoisonTest {
-    private static final SmokeGrid.Mask FIELD = (x, y, z) -> y < OY;
+    // ground under the burst cell (a heavy gas's is higher in its box)
+    private static SmokeGrid.Mask field(GasKind kind) {
+        int below = kind.smoke().below();
+        return (x, y, z) -> y < below;
+    }
 
     // the sums of the biome cells (4 by 4 columns) after grenades let out every `gap` ticks at one place
     private static float most(GasKind kind, int grenades, int gap) {
@@ -31,7 +34,7 @@ class GasPoisonTest {
         for (int t = 0; t <= end; t++) {
             if (t % gap == 0 && t / gap < grenades) {
                 SmokeGrid g = new SmokeGrid(kind.smoke(), 11L + t, 1F, 0F, 1F);
-                g.scan(FIELD);
+                g.scan(field(kind));
                 g.place();
                 live.add(g);
             }

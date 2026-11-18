@@ -51,6 +51,11 @@ public record SmokeKind(int id, String name, float volume, int release, int bomb
         return null;
     }
 
+    /** Cells of the grid below the burst cell: a heavy gas ({@code lift} below 0) gets twice smoke's, to run down into a cellar. */
+    public int below() {
+        return lift < 0F ? SmokeGrid.OY_HEAVY : SmokeGrid.OY;
+    }
+
     /** Ticks a cloud of this kind can live at most (the release, the hold and the thinning down to nothing). */
     public int maxAge() {
         // the slowest cell (the noise keeps up to fade + 0.015) from well above fill down to SmokeGrid.GONE

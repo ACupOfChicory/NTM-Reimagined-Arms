@@ -1,7 +1,6 @@
 package acup.gunfeel.smoke;
 
 import static acup.gunfeel.smoke.SmokeGrid.OX;
-import static acup.gunfeel.smoke.SmokeGrid.OY;
 import static acup.gunfeel.smoke.SmokeGrid.OZ;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -16,9 +15,11 @@ import net.minecraft.core.BlockPos;
 
 /** Bullets and blasts stirring a gas cloud: how much they take, and that a client's copy stirred late or early ends up the same. */
 class SmokeStirTest {
-    private static final SmokeGrid.Mask FIELD = (x, y, z) -> y < OY;
-    private static final BlockPos ORIGIN = new BlockPos(OX, OY, OZ);
     private static final SmokeKind GAS = GasKind.CHLORINE.smoke();
+    // the burst cell's height in the box (a heavy gas's): the box starts at the world's 0, 0, 0
+    private static final int GY = GAS.below();
+    private static final SmokeGrid.Mask FIELD = (x, y, z) -> y < GY;
+    private static final BlockPos ORIGIN = new BlockPos(OX, GY, OZ);
 
     private static SmokeClouds.Cloud cloud(SmokeClouds all) {
         return all.create(1, ORIGIN, GAS, 77L, 1F, 0F, 1F, 0L);
@@ -30,7 +31,7 @@ class SmokeStirTest {
 
     // a shot along x through the cloud's middle, a block over the ground
     private static SmokeClouds.Stir shot(int age) {
-        return new SmokeClouds.Stir(age, false, -2, OY + 0.5, OZ + 0.5, 30, OY + 0.5, OZ + 0.5, GasStir.LINE_KEEP, GasStir.LINE_KEEP_NEAR);
+        return new SmokeClouds.Stir(age, false, -2, GY + 0.5, OZ + 0.5, 30, GY + 0.5, OZ + 0.5, GasStir.LINE_KEEP, GasStir.LINE_KEEP_NEAR);
     }
 
     @Test
@@ -38,14 +39,14 @@ class SmokeStirTest {
         SmokeClouds all = new SmokeClouds(c -> FIELD);
         SmokeClouds.Cloud c = cloud(all);
         steps(all, c, 60);
-        float before = c.grid.density(OX + 2, OY, OZ), beside = c.grid.density(OX + 2, OY, OZ + 1), off = c.grid.density(OX + 2, OY, OZ + 3);
+        float before = c.grid.density(OX + 2, GY, OZ), beside = c.grid.density(OX + 2, GY, OZ + 1), off = c.grid.density(OX + 2, GY, OZ + 3);
         assertTrue(before > 0.5F, "the line is in the gas: " + before);
         c.stir(shot(c.grid.age()));
-        assertEquals(before * GasStir.LINE_KEEP, c.grid.density(OX + 2, OY, OZ), 1e-6F);
-        assertEquals(beside * GasStir.LINE_KEEP_NEAR, c.grid.density(OX + 2, OY, OZ + 1), 1e-6F);
-        assertEquals(off, c.grid.density(OX + 2, OY, OZ + 3), 0F, "two blocks off the line is left as it was");
+        assertEquals(before * GasStir.LINE_KEEP, c.grid.density(OX + 2, GY, OZ), 1e-6F);
+        assertEquals(beside * GasStir.LINE_KEEP_NEAR, c.grid.density(OX + 2, GY, OZ + 1), 1e-6F);
+        assertEquals(off, c.grid.density(OX + 2, GY, OZ + 3), 0F, "two blocks off the line is left as it was");
         for (int i = 1; i < 10; i++) c.stir(shot(c.grid.age()));
-        assertTrue(c.grid.density(OX + 2, OY, OZ) < before * 0.12F, "ten shots leave about a tenth: " + c.grid.density(OX + 2, OY, OZ));
+        assertTrue(c.grid.density(OX + 2, GY, OZ) < before * 0.12F, "ten shots leave about a tenth: " + c.grid.density(OX + 2, GY, OZ));
     }
 
     @Test
@@ -55,11 +56,11 @@ class SmokeStirTest {
         steps(all, c, 60);
         float before = c.grid.total();
         double reach = Math.min(GasStir.BLAST_REACH_MAX, acup.gunfeel.gl54.Gl54Grenade.RADIUS * GasStir.BLAST_REACH);
-        c.stir(new SmokeClouds.Stir(c.grid.age(), true, OX + 0.5, OY + 0.5, OZ + 0.5, reach, 0, 0, GasStir.BLAST_MOST, 0F));
+        c.stir(new SmokeClouds.Stir(c.grid.age(), true, OX + 0.5, GY + 0.5, OZ + 0.5, reach, 0, 0, GasStir.BLAST_MOST, 0F));
         float after = c.grid.total();
         assertTrue(after < before * 0.45F, "a GL-54 HE blast in the middle takes more than half: " + after / before);
         assertTrue(after > 0F, "the far edge keeps some");
-        assertTrue(c.grid.density(OX, OY, OZ) <= before * 0.05F);
+        assertTrue(c.grid.density(OX, GY, OZ) <= before * 0.05F);
     }
 
     @Test
@@ -150,7 +151,7 @@ class SmokeStirTest {
         SmokeClouds all = new SmokeClouds(c -> FIELD);
         SmokeClouds.Cloud c = cloud(all);
         steps(all, c, 60);
-        assertTrue(c.near(-2, OY + 0.5, OZ + 0.5, 30, OY + 0.5, OZ + 0.5, 1.0));
-        assertFalse(c.near(-2, OY + 9.5, OZ + 0.5, 30, OY + 9.5, OZ + 0.5, 1.0), "high over the cloud");
+        assertTrue(c.near(-2, GY + 0.5, OZ + 0.5, 30, GY + 0.5, OZ + 0.5, 1.0));
+        assertFalse(c.near(-2, GY + 9.5, OZ + 0.5, 30, GY + 9.5, OZ + 0.5, 1.0), "high over the cloud");
     }
 }

@@ -38,11 +38,21 @@ final class SmokeCloudStand {
 
     // sky: 0 the ordinary poses; 1 and 2 the clouds in the air at the height of the sky's own clouds, seen against them
     // (1: the sky's clouds on, 2: off; same camera, so the pair tells where a sky cloud shows through the smoke)
-    private record Pose(String name, double x, double y, double z, float yaw, float pitch, boolean wall, int sky) {
+    // shed: one cloud in a roofed room with a door and a window (the wind's roof, draught and airing, read from the
+    // world on both sides: the hash checks hold)
+    private record Pose(String name, double x, double y, double z, float yaw, float pitch, boolean wall, int sky, boolean shed) {
         Pose(String name, double x, double y, double z, float yaw, float pitch, boolean wall) {
-            this(name, x, y, z, yaw, pitch, wall, 0);
+            this(name, x, y, z, yaw, pitch, wall, 0, false);
+        }
+
+        Pose(String name, double x, double y, double z, float yaw, float pitch, boolean wall, int sky) {
+            this(name, x, y, z, yaw, pitch, wall, sky, false);
         }
     }
+
+    // the shed: x -80..-72, z 44..52, walls 3 high, the roof on them; a door in the -z wall, a window in the +x wall;
+    // out of sight of the other poses (behind the wall's west end)
+    private static final int SHED_X0 = -80, SHED_X1 = -72, SHED_Z0 = 44, SHED_Z1 = 52;
 
     private static final int SKY_Y = 188;
     private static final List<Pose> POSES = GLASS ? List.of() : poses(List.of(
@@ -51,6 +61,7 @@ final class SmokeCloudStand {
             new Pose("inside-y135-p30", 6.5, Y + 1.6, 30.5, 135F, 30F, false),
             new Pose("inside-y-135-p-30", 6.5, Y + 1.6, 30.5, -135F, -30F, false),
             new Pose("wall", -59.5, Y + 1.6, 8.5, 0F, -5F, true),
+            new Pose("shed", -75.5, Y + 1.6, 36.5, 0F, 0F, false, 0, true),
             new Pose("sky", 0.5, SKY_Y - 6, 4.5, 0F, -16F, false, 1),
             new Pose("skyoff", 0.5, SKY_Y - 6, 4.5, 0F, -16F, false, 2),
             new Pose("skyoff2", 0.5, SKY_Y - 6, 4.5, 0F, -16F, false, 2)));
@@ -67,7 +78,8 @@ final class SmokeCloudStand {
         return out;
     }
 
-    private static int pose, quality = -1, frames, phase;
+    private static int pose, quality = -1, frames, phase, drifted;
+    private static final float[] wind = new float[2];
     private static long last, spawnedAt;
     private static long[] cardAt = {0, 0};
     private static boolean reference = true;
@@ -105,6 +117,14 @@ final class SmokeCloudStand {
             }
             // the wall: x -70..-50 at z 20, 6 high; its cloud just behind it
             for (int x = -70; x <= -50; x++) for (int y = Y; y < Y + 6; y++) level.setBlock(new BlockPos(x, y, 20), Blocks.CONCRETE.pick(net.minecraft.world.item.DyeColor.RED).defaultBlockState(), 2);
+            // the shed
+            var shed = Blocks.CONCRETE.pick(net.minecraft.world.item.DyeColor.GRAY).defaultBlockState();
+            for (int x = SHED_X0; x <= SHED_X1; x++) for (int z = SHED_Z0; z <= SHED_Z1; z++) for (int y = Y; y <= Y + 3; y++) {
+                boolean side = x == SHED_X0 || x == SHED_X1 || z == SHED_Z0 || z == SHED_Z1;
+                boolean door = z == SHED_Z0 && Math.abs(x - (SHED_X0 + SHED_X1) / 2) <= 1 && y <= Y + 1;
+                boolean window = x == SHED_X1 && Math.abs(z - (SHED_Z0 + SHED_Z1) / 2) <= 1 && y == Y + 1;
+                if (y == Y + 3 || side && !door && !window) level.setBlock(new BlockPos(x, y, z), shed, 2);
+            }
             var p = server.getPlayerList().getPlayers().getFirst();
             p.setGameMode(GameType.SPECTATOR);
         }).join();
@@ -125,6 +145,7 @@ final class SmokeCloudStand {
             endAll(level);
             Vec3 dir = new Vec3(0, -0.3, 1).normalize();
             if (p.wall) SmokeClouds.spawn(level, new Vec3(-59.5, Y + 0.5, 24.5), dir, SmokeKind.SMOKE, 1F);
+            else if (p.shed) SmokeClouds.spawn(level, new Vec3((SHED_X0 + SHED_X1) / 2 + 0.5, Y + 0.5, (SHED_Z0 + SHED_Z1) / 2 + 0.5), dir, SmokeKind.SMOKE, 1F);
             else for (int i = 0; i < 8; i++) SmokeClouds.spawn(level, new Vec3(-41.5 + 12 * i, (p.sky > 0 ? SKY_Y : Y) + 0.5, 30.5), dir, SmokeKind.SMOKE, 1F);
         }).join();
         spawnedAt = System.nanoTime();
@@ -233,8 +254,9 @@ final class SmokeCloudStand {
                 if ((now - spawnedAt) / 1e9 < 3.5) return;
                 SmokeClouds all = SmokeClient.current();
                 int n = all == null ? 0 : all.clouds().size();
-                if (n < (p.wall ? 1 : 8) && (now - spawnedAt) / 1e9 < 10) return;
-                if (n < (p.wall ? 1 : 8)) ClientSmoke.check(false, "дым: клиент получил " + n + " облаков");
+                int want = p.wall || p.shed ? 1 : 8;
+                if (n < want && (now - spawnedAt) / 1e9 < 10) return;
+                if (n < want) ClientSmoke.check(false, "дым: клиент получил " + n + " облаков");
                 quality = p.sky > 0 ? 4 : 0;
                 nextQuality(p);
             }
@@ -328,6 +350,12 @@ final class SmokeCloudStand {
         String r = String.format(Locale.ROOT, "%s\t%s\t%d\t%.3f\t%.3f\t%.0f\t%.3f\t%.2f", p.name, q, q.equals("none") || q.equals("off") ? 0 : drawn, avg, p95,
                 avg > 0 ? 1000 / avg : 0, card, SmokeFog.atCamera());
         ROWS.add(r);
+        SmokeClouds known = SmokeClient.current();
+        if (known != null) for (SmokeClouds.Cloud c : known.clouds()) {
+            drifted = Math.max(drifted, Math.abs(c.grid.shiftX()) + Math.abs(c.grid.shiftZ()));
+            wind[0] = c.windX;
+            wind[1] = c.windZ;
+        }
         GunFeel.LOGGER.info("[smokestand] {}", r);
     }
 
@@ -499,6 +527,7 @@ final class SmokeCloudStand {
         ROWS.add("# client: " + SmokeStats.last);
         ROWS.add("# server: " + SmokeClouds.serverCost());
         ROWS.add("# checks: matched " + SmokeClient.matched + ", apart " + SmokeClient.apart + ", grids " + SmokeClient.grids);
+        ROWS.add(String.format(Locale.ROOT, "# wind: %.4f, %.4f blocks a tick; the most a box moved: %d cells", wind[0], wind[1], drifted));
         try {
             Files.write(Path.of(DIR, "frames.tsv"), ROWS);
         } catch (Exception e) {

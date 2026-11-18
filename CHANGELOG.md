@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Smoke and gas now drift with the wind. The wind is the same over the whole
+  world, turns slowly over 10 to 20 minutes and blows by the weather: half a
+  block a second in clear weather, a block in the rain, two in a thunderstorm,
+  so a smoke screen moves about 10 blocks in the clear before it thins. It
+  blows only where nothing is overhead and is weaker for a few blocks behind a
+  wall. Under a roof the air stirs only near an open door or window: a room
+  with one airs out, faster the stronger the wind, and a shut room keeps its
+  gas as before. There is no wind in the Nether or the End.
+- Heavy gases (chlorine, phosgene, mustard) can now run 8 blocks down from
+  where they burst, twice as far as before, so they flow into cellars and deep
+  trenches, and they hug the ground harder in the wind.
+
 ## X1663
 
 - Smoke and gas no longer leak through a shut NTM door. Before, they went
