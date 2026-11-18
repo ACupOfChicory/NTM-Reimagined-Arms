@@ -1,6 +1,8 @@
 package acup.gunfeel;
 
 import com.mojang.blaze3d.PrimitiveTopology;
+import com.hbm.interfaces.injected.IBufferBuilderExtension;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,7 +14,13 @@ import org.joml.Vector3f;
 
 // Общий выход CustomGeometryRenderer: читаем те же вершины, которые получает
 // игра, не вызывая рендер или анимацию второй раз. Названия модов не нужны.
-final class SubmittedModelGeometry implements VertexConsumer {
+//
+// The game's buffer behind it keeps its own fast ways: the eleven-number vertex goes to it whole, and NTM's bulk
+// writes (IBufferBuilderExtension: a group's whole mesh in one call, a block of vertices) go to it when it has them.
+// Hidden behind a plain VertexConsumer, every vertex of an NTM suit went through six calls here and six there: with ten
+// bots in a suit that was most of what the hitboxes cost a frame. What is read off is what was before, to the bit: the
+// place and the texture point of each vertex as NTM works them out for its slow way.
+final class SubmittedModelGeometry implements VertexConsumer,IBufferBuilderExtension {
     private static final int MAX_VERTICES=32768, MAX_SHAPES=2048;
     private record Key(Identifier texture,boolean shell,int generation,float[] data) {
         @Override public int hashCode() {
@@ -25,14 +33,27 @@ final class SubmittedModelGeometry implements VertexConsumer {
     }
     private static final Map<Key,ModelSurfaceGeometry> CACHE=new java.util.LinkedHashMap<>(128,.75F,true);
     private final VertexConsumer delegate;
+    /** the buffer as NTM's, null when it has no fast way of NTM's */
+    private final IBufferBuilderExtension fast;
+    private final Vector3f scratch=new Vector3f();
     private float[] vertices=new float[120];
     private int count;
     private boolean overflow;
     private boolean ignored;
 
-    SubmittedModelGeometry(VertexConsumer delegate) { this.delegate=delegate; }
+    SubmittedModelGeometry(VertexConsumer delegate) {
+        this.delegate=delegate;
+        fast=delegate instanceof IBufferBuilderExtension extension?extension:null;
+    }
     static void clear() { CACHE.clear(); }
     void ignore() { ignored=true; count=0; }
+
+    private void record(float x,float y,float z,float u,float v) {
+        if(ignored) return;
+        if(count>=MAX_VERTICES) { overflow=true; return; }
+        if((count+1)*5>vertices.length) vertices=Arrays.copyOf(vertices,Math.min(MAX_VERTICES*5,vertices.length*2));
+        int p=count++*5; vertices[p]=x; vertices[p+1]=y; vertices[p+2]=z; vertices[p+3]=u; vertices[p+4]=v;
+    }
 
     @Override public VertexConsumer addVertex(float x,float y,float z) {
         delegate.addVertex(x,y,z);
@@ -42,6 +63,10 @@ final class SubmittedModelGeometry implements VertexConsumer {
         int p=count++*5; vertices[p]=x; vertices[p+1]=y; vertices[p+2]=z;
         vertices[p+3]=vertices[p+4]=0;
         return this;
+    }
+    @Override public void addVertex(float x,float y,float z,int color,float u,float v,int overlay,int light,float nx,float ny,float nz) {
+        delegate.addVertex(x,y,z,color,u,v,overlay,light,nx,ny,nz);
+        record(x,y,z,u,v);
     }
     @Override public VertexConsumer setUv(float u,float v) {
         delegate.setUv(u,v);
@@ -55,10 +80,45 @@ final class SubmittedModelGeometry implements VertexConsumer {
     @Override public VertexConsumer setNormal(float x,float y,float z) { delegate.setNormal(x,y,z); return this; }
     @Override public VertexConsumer setLineWidth(float width) { delegate.setLineWidth(width); return this; }
 
+    // NTM's bulk writes, passed on when the buffer has them; false sends NTM its slow way, through the calls above
+    @Override public boolean hbm$putPart(float[] src,int stride,int vertexCount,PoseStack.Pose pose,int color,int overlay,int light,
+            float uScale,float vScale,float uOff,float vOff) {
+        if(fast==null || !fast.hbm$putPart(src,stride,vertexCount,pose,color,overlay,light,uScale,vScale,uOff,vOff)) return false;
+        if(!ignored) for(int i=0,at=0;i<vertexCount;i++,at+=stride) {
+            // GroupObject's slow way: the place by the pose, the texture point scaled and moved
+            pose.pose().transformPosition(src[at],src[at+1],src[at+2],scratch);
+            record(scratch.x,scratch.y,scratch.z,src[at+3]*uScale+uOff,src[at+4]*vScale+vOff);
+        }
+        return true;
+    }
+    @Override public boolean hbm$beginBlock(int vertexCount) { return fast!=null && fast.hbm$beginBlock(vertexCount); }
+    @Override public void hbm$blockVertex(float x,float y,float z,int color,float u,float v,int overlay,int light,float nx,float ny,float nz) {
+        fast.hbm$blockVertex(x,y,z,color,u,v,overlay,light,nx,ny,nz);
+        record(x,y,z,u,v);
+    }
+    @Override public boolean hbm$beginColorBlock(int vertexCount) { return fast!=null && fast.hbm$beginColorBlock(vertexCount); }
+    @Override public void hbm$colorVertex(float x,float y,float z,int color) {
+        fast.hbm$colorVertex(x,y,z,color);
+        record(x,y,z,0,0);
+    }
+    @Override public boolean hbm$positionColor(float x,float y,float z,int color) {
+        if(fast==null || !fast.hbm$positionColor(x,y,z,color)) return false;
+        record(x,y,z,0,0);
+        return true;
+    }
+    @Override public void hbm$endBlock() { fast.hbm$endBlock(); }
+    // a tracer's ribbon, light and not a mob's shape: NTM only casts to it, as before it is the buffer's own
+    @Override public void hbm$ribbon(float hx,float hy,float hz,float tx,float ty,float tz,int headColor,int tailColor,
+            float headWidth,float tailWidth,int light) {
+        ((IBufferBuilderExtension)delegate).hbm$ribbon(hx,hy,hz,tx,ty,tz,headColor,tailColor,headWidth,tailWidth,light);
+    }
+
     List<ModelBox> boxes(PrimitiveTopology topology,Identifier texture,boolean blended,double x,double y,double z) {
         if(overflow) throw new IllegalArgumentException("слишком много вершин custom geometry");
-        return capture(Arrays.copyOf(vertices,count*5),topology,texture,blended,x,y,z);
+        return capture(recorded(),topology,texture,blended,x,y,z);
     }
+    /** what is read off so far: x, y, z, u, v a vertex */
+    float[] recorded() { return Arrays.copyOf(vertices,count*5); }
 
     // Отдельная функция принимает настоящий поток вершин и пригодна для
     // проверки разными моделями, включая не использующие ModelPart.

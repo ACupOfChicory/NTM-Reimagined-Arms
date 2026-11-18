@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Mobs in NTM's power armour and suits, and NTM's own mobs, no longer slow
+  the game down near the player: taking their hitboxes made NTM draw their
+  models a vertex at a time instead of its fast way, which a handful of AI
+  bots in power armour made plain. They are drawn NTM's fast way again. The
+  hitboxes are the same as before.
+
 ## X1674
 
 - NTM's phosgene creeper now leaves a phosgene cloud of this mod's gas (doses,
