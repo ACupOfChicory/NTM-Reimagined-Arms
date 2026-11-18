@@ -50,6 +50,16 @@ page. They are alphas: expect bugs and back up your world.
   chestplate is enough.
 - A bullet flies where the player looked in the frame of the click, and a burst
   follows the camera.
+- The M2 and the AM-180 overheat (the minigun's turning barrels do not): about
+  180 rounds of the M2 in one burst, or three magazines of the AM-180 one
+  after another, and the barrel is at its hottest. It cools in about a
+  minute, four times as fast in water or rain. A hot barrel smokes at the
+  muzzle and hisses, its heat shows as a bar under the gun's condition, the
+  shot spreads up to four times the gun's own and the barrel wears up to five
+  times as fast. The AM-180 jams in the burst; the M2 fires from a closed bolt,
+  so a round left in its hot chamber can go off on its own a moment after the
+  trigger is let go. AI soldiers fire shorter bursts as their barrel warms and
+  wait for it to cool near the top (server key `gunOverheat`).
 
 ### Ammo and HUD
 
@@ -574,6 +584,7 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 | `shockGlitch`, `shockGlitchMin` | `1`, `0.5` | The most the HUD glitches, and the least share of it a player may turn their own down to |
 | `shockCamera`, `shockShake` | `45`, `0.6` | How fast the view drifts on its own at most (degrees a second), and how much it shakes (degrees) |
 | `gunshotRange` | `1` | How far shots are heard, players and AI bots alike: silenced 16 blocks, energy weapons 24, pistols 48, shotguns and launchers 64, rifles 80, machine guns 96, anti-materiel rifles 128; the part over 16 scaled (`0`: 16 for all, as in NTM) |
+| `gunOverheat` | `1` | The M2's and the AM-180's barrels heat up: times the heat each shot adds (`0`: they never heat) |
 | `miniNukeCloud` | `true` | NTM's small nuclear blasts drawn as the mushroom cloud of NTM's bombs, sized to the blast (`false`: NTM's own flash and wave) |
 | `gunHitKnockback`, `gunHitTilt` | `false` | `true`: a player hit by an NTM gun's bullet or beam is thrown back as in vanilla; their view tilts with the hit |
 | `bulletBreakConcrete` | `false` | Bullets wear and break concrete |

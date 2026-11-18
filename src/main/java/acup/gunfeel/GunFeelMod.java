@@ -45,6 +45,7 @@ public final class GunFeelMod {
         }
         if (Feature.DUPLEX.on()) acup.gunfeel.ammo.Duplex.register(modBus);
         if (Feature.NUCLEAR_BMG50.on()) acup.gunfeel.ammo.NuclearBmg.register(modBus);
+        if (Feature.OVERHEAT.on() && dist.isClient()) acup.gunfeel.heat.client.OverheatClient.init();
         GunWeight.register();
         acup.gunfeel.ai.AiPose.register(modBus);
         BalanceRecipes.register(modBus);
