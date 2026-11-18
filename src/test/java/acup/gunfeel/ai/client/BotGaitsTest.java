@@ -277,19 +277,6 @@ class BotGaitsTest {
     }
 
     @Test
-    void oldKeepsTheModsOwnClips() {
-        String was = System.getProperty("ntmgunfeel.botMoves");
-        System.setProperty("ntmgunfeel.botMoves", "old");
-        try {
-            assertNull(BotGaits.own(5));
-            assertNull(BotGaitOverride.of(5));
-        } finally {
-            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
-            else System.setProperty("ntmgunfeel.botMoves", was);
-        }
-    }
-
-    @Test
     void aMobsLegsAreItsOwnClipsAtTheirPace() {
         BotGaitOverride o = BotGaits.own(11);
         assertNotNull(o);

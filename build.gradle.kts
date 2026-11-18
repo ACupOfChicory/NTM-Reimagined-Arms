@@ -297,9 +297,6 @@ neoForge {
             if(providers.gradleProperty("botHandStand").isPresent) systemProperty("ntmgunfeel.botHandStand","true")
             // -PbotFeelStand: only how the body moves, frame by frame (BotFeelStand): <name>-feel.tsv, <name>-feel-ticks.tsv
             if(providers.gradleProperty("botFeelStand").isPresent) systemProperty("ntmgunfeel.botFeelStand","true")
-            // -PbotMoves=old|clips: the AI mobs' moves from recordings or the feet's own steps (Config.botMoves), whatever
-            // the client's config has
-            providers.gradleProperty("botMoves").orNull?.let { systemProperty("ntmgunfeel.botMoves", it) }
             // -PbotGait=<n>: the feel stand's mobs play gait variant n (BotGaits.variant), not each its own (-1: the
             // mod's own clips)
             providers.gradleProperty("botGait").orNull?.let { systemProperty("ntmgunfeel.botGait", it) }

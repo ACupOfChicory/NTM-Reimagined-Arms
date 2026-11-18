@@ -60,14 +60,14 @@ class BotPoserTest {
 
     @Test
     void clipsLoad() {
-        for (String n : new String[] { BotClips.IDLE, BotClips.HIT_CHEST, BotClips.HIT_HEAD, BotClips.THROW, BotClips.WAVE })
+        for (String n : new String[] { BotClips.IDLE, BotClips.HIT_CHEST, BotClips.HIT_HEAD, BotClips.THROW_PERSON, BotClips.WAVE })
             assertNotNull(BotClips.get(n), n);
         assertEquals(BotClip.Mode.LOOP, BotClips.get(BotClips.IDLE).mode());
-        assertEquals(BotClip.Mode.ONCE, BotClips.get(BotClips.THROW).mode());
+        assertEquals(BotClip.Mode.ONCE, BotClips.get(BotClips.THROW_PERSON).mode());
         BotClip idle = BotClips.get(BotClips.IDLE);
         // a loop wraps, a clip played once stops at its end
         assertEquals(idle.local(0.3F), idle.local(0.3F + idle.length()), 1e-4);
-        BotClip t = BotClips.get(BotClips.THROW);
+        BotClip t = BotClips.get(BotClips.THROW_PERSON);
         assertEquals(t.length(), t.local(99F), 1e-6);
     }
 
@@ -208,7 +208,7 @@ class BotPoserTest {
         float at60 = maxMove(3), at240 = maxMove(12);
         System.out.println("bot pose: max move a frame at 60 fps " + at60 + ", at 240 fps " + at240);
         assertTrue(at240 < at60 / 4F * 1.3F, "a jump: " + at60 + " at 60 fps, " + at240 + " at 240 fps");
-        // the fastest is UAL's OverhandThrow at its own pace: under 60 degrees a frame at 60 fps
+        // at most 60 degrees (1.05 rad) a frame at 60 fps, the throw's swing included
         assertTrue(at60 < 1.05F, "at 60 fps " + at60);
     }
 }

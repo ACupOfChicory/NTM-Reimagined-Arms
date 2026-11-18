@@ -26,9 +26,10 @@ import org.jspecify.annotations.Nullable;
  * <li>the crouch, by its weight: the head, the trunk's top and the shoulders where vanilla's crouch has them (the eye
  * the server keeps), under them down on a knee at a stand (as UAL Fixing_Kneeling kneels) and a walk bent low on the
  * move (KayKit Crouching), their legs fitted to that head (tools/quaternius fit.py);</li>
- * <li>the action: a reload (KayKit Ranged_2H_Reload), a kick of a shot, a throw (UAL OverhandThrow), a wave with the
- * free left arm (KayKit Waving, mirrored), a point, a raised hand to halt, a door pushed open with the left hand (UAL
- * Interact), a slide into cover (UAL Slide_Start and Slide_Exit) and a forward roll (UAL Roll), the whole body;</li>
+ * <li>the action: a reload (KayKit Ranged_2H_Reload), a kick of a shot, a throw (recorded from a person, CMU 79_35),
+ * a wave with the free left arm (KayKit Waving, mirrored), a point, a raised hand to halt, a door pushed open with the
+ * left hand (UAL Interact), a slide into cover (UAL Slide_Start and Slide_Exit) and a forward roll (recorded from a
+ * person, CMU 128_11), the whole body;</li>
  * <li>a hit's flinch, added on top (UAL Hit_Chest, Hit_Head, Quaternius SWAT HitRecieve and HitRecieve_2 by turns;
  * KayKit Hit_B when a blast throws it);</li>
  * <li>its fall dead (KayKit Death_A, the whole body: vanilla's tip onto its side is not drawn then);</li>
@@ -304,8 +305,8 @@ public final class BotPoser {
         float move = upright * (1F - BotAnimator.smooth(f.crouch()))
                 * BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM));
         float[] gw = gaitShares(f.gaitPace(), f.heading());
-        // gait clips in place of the mod's (the mob's own from recordings, BotGaits, or a stand's; null with
-        // Config.botMoves old): their share of the gait going ahead
+        // gait clips in place of the mod's (the mob's own from recordings, BotGaits, or a stand's; null if none
+        // were read): their share of the gait going ahead
         BotGaitOverride o = BotGaitOverride.of(f.entity());
         BotGaitOverride.Way oBack = o == null ? null : o.back(), oSide = o == null ? null : o.side(f.heading());
         // and the walk with the gun up's each way, as gait plays them (shares: the stroll's ahead with the walk's)
@@ -670,14 +671,14 @@ public final class BotPoser {
             }
             case AiPose.THROW -> {
                 BotClip t = throwClip();
-                if (t != null && t == BotClips.get(BotClips.THROW_PERSON)) {
+                if (t != null) {
                     // the rifle where the arms hold it under the throw (whatever went on under it: a reload cut
                     // short), the left hand's from here on; the clip's shoulders moved from where they are (crouched
                     // they stay down), its turns; the head on its aim (THROW_BONES)
                     if (carry != null && w >= carry.w) carry.hold(p, w);
                     turns(p, t, act.u() * t.length(), w, THROW_BONES, a);
                     shifts(p, t, act.u() * t.length(), w, THROW_BONES, a);
-                } else if (t != null) set(p, t, act.u() * t.length(), w, UPPER, a);
+                }
             }
             case AiPose.SIGNAL_COME -> {
                 // KayKit waves with the right hand; the gun is there, so the left one waves, mirrored
@@ -712,31 +713,24 @@ public final class BotPoser {
     }
 
     /**
-     * A grenade's throw: recorded from a person (Config.botMoves clips: BotClips.THROW_PERSON, the right hand lets the
-     * grip go and throws, the left keeps the rifle down at the side) or UAL's OverhandThrow (old, or no such clip).
+     * A grenade's throw, recorded from a person (BotClips.THROW_PERSON): the right hand lets the grip go and throws, the
+     * left keeps the rifle down at the side.
      */
     static @Nullable BotClip throwClip() {
-        BotClip c = BotMoves.on() ? BotClips.get(BotClips.THROW_PERSON) : null;
-        return c != null ? c : BotClips.get(BotClips.THROW);
+        return BotClips.get(BotClips.THROW_PERSON);
     }
 
-    /** A forward roll: recorded from a person (Config.botMoves clips: BotClips.ROLL_PERSON) or UAL's Roll. */
+    /** A forward roll, recorded from a person (BotClips.ROLL_PERSON). */
     static @Nullable BotClip rollClip() {
-        BotClip c = BotMoves.on() ? BotClips.get(BotClips.ROLL_PERSON) : null;
-        return c != null ? c : BotClips.get(BotClips.ROLL);
+        return BotClips.get(BotClips.ROLL_PERSON);
     }
 
     /**
      * ticks a roll recorded from a person comes in over: its clip starts with the dive begun, the trunk bent 90 degrees
      * forward (people go down from a run over more than the mob's roll: AiDash.TICKS), so the body bends into it from
-     * the run over these rather than in BotAnimator.DASH_IN, as UAL's roll and the slide do
+     * the run over these rather than in BotAnimator.DASH_IN, as the slide does
      */
     static final float ROLL_IN = 4F;
-
-    static boolean rollsAsAPerson() {
-        BotClip c = rollClip();
-        return c != null && c == BotClips.get(BotClips.ROLL_PERSON);
-    }
 
     /**
      * ticks a throw recorded from a person comes in over: its clip starts with the arm drawn back and lets go at 0.13 s
@@ -750,11 +744,6 @@ public final class BotPoser {
         if (f.act() != null && f.act().kind() == AiPose.THROW) return true;
         for (BotAnimator.Act out : f.fading()) if (out.kind() == AiPose.THROW) return true;
         return false;
-    }
-
-    static boolean throwsAsAPerson() {
-        BotClip c = throwClip();
-        return c != null && c == BotClips.get(BotClips.THROW_PERSON);
     }
 
     /**

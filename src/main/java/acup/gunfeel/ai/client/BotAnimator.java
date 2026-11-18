@@ -933,7 +933,7 @@ public final class BotAnimator {
         if (move == null) {
             moveOut = null;
             legTwist = 0F;
-            if (!standing || !BotMoves.on()) return;
+            if (!standing) return;
             // a start or a stop with the body turning no faster than a turn on the spot is played (turning round as it
             // goes, its feet would cross); crouching or getting up, a down or an up
             if (!upright) {
@@ -1869,14 +1869,12 @@ public final class BotAnimator {
     }
 
     /**
-     * ticks an action comes in over: a shot's kick at once, a reload from wherever the arms are, a slide or a roll on
-     * the run (a roll from a person from its dive, BotPoser.ROLL_IN), a throw from a person with its swing begun
+     * ticks an action comes in over: a shot's kick at once, a reload from wherever the arms are, a slide on the run, a
+     * roll from its dive (BotPoser.ROLL_IN), a throw with its swing begun (BotPoser.THROW_IN)
      */
     static float actIn(byte kind) {
-        return kind == AiPose.SHOT ? SHOT_IN : kind == AiPose.RELOAD ? BotPoser.RELOAD_IN
-                : kind == AiPose.ROLL && BotPoser.rollsAsAPerson() ? BotPoser.ROLL_IN
-                : kind == AiPose.SLIDE || kind == AiPose.ROLL ? DASH_IN
-                : kind == AiPose.THROW && BotPoser.throwsAsAPerson() ? BotPoser.THROW_IN : ACTION_FADE;
+        return kind == AiPose.SHOT ? SHOT_IN : kind == AiPose.RELOAD ? BotPoser.RELOAD_IN : kind == AiPose.ROLL ? BotPoser.ROLL_IN
+                : kind == AiPose.SLIDE ? DASH_IN : kind == AiPose.THROW ? BotPoser.THROW_IN : ACTION_FADE;
     }
 
     /** the flinch of the n-th hit, by turns: the head back, the chest, doubled up, thrown back */

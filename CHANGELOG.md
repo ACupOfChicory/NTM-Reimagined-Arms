@@ -4,6 +4,10 @@
 
 - AI soldiers roll forward the way a person does: a dive out of the run, over
   the back and up again.
+- ⚠ Breaks compatibility: the botMoves config key is gone, and with it
+  `/gunfeel botmoves` and its `old` mode. AI soldiers always turn, start, stop,
+  throw and roll as recorded from people; a script, a command block or a
+  datapack function that calls the command no longer works.
 
 ## X1643
 

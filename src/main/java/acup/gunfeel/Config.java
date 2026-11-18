@@ -128,10 +128,6 @@ public final class Config {
     // (BotPoser.tempo, BotPoser.stride; any other is vanilla)
     public static String botRunGait = "vanilla";
     public static final java.util.List<String> RUN_GAITS = java.util.List.of("vanilla", "tempo", "stride");
-    // AI mobs' moves from recordings of people (BotMoves: a turn on the spot): clips, or old (the feet's own steps, to
-    // set the two side by side)
-    public static String botMoves = "clips";
-    public static final java.util.List<String> MOVE_MODES = java.util.List.of("clips", "old");
     // suppression (Suppression): how much the screen darkens and the sounds go down for this player, 0 to 1, times the
     // server's
     public static float suppressionDarken = 1F, suppressionMuffle = 1F;
@@ -348,11 +344,8 @@ public final class Config {
             aiVoiceVolume: how loud they are, 0 to 1, times the game's Voice/Speech slider
             botRunGait: AI mobs' legs when they run (a march, a storm): vanilla (the steps as fast as vanilla's walk goes
               at most), tempo (fewer steps, nearer the run's own pace; the feet slide more), stride (longer steps at the
-              same pace; the feet slide less); the mod's own legs only (botMoves old; with clips the runs recorded from
-              people go at their own pace, their feet standing). /gunfeel botrungait
-            botMoves: AI mobs' moves from recordings of people: clips (a slow turn on the spot, a start, a stop, a
-              grenade's throw, a forward roll, and the legs walking, running and sprinting ahead, each mob its own, as
-              people do them) or old (the feet's own steps, the old throw, roll and legs). /gunfeel botmoves
+              same pace; the feet slide less); the mod's own legs only (going ahead, the runs recorded from people go
+              at their own pace, their feet standing). /gunfeel botrungait
             suppressionDarken: how much the screen darkens under fire (bullets past and hitting near, blasts near), 0 to 1,
               times the server's (at most 40 % darker at the edges, 22 % in the middle)
             suppressionMuffle: how much the other sounds go down under fire, 0 to 1, times the server's (the world's down to
@@ -611,7 +604,6 @@ public final class Config {
         aiVoice = bool(p, "aiVoice", aiVoice);
         aiVoiceVolume = Math.max(0F, Math.min(1F, num(p, "aiVoiceVolume", aiVoiceVolume)));
         botRunGait = p.getProperty("botRunGait", botRunGait).trim().toLowerCase(java.util.Locale.ROOT);
-        botMoves = p.getProperty("botMoves", botMoves).trim().toLowerCase(java.util.Locale.ROOT);
         suppressionDarken = Math.max(0F, Math.min(1F, num(p, "suppressionDarken", suppressionDarken)));
         suppressionMuffle = Math.max(0F, Math.min(1F, num(p, "suppressionMuffle", suppressionMuffle)));
         casingMax = Math.max(-1, Math.min(16384, Math.round(num(p, "casingMax", casingMax))));
@@ -759,7 +751,6 @@ public final class Config {
         p.setProperty("aiVoice", Boolean.toString(aiVoice));
         p.setProperty("aiVoiceVolume", Float.toString(aiVoiceVolume));
         p.setProperty("botRunGait", botRunGait);
-        p.setProperty("botMoves", botMoves);
         p.setProperty("suppressionDarken", Float.toString(suppressionDarken));
         p.setProperty("suppressionMuffle", Float.toString(suppressionMuffle));
         p.setProperty("casingMax", Integer.toString(casingMax));

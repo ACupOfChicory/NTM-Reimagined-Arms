@@ -8,8 +8,8 @@ ten parts) by tools/quaternius/retarget.py, and picked and fitted by tools/quate
   Universal Animation Library and Universal Animation Library 2 by Quaternius
     https://quaternius.itch.io/universal-animation-library
     https://quaternius.itch.io/universal-animation-library-2
-    Idle_Loop, Hit_Chest, Hit_Head, OverhandThrow, Walk_Loop, Jog_Fwd_Loop, Sprint_Loop, Roll, Slide_Start,
-    Slide_Exit, Jump_Loop, Interact, Fixing_Kneeling
+    Idle_Loop, Hit_Chest, Hit_Head, Walk_Loop, Jog_Fwd_Loop, Sprint_Loop, Slide_Start, Slide_Exit, Jump_Loop,
+    Interact, Fixing_Kneeling
   KayKit : Character Animations 1.1 by Kay Lousberg (www.kaylousberg.com)
     https://kaylousberg.itch.io/kaykit-character-animations
     Waving, Walking_Backwards, Running_Strafe_Left, Running_Strafe_Right, Ranged_2H_Reload, Death_A, Hit_B,
