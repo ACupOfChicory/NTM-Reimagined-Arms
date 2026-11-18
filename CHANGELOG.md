@@ -10,6 +10,11 @@
   muzzle back level while the gun stays drawn back. `gun_fireext` and
   `gun_pa_ranged`, which have no NTM gun model, are left as they are.
 
+## X1656
+
+- ⚠ Breaks compatibility: the dynamicCrosshair config key is gone. The dynamic
+  crosshair is always on; an old config's line is left unread.
+
 ## X1654
 
 - ⚠ Breaks compatibility: the botMoves config key is gone, and with it

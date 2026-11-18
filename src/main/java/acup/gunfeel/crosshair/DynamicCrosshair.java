@@ -23,7 +23,7 @@ import net.minecraft.world.item.ItemStack;
 //  - The jump: the shot's upward kick (NTM's recoil, degrees) × 5, at least 1, × 2.0, all of it at most 20; it dies
 //    away and the gap follows the sum smoothly, both at the speed 20 a second (frame rate free).
 //  - Aiming down the sights it fades out where NTM hides its own crosshair; a gun NTM draws none for gets none.
-//  - Kept NTM's: the Stinger's (its lock-on), the guns of no class (CrosshairClass). Setting: dynamicCrosshair.
+//  - Kept NTM's: the Stinger's (its lock-on), the guns of no class (CrosshairClass). Always on, no setting.
 public final class DynamicCrosshair {
     private DynamicCrosshair() {
     }
@@ -87,7 +87,7 @@ public final class DynamicCrosshair {
 
     /** NTM's recoil asked for a kick this tick (MixinItemGunBaseNT) */
     public static void kick(float vertical) {
-        if (vertical != 0F && Config.dynamicCrosshair) GAP.shot(vertical);
+        if (vertical != 0F) GAP.shot(vertical);
     }
 
     /** the GUI pixel the crosshair stands on: vanilla's, the left (upper) of the two middle ones */
@@ -113,7 +113,7 @@ public final class DynamicCrosshair {
      * while aiming), false for NTM's own
      */
     public static boolean render(GuiGraphicsExtractor g) {
-        if (!Config.enabled || !Config.dynamicCrosshair || !acup.gunfeel.compat.Feature.DYNAMIC_CROSSHAIR.on()) return false;
+        if (!Config.enabled || !acup.gunfeel.compat.Feature.DYNAMIC_CROSSHAIR.on()) return false;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return false;
