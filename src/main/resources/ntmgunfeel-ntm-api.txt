@@ -702,6 +702,27 @@ DUPLEX method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfigCount ()I
 DUPLEX method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
 DUPLEX method com/hbm/registration/NeoForgeRegistrar registerItem (Ljava/lang/String;Ljava/util/function/Function;Ljava/util/function/Supplier;)Lcom/hbm/registration/RegistryHandle;
 DUPLEX method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
+DYNAMIC_CROSSHAIR class com/hbm/items/weapon/sedna/BulletConfig
+DYNAMIC_CROSSHAIR class com/hbm/items/weapon/sedna/ItemGunBaseNT
+DYNAMIC_CROSSHAIR class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+DYNAMIC_CROSSHAIR class com/hbm/items/weapon/sedna/Receiver
+DYNAMIC_CROSSHAIR class com/hbm/items/weapon/sedna/impl/ItemGunStinger
+DYNAMIC_CROSSHAIR field com/hbm/items/weapon/sedna/BulletConfig pType Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
+DYNAMIC_CROSSHAIR field com/hbm/items/weapon/sedna/BulletConfig$ProjectileType BEAM Lcom/hbm/items/weapon/sedna/BulletConfig$ProjectileType;
+DYNAMIC_CROSSHAIR field com/hbm/items/weapon/sedna/Crosshair NONE Lcom/hbm/items/weapon/sedna/Crosshair;
+DYNAMIC_CROSSHAIR field com/hbm/items/weapon/sedna/ItemGunBaseNT aimingProgress F
+DYNAMIC_CROSSHAIR field com/hbm/items/weapon/sedna/ItemGunBaseNT prevAimingProgress F
+DYNAMIC_CROSSHAIR field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/GunConfig getCrosshair (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/Crosshair;
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/GunConfig getHideCrosshair (Lnet/minecraft/world/item/ItemStack;)Z
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/GunConfig getReceivers (Lnet/minecraft/world/item/ItemStack;)[Lcom/hbm/items/weapon/sedna/Receiver;
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/ItemGunBaseNT getConfig (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/GunConfig;
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecraft/world/item/ItemStack;)Z
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/ItemGunBaseNT setIsAiming (Lnet/minecraft/world/item/ItemStack;Z)V
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;I)V
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/world/item/ItemStack;)Lcom/hbm/items/weapon/sedna/mags/IMagazine;
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/factory/Lego calcSpread (Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/items/weapon/sedna/Receiver;Lcom/hbm/items/weapon/sedna/BulletConfig;ZIZ)F
+DYNAMIC_CROSSHAIR method com/hbm/items/weapon/sedna/mags/IMagazine getType (Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/Container;)Ljava/lang/Object;
 GL54 class com/hbm/blockentity/machine/BlockEntityMachineAmmoPress
 GL54 class com/hbm/entity/effect/EntityFireLingering
 GL54 class com/hbm/entity/projectile/EntityBulletBaseMK4

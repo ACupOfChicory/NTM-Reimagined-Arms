@@ -1,5 +1,14 @@
 # Changelog
 
+## X1649
+
+- A dynamic crosshair replaces NTM's while you hold an NTM gun: it opens with
+  your shot's spread (crouched tighter, moving and in the air wider) and jumps
+  out with each shot's kick. The style goes by the gun: pistols and revolvers a
+  corner, SMGs brackets, shotguns a square, launchers and the heaviest guns a
+  ruler, the rest a cross. It hides while aiming down the sights where NTM
+  hides its own; the Stinger keeps NTM's. Setting `dynamicCrosshair`.
+
 ## X1645
 
 - AI soldiers roll forward the way a person does: a dive out of the run, over

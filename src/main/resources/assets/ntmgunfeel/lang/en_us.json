@@ -44,6 +44,7 @@
   "ntmgunfeel.feature.duplex": "Duplex 5.56 and 7.62 rounds",
   "ntmgunfeel.feature.nuclear_bmg50": "Nuclear .50 BMG round",
   "ntmgunfeel.feature.gunshot_range": "Gunshot range by gun",
+  "ntmgunfeel.feature.dynamic_crosshair": "Dynamic crosshair",
   "ntmgunfeel.feature.overheat": "Barrel overheating (M2, AM-180)",
   "ntmgunfeel.feature.mini_nuke_cloud": "Small nuclear blasts drawn as the bombs' cloud",
   "ntmgunfeel.feature.ammo_bag": "NTM's ammo bags take the mod's rounds",
