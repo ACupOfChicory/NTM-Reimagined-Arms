@@ -218,5 +218,9 @@ public final class NtmMeshHits {
         PREPARED.put(entity.getUUID(), new Prepared(entity, yaw, List.copyOf(boxes),new Vec3(origin.x,origin.y,origin.z)));
     }
 
-    public static void clear() { SUBMIT.remove(); DRAW.remove(); PENDING.clear(); PREPARED.clear(); MODELS.clear(); BLOCKS.clear(); SubmittedModelGeometry.clear(); }
+    // SubmittedModelGeometry is NTM's buffer as well (IBufferBuilderExtension): not loaded with the hitboxes off for NTM
+    public static void clear() {
+        SUBMIT.remove(); DRAW.remove(); PENDING.clear(); PREPARED.clear(); MODELS.clear(); BLOCKS.clear();
+        if(acup.gunfeel.compat.Feature.MODEL_HITBOXES.on()) SubmittedModelGeometry.clear();
+    }
 }

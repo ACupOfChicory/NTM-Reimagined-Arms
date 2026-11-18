@@ -10,7 +10,7 @@ import java.util.List;
 public enum Feature {
     CORE("core", List.of(), List.of("GunFeel", "GunFeelMod", "Config", "GunDump", "BlockDump")),
     MODEL_HITBOXES("model_hitboxes", List.of("MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits", "MixinMobObjModelHits", "MixinMobModelHits", "MixinGpuEntityGeometry", "MixinHeadDamage"),
-            List.of("NtmMeshHits", "MobObjPose", "ModelMeshCapture", "MobStageCleanup", "HeadDamage")),
+            List.of("NtmMeshHits", "MobObjPose", "ModelMeshCapture", "SubmittedModelGeometry", "MobStageCleanup", "HeadDamage")),
     HOLD_AIM("hold_aim", List.of("MixinHoldAim", "MixinAimButton"), List.of("ReaimTimes", "AimButton")),
     BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinLegacyBullet", "MixinWaterBullet", "MixinWaterMuffle", "MixinBeamModelQuery", "MixinBeamBlocks", "MixinBeamTurretSight", "MixinBeamTauon", "MixinBeamMaxwell", "MixinBeamTesla", "TurretMaxwellAccess", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinBlastPartsStandard", "MixinWaterImpact", "MixinWaterFire", "MixinWaterFireRocket", "MixinWaterFireFlamer"),
             List.of("BulletServer", "PassableClip", "Cells", "Structures", "BulletFx", "BulletRules", "ExplosiveAmmo", "ExplosiveDamage", "LegacyBullets", "BeamServer", "BeamTurrets")),
