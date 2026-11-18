@@ -1,5 +1,15 @@
 # Changelog
 
+## X1629
+
+- AI soldiers walk, run and sprint with legs recorded from people, each soldier
+  in a stride of their own: one of ten runs (nine of them for the walk), one of
+  three sprints, and one of two walks when creeping along slower. Their legs
+  stay apart, and each foot stays where it comes down. `/gunfeel botmoves old`
+  brings back the previous legs.
+- An AI soldier setting off at a run no longer snaps a knee as both feet leave
+  the ground.
+
 ## X1627
 
 - AI soldiers throw a grenade the way a person does: a short overarm swing

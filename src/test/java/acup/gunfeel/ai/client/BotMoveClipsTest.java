@@ -104,14 +104,17 @@ class BotMoveClipsTest {
 
     @Test
     void walkingTheLegsAreTheClipsAndStepWithVanilla() {
-        // standing still: vanilla's legs (no clip); walking: the walk clip's legs, the right leg furthest back where
-        // vanilla's is (walkPos 0)
+        // standing still: vanilla's legs (no clip); walking slow: the walk clip's legs (the mob's own stroll, BotGaits),
+        // the right leg furthest back where vanilla's is (walkPos 0)
         float[] still = posed(calm(0F, 0F), 0F, 0F);
         BotPoser.Parts p = BotPoserTest.parts();
         BotPoser.apply(p, calm(0.1F, 0F), 0F, 0.5F, 0F);
-        BotClip walk = BotClips.get(BotClips.WALK);
+        BotGaitOverride own = BotGaitOverride.of(0);
+        assertNotNull(own);
+        String name = own.stroll().clip();
+        BotClip walk = BotClips.get(name);
         float[] r = new float[3];
-        walk.rotation("right_leg", BotPoser.phase(BotClips.WALK, walk) * walk.length(), r);
+        walk.rotation("right_leg", BotPoser.phase(name, walk) * walk.length(), r);
         assertEquals(r[0] * net.minecraft.util.Mth.DEG_TO_RAD, p.rightLeg().xRot, 1e-3);
         assertEquals(0F, still[4 * 6], 1e-6);
         // half a step on, the legs have changed sides
@@ -267,17 +270,35 @@ class BotMoveClipsTest {
 
     @Test
     void itsWalkKeepsVanillasPace() {
-        // a step of 0.1 a tick for 40 ticks, frames 0.05 tick apart: vanilla's swing speed (0.4) and about its place
+        // a step of 0.1 a tick for 40 ticks, frames 0.05 tick apart: vanilla's swing speed (0.4) and about its place;
+        // the mod's own clips (Config.botMoves old)
+        BotGaitOverride.BY_ENTITY = id -> null;
+        try {
+            float[] w = walked(0.1);
+            assertEquals(w[0], w[1], 0.01F);
+            // its legs go round as fast as vanilla's: its place goes on by vanilla's speed a tick
+            assertEquals(w[0], w[2], 0.005F, "its swing's pace");
+        } finally {
+            BotGaitOverride.BY_ENTITY = BotGaitOverride.OWN;
+        }
+        // the mob's own walk from people (BotGaits, its stroll at 0.1 a tick): a cycle of its clip each its own pace
+        // times its length, its feet standing
+        BotGaitOverride o = BotGaitOverride.of(0);
+        assertNotNull(o);
+        float[] w = walked(0.1);
+        assertEquals(BotPoser.CYCLE * 0.1F / (o.stroll().speed() * BotClips.get(o.stroll().clip()).length()), w[2], 0.005F, "its own pace");
+    }
+
+    /** a step a tick for 40 ticks, frames 0.05 tick apart: vanilla's swing speed then, the animator's, its place a tick on */
+    static float[] walked(double step) {
         BotAnimator a = new BotAnimator();
         float vSpeed = 0F, at30 = 0F;
         for (int tick = 0; tick < 40; tick++) {
-            for (int i = 0; i < 20; i++) a.move(0, 0.1, 0F, tick + i / 20.0);
-            vSpeed += (Math.min(0.1F * 4F, 1F) - vSpeed) * 0.4F;
+            for (int i = 0; i < 20; i++) a.move(0, step, 0F, tick + i / 20.0);
+            vSpeed += (Math.min((float) step * 4F, 1F) - vSpeed) * 0.4F;
             if (tick == 30) at30 = a.walkPos;
         }
-        assertEquals(vSpeed, a.walk, 0.01F);
-        // its legs go round as fast as vanilla's: its place goes on by vanilla's speed a tick
-        assertEquals(vSpeed, (a.walkPos - at30) / 9F, 0.005F, "its swing's pace");
+        return new float[] { vSpeed, a.walk, (a.walkPos - at30) / 9F };
     }
 
     @Test

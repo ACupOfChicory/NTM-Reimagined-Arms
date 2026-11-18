@@ -709,10 +709,11 @@ AI mobs' idle, flinch, throw and wave clips are carried over from Quaternius'
 Universal Animation Library 1 and 2 and Kay Lousberg's KayKit Character
 Animations, both CC0; see [third-party/bot-animations.txt](third-party/bot-animations.txt).
 
-AI mobs' turns on the spot, starts and stops are made from recordings of people:
-100STYLE by Ian Mason (CC BY 4.0) and the CMU Graphics Lab Motion Capture
-Database (mocap.cs.cmu.edu; created with funding from NSF EIA-0196217). Takes
-used and the changes made are in [third-party/bot-moves.txt](third-party/bot-moves.txt).
+AI mobs' turns on the spot, starts, stops, grenade throw and their legs walking,
+running and sprinting ahead are made from recordings of people: 100STYLE by Ian
+Mason (CC BY 4.0) and the CMU Graphics Lab Motion Capture Database
+(mocap.cs.cmu.edu; created with funding from NSF EIA-0196217). Takes used and
+the changes made are in [third-party/bot-moves.txt](third-party/bot-moves.txt).
 
 The jar bundles XZ for Java 1.10 (0BSD), which unpacks the machine shapes
 shipped in the mod; its notice is in [third-party/xz.txt](third-party/xz.txt)

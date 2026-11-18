@@ -3,17 +3,34 @@ package acup.gunfeel.ai.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import acup.gunfeel.Config;
 
 // An AI mob's legs on the march (0.27 blocks a tick, a jog) and the run (0.32, a sprint): each its own clip whole
 // over its speed going up and down, and the player's choice of legs (Config.botRunGait), vanilla's by default and at
-// a walk.
+// a walk. The mod's own clips (Config.botMoves old); the runs recorded from people go at their own pace whatever it is.
 class BotRunGaitTest {
+    @BeforeEach
+    void own() {
+        BotGaitOverride.BY_ENTITY = id -> null;
+    }
+
     @AfterEach
     void back() {
         Config.botRunGait = "vanilla";
+        BotGaitOverride.BY_ENTITY = BotGaitOverride.OWN;
+    }
+
+    @Test
+    void theRunsFromPeopleGoAtTheirOwnPaceWhateverItIs() {
+        BotGaitOverride.BY_ENTITY = BotGaitOverride.OWN;
+        float run = pace(0.32F);
+        for (String g : Config.RUN_GAITS) {
+            Config.botRunGait = g;
+            assertEquals(run, pace(0.32F), 1e-6F, g);
+        }
     }
 
     @Test

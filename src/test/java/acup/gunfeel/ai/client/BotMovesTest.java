@@ -298,7 +298,7 @@ class BotMovesTest {
                 double now = n + i / 3.0, u = i / 3.0, dz = zo + (z - zo) * u, dx = xo + (x - xo) * u;
                 float yaw = yawAt.apply(now);
                 a.turn(yaw, yaw, 1F, now);
-                a.move(x - xo, z - zo, a.bodyYaw, now, null);
+                a.move(x - xo, z - zo, a.bodyYaw, now, BotGaitOverride.of(0));
                 a.moves(true, a.still() >= 1F - 1e-4F, now, yaw, dx, dz);
                 a.feet(dx, dz, Math.max(a.still(), a.pathFeet), now);
                 pose(a);
@@ -364,7 +364,7 @@ class BotMovesTest {
             }
             double now = tick + partial, at = zo + (z - zo) * partial;
             a.turn(180F, 180F, 1F, now);
-            a.move(0, z - zo, a.bodyYaw, now, null, tick);
+            a.move(0, z - zo, a.bodyYaw, now, BotGaitOverride.of(1), tick);
             BotAnimator.Frame f = a.step(new acup.gunfeel.ai.AiPose(acup.gunfeel.ai.AiPose.STAND, (byte) 0, (byte) 0, 0, acup.gunfeel.ai.AiPose.HOLD, acup.gunfeel.ai.AiPose.NONE, 0, (short) 0, acup.gunfeel.ai.AiPose.FIGHT),
                     tick, partial, 0, false, (float) now, 1);
             a.moves(true, a.still() >= 1F - 1e-4F, now, 180F, 0.0, at);
@@ -564,7 +564,7 @@ class BotMovesTest {
         walk(a, steps, 0.0, (n, p) -> {
             if (n == 39) {
                 float[] g = new float[12];
-                assertTrue(BotPoser.gaitLegs(a.speed, a.gait, a.heading, a.walkPos, null, g, new float[3]));
+                assertTrue(BotPoser.gaitLegs(a.speed, a.gait, a.heading, a.walkPos, BotGaitOverride.of(0), g, new float[3]));
                 gaitAt[0] = g;
             }
             BotAnimator.Moving[] mv = a.moving();
@@ -922,5 +922,67 @@ class BotMovesTest {
         assertEquals(Mth.DEG_TO_RAD * r[0], p.leftShin().xRot, 1e-5F);
         assertEquals(own.rightLeg().y + m.drop(), p.rightLeg().y, 1e-4F);
         assertEquals(own.head().y + m.drop(), p.head().y, 1e-4F);
+    }
+
+    /**
+     * the largest turn of a part between two frames (48 a tick: a fast screen) of a mob setting off from a stand to a
+     * walk (its steps 0.06, 0.13, then 0.19 a tick, as the client gets them), as BotAnimator.frame draws it: a start
+     * under it, the feet's lock holding its feet; its gait the mob's own (BotGaits) or the mod's
+     */
+    static float startJump(boolean own) {
+        if (!own) BotGaitOverride.BY_ENTITY = id -> null;
+        try {
+            return startJump();
+        } finally {
+            BotGaitOverride.BY_ENTITY = BotGaitOverride.OWN;
+        }
+    }
+
+    private static float startJump() {
+        BotGaitOverride swap = BotGaitOverride.of(7);
+        BotAnimator a = new BotAnimator();
+        double x = 0.0, xo = 0.0, ramp[] = { 0.06, 0.13 };
+        float yaw = 90F, most = 0F;
+        BotPoser.Parts prev = null;
+        long last = -1;
+        acup.gunfeel.ai.AiPose p = BotPoserTest.pose(acup.gunfeel.ai.AiPose.STAND, 0, 0, 0, acup.gunfeel.ai.AiPose.HOLD,
+                acup.gunfeel.ai.AiPose.NONE, 0, 0);
+        for (int frame = 0; frame < 48 * 40; frame++) {
+            double now = 100 + frame / 48.0;
+            long tick = (long) Math.floor(now);
+            float partial = (float) (now - tick);
+            if (tick != last) {
+                last = tick;
+                int k = (int) (tick - 120);
+                xo = x;
+                x -= k < 0 ? 0.0 : k < ramp.length ? ramp[k] : 0.19;
+            }
+            a.turn(yaw, yaw, 0F, now);
+            a.move(x - xo, 0, a.bodyYaw, now, swap, tick);
+            a.fly(false, 0, now);
+            BotAnimator.Frame f = a.step(p, tick, partial, 0, false, (float) now, 7, false);
+            double at = xo + (x - xo) * partial;
+            a.moves(true, a.still() >= 1F - 1e-4F, now, yaw, at, 0.0);
+            a.feet(at, 0.0, Math.max(a.still(), a.pathFeet), now);
+            f = new BotAnimator.Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(), a.speed,
+                    a.heading, -1F, a.walk, a.walkPos, f.alert(), a.air, f.dashed(), Mth.wrapDegrees(a.bodyYaw), Mth.wrapDegrees(a.headYaw),
+                    a.feetOut.snapshot(), a.gait, null, a.moving());
+            BotPoser.Parts parts = BotPoserTest.parts();
+            BotPoser.apply(parts, f, 0F, a.walk, a.walkPos);
+            if (prev != null) most = Math.max(most, BotPoserTest.jump(prev, parts));
+            prev = parts;
+        }
+        return most;
+    }
+
+    @Test
+    void aRunsStartOffTheFloorDropsNoFootAtOnce() {
+        // the run's start (CMU 143_03) leaves the floor with both feet: the step lifted over the foot standing went
+        // down to the clip's own in a frame as that one went up, the knee 0.14 rad at once. A part turns 0.05 rad a
+        // frame at most here (2.4 a tick: the walk's shin coming in), the mod's own gait or the mob's own
+        float own = startJump(false), runs = startJump(true);
+        System.out.println("bot moves: a start's most a frame at 48 a tick " + own + " (the mod's gait), " + runs + " (the mob's own)");
+        assertTrue(own < 0.07F, "the mod's gait " + own);
+        assertTrue(runs < 0.07F, "the mob's own " + runs);
     }
 }

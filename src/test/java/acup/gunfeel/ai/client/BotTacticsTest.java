@@ -71,7 +71,10 @@ class BotTacticsTest {
                 float along = l.dot(gun), aside = new Vector3f(l).sub(new Vector3f(gun).mul(along)).length();
                 assertTrue(along > 1.5F && along < 4.5F && aside < 1.6F,
                         String.format(Locale.ROOT, "crouch %.0f speed %.2f: the left hand %.1f px up the gun, %.1f px off it", crouch, speed, along, aside));
-                assertEquals(crouch * 4.2F, p.head().y, 1e-4F, "the head where the stance has it");
+                // standing on the move a little lower: the hips and all over them as far down as the mob's own run is
+                // made for (BotGaits, 0.45 px: the head within 3 cm of the eye)
+                float down = crouch == 0F && speed > 0F ? BotGaitOverride.of(0).drop() : 0F;
+                assertEquals(crouch * 4.2F + down, p.head().y, 1e-4F, "the head where the stance has it");
             }
     }
 
@@ -123,14 +126,16 @@ class BotTacticsTest {
     @Test
     void crouchedTheHeadIsAtTheCrouchsEyeWhateverItDoes() {
         // vanilla's crouch: the head 4.2 px down, nothing else of it moved; at a stand, creeping, with any arms, at
-        // any point of the step and of going down
+        // any point of the step and of going down; on the move, as far as it is still up, its hips and all over them a
+        // little lower for the mob's own run (BotGaits: down as far as its legs are made for, 0.45 px all up)
         for (float[] arms : new float[][] { BotMoveClipsTest.HOLD, { 0F, 1F, 0F, 0F }, { 0F, 0F, 1F, 0F }, STACK })
             for (float speed : new float[] { 0F, 0.03F, 0.08F, 0.19F })
                 for (float c : new float[] { 0.3F, 0.7F, 1F })
                     for (int i = 0; i < 16; i++) {
                         BotPoser.Parts p = BotPoserTest.parts();
                         BotPoser.apply(p, frame(c, arms, null, speed, 1F), 0F, Math.min(1F, speed * 4F), BotPoser.CYCLE * i / 16F);
-                        float want = 4.2F * BotAnimator.smooth(c);
+                        float up = 1F - BotAnimator.smooth(c), going = BotAnimator.smooth((speed - BotPoser.MOVE_FROM) / (BotPoser.MOVE_FULL - BotPoser.MOVE_FROM));
+                        float want = 4.2F * BotAnimator.smooth(c) + BotGaitOverride.of(0).drop() * up * going;
                         float d = new Vector3f(p.head().x, p.head().y - want, p.head().z).length();
                         assertTrue(d <= 1e-4F, String.format(Locale.ROOT, "crouch %.1f speed %.2f: the head %.2f px off", c, speed, d));
                     }
@@ -225,7 +230,8 @@ class BotTacticsTest {
             else { p = BotPoserTest.pose(AiPose.STAND, 0, 0, 0, AiPose.AIM, AiPose.NONE, 0, 0); step = 0; }
             p = p.withAlert(AiPose.FIGHT);
             // as BotAnimator.frame has them: the step since the last tick, every frame
-            an.move(0, step, 0F, now);
+            // the mob's own gait clips at their own pace, as BotAnimator.frame has them
+            an.move(0, step, 0F, now, BotGaitOverride.of(0));
             an.fly(off, dy, now);
             BotAnimator.Frame f = an.step(p, tick, partial, 0, false, (float) now, 0);
             f = new BotAnimator.Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(), an.speed,

@@ -110,6 +110,18 @@ public final class BotPoser {
      */
     static final float RUN_FROM = 0.22F, RUN_FULL = 0.26F, TEMPO_RUN = 0.78F, STRIDE_RUN = 1.3F, STRIDE_MIDDLE = -17F;
 
+    /**
+     * going ahead under the walk's clip put in (BotGaitOverride.stroll: the mob's own runs from people, made for 3 to 4
+     * blocks a second), a walk's clip in its place: whole up to this speed, blocks a tick, gone from this. A creep
+     * (AiSoldier.CREEP, 0.09) walks, a walk (0.19) runs as people do at its speed
+     */
+    static final float STROLL_FROM = 0.10F, STROLL_FULL = 0.15F;
+
+    /** the stroll's share of the walk's at this speed, 1 .. 0 */
+    static float strolling(float speed) {
+        return 1F - BotAnimator.smooth((speed - STROLL_FROM) / (STROLL_FULL - STROLL_FROM));
+    }
+
     /** how far the run's legs are in at this speed, 0 .. 1 */
     static float running(float speed) {
         return BotAnimator.smooth((speed - RUN_FROM) / (RUN_FULL - RUN_FROM));
@@ -132,10 +144,11 @@ public final class BotPoser {
     /** ... crouched this far (0 .. 1): the walk bent low's clip (BotGaitOverride.crouch) in place of them all */
     static float pace(float own, float speed, float gait, float heading, float crouch, @Nullable BotGaitOverride o) {
         if (o == null) return own;
-        BotGaitOverride.Way back = o.back(), side = o.side(heading), low = o.crouch();
-        String[] names = { o.walk(), o.jog(), o.sprint(), back == null ? null : back.clip(), side == null ? null : side.clip() };
-        float[] at = { o.walkSpeed(), o.jogSpeed(), o.sprintSpeed(), back == null ? 0F : back.speed(), side == null ? 0F : side.speed() },
-                ws = gaitShares(gait, heading);
+        BotGaitOverride.Way back = o.back(), side = o.side(heading), low = o.crouch(), stroll = o.walk() == null ? null : o.stroll();
+        String[] names = { o.walk(), o.jog(), o.sprint(), back == null ? null : back.clip(), side == null ? null : side.clip(),
+                stroll == null ? null : stroll.clip() };
+        float[] at = { o.walkSpeed(), o.jogSpeed(), o.sprintSpeed(), back == null ? 0F : back.speed(), side == null ? 0F : side.speed(),
+                stroll == null ? 0F : stroll.speed() }, ws = strolled(gaitShares(gait, heading), stroll == null ? 0F : strolling(speed));
         float out = own;
         for (int i = 0; i < names.length; i++) {
             BotClip clip = names[i] == null || at[i] <= 0F || ws[i] <= 0F ? null : BotClips.get(names[i]);
@@ -283,8 +296,8 @@ public final class BotPoser {
         float move = upright * (1F - BotAnimator.smooth(f.crouch()))
                 * BotAnimator.smooth((f.speed() - MOVE_FROM) / (MOVE_FULL - MOVE_FROM));
         float[] gw = gaitShares(f.gaitPace(), f.heading());
-        // a stand's gait clips in place of the mod's (BotGalleryStand; null for every mob out of one): their share of
-        // the gait going ahead
+        // gait clips in place of the mod's (the mob's own from recordings, BotGaits, or a stand's; null with
+        // Config.botMoves old): their share of the gait going ahead
         BotGaitOverride o = BotGaitOverride.of(f.entity());
         BotGaitOverride.Way oBack = o == null ? null : o.back(), oSide = o == null ? null : o.side(f.heading());
         float aheadSwapped = o == null ? 0F : (o.walk() != null ? gw[0] : 0F) + (o.jog() != null ? gw[1] : 0F) + (o.sprint() != null ? gw[2] : 0F);
@@ -366,9 +379,10 @@ public final class BotPoser {
         // with the trunk (a combat sprint, not a light-footed jog); a walk in a fight a little forward (a tactical
         // walk); calm, a stroll as the clips have it
         stoop(p, RUN_LEAN * run + TAC_LEAN * tac, knees, gun * run);
-        // the hips (and all over them) down as far as a stand's clips' legs are made for, on top of the stoop's
-        // (and a move's, its legs made for it)
-        float drop = moved + (o == null ? 0F
+        // the hips (and all over them) down as far as the gait's clips put in are made for (BotGaits, a stand's), on
+        // top of the stoop's, or a move's (its legs made for it): the one height both are made for, not one under the
+        // other (the head within 3 cm of the eye)
+        float drop = Math.max(moved, o == null ? 0F
                 : move * (o.drop() * aheadSwapped + (oBack != null ? oBack.drop() * gw[3] : 0F) + (oSide != null ? oSide.drop() * gw[4] : 0F)));
         if (drop > 0F) for (ModelPart part : new ModelPart[] { p.head, p.body, p.rightArm, p.leftArm, p.rightLeg, p.leftLeg }) part.y += drop;
 
@@ -919,8 +933,10 @@ public final class BotPoser {
         float u = walkPos / CYCLE;
         float[][] acc = new float[LEGS.length][3];
         float total = 0F;
-        String[] names = gaitClips(heading);
-        float[] ws = gaitShares(gait, heading);
+        String[] names = java.util.Arrays.copyOf(gaitClips(heading), 6);
+        BotGaitOverride.Way stroll = o == null || o.walk() == null ? null : o.stroll();
+        float[] ws = strolled(gaitShares(gait, heading), stroll == null ? 0F : strolling(speed));
+        if (stroll != null) names[5] = stroll.clip();
         if (o != null) {
             if (o.walk() != null) names[0] = o.walk();
             if (o.jog() != null) names[1] = o.jog();
@@ -930,7 +946,7 @@ public final class BotPoser {
             if (side != null) names[4] = side.clip();
         }
         for (int i = 0; i < names.length; i++) {
-            if (ws[i] <= 1e-4F) continue;
+            if (ws[i] <= 1e-4F || names[i] == null) continue;
             BotClip clip = BotClips.get(names[i]);
             if (clip == null) continue;
             float t = ((u + phase(names[i], clip)) % 1F + 1F) % 1F * clip.length();
@@ -1013,6 +1029,16 @@ public final class BotPoser {
     public static String[] gaitClips(float heading) {
         return new String[] { BotClips.WALK, BotClips.JOG, BotClips.SPRINT, BotClips.BACK,
                 Mth.sin(heading) > 0F ? BotClips.STRAFE_RIGHT : BotClips.STRAFE_LEFT };
+    }
+
+    /**
+     * gaitShares with a sixth, the stroll's (BotGaitOverride.stroll): this share of the walk's going to it (none: 0)
+     */
+    static float[] strolled(float[] ws, float stroll) {
+        float[] out = java.util.Arrays.copyOf(ws, 6);
+        out[5] = ws[0] * stroll;
+        out[0] = ws[0] - out[5];
+        return out;
     }
 
     /** each of gaitClips' weights at this speed and heading, summing to 1 */

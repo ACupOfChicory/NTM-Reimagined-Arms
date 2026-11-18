@@ -396,8 +396,12 @@ public final class BotAnimator {
      * SPEED_FOLLOW a tick, the heading (from where the body faces) turns to it while it moves.
      */
     void move(double dx, double dz, float bodyYaw, double now) {
-        move(dx, dz, bodyYaw, now, null);
+        // the mob's own gait clips, as frame has them (BotGaitOverride.of its id)
+        move(dx, dz, bodyYaw, now, BotGaitOverride.of(entity));
     }
+
+    /** the entity id its last step was given (0 till then) */
+    private int entity;
 
     /** ... {@code swap}: a stand's gait clips in place of the mod's, each at its own pace (BotPoser.pace) */
     void move(double dx, double dz, float bodyYaw, double now, @Nullable BotGaitOverride swap) {
@@ -454,9 +458,11 @@ public final class BotAnimator {
             float on = dt * BotPoser.pace((walkWas + walk) / 2F * BotPoser.tempo(speed), speed, gait, heading, crouch, swap);
             if (s < BotPoser.MOVE_FROM) {
                 // only where it goes on faster than its fading walk would: a tick with no step in a run (a late
-                // packet) leaves the run's pace as it was
+                // packet) leaves the run's pace as it was. Clips put in go by the speed drawn, which fades slower
+                // than vanilla's walk (a walk's put in, a stroll, the most steps for it): under MOVE_FROM, their legs
+                // gone, they settle
                 float rest = toRest(walkPos), settle = Math.min(SETTLE, Math.max(rest * SETTLE_EASE, SETTLE_LEAST)) * dt;
-                if (settle > on) on = Math.min(rest, settle);
+                if (settle > on || swap != null && speed < BotPoser.MOVE_FROM) on = Math.min(rest, settle);
             }
             walkPos += on;
         }
@@ -1369,10 +1375,12 @@ public final class BotAnimator {
                 footX[k] = offX[k] + (nx[k] - offX[k]) * u;
                 footZ[k] = offZ[k] + (nz[k] - offZ[k]) * u;
                 // a turn's shuffles lifted a little more; a start's and a stop's steps as high as the clip has them over
-                // the foot it stands on (its floor; in the air, high enough), up to as much at least: a start's first
-                // step goes low, and would be drawn sliding over the floor
+                // the other foot (its floor where that one stands; in the air, over the floor already), up to as much
+                // at least: a start's first step goes low, and would be drawn sliding over the floor. Over the other
+                // foot whether it stands or not: the run's start leaves the floor with both, and the step lifted over
+                // the one standing would drop at once as that one goes up
                 float up = Mth.sin(Mth.PI * v), most = MOVE_LIFT * up * up;
-                float own = !moveDown[1 - k] ? most : Math.max(0F, out.neutral[(1 - k) * 3 + 1] - out.neutral[k * 3 + 1]);
+                float own = Math.max(0F, out.neutral[(1 - k) * 3 + 1] - out.neutral[k * 3 + 1]);
                 swingLift[k] = movePath ? Math.max(0F, most - own) : most;
             } else if (lifted[k]) {
                 // set down where it is (the clip's own by the end of its step), turned as the clip has it
@@ -1499,6 +1507,7 @@ public final class BotAnimator {
 
     Frame step(AiPose pose, long gameTime, float partial, int hurtTime, boolean dead, float age, int entity,
             boolean crouching) {
+        this.entity = entity;
         double now = gameTime + (double) partial;
         // a first look, or after a long gap (out of sight): no fade from a pose nobody saw. The clock going back (the
         // server setting the time, a late partial tick) is no gap: nothing moves this frame

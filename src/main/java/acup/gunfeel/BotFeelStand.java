@@ -16,6 +16,8 @@ import org.joml.Vector3f;
 import acup.gunfeel.ai.AiPose;
 import acup.gunfeel.ai.client.BotAnimation;
 import acup.gunfeel.ai.client.BotAnimator;
+import acup.gunfeel.ai.client.BotGaitOverride;
+import acup.gunfeel.ai.client.BotGaits;
 import acup.gunfeel.ai.client.BotPoser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.ModelPart;
@@ -108,6 +110,16 @@ final class BotFeelStand {
                 }
                 if (t >= 15 && t < 70) go(m, new double[] { -3.5, 14.5 }, WALK);
                 else if (t >= 70) go(m, new double[] { 5.5, 14.5 }, RUN);
+            }, t -> READY),
+            // straight ahead at a creep, a walk, a jog (a march) and a sprint (a run), as the AI asks for them, then
+            // still: each gait's clip at its own pace (BotGaits)
+            new Scene("paces", false, 105, (level, m, t) -> {
+                if (t < 0) {
+                    place(m, -11.5, 19.5, -90F);
+                    return;
+                }
+                double v = t < 20 ? 0.093 : t < 45 ? 0.19 : t < 70 ? 0.27 : t < 95 ? 0.32 : 0.0;
+                if (v != 0.0) m.setPos(m.getX() + v, m.getY(), m.getZ());
             }, t -> READY),
             new Scene("walk_crouch_walk", false, 75, (level, m, t) -> {
                 if (t < 0) {
@@ -244,6 +256,11 @@ final class BotFeelStand {
             p.teleportTo(level, 0.5, O.getY() + 24, 14.5, Set.of(), 0F, 90F, false);
         }).join();
         int a = scripted.getId(), l = live.getId();
+        // -PbotGait=<n>: both play gait variant n (BotGaits.variant) in place of their own; below nought the mod's own
+        // clips (as Config.botMoves old has them, the moves from recordings kept)
+        Integer gait = Integer.getInteger("ntmgunfeel.botGait");
+        if (gait != null) BotGaitOverride.BY_ENTITY = gait < 0 ? id -> null : id -> BotGaits.variant(gait);
+        acup.gunfeel.GunFeel.LOGGER.info("feel stand: the agent's gait {}, the live one's {}", BotGaitOverride.of(a), BotGaitOverride.of(l));
         BotAnimation.standStill = false;
         BotAnimation.standPose = m -> {
             Scene s = SCENES[Math.min(scene, SCENES.length - 1)];
