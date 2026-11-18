@@ -17,7 +17,8 @@ import acup.gunfeel.GunFeel;
  * The clips AI mobs play, from assets/ntmgunfeel/animations/bot.animation.json (tools/quaternius/bot_clips.py):
  * Quaternius' Universal Animation Library and SWAT, KayKit's Character Animations, all CC0; and from
  * bot_people.animation.json (tools/motion/actions_to_mod.py): actions recorded from people (the CMU Graphics Lab
- * Motion Capture Database). Read from the jar once.
+ * Motion Capture Database); and from bot_gaits.animation.json (gaits_to_mod.py): gait loops recorded from people, by
+ * their own names (BotGaits). Read from the jar once.
  */
 public final class BotClips {
     static final String PATH = "/assets/ntmgunfeel/animations/bot.animation.json",
@@ -64,6 +65,7 @@ public final class BotClips {
         Map<String, BotClip> out = new HashMap<>();
         load(PATH, out);
         load(PEOPLE, out);
+        load(BotGaits.PATH, out);
         return out;
     }
 

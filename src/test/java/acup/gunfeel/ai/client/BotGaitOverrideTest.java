@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class BotGaitOverrideTest {
     @AfterEach
     void none() {
-        BotGaitOverride.BY_ENTITY = id -> null;
+        BotGaitOverride.BY_ENTITY = BotGaitOverride.OWN;
     }
 
     @Test

@@ -300,6 +300,9 @@ neoForge {
             // -PbotMoves=old|clips: the AI mobs' moves from recordings or the feet's own steps (Config.botMoves), whatever
             // the client's config has
             providers.gradleProperty("botMoves").orNull?.let { systemProperty("ntmgunfeel.botMoves", it) }
+            // -PbotGait=<n>: the feel stand's mobs play gait variant n (BotGaits.variant), not each its own (-1: the
+            // mod's own clips)
+            providers.gradleProperty("botGait").orNull?.let { systemProperty("ntmgunfeel.botGait", it) }
             systemProperty("ntmgunfeel.suitBendNoBand",providers.gradleProperty("suitBendNoBand").isPresent.toString())
             // -PbotStandJfr: a flight recording of the run beside its table
             if(providers.gradleProperty("botStandJfr").isPresent) jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/ai/bot-stand/$label.jfr").path},settings=profile,dumponexit=true")

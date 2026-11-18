@@ -23,8 +23,10 @@ def keys(ch: dict) -> dict:
 	"""a channel's keys by time (4 digits: two keys on one time are an error), each its value after the key"""
 	out = {}
 	for t in sorted(ch, key=float):
-		v = ch[t]["post"] if isinstance(ch[t], dict) else ch[t]
+		v = ch[t].get("post") if isinstance(ch[t], dict) else ch[t]
 		k = "%.4f" % float(t)
+		if v is None:
+			raise ValueError(f"the key at {k} s has no post")
 		if k in out:
 			raise ValueError(f"two keys at {k} s")
 		vals = [float(x) for x in v]

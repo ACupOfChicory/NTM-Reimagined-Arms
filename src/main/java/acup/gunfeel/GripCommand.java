@@ -62,7 +62,7 @@ public final class GripCommand {
                 })))
                 .then(Commands.literal("botrungait").executes(c -> {
                     c.getSource().sendSuccess(() -> Component.literal("Бег ботов: " + Config.botRunGait
-                            + " (vanilla, tempo — реже шаг, stride — шире шаг). /gunfeel botrungait <режим>"), false);
+                            + " (vanilla, tempo — реже шаг, stride — шире шаг; только при /gunfeel botmoves old). /gunfeel botrungait <режим>"), false);
                     return 1;
                 }).then(Commands.argument("gait", StringArgumentType.word())
                         .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(Config.RUN_GAITS, b))
@@ -84,7 +84,7 @@ public final class GripCommand {
                 })))
                 .then(Commands.literal("botmoves").executes(c -> {
                     c.getSource().sendSuccess(() -> Component.literal("Ходы ботов: " + Config.botMoves
-                            + " (clips — повороты на месте, старт, стоп и бросок по записям людей, old — прежние). /gunfeel botmoves <режим>"), false);
+                            + " (clips — повороты на месте, старт, стоп, бросок и ноги на ходу и бегу по записям людей, old — прежние). /gunfeel botmoves <режим>"), false);
                     return 1;
                 }).then(Commands.argument("mode", StringArgumentType.word())
                         .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(Config.MOVE_MODES, b))

@@ -2,15 +2,16 @@ AI mob moves from recordings of people
 ======================================
 
 The moves AI mobs play from recordings of people (src/main/resources/assets/ntmgunfeel/animations/bot_moves.json:
-turns on the spot, starts into a run, stops from one; bot_people.animation.json: a grenade's throw) are put on the AI
-mobs' model (Minecraft's humanoid, its arms and legs cut at the elbow and the knee: ten parts) by
-tools/motion/retarget_moves.py and moves_to_mod.py, retarget_actions.py and actions_to_mod.py:
+turns on the spot, starts into a run, stops from one; bot_people.animation.json: a grenade's throw;
+bot_gaits.animation.json: runs, sprints and walks ahead) are put on the AI mobs' model (Minecraft's humanoid, its arms and
+legs cut at the elbow and the knee: ten parts) by tools/motion/retarget_moves.py and moves_to_mod.py,
+retarget_actions.py and actions_to_mod.py, retarget_mocap.py and gaits_to_mod.py:
 
   100STYLE by Ian Mason
     https://www.ianxmason.com/100style/  https://zenodo.org/records/8127870
     I. Mason, S. Starke, T. Komura. Real-Time Style Modelling of Human Locomotion via Feature-Wise Transformations
     and Local Motion Phases. Proc. ACM Comput. Graph. Interact. Tech. 5, 1 (2022).
-    StartStop_FW, Swat_TR1
+    StartStop_FW, Swat_TR1, Swat_FW, Neutral_FW
     License: Creative Commons Attribution 4.0 International (CC BY 4.0)
              https://creativecommons.org/licenses/by/4.0/
 
@@ -18,9 +19,13 @@ tools/motion/retarget_moves.py and moves_to_mod.py, retarget_actions.py and acti
     http://mocap.cs.cmu.edu/
     The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from
     NSF EIA-0196217.
-    Subjects 16 (16_57), 69 (69_14), 79 (79_35), 104 (104_53, 104_55, 104_56, 104_57), 143 (143_02, 143_03)
+    Subjects 9 (09_06), 16 (16_45, 16_46, 16_56, 16_57), 69 (69_14), 78 (78_06), 79 (79_35), 104 (104_53, 104_55,
+    104_56, 104_57), 127 (127_06, 127_08), 139 (139_10), 143 (143_02, 143_03)
     Terms: free for all uses; the data itself may not be resold, even converted.
 
 The recordings were changed: put on the mod's ten parts, each foot down kept standing on the floor in the mob's
 frame for the turn or the way the move was made with, the legs only kept, keys thinned, and a turn to one side
-mirrored for the other. The throw: the upper body only, a short piece of the swing, the head kept at the eye.
+mirrored for the other. The throw: the upper body only, a short piece of the swing, the head kept at the eye. The
+runs and sprints: one step of both legs looped, the legs only, under hips held at one height, each foot down kept on
+the floor and moved out to its own side (people's feet run nearly on one line), the knees straight ahead; some with
+the steps made longer. The walks the same, slower.

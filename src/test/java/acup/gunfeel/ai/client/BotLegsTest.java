@@ -45,6 +45,42 @@ class BotLegsTest {
 
     @Test
     void theLowerFootIsOnTheGround() {
+        // the mod's own clips (Config.botMoves old); the mob's own runs from recordings: eachRunsFeetComeDownOnTheGround
+        BotGaitOverride.BY_ENTITY = id -> null;
+        try {
+            lowerFootOnTheGround();
+        } finally {
+            BotGaitOverride.BY_ENTITY = BotGaitOverride.OWN;
+        }
+    }
+
+    @Test
+    void eachRunsFeetComeDownOnTheGround() {
+        // the mob's own run (BotGaits) at a walk, a jog and a sprint, its stroll at a creep: both feet are off the
+        // ground a part of each step (a run's), and each comes down on it: each foot's lowest corner touches the ground
+        // in the step, within the loops' own 0.05 px and the keys' rounding, never further under it
+        for (int n = 0; n < BotGaits.count(); n++) {
+            BotGaitOverride o = BotGaits.variant(n);
+            BotGaitOverride.BY_ENTITY = id -> o;
+            try {
+                for (float speed : new float[] { 0.09F, 0.19F, 0.27F, 0.32F }) {
+                    float right = Float.MAX_VALUE, left = Float.MAX_VALUE;
+                    for (int i = 0; i < 240; i++) {
+                        BotPoser.Parts p = posed(0F, speed, 0F, Math.min(1F, speed * 4F), BotPoser.CYCLE * i / 240);
+                        right = Math.min(right, lowest(p.rightLeg(), p.rightShin()));
+                        left = Math.min(left, lowest(p.leftLeg(), p.leftShin()));
+                    }
+                    String at = o.walk() + " " + o.jog() + " " + o.sprint() + " " + o.stroll().clip() + " at " + speed + ": ";
+                    assertTrue(Math.abs(right) < 0.15F, at + "the right foot " + right + " px over the ground at its lowest");
+                    assertTrue(Math.abs(left) < 0.15F, at + "the left foot " + left + " px over the ground at its lowest");
+                }
+            } finally {
+                BotGaitOverride.BY_ENTITY = BotGaitOverride.OWN;
+            }
+        }
+    }
+
+    static void lowerFootOnTheGround() {
         // through a step: the lower foot's height and its shin's slant at most and on average. A walk ahead: on the
         // ground all through; a jog's and a sprint's strides and a strafe's legs turned aside (their clips' hips stay
         // up, and a knee bends only one way) lift it a little at times

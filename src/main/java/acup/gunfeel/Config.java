@@ -341,9 +341,11 @@ public final class Config {
             aiVoiceVolume: how loud they are, 0 to 1, times the game's Voice/Speech slider
             botRunGait: AI mobs' legs when they run (a march, a storm): vanilla (the steps as fast as vanilla's walk goes
               at most), tempo (fewer steps, nearer the run's own pace; the feet slide more), stride (longer steps at the
-              same pace; the feet slide less). /gunfeel botrungait
-            botMoves: AI mobs' moves from recordings of people: clips (a slow turn on the spot, a start, a stop and a
-              grenade's throw as people do them) or old (the feet's own steps, the old throw). /gunfeel botmoves
+              same pace; the feet slide less); the mod's own legs only (botMoves old; with clips the runs recorded from
+              people go at their own pace, their feet standing). /gunfeel botrungait
+            botMoves: AI mobs' moves from recordings of people: clips (a slow turn on the spot, a start, a stop, a
+              grenade's throw, and the legs walking, running and sprinting ahead, each mob its own, as people do them)
+              or old (the feet's own steps, the old throw and legs). /gunfeel botmoves
             suppressionDarken: how much the screen darkens under fire (bullets past and hitting near, blasts near), 0 to 1,
               times the server's (at most 40 % darker at the edges, 22 % in the middle)
             suppressionMuffle: how much the other sounds go down under fire, 0 to 1, times the server's (the world's down to
