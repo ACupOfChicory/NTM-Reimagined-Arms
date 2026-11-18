@@ -107,8 +107,12 @@ final class AiCheckOverheat {
                 level.setBlock(new BlockPos(x, y - 1, z), stone, Block.UPDATE_CLIENTS);
                 for (int h = 0; h < 4; h++) level.setBlock(new BlockPos(x, y + h, z), air, Block.UPDATE_CLIENTS);
             }
-        // the wet one's pool, two deep
-        for (int h = 0; h < 2; h++) level.setBlock(new BlockPos(X0 + 16, y + h, Z0 + 2), Blocks.WATER.defaultBlockState(), Block.UPDATE_CLIENTS);
+        // the wet one's pool, two deep, walled in: no water runs out to the dry one
+        for (int dx = -1; dx <= 1; dx++)
+            for (int dz = -1; dz <= 1; dz++)
+                for (int h = 0; h < 3; h++)
+                    level.setBlock(new BlockPos(X0 + 16 + dx, y + h, Z0 + 2 + dz), dx == 0 && dz == 0 && h < 2 ? Blocks.WATER.defaultBlockState() : dx == 0 && dz == 0
+                            ? air : stone, Block.UPDATE_CLIENTS);
         bot = shooter(X0 + 0.5, M2);
         jammer = shooter(X0 + 4.5, AM180);
         cooker = shooter(X0 + 8.5, M2);
@@ -168,6 +172,7 @@ final class AiCheckOverheat {
             lastBotShot = now;
             if (h > Overheat.AI_SHORT + 0.02F) warmBurstMost = Math.max(warmBurstMost, burst);
         } else if (b.getOwner() == jammer) jamShots++;
+        else if (b.getOwner() == wet || b.getOwner() == dry) idleShots++;
         else if (b.getOwner() == cooker && cookTry >= 0 && !cookedThisTry) {
             cookedThisTry = true;
             cooks++;
@@ -248,6 +253,7 @@ final class AiCheckOverheat {
         ItemGunBaseNT.setPrimary(stack, 0, false);
         // just let go: its last shot a tick ago at the top
         Overheat.set(stack, 1F, now - 1);
+        acup.gunfeel.heat.OverheatServer.lastShot(stack, now - 1);
     }
 
     /** a hot M2 in the water, one beside it in the air: both at the top at WET_FROM, read WET ticks after */
@@ -265,6 +271,8 @@ final class AiCheckOverheat {
 
     static final int WET_FROM = 20;
     private float wetHeat = -1, dryHeat = -1;
+    /** shots of the two held hot and never fired: none (a cook-off is only after a shot) */
+    private int idleShots;
 
     private void finish() {
         // from 0.9 down to AI_RESUME in the air
@@ -289,6 +297,8 @@ final class AiCheckOverheat {
         check.out(String.format(Locale.ROOT, "     overheat: from the top %d ticks: in water %.2f (want %.2f), in the air %.2f (want %.2f)", WET, wetHeat, wantWet, dryHeat,
                 wantDry));
         check.check("overheat: a hot gun cools four times as fast in water", Math.abs(wetHeat - wantWet) < 0.06F && Math.abs(dryHeat - wantDry) < 0.02F);
+        check.out("     overheat: shots of the hot M2s held still, in water and in the air: " + idleShots);
+        check.check("overheat: a hot M2 not fired does not go off on its own, wet or dry", idleShots == 0);
         for (Mob m : List.of(bot, jammer, cooker, wet, dry, target)) m.discard();
         counting = null;
     }

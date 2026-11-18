@@ -45,7 +45,7 @@ public enum Feature {
     THERMAL_OUTLINES("thermal_outlines", List.of("MixinThermalEdges"), List.of("BoxEdges")),
     MINI_NUKE_CLOUD("mini_nuke_cloud", List.of("MukePayloadAccess", "MixinMiniNukeSend", "MixinMiniNukeSize", "MixinMiniNukeParams", "MixinMiniNukeMk5", "MixinMiniNukeCreeper", "MixinMiniNukeTorex", "MixinMiniNukeFx"), List.of("MiniNukeCloud", "MiniNukeStand")),
     AMMO_BAG("ammo_bag", List.of("MixinAmmoBagOurs"), List.of("AmmoBagOurs")),
-    OVERHEAT("overheat", List.of("MixinOverheat", "MixinOverheatDecider", "MixinOverheatTick"), List.of("Overheat", "OverheatServer", "OverheatSmoke", "OverheatClient"));
+    OVERHEAT("overheat", List.of("MixinOverheat", "MixinOverheatDecider", "MixinOverheatTick"), List.of("Overheat", "OverheatServer", "OverheatSmoke", "OverheatClient", "AiCheckOverheat"));
 
     public final String id;
     // simple names: mixins in acup.gunfeel.mixin, classes in acup.gunfeel

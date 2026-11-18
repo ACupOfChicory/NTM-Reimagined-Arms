@@ -29,6 +29,8 @@ public final class OverheatServer {
     }
 
     static final String KEY_JAM = "gunfeel_heat_jam", KEY_COOK = "gunfeel_heat_cook", KEY_ROLLED = "gunfeel_heat_rolled";
+    /** the tick of the gun's last shot, low 31 bits (the heat's own tick moves on as water cools it too) */
+    static final String KEY_SHOT = "gunfeel_heat_shot";
     /** water and rain: cooled faster this often, ticks */
     static final int WET_EVERY = 10;
     /** the hiss of a hot gun in hand, ticks between */
@@ -47,6 +49,7 @@ public final class OverheatServer {
         int delay = recs == null || recs.length == 0 ? gun.delay : recs[0].getDelayAfterFire(stack);
         float h = Overheat.afterShot(Overheat.heat(stack, now), gun, scale, delay);
         Overheat.set(stack, h, now);
+        ItemGunBaseNT.setValueInt(stack, KEY_SHOT, low(now));
         if (shooter.getRandom().nextFloat() < Overheat.jamChance(gun, h)) ItemGunBaseNT.setValueInt(stack, KEY_JAM, 1);
     }
 
@@ -88,7 +91,11 @@ public final class OverheatServer {
         Overheat.Gun gun = Overheat.Gun.of(stack);
         if (gun == null || !(entity instanceof LivingEntity living)) return;
         boolean held = slot == EquipmentSlot.MAINHAND;
-        if (!held && ItemGunBaseNT.getValueInt(stack, KEY_JAM) != 0) ItemGunBaseNT.setValueInt(stack, KEY_JAM, 0);
+        if (!held) {
+            // out of the hand nothing waits: a stoppage or a cook-off set goes (a gun picked up later is not fired by an old one)
+            if (ItemGunBaseNT.getValueInt(stack, KEY_JAM) != 0) ItemGunBaseNT.setValueInt(stack, KEY_JAM, 0);
+            if (ItemGunBaseNT.getValueInt(stack, KEY_COOK) != 0) ItemGunBaseNT.setValueInt(stack, KEY_COOK, 0);
+        }
         if (ItemGunBaseNT.getValueFloat(stack, Overheat.KEY_HEAT) <= 0F) return;
         long now = level.getGameTime();
         float h = Overheat.heat(stack, now);
@@ -123,18 +130,20 @@ public final class OverheatServer {
             if (cook != 0) ItemGunBaseNT.setValueInt(stack, KEY_COOK, 0);
             return;
         }
-        long last = Overheat.tick(stack, now);
-        int lastLow = (int) (last & 0x7FFFFFFFL);
+        long last = Overheat.unwrap(ItemGunBaseNT.getValueInt(stack, KEY_SHOT), now);
+        int lastLow = low(last);
         if (cook == 0) {
             if (ItemGunBaseNT.getValueInt(stack, KEY_ROLLED) == lastLow || now - last > 5) return;
             ItemGunBaseNT.setValueInt(stack, KEY_ROLLED, lastLow);
             if (living.getRandom().nextFloat() >= Overheat.cookChance(Overheat.Gun.M2, h)) return;
             int delay = Overheat.COOK_DELAY_MIN + living.getRandom().nextInt(Overheat.COOK_DELAY_MAX - Overheat.COOK_DELAY_MIN + 1);
             // 0 is none: the tick it goes, never 0
-            ItemGunBaseNT.setValueInt(stack, KEY_COOK, Math.max(1, (int) ((now + delay) & 0x7FFFFFFFL)));
+            ItemGunBaseNT.setValueInt(stack, KEY_COOK, Math.max(1, low(now + delay)));
             return;
         }
-        if ((int) (now & 0x7FFFFFFFL) - cook < 0) return;
+        // not yet: its tick ahead of now (by under a quarter of the 31 bits; the bits wrap round)
+        int ahead = (cook - low(now)) & 0x7FFFFFFF;
+        if (ahead != 0 && ahead < 0x20000000) return;
         ItemGunBaseNT.setValueInt(stack, KEY_COOK, 0);
         if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return;
         GunConfig cfg = gun.getConfig(stack, 0);
@@ -148,7 +157,16 @@ public final class OverheatServer {
         ItemGunBaseNT.setState(stack, 0, ItemGunBaseNT.GunState.COOLDOWN);
         ItemGunBaseNT.setTimer(stack, 0, rec.getDelayAfterFire(stack));
         // this shot is its stop's own: no second roll for it
-        ItemGunBaseNT.setValueInt(stack, KEY_ROLLED, (int) (Overheat.tick(stack, now) & 0x7FFFFFFFL));
+        ItemGunBaseNT.setValueInt(stack, KEY_ROLLED, ItemGunBaseNT.getValueInt(stack, KEY_SHOT));
+    }
+
+    /** the stands: the gun's last shot at this tick (a trigger just let go) */
+    public static void lastShot(ItemStack stack, long tick) {
+        ItemGunBaseNT.setValueInt(stack, KEY_SHOT, low(tick));
+    }
+
+    static int low(long tick) {
+        return (int) (tick & 0x7FFFFFFFL);
     }
 
     /** about where the muzzle is: along the look from the eyes, a little down and to the right */

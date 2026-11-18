@@ -562,15 +562,18 @@ public final class AiGunner {
      */
     private void recoil(int shots, long tick, ItemStack stack) {
         float strength = AiRecoil.strength();
-        if (strength <= 0F) return;
         String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        AiRecoil.Kick k = AiRecoil.of(id);
-        if (k == null) return;
-        AiSkill skill = AiSkill.current();
-        boolean aiming = ItemGunBaseNT.getIsAiming(stack), lying = acup.gunfeel.compat.Feature.PRONE.on() && acup.gunfeel.Prone.lying(mob);
+        AiRecoil.Kick k = strength <= 0F ? null : AiRecoil.of(id);
+        // the burst is counted with no kick too: the barrel's heat cuts it by its shots (heatHolds)
         boolean first = lastShot == Long.MIN_VALUE || tick - lastShot > BURST_GAP;
         lastShot = tick;
         if (first) burstShots = 0;
+        if (k == null) {
+            burstShots += shots;
+            return;
+        }
+        AiSkill skill = AiSkill.current();
+        boolean aiming = ItemGunBaseNT.getIsAiming(stack), lying = acup.gunfeel.compat.Feature.PRONE.on() && acup.gunfeel.Prone.lying(mob);
         for (int i = 0; i < shots; i++) {
             burstShots++;
             drift = AiRecoil.drift(drift, first && i == 0, (float) mob.getRandom().nextGaussian());

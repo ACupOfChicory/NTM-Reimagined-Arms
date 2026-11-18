@@ -51,10 +51,15 @@ public final class Overheat {
             this.aiBurst = aiBurst;
         }
 
+        // the item each is, looked up once (the registry is fixed by then)
+        private net.minecraft.world.item.Item item;
+
         public static Gun of(ItemStack stack) {
             if (stack == null || stack.isEmpty() || !(stack.getItem() instanceof ItemGunBaseNT)) return null;
-            String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-            for (Gun g : values()) if (g.id.equals(id)) return g;
+            for (Gun g : values()) {
+                if (g.item == null) g.item = BuiltInRegistries.ITEM.getValue(net.minecraft.resources.Identifier.parse(g.id));
+                if (g.item == stack.getItem()) return g;
+            }
             return null;
         }
     }
