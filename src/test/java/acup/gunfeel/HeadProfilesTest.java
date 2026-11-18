@@ -646,6 +646,17 @@ class HeadProfilesTest {
         assertTrue(HeadProfiles.unite(crab,shell).stream().noneMatch(b->b.part().startsWith("root/shell") && !b.part().equals("root/shell")));
         var withShell=new ArrayList<>(shell);withShell.add(box(crab.parts().getFirst(),"root/shell"));
         assertTrue(HeadProfiles.unite(crab,withShell).stream().anyMatch(b->b.part().equals("root/shell4")));
+        // имена решаются по одним именам частей (F3+B зовёт это каждый кадр): в другой позе те же имена у коробок новой
+        // позы, а тот же список с коробкой root/shell по-прежнему решается своим
+        var renamed=HeadProfiles.renamed(crab,shell);
+        var moved=shell.stream().map(b->new ModelBox(b.part(),b.x()+5,b.y()-2,b.z()+.25,b.ux(),b.uy(),b.uz(),b.vx(),b.vy(),b.vz(),b.wx(),b.wy(),b.wz(),b.mesh())).toList();
+        var movedRenamed=HeadProfiles.renamed(crab,moved);
+        for(int i=0;i<shell.size();i++) {
+            assertEquals(renamed.get(i).part(),movedRenamed.get(i).part());
+            assertEquals(moved.get(i).x(),movedRenamed.get(i).x());assertEquals(moved.get(i).y(),movedRenamed.get(i).y());
+        }
+        assertTrue(renamed.stream().anyMatch(b->b.part().equals("root/shell")) && shell.stream().noneMatch(b->b.part().equals("root/shell")));
+        assertTrue(HeadProfiles.renamed(crab,withShell).stream().anyMatch(b->b.part().equals("root/shell4")));
         // зона панциря без Flywheel — его кубы, а не коробка вокруг них: нога под панцирем не голова
         var resolved=ModelHeads.resolve("hbm:entity_cyber_crab",shell,0);assertEquals(0,resolved.missing());
         var crabZones=resolved.zones();

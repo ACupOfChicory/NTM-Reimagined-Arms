@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- F3+B no longer slows the game to a crawl near mobs in NTM's power armour and
+  suits or near NTM's own mobs. Each piece of their armour and model now has its
+  outline worked out once and carried along with the piece, where before the
+  whole mob's outline was worked out again for every pose. Where two pieces lie
+  flush against each other, the line between them is now drawn.
 - Mobs in NTM's power armour and suits, and NTM's own mobs, no longer slow
   the game down near the player: taking their hitboxes made NTM draw their
   models a vertex at a time instead of its fast way, which a handful of AI

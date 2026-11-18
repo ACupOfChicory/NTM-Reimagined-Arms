@@ -99,13 +99,31 @@ public final class ModelHitDebug {
         // Все контуры кадра одним вызовом: недостающие строятся параллельно,
         // а у уже показанного моба — в фоне; кадр ждёт её, только если прежний
         // контур старше правила (ModelContours.LAG).
+        // Кубы моба — одним контуром, как прежде (ModelContours.split), меши — по группам, каждая своим контуром
+        // в своей коробке: он не зависит от позы, строится один раз, на кадр движется только его матрица.
         List<ModelContours.Outline> outlines=null;
+        int[] cubes=new int[customs.length],groups=new int[customs.length+1];
         if(!MobBenchMetrics.LEGACY) {
             long contour=MobBenchMetrics.start();
-            outlines=ModelContours.outlines(all,owners);
+            List<List<ModelBox>> lists=new ArrayList<>(customs.length*2);
+            List<Object> listOwners=new ArrayList<>(customs.length*2);
+            List<List<ModelBox>> parts=new ArrayList<>();
+            for(int i=0;i<customs.length;i++) {
+                var split=ModelContours.split(all.get(i));
+                cubes[i]=split.cubes().isEmpty()?-1:lists.size();
+                if(cubes[i]>=0) { lists.add(split.cubes()); listOwners.add(owners.get(i)); }
+                groups[i]=parts.size(); parts.addAll(split.groups());
+            }
+            groups[customs.length]=parts.size();
+            // группы мешей — без владельца: их форма не меняется, и прежний контур им не нужен
+            int first=lists.size();
+            lists.addAll(parts); for(int g=0;g<parts.size();g++) listOwners.add(null);
+            outlines=ModelContours.outlines(lists,listOwners);
+            for(int i=0;i<=customs.length;i++) groups[i]+=first;
             MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
+            // возраст контура кубов — по тем же кубам: контур лежит в системе первого из них
             if(ContourAge.ENABLED)
-                for(int i=0;i<customs.length;i++) if(customs[i]) ContourAge.check(TARGETS.get(i).entity(),all.get(i),outlines.get(i));
+                for(int i=0;i<customs.length;i++) if(customs[i] && cubes[i]>=0) ContourAge.check(TARGETS.get(i).entity(),lists.get(cubes[i]),outlines.get(cubes[i]));
         }
         for(int i=0;i<customs.length;i++) {
             var target=TARGETS.get(i); var boxes=all.get(i);
@@ -113,7 +131,11 @@ public final class ModelHitDebug {
                 long contour=MobBenchMetrics.start();
                 shapes.add(new ModelDebugRender.Shape(++id,customs[i],boxes,ModelContours.edges(boxes)));
                 MobBenchMetrics.add(MobBenchMetrics.CONTOUR,contour);
-            } else shapes.add(new ModelDebugRender.Shape(++id,customs[i],boxes,List.of(),outlines.get(i)));
+            } else {
+                shapes.add(new ModelDebugRender.Shape(++id,customs[i],boxes,List.of(),cubes[i]<0?null:outlines.get(cubes[i])));
+                // маска уже берёт все части моба из первой формы: у групп только линии
+                for(int g=groups[i];g<groups[i+1];g++) shapes.add(new ModelDebugRender.Shape(id,customs[i],List.of(),List.of(),outlines.get(g)));
+            }
             if(HeadLabels.ENABLED) HeadLabels.overlay(shapes,id,target.entity());
             else HeadDebug.add(shapes,id,target.entity());
         }

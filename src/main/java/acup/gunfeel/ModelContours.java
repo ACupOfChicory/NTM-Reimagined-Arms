@@ -38,6 +38,9 @@ public final class ModelContours {
     // Сборки моба в пути: сколько и время и номер вызова новейшей. Следующая
     // начинается, не дожидаясь прежней, если новейшая начата раньше STAGGER
     // (не больше AHEAD сразу): так контур моложе сборки плюс шаг и кадр не ждёт.
+    // Без сборки в пути новая поза строится, лишь когда показанный контур старше
+    // STAGGER: иначе идущий моб при сотнях кадров в секунду начинал бы сборку
+    // каждый кадр (десять идущих ботов держали два ядра), а возраст тот же.
     private static final class Pending { int count; long born,frame; }
     private static final java.util.Map<Object,Pending> WAITING=new java.util.WeakHashMap<>();
     private static final int AHEAD=3;
@@ -145,7 +148,7 @@ public final class ModelContours {
             if(shown!=null && shown.key()==request.key() && (shown=fresh(shown,owner,request.key()))!=null) {
                 out[i]=new Outline(request.frame(),shown.edges());
                 var waiting=WAITING.get(owner);
-                if(waiting==null || waiting.count<AHEAD && callAt-waiting.born>STAGGER) later(request,owner);
+                if(waiting==null?callAt-shown.born()>STAGGER:waiting.count<AHEAD && callAt-waiting.born>STAGGER) later(request,owner);
                 continue;
             }
             refs[i]=pending.size(); frames[i]=request.frame(); pending.add(request);
@@ -316,6 +319,57 @@ public final class ModelContours {
         }
         for(int i=0;i<a.size();i++) if(!a.get(i).part().equals(b.get(i).part())) return false;
         return true;
+    }
+    // The parts of a mob for F3+B: its cubes, outlined together as before, and its meshes (NTM's suits and mobs) by
+    // group: the pieces of one group of NTM's lie in one box, one after another, and the group is outlined on its own
+    // in its own box, the same outline whatever the pose, so it is built once and only its matrix moves. What the
+    // meshes lose is what lay between parts: a seam where two of them lie flush in one plane is not taken out. The cubes
+    // go to collect all of them, which leaves out an inner layer itself (so the list, the key its background builds go
+    // by, is the same whatever the pose); a mesh inside the one it belongs to is left out here by the same rule.
+    record Split(List<ModelBox> cubes,List<List<ModelBox>> groups) {}
+    static Split split(List<ModelBox> boxes) {
+        List<ModelBox> cubes=new ArrayList<>(boxes.size());
+        List<List<ModelBox>> groups=new ArrayList<>();
+        int[][] parents=parents(boxes);
+        ModelBox last=null;
+        for(int b=0;b<boxes.size();b++) {
+            var box=boxes.get(b);
+            if(box.mesh()==0) { cubes.add(box); continue; }
+            boolean nested=false;
+            for(int i:parents[b]) if(boxes.get(i).encloses(box)) { nested=true; break; }
+            if(nested) continue;
+            if(last!=null && sameBox(last,box)) groups.getLast().add(box);
+            else { var group=new ArrayList<ModelBox>(2); group.add(box); groups.add(group); }
+            last=box;
+        }
+        return new Split(cubes,groups);
+    }
+    // the parts each part could lie inside (its name under theirs, as collect asks it), by the mob's names: a mob's
+    // parts are the same from frame to frame, and it is only whether one lies in the other that the pose changes
+    private static final java.util.LinkedHashMap<List<String>,int[][]> PARENTS=new java.util.LinkedHashMap<>(64,.75F,true);
+    private static synchronized int[][] parents(List<ModelBox> boxes) {
+        var names=new String[boxes.size()];
+        for(int i=0;i<names.length;i++) names[i]=boxes.get(i).part();
+        var key=List.of(names);
+        var cached=PARENTS.get(key);
+        if(cached!=null) return cached;
+        var out=new int[names.length][];
+        for(int b=0;b<names.length;b++) {
+            int[] found=new int[0];
+            for(int i=0;i<names.length;i++)
+                if(i!=b && names[b].length()>names[i].length() && names[b].startsWith(names[i]) && names[b].charAt(names[i].length())=='/') {
+                    found=java.util.Arrays.copyOf(found,found.length+1); found[found.length-1]=i;
+                }
+            out[b]=found;
+        }
+        PARENTS.put(key,out);
+        if(PARENTS.size()>256) PARENTS.remove(PARENTS.keySet().iterator().next());
+        return out;
+    }
+    private static boolean sameBox(ModelBox a,ModelBox b) {
+        return a.x()==b.x() && a.y()==b.y() && a.z()==b.z() && a.ux()==b.ux() && a.uy()==b.uy() && a.uz()==b.uz()
+                && a.vx()==b.vx() && a.vy()==b.vy() && a.vz()==b.vz() && a.wx()==b.wx() && a.wy()==b.wy() && a.wz()==b.wz()
+                && a.part().equals(b.part());
     }
     private static List<Vec3[]> collect(List<ModelBox> boxes) {
         List<Vec3[]> out=new ArrayList<>();
