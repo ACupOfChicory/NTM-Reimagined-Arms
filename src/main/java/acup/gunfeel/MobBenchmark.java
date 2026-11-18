@@ -166,6 +166,15 @@ final class MobBenchmark {
             if(!mob.isRemoved()) mob.setPos(at[i]+.6*Math.sin(walkTick*.32),mob.getY(),mob.getZ());
         }
     }
+    private static void shot(String scene) {
+        var file=System.getProperty("ntmgunfeel.benchFile");
+        if(file==null) return;
+        var path=java.nio.file.Path.of(file.replaceFirst("\\.tsv$","")+"-"+scene.replaceAll("[^A-Za-z0-9+_-]","_")+".png");
+        net.minecraft.client.Screenshot.takeScreenshot(Minecraft.getInstance().gameRenderer.mainRenderTarget(),image -> {
+            try(image) { image.writeToFile(path); }
+            catch(java.io.IOException ex) { org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").warn("[mobbench] снимок {}: {}",path,ex.toString()); }
+        });
+    }
     private static void report() {
         for(var e:MEANS.entrySet()) {
             double[] m=e.getValue();
@@ -198,6 +207,9 @@ final class MobBenchmark {
         if(samples<TIMES.length) TIMES[samples++]=now-last;
         last=now;
         if((now-measuring)/1e9<MEASURE) return;
+        // a frame of each scene with the hitboxes and F3+B on (first pass), taken once the window is measured: what F3+B
+        // shows, beside the table, to set one run's against another's
+        if(PLAN.get(index).debug() && PLAN.get(index).mode()==1 && PLAN.get(index).pass()==0) shot(label(PLAN.get(index).scene()));
         double seconds=(now-measuring)/1e9;
         long allocation=THREADS.getThreadAllocatedBytes(Thread.currentThread().threadId())-allocationStart;
         long[] sorted=Arrays.copyOf(TIMES,samples); Arrays.sort(sorted);
