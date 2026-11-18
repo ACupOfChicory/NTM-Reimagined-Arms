@@ -64,6 +64,12 @@ page. They are alphas: expect bugs and back up your world.
 ### Ammo and HUD
 
 - An ammo counter in the bottom-right corner instead of NTM's.
+- A dynamic crosshair in place of NTM's: it opens with the spread your shot
+  would have right now (standing, crouched, moving, in the air) and jumps out
+  with each shot's kick, then closes back. Pistols and revolvers get a
+  corner, SMGs brackets, shotguns a square, launchers and the heaviest guns a
+  ruler, the rest a cross. It is hidden while aiming down the sights where
+  NTM hides its own; the Stinger keeps NTM's lock-on crosshair.
 - A hit marker round the crosshair when your shot hurts someone: four short
   white strokes on the body, red ones on the head, with a quiet tick or ding,
   and a bell on a kill. Any NTM gun's bullets, beams and blasts, the
@@ -531,6 +537,7 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `cornerHud` | `true` | Corner ammo counter instead of NTM's |
 | `hitMarker` | `true` | A mark round the crosshair and a quiet sound when your shot hurts someone (red on the head, a bell on a kill) |
 | `damageIndicator` | `true` | An arc round the crosshair towards where damage you take came from |
+| `dynamicCrosshair` | `true` | The dynamic crosshair instead of NTM's |
 | `ammoMenu` | `steel` | Look of the ammo wheel: `steel`, `petals`, `bubbles`, `ntm`, `glass`, `arc` |
 | `quality` | `high` | Impact effects: `low`, `medium`, `high`, `realism` |
 | `hitVolume` | `2` | Loudness of hit sounds, 0 to 4 |
@@ -711,6 +718,11 @@ Zero) by MCModderAnchor and contributors under GPL-3.0. Those files remain
 GPL-3.0-only, like the Superb Warfare code above. Source revision, changes and
 the license text are in [third-party/tacz.txt](third-party/tacz.txt) and
 packaged under `META-INF/licenses/`. No TaCZ assets are included.
+
+The dynamic crosshair's look and behaviour follow the dynamic crosshair of
+TACZ Refabricated by Sh1roCu and The Unnamed, itself after TaCZ: Labs by
+Txt-Text (GPL-3.0). It is written for this mod from how that crosshair looks
+and moves; no code is taken from either.
 
 The GL-54 grenade launcher's placeholder model is a modified derivative of
 "Low-Poly XM-29 OICW" by TastyTony, licensed under CC BY 4.0. The source link,

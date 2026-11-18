@@ -16,6 +16,8 @@ public abstract class MixinItemGunBaseNT {
     // Take over NTM's 20 Hz camera recoil: hand the new impulse to CameraRecoil, which applies it per frame.
     @Inject(method = "clientRecoilTick", at = @At("HEAD"), cancellable = true)
     private static void gunfeel$recoilTick(CallbackInfo ci) {
+        // the dynamic crosshair jumps out with the kick, NTM's camera recoil or the mod's alike
+        if (Config.enabled) acup.gunfeel.crosshair.DynamicCrosshair.kick(ItemGunBaseNT.recoilVertical);
         if (!Config.enabled || !GunVisualConfig.visualRecoil) return;
         if (ItemGunBaseNT.recoilVertical != 0F || ItemGunBaseNT.recoilHorizontal != 0F) {
             CameraRecoil.addImpulse(ItemGunBaseNT.recoilVertical, ItemGunBaseNT.recoilHorizontal);

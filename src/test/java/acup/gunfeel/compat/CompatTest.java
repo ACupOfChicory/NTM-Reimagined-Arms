@@ -118,7 +118,8 @@ class CompatTest {
         assertTrue(r.off().isEmpty(), r.off().toString());
     }
 
-    // NTM renames the method the spread mixin changes: only the spread goes, and the shock (its shots' spread is there too)
+    // NTM renames the method the spread mixin changes: only the spread goes, and the shock (its shots' spread is there too),
+    // and the dynamic crosshair (it asks NTM for the spread every frame)
     @Test
     void renamedMethodTurnsOffOnlyItsSystem() throws IOException {
         MixinProbe.Classes real = classes();
@@ -128,7 +129,7 @@ class CompatTest {
         MixinProbe.Classes doctored = n -> n.equals(LEGO) ? lego : real.get(n);
         Compat.Result r = HbmMixinPlugin.evaluate(mixins(), doctored, api());
         assertNotNull(r);
-        assertEquals(Set.of(Feature.SPREAD, Feature.SHOCK, Feature.NUCLEAR_BMG50, Feature.OVERHEAT), r.off().keySet(), r.off().toString());
+        assertEquals(Set.of(Feature.SPREAD, Feature.SHOCK, Feature.NUCLEAR_BMG50, Feature.OVERHEAT, Feature.DYNAMIC_CROSSHAIR), r.off().keySet(), r.off().toString());
         assertEquals(Set.of("MixinLegoSpread", "MixinShockSpread", "MixinNuclearWear", "MixinNuclearCanFire", "MixinOverheat", "MixinOverheatDecider",
                 "MixinOverheatTick"), r.skipped().keySet());
     }

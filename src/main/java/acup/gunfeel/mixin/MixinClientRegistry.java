@@ -28,4 +28,10 @@ public abstract class MixinClientRegistry {
         Hud.render(graphics, player, stack, gun);
         ci.cancel();
     }
+
+    // The dynamic crosshair in place of NTM's (DynamicCrosshair); NTM's own for the Stinger and the guns of no class.
+    @Inject(method = "renderGunCrosshair", at = @At("HEAD"), cancellable = true)
+    private static void gunfeel$crosshair(GuiGraphicsExtractor graphics, CallbackInfo ci) {
+        if (acup.gunfeel.crosshair.DynamicCrosshair.render(graphics)) ci.cancel();
+    }
 }

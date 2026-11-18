@@ -42,6 +42,20 @@ public final class Spread {
     private Spread() {
     }
 
+    // a query, not a shot (the dynamic crosshair's, every frame): not in the test log
+    private static final ThreadLocal<Boolean> QUERY = ThreadLocal.withInitial(() -> false);
+
+    /** {@code spread} worked out as a query, not a shot: the test log leaves it out */
+    public static float quietly(java.util.function.Supplier<Float> spread) {
+        boolean was = QUERY.get();
+        QUERY.set(true);
+        try {
+            return spread.get();
+        } finally {
+            QUERY.set(was);
+        }
+    }
+
     public static float apply(LivingEntity e, ItemStack stack, boolean aim, float spread) {
         String gun = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
         // the choke first, on NTM's spread alone: before the mod's multipliers and what it adds; aimed by
@@ -70,7 +84,7 @@ public final class Spread {
         float air = inAir(e) ? get(gun, "spreadAir", 0F) * armor : 0F;
         float bloom = bloom(e, gun) * armor;
         float total = SpreadModel.total(spread, mult, get(gun, "spreadSpeed", 0F), live, air, bloom, stance);
-        if (acup.gunfeel.TestLog.on(e.level())) {
+        if (acup.gunfeel.TestLog.on(e.level()) && !QUERY.get()) {
             Long last = LOGGED.put(e, e.level().getGameTime());
             if (last == null || last != e.level().getGameTime())
                 acup.gunfeel.TestLog.at(e.level(), -1, "spread", "who", e.getPlainTextName(), "gun", gun, "aim", aim, "crawl", crawl, "sneak", sneak,
