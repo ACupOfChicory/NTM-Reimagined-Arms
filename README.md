@@ -54,6 +54,12 @@ page. They are alphas: expect bugs and back up your world.
 ### Ammo and HUD
 
 - An ammo counter in the bottom-right corner instead of NTM's.
+- A hit marker round the crosshair when your shot hurts someone: four short
+  white strokes on the body, red ones on the head, with a quiet tick or ding,
+  and a bell on a kill. Any NTM gun's bullets, beams and blasts, the
+  electroshock shell's too.
+- When you take damage, a red arc round the crosshair shows where it came from
+  and stays pointing there as you turn.
 - Tap Y to lock the gun's ammo type: it keeps that type, also once empty. Hold
   Y for an ammo wheel: point at a type with the mouse and left-click to reload
   with it; letting go of Y without a click changes nothing. Under the type you
@@ -513,6 +519,8 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `aimOnRightButton` | `true` | Aim with the right button |
 | `clickAim` | `true` | Bullets fly where the click was aimed |
 | `cornerHud` | `true` | Corner ammo counter instead of NTM's |
+| `hitMarker` | `true` | A mark round the crosshair and a quiet sound when your shot hurts someone (red on the head, a bell on a kill) |
+| `damageIndicator` | `true` | An arc round the crosshair towards where damage you take came from |
 | `ammoMenu` | `steel` | Look of the ammo wheel: `steel`, `petals`, `bubbles`, `ntm`, `glass`, `arc` |
 | `quality` | `high` | Impact effects: `low`, `medium`, `high`, `realism` |
 | `hitVolume` | `2` | Loudness of hit sounds, 0 to 4 |

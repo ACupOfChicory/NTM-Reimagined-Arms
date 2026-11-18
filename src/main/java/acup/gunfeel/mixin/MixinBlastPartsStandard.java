@@ -52,8 +52,16 @@ public abstract class MixinBlastPartsStandard {
             require = 1)
     private void gunfeel$hurt(EntityProcessorStandard self, Entity entity, ExplosionVNT explosion, float amount, Operation<Void> original) {
         float m = BlastParts.multiplier(entity);
-        if (m == 1F || !(entity instanceof LivingEntity living)) {
+        if (!(entity instanceof LivingEntity living)) {
             original.call(self, entity, explosion, amount);
+            return;
+        }
+        // on the body too: a blast's hurt is a shot's (the hit marker, HitMarkers)
+        if (m == 1F) {
+            HeadDamage.shot(living, () -> {
+                original.call(self, entity, explosion, amount);
+                return true;
+            });
             return;
         }
         HeadDamage.attack(living, amount, m, d -> {

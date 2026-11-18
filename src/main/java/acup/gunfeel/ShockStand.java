@@ -15,6 +15,7 @@ import com.hbm.items.weapon.sedna.Receiver;
 import com.hbm.items.weapon.sedna.factory.Lego;
 import com.hbm.items.weapon.sedna.factory.XFactory12ga;
 
+import acup.gunfeel.hitmarker.client.HitMarkerClient;
 import acup.gunfeel.shock.ShockAmmo;
 import acup.gunfeel.shock.ShockServer;
 import acup.gunfeel.shock.client.ShockClient;
@@ -80,7 +81,7 @@ final class ShockStand {
     // the server's ticks {tick, shocked, spread, speed}; the client's frames {server tick, its speed, its FOV modifier}
     private static final List<float[]> TICKS = new ArrayList<>();
     private static final List<float[]> FRAMES = new ArrayList<>();
-    private static int shocks0, marks0, took0;
+    private static int shocks0, marks0, indicators0, heads0, kills0;
 
     private ShockStand() {
     }
@@ -201,6 +202,7 @@ final class ShockStand {
                 }
                 case 40 -> { // a shell into the player
                     shocks0 = ShockClient.shocks;
+                    indicators0 = HitMarkerClient.indicators;
                     TICKS.clear();
                     FRAMES.clear();
                     SERIES.setLength(0);
@@ -223,6 +225,12 @@ final class ShockStand {
                             "игрок: шок ровно " + len + " тактов, 40 на полной и затухание (" + shockedTicks + ", свободен с +" + (firstFree - hitAt) + ")");
                     windowChecks();
                     check(ShockClient.shocks == shocks0 + 1, "игрок: клиент узнал о шоке");
+                    // the damage indicator: one arc, towards the mannequin that fired (behind the player, who faces south)
+                    var from = HitMarkerClient.lastFrom;
+                    log("игрок: указателей урона {}, откуда {}, направление {}°", HitMarkerClient.indicators - indicators0, from, f(HitMarkerClient.firstDir));
+                    check(HitMarkerClient.indicators - indicators0 == 1 && from != null && Math.abs(from.x - EX) < 0.6 && Math.abs(from.z - (EZ - 20)) < 0.6
+                            && Math.abs(Math.abs(HitMarkerClient.firstDir) - 180F) < 5F, "игрок: указатель урона один, на стрелка сзади ("
+                            + (HitMarkerClient.indicators - indicators0) + ", " + f(HitMarkerClient.firstDir) + "°)");
                     // at most shockCamera (45°/s) × (1 + 0.45 the pitch's share) over 2 s at full and the fade's 1.5 s worth
                     check(ShockClient.turned > 5F && ShockClient.turned < 230F, "игрок: взгляд водило само (" + f(ShockClient.turned) + "°)");
                     immunity();
@@ -231,9 +239,35 @@ final class ShockStand {
                 case 52 -> agentShocked();
                 case 53 -> agentAfter();
                 case 54 -> {
-                    int n = ShockClient.marks - marks0, t = ShockClient.marksTook - took0;
-                    log("стрелку: отметок {}, из них с шоком {}", n, t);
-                    check(n == 2 && t == 1, "стрелку отметка попадания: 2, с шоком 1 (" + n + ", " + t + ")");
+                    int n = HitMarkerClient.marks - marks0;
+                    log("стрелку: хитмаркеров {}", n);
+                    check(n == 2, "стрелку хитмаркер на каждое попадание: 2 (" + n + ")");
+                    // an NTM bullet that counts the head (×2) into the agent's head, then one into its body at 1 health
+                    marks0 = HitMarkerClient.marks;
+                    heads0 = HitMarkerClient.heads;
+                    kills0 = HitMarkerClient.kills;
+                    bullet(true, false);
+                    wait(10, 55);
+                }
+                case 55 -> {
+                    bullet(false, true);
+                    wait(10, 56);
+                }
+                case 56 -> {
+                    int n = HitMarkerClient.marks - marks0, h = HitMarkerClient.heads - heads0, k = HitMarkerClient.kills - kills0;
+                    float left = onServer(p -> agent.getHealth());
+                    boolean alive = onServer(p -> agent.isAlive());
+                    log("стрелку пулей NTM: хитмаркеров {}, в голову {}, убийств {}; агент: здоровье {}, жив {}", n, h, k, f(left), alive);
+                    check(n == 2 && h == 1 && k == 1, "стрелку: хитмаркер в голову, потом убийство (" + n + ", " + h + ", " + k + ")");
+                    // a grenade into the ground beside the agent: its blast alone, on the body too, gives the mark
+                    marks0 = HitMarkerClient.marks;
+                    grenade();
+                    wait(20, 57);
+                }
+                case 57 -> {
+                    int n = HitMarkerClient.marks - marks0;
+                    log("стрелку гранатой рядом: хитмаркеров {}", n);
+                    check(n >= 1, "стрелку: хитмаркер от взрыва (" + n + ")");
                     restore();
                     ClientSmoke.finish();
                     step = 999;
@@ -451,8 +485,7 @@ final class ShockStand {
             wait(1, 54);
             return;
         }
-        marks0 = ShockClient.marks;
-        took0 = ShockClient.marksTook;
+        marks0 = HitMarkerClient.marks;
         agentBefore = onServer(p -> spreadOn(agent, agent));
         stepBefore = onServer(p -> step(agent));
         fire(true);
@@ -516,6 +549,39 @@ final class ShockStand {
                 b = new EntityBulletBaseMK4(level, p, c, 16F * c.damageMult, -c.spread, EX, O.getY() + 1.62, EZ, dx, agent.getY() + 1.0 - (O.getY() + 1.62), dz);
             } else b = new EntityBulletBaseMK4(level, shooter, c, 16F * c.damageMult, -c.spread, EX, O.getY() + 1.0, EZ - 19, 0, 0, 1);
             level.addFreshEntity(b);
+            return null;
+        });
+    }
+
+    // the player's GL-54 HE grenade straight down from 5 blocks up (past its arming 3) into the ground a block short of
+    // the agent: no direct hit, the blast's
+    private static void grenade() {
+        onServer(p -> {
+            ServerLevel level = (ServerLevel) p.level();
+            if (!agent.isAlive()) {
+                agent = (Mob) agent.getType().create(level, EntitySpawnReason.COMMAND);
+                agent.snapTo(EX + 3, O.getY(), EZ + 6, 180F, 0F);
+                agent.setNoAi(true);
+                level.addFreshEntity(agent);
+            }
+            agent.setHealth(agent.getMaxHealth());
+            double x = agent.getX(), z = agent.getZ() - 1.2;
+            level.addFreshEntity(new EntityBulletBaseMK4(level, p, acup.gunfeel.gl54.Gl54Ammo.he(), acup.gunfeel.gl54.Gl54Grenade.BASE_DAMAGE, 0F,
+                    x, O.getY() + 5.0, z, 0, -1, 0));
+            return null;
+        });
+    }
+
+    // the player's plain NTM bullet (it counts the head ×2) at the agent's head or body; `kill`: the agent nearly dead
+    private static void bullet(boolean head, boolean kill) {
+        onServer(p -> {
+            ServerLevel level = (ServerLevel) p.level();
+            // the kill: under any armour's and the damage cap's cut, the bullet still takes more than is left
+            agent.setHealth(kill ? 0.05F : agent.getMaxHealth());
+            BulletConfig c = new BulletConfig().setDamage(4F).setHeadshot(2F);
+            double y = head ? agent.getY() + agent.getBbHeight() - 0.12 : agent.getY() + agent.getBbHeight() * 0.45;
+            double sy = O.getY() + 1.62, dx = agent.getX() - EX, dy = y - sy, dz = agent.getZ() - EZ;
+            level.addFreshEntity(new EntityBulletBaseMK4(level, p, c, 4F, 0F, EX, sy, EZ, dx, dy, dz));
             return null;
         });
     }

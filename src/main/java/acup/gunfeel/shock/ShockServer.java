@@ -36,7 +36,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * about on its own. After a shock ends the one shocked takes none for shockImmunity seconds: a stream of shells does
  * not keep anyone shocked for good, but such a hit is no longer a light one: with the balance (balance = arms) it does
  * REPEAT of a slug of the same gun (BalanceFinal.hitAs). The discharge is heard where it hit, and the shooter (a player) is told it hit with
- * shock (a mark at the crosshair).
+ * shock (the hit marker at the crosshair, HitMarkers).
  */
 public final class ShockServer {
     private ShockServer() {
@@ -156,9 +156,8 @@ public final class ShockServer {
         if (!(target.level() instanceof ServerLevel level)) return;
         if (!(target.getHealth() + target.getAbsorptionAmount() < before)) return;
         zap(level, target);
-        LivingEntity shooter = bullet.getThrower();
-        boolean took = shock(target);
-        if (shooter instanceof ServerPlayer sp && shooter != target) PacketDistributor.sendToPlayer(sp, new ShockPayloads.Mark(took));
+        // the shooter's mark is the hit marker of any shot's (HitMarkers)
+        shock(target);
     }
 
     /**

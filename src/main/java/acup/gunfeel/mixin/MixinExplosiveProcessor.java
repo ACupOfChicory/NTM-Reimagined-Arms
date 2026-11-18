@@ -43,7 +43,8 @@ public abstract class MixinExplosiveProcessor implements ExplosiveDamage.Process
             if(m!=1F && total>area && total>0 && !acup.gunfeel.BalanceFinal.blastNow(target))
                 return acup.gunfeel.HeadDamage.attack(target,total,(area*m+total-area)/total,
                         d->ExplosiveDamage.attack(target,source,d,first,second,knockback,threshold,piercing));
-            return ExplosiveDamage.attack(target,source,total,first,second,knockback,threshold,piercing);
+            // on the body too: a shot's all the same (the hit marker, HitMarkers)
+            return acup.gunfeel.HeadDamage.shot(target,()->ExplosiveDamage.attack(target,source,total,first,second,knockback,threshold,piercing));
         }));
     }
 }

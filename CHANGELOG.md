@@ -1,5 +1,14 @@
 # Changelog
 
+## X1634
+
+- A hit marker round the crosshair when your shot hurts someone: white strokes
+  on the body, red on the head, a quiet tick or ding, and a bell on a kill.
+  It covers NTM's bullets, beams and blasts, and replaces the electroshock
+  shell's own mark. Setting `hitMarker`.
+- A red arc round the crosshair shows where damage you take came from and stays
+  pointing there as you turn. Setting `damageIndicator`.
+
 ## X1633
 
 - AI soldiers creeping along with their gun up, aiming or shooting, walk as a
