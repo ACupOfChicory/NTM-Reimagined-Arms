@@ -320,7 +320,7 @@ public final class ModelContours {
         for(int i=0;i<a.size();i++) if(!a.get(i).part().equals(b.get(i).part())) return false;
         return true;
     }
-    // The parts of a mob for F3+B: the pieces of NTM's model groups (its suits, its OBJ models: ModelMesh.grouped) by
+    // The parts of a mob for F3+B: the pieces of NTM's own models (its suits, its OBJ models: ModelMesh.grouped) by
     // group, the rest (cubes, Flywheel's meshes) together as before. The pieces of one group lie in one box, one after
     // another, and the group is outlined on its own in its own box, the same outline whatever the pose, so it is built
     // once and only its matrix moves. What a group loses is what lay between it and the rest: a seam where it lies

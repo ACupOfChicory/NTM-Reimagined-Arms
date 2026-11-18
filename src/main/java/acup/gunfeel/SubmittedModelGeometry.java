@@ -231,6 +231,8 @@ class SubmittedModelGeometry implements VertexConsumer {
         if(geometry==null) {
             if(CACHE.size()>=MAX_SHAPES) CACHE.remove(CACHE.keySet().iterator().next());
             geometry=ModelSurfaceGeometry.bake(raw,shell?null:ModelTextureMask.mask(texture));
+            // a piece NTM drew, in its own box: F3+B outlines it on its own (ModelMesh.grouped)
+            for(var mesh:geometry.meshes()) mesh.grouped=true;
             CACHE.put(key,geometry);
         }
         return geometry;
