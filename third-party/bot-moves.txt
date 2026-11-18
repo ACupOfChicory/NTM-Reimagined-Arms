@@ -2,8 +2,9 @@ AI mob moves from recordings of people
 ======================================
 
 The moves AI mobs play from recordings of people (src/main/resources/assets/ntmgunfeel/animations/bot_moves.json:
-turns on the spot, starts into a run, stops from one) are put on the AI mobs' model (Minecraft's humanoid, its arms
-and legs cut at the elbow and the knee: ten parts) by tools/motion/retarget_moves.py and moves_to_mod.py:
+turns on the spot, starts into a run, stops from one; bot_people.animation.json: a grenade's throw) are put on the AI
+mobs' model (Minecraft's humanoid, its arms and legs cut at the elbow and the knee: ten parts) by
+tools/motion/retarget_moves.py and moves_to_mod.py, retarget_actions.py and actions_to_mod.py:
 
   100STYLE by Ian Mason
     https://www.ianxmason.com/100style/  https://zenodo.org/records/8127870
@@ -17,9 +18,9 @@ and legs cut at the elbow and the knee: ten parts) by tools/motion/retarget_move
     http://mocap.cs.cmu.edu/
     The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from
     NSF EIA-0196217.
-    Subjects 16 (16_57), 69 (69_14), 104 (104_53, 104_55, 104_56, 104_57), 143 (143_02, 143_03)
+    Subjects 16 (16_57), 69 (69_14), 79 (79_35), 104 (104_53, 104_55, 104_56, 104_57), 143 (143_02, 143_03)
     Terms: free for all uses; the data itself may not be resold, even converted.
 
 The recordings were changed: put on the mod's ten parts, each foot down kept standing on the floor in the mob's
 frame for the turn or the way the move was made with, the legs only kept, keys thinned, and a turn to one side
-mirrored for the other.
+mirrored for the other. The throw: the upper body only, a short piece of the swing, the head kept at the eye.

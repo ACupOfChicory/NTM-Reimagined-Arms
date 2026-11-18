@@ -1,0 +1,4 @@
+Motion data from the CMU Graphics Lab Motion Capture Database, http://mocap.cs.cmu.edu/ (Carnegie Mellon University).
+Its terms as the database gives them: free for all uses; the data may be included in products, but the data itself may
+not be resold, even in converted form. Credit: The data used in this project was obtained from mocap.cs.cmu.edu. The
+database was created with funding from NSF EIA-0196217.

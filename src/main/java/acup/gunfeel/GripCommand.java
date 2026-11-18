@@ -84,7 +84,7 @@ public final class GripCommand {
                 })))
                 .then(Commands.literal("botmoves").executes(c -> {
                     c.getSource().sendSuccess(() -> Component.literal("Ходы ботов: " + Config.botMoves
-                            + " (clips — повороты на месте по записям людей, old — прежние шаги). /gunfeel botmoves <режим>"), false);
+                            + " (clips — повороты на месте, старт, стоп и бросок по записям людей, old — прежние). /gunfeel botmoves <режим>"), false);
                     return 1;
                 }).then(Commands.argument("mode", StringArgumentType.word())
                         .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(Config.MOVE_MODES, b))

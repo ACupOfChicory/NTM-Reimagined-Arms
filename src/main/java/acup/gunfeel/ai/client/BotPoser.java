@@ -46,6 +46,11 @@ public final class BotPoser {
      * to 8.6 cm off)
      */
     static final String[] RELOAD_BONES = { "right_arm", "right_forearm", "left_arm", "left_forearm" };
+    /**
+     * a throw recorded from a person turns these: the trunk and the arms; the head keeps its aim at the one the grenade
+     * goes to (and its middle the server's eye), as a reload's
+     */
+    static final String[] THROW_BONES = { "body", "right_arm", "right_forearm", "left_arm", "left_forearm" };
     static final String[] ALL = { "head", "body", "right_arm", "right_forearm", "left_arm", "left_forearm", "right_leg",
             "right_shin", "left_leg", "left_shin" };
     private static final float PI = Mth.PI, PI_HALF = Mth.HALF_PI;
@@ -236,6 +241,14 @@ public final class BotPoser {
      * @param walkPos    the render state's walkAnimationPos: where vanilla's legs are in their swing
      */
     public static void apply(Parts p, BotAnimator.Frame f, float swim, float walkSpeed, float walkPos) {
+        apply(p, f, swim, walkSpeed, walkPos, null);
+    }
+
+    /**
+     * @param carry where the rifle goes through a throw recorded from a person (left as it is with no such throw):
+     *              {@link #carried}
+     */
+    public static void apply(Parts p, BotAnimator.Frame f, float swim, float walkSpeed, float walkPos, @Nullable Carry carry) {
         float[] a = new float[3], b = new float[3];
         float lying = Mth.clamp(swim, 0F, 1F);
         float upright = 1F - lying;
@@ -430,15 +443,28 @@ public final class BotPoser {
             p.leftArm.y += AiPoseGeometry.CROUCH_ARM_DROP_PX * c;
         }
 
-        // 4. the action, and the one it cut short fading out under it
-        for (BotAnimator.Act out : f.fading()) action(p, out, headX, headY, a, b);
-        if (f.act() != null) action(p, f.act(), headX, headY, a, b);
+        // 4. the action, and the one it cut short fading out under it. A throw recorded from a person: the rifle goes
+        // with the left hand as the arms hold it under the throw (Carry)
+        if (carry != null) carry.w = carry.k = 0F;
+        for (BotAnimator.Act out : f.fading()) action(p, out, headX, headY, a, b, carry);
+        if (f.act() != null) action(p, f.act(), headX, headY, a, b, carry);
+        if (carry != null && carry.w > 0F) {
+            // the left hand's whole as the throw comes in; handed back to the right hand as it goes out, or as
+            // what cut it short (a slide, a fall dead) comes over it
+            BotAnimator.Act on = f.act();
+            carry.k = on != null && on.kind() == AiPose.THROW ? (on.u() < 0.5F ? 1F : BotAnimator.smooth(on.w() / CARRY_FULL))
+                    : BotAnimator.smooth(carry.w / CARRY_FULL) * (1F - (on != null ? on.w() : 0F));
+        }
 
-        // 5. a hit's flinch (and one it cut short, going)
+        // 5. a hit's flinch (and one it cut short, going); through a throw on the arms before it too (Carry.before)
+        Parts unthrown = carry != null && carry.w > 0F && f.hits().length > 0 ? carry.before() : null;
         for (BotAnimator.Hit hit : f.hits()) {
             BotClip h = BotClips.get(hit.clip());
-            if (h != null) add(p, h, h.local(hit.sec()), hit.w() * upright, a, b, true);
+            if (h == null) continue;
+            add(p, h, h.local(hit.sec()), hit.w() * upright, a, b, true);
+            if (unthrown != null) add(unthrown, h, h.local(hit.sec()), hit.w() * upright, a, b, true);
         }
+        if (unthrown != null) carry.flinched(unthrown);
 
         // its fall dead, over everything
         BotClip death = f.deathSec() >= 0F ? BotClips.get(BotClips.DEATH) : null;
@@ -578,7 +604,7 @@ public final class BotPoser {
         return m.transformPosition(out.set(0F, BotModel.HALF, 0F));
     }
 
-    static void action(Parts p, BotAnimator.Act act, float headX, float headY, float[] a, float[] b) {
+    static void action(Parts p, BotAnimator.Act act, float headX, float headY, float[] a, float[] b, @Nullable Carry carry) {
         float w = act.w();
         if (w <= 0F) return;
         switch (act.kind()) {
@@ -612,8 +638,15 @@ public final class BotPoser {
                 p.head.xRot -= 0.05F * k;
             }
             case AiPose.THROW -> {
-                BotClip t = BotClips.get(BotClips.THROW);
-                if (t != null) set(p, t, act.u() * t.length(), w, UPPER, a);
+                BotClip t = throwClip();
+                if (t != null && t == BotClips.get(BotClips.THROW_PERSON)) {
+                    // the rifle where the arms hold it under the throw (whatever went on under it: a reload cut
+                    // short), the left hand's from here on; the clip's shoulders moved from where they are (crouched
+                    // they stay down), its turns; the head on its aim (THROW_BONES)
+                    if (carry != null && w >= carry.w) carry.hold(p, w);
+                    turns(p, t, act.u() * t.length(), w, THROW_BONES, a);
+                    shifts(p, t, act.u() * t.length(), w, THROW_BONES, a);
+                } else if (t != null) set(p, t, act.u() * t.length(), w, UPPER, a);
             }
             case AiPose.SIGNAL_COME -> {
                 // KayKit waves with the right hand; the gun is there, so the left one waves, mirrored
@@ -646,6 +679,130 @@ public final class BotPoser {
             }
         }
     }
+
+    /**
+     * A grenade's throw: recorded from a person (Config.botMoves clips: BotClips.THROW_PERSON, the right hand lets the
+     * grip go and throws, the left keeps the rifle down at the side) or UAL's OverhandThrow (old, or no such clip).
+     */
+    static @Nullable BotClip throwClip() {
+        BotClip c = BotMoves.on() ? BotClips.get(BotClips.THROW_PERSON) : null;
+        return c != null ? c : BotClips.get(BotClips.THROW);
+    }
+
+    /**
+     * ticks a throw recorded from a person comes in over: its clip starts with the arm drawn back and lets go at 0.13 s
+     * (the server sends the grenade off on the throw's first tick: AiSoldier.THROW_TICKS), so the swing is not washed
+     * out under the hold; the others' come in over BotAnimator.ACTION_FADE
+     */
+    static final float THROW_IN = 2F;
+
+    /** a throw on (or one going out under the action that cut it short) */
+    static boolean throwing(BotAnimator.Frame f) {
+        if (f.act() != null && f.act().kind() == AiPose.THROW) return true;
+        for (BotAnimator.Act out : f.fading()) if (out.kind() == AiPose.THROW) return true;
+        return false;
+    }
+
+    static boolean throwsAsAPerson() {
+        BotClip c = throwClip();
+        return c != null && c == BotClips.get(BotClips.THROW_PERSON);
+    }
+
+    /**
+     * The rifle through a throw recorded from a person: where it sits from the left hand (the left forearm's frame, px,
+     * the model's) as the arms hold it under the throw (a reload it cut short too), the throw's weight and how much of
+     * the way the left hand has it. Its fore-end stays in the left hand: as that arm goes down at the side the muzzle
+     * goes down and aside. Coming in the left hand has it whole from the first frame: its arm is where it holds the
+     * rifle as the right hand does, so the rifle stays where it was while the right hand lets go and swings back.
+     * Going out, and when something cuts the throw short (a slide, a fall dead: each arm its own way), it goes back to
+     * the right hand over the throw's last CARRY_FULL of weight, not in a frame.
+     */
+    public static final class Carry {
+        final org.joml.Matrix4f fromLeft = new org.joml.Matrix4f();
+        float w, k;
+
+        public float w() {
+            return w;
+        }
+
+        /** the arms as hold found them (right arm, right forearm, left arm, left forearm: pivot x y z, turn x y z) */
+        private final float[] before = new float[24];
+
+        /** the rifle where the arms hold it now, the left hand's whole from here on (none: a model not split) */
+        public Carry hold(Parts p, float w) {
+            this.w = p.rightForearm != null && p.leftForearm != null ? Math.max(0F, w) : 0F;
+            k = this.w > 0F ? 1F : 0F;
+            if (this.w > 0F) {
+                int i = 0;
+                for (ModelPart a : new ModelPart[] { p.rightArm, p.rightForearm, p.leftArm, p.leftForearm }) {
+                    before[i++] = a.x;
+                    before[i++] = a.y;
+                    before[i++] = a.z;
+                    before[i++] = a.xRot;
+                    before[i++] = a.yRot;
+                    before[i++] = a.zRot;
+                }
+                take(p);
+            }
+            return this;
+        }
+
+        private void take(Parts p) {
+            hand(p.leftArm, p.leftForearm, fromLeft).invert().mul(hand(p.rightArm, p.rightForearm, M4.get()));
+        }
+
+        /**
+         * The arms as hold found them, on their own: a hit's flinch laid on the arms after the throw (BotPoser.apply's
+         * 5) is laid on these too, and {@link #flinched} takes the rifle from them, so it is where the right hand holds
+         * it flinched as the throw comes in (each hand turns its own way in a flinch: taken before it, the rifle would
+         * jump to the left hand's)
+         */
+        Parts before() {
+            ModelPart[] arms = new ModelPart[4];
+            for (int i = 0; i < arms.length; i++) {
+                ModelPart a = arms[i] = new ModelPart(java.util.List.of(), java.util.Map.of());
+                a.x = before[i * 6];
+                a.y = before[i * 6 + 1];
+                a.z = before[i * 6 + 2];
+                a.setRotation(before[i * 6 + 3], before[i * 6 + 4], before[i * 6 + 5]);
+            }
+            ModelPart none = new ModelPart(java.util.List.of(), java.util.Map.of());
+            return new Parts(none, none, arms[0], arms[2], none, none, arms[1], arms[3], null, null);
+        }
+
+        /** the rifle from the arms before the throw, as they are flinched now ({@link #before}) */
+        void flinched(Parts before) {
+            take(before);
+        }
+    }
+
+    /**
+     * The hand an arm holds its item with (the frame ItemInHandLayer draws it in: the upper arm's, then the forearm's
+     * turn about the elbow, BotAnimation.hand) into m: px, the model's.
+     */
+    static org.joml.Matrix4f hand(ModelPart arm, ModelPart forearm, org.joml.Matrix4f m) {
+        return frame(arm, m).translate(forearm.x, forearm.y, forearm.z).rotateZYX(forearm.zRot, forearm.yRot, forearm.xRot)
+                .translate(-forearm.x, -forearm.y, -forearm.z);
+    }
+
+    /**
+     * Where the rifle is drawn (px, the model's), into out: through a throw the left hand's frame with the rifle where
+     * that hand holds it (Carry), else the right hand's.
+     */
+    static org.joml.Matrix4f carried(Parts p, Carry c, org.joml.Matrix4f out) {
+        if (p.rightForearm == null) return frame(p.rightArm, out);
+        float k = c.w > 0F ? c.k : 0F;
+        if (k <= 0F || p.leftForearm == null) return hand(p.rightArm, p.rightForearm, out);
+        hand(p.leftArm, p.leftForearm, out).mul(c.fromLeft);
+        if (k >= 1F) return out;
+        org.joml.Matrix4f right = hand(p.rightArm, p.rightForearm, new org.joml.Matrix4f());
+        Vector3f t0 = right.getTranslation(new Vector3f()), t1 = out.getTranslation(new Vector3f());
+        Quaternionf q0 = right.getNormalizedRotation(new Quaternionf()), q1 = out.getNormalizedRotation(new Quaternionf());
+        return out.translation(t0.lerp(t1, k)).rotate(q0.slerp(q1, k));
+    }
+
+    /** going out, the throw's weight from which the left hand has the rifle whole (Carry) */
+    static final float CARRY_FULL = 0.3F;
 
     /** the crawl comes in from MOVE_FROM to this speed, blocks a tick (an AI mob crawls at 0.06: AiProne.CRAWL_SPEED) */
     static final float CRAWL_FULL = 0.03F;
@@ -1033,6 +1190,18 @@ public final class BotPoser {
         PartPose d = thigh.getInitialPose();
         thigh.y = Mth.lerp(w, thigh.y, d.y() + down);
         thigh.z = Mth.lerp(w, thigh.z, d.z() + behind);
+    }
+
+    /** Moves the given parts' pivots by the clip's shifts (from the default pose's), weighted, from where they are. */
+    static void shifts(Parts p, BotClip clip, float t, float w, String[] bones, float[] a) {
+        if (w <= 0F) return;
+        for (String bone : bones) {
+            ModelPart part = p.get(bone);
+            if (part == null || !clip.position(bone, t, a)) continue;
+            part.x += w * a[0];
+            part.y -= w * a[1];
+            part.z += w * a[2];
+        }
     }
 
     /** Turns the given parts toward the clip's pose, weighted; their pivots stay where they are. */

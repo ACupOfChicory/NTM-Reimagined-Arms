@@ -30,9 +30,11 @@ public final class BotPoseCache {
     final float[] signature;
     final float swim, walkSpeed, walkPos;
     final float[] in, out;
+    /** the rifle through a throw recorded from a person (BotPoser.Carry); none with no such throw */
+    final BotPoser.@Nullable Carry carry;
 
     private BotPoseCache(BotAnimator.Frame frame, float[] signature, float swim, float walkSpeed, float walkPos, float[] in,
-            float[] out) {
+            float[] out, BotPoser.@Nullable Carry carry) {
         this.frame = frame;
         this.signature = signature;
         this.swim = swim;
@@ -40,6 +42,11 @@ public final class BotPoseCache {
         this.walkPos = walkPos;
         this.in = in;
         this.out = out;
+        this.carry = carry;
+    }
+
+    public BotPoser.@Nullable Carry carry() {
+        return carry;
     }
 
     /** One model's parts and their default poses, kept on the model (MixinBotPose). */
@@ -89,8 +96,9 @@ public final class BotPoseCache {
         }
         if (verify) WORKED.incrementAndGet();
         float[] in = read(p);
-        BotPoser.apply(p, f, swim, walkSpeed, walkPos);
-        return new BotPoseCache(f, m.signature(), swim, walkSpeed, walkPos, in, read(p));
+        BotPoser.Carry carry = BotPoser.throwing(f) ? new BotPoser.Carry() : null;
+        BotPoser.apply(p, f, swim, walkSpeed, walkPos, carry);
+        return new BotPoseCache(f, m.signature(), swim, walkSpeed, walkPos, in, read(p), carry != null && carry.w > 0F ? carry : null);
     }
 
     static @Nullable ModelPart part(BotPoser.Parts p, int i) {

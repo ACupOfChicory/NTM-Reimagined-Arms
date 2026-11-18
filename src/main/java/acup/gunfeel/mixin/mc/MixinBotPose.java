@@ -48,6 +48,6 @@ public abstract class MixinBotPose implements acup.gunfeel.ai.client.BotPoseMode
     @Inject(method = "translateToHand(Lnet/minecraft/client/renderer/entity/state/HumanoidRenderState;Lnet/minecraft/world/entity/HumanoidArm;Lcom/mojang/blaze3d/vertex/PoseStack;)V",
             at = @At("TAIL"))
     private void gunfeel$hand(HumanoidRenderState state, HumanoidArm arm, PoseStack pose, CallbackInfo ci) {
-        BotAnimation.hand((HumanoidModel<?>) (Object) this, arm, pose);
+        BotAnimation.hand(state, (HumanoidModel<?>) (Object) this, arm, pose);
     }
 }

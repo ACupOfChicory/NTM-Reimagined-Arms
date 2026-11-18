@@ -296,7 +296,7 @@ class BotModelTest {
         fore.yRot = 0.3F;
         PoseStack ps = new PoseStack();
         model.translateToHand(new HumanoidRenderState(), HumanoidArm.RIGHT, ps);
-        BotAnimation.hand(model, HumanoidArm.RIGHT, ps);
+        BotAnimation.hand(new HumanoidRenderState(), model, HumanoidArm.RIGHT, ps);
         // the wrist (the arm's end on its middle line, x -1, y 10) goes where the forearm's end is
         Vector3f got = ps.last().pose().transformPosition(new Vector3f(-1F, 10F, 0F).div(16F));
         PoseStack want = new PoseStack();
@@ -307,6 +307,71 @@ class BotModelTest {
         assertEquals(end.x, got.x, 1e-6);
         assertEquals(end.y, got.y, 1e-6);
         assertEquals(end.z, got.z, 1e-6);
+    }
+
+    /** the left hand's frame as the item layer would take it (blocks) */
+    static org.joml.Matrix4f leftHand(HumanoidModel<?> model) {
+        PoseStack lw = new PoseStack();
+        model.root().translateAndRotate(lw);
+        model.leftArm.translateAndRotate(lw);
+        ModelPart lf = BotModel.lower(model.leftArm);
+        lf.translateAndRotate(lw);
+        lw.translate(-lf.x / 16F, -lf.y / 16F, -lf.z / 16F);
+        return new org.joml.Matrix4f(lw.last().pose());
+    }
+
+    @Test
+    void throughAThrowTheRifleIsDrawnWhereTheLeftHandHasIt() {
+        var model = new HumanoidModel<HumanoidRenderState>(BotModel.split(vanilla(), ModelPoseCaptureTest.PARTS));
+        model.setupAnim(new HumanoidRenderState());
+        var parts = new acup.gunfeel.ai.client.BotPoser.Parts(model.head, model.body, model.rightArm, model.leftArm,
+                model.rightLeg, model.leftLeg);
+        // aimed: both hands on the rifle
+        model.rightArm.xRot = -1.4F;
+        BotModel.lower(model.rightArm).xRot = -0.3F;
+        model.leftArm.xRot = -1.2F;
+        model.leftArm.yRot = 0.5F;
+        BotModel.lower(model.leftArm).xRot = -0.6F;
+        Vector3f grip = new Vector3f(-1F, 10F, -2F).div(16F);
+        PoseStack held = new PoseStack();
+        model.translateToHand(new HumanoidRenderState(), HumanoidArm.RIGHT, held);
+        BotAnimation.hand(model, HumanoidArm.RIGHT, held, null, parts);
+        Vector3f before = held.last().pose().transformPosition(new Vector3f(grip));
+        // the grip in the left hand's frame as the arms hold it
+        Vector3f inLeft = leftHand(model).invert().transformPosition(new Vector3f(before));
+        var carry = new acup.gunfeel.ai.client.BotPoser.Carry().hold(parts, 1F);
+        // taken as held: drawn where it was
+        PoseStack ps = new PoseStack();
+        model.translateToHand(new HumanoidRenderState(), HumanoidArm.RIGHT, ps);
+        BotAnimation.hand(model, HumanoidArm.RIGHT, ps, carry, parts);
+        assertTrue(ps.last().pose().transformPosition(new Vector3f(grip)).distance(before) < 1e-5F);
+        // the right arm up to throw, the left down at the side: the rifle goes with the left hand
+        model.rightArm.xRot = -2.8F;
+        model.leftArm.xRot = -0.3F;
+        model.leftArm.yRot = 0.1F;
+        PoseStack thrown = new PoseStack();
+        model.translateToHand(new HumanoidRenderState(), HumanoidArm.RIGHT, thrown);
+        BotAnimation.hand(model, HumanoidArm.RIGHT, thrown, carry, parts);
+        Vector3f got = thrown.last().pose().transformPosition(new Vector3f(grip));
+        // where it is in the left hand's frame as it was
+        Vector3f want = leftHand(model).transformPosition(new Vector3f(inLeft));
+        assertTrue(got.distance(want) < 1e-5F, got + " for " + want);
+        assertTrue(got.distance(before) > 2F / 16F, "the rifle went with the left arm: " + got.distance(before) * 16F + " px");
+        // and none with a carry of no weight: the right hand's, as with none
+        PoseStack plain = new PoseStack();
+        model.translateToHand(new HumanoidRenderState(), HumanoidArm.RIGHT, plain);
+        BotAnimation.hand(model, HumanoidArm.RIGHT, plain, new acup.gunfeel.ai.client.BotPoser.Carry().hold(parts, 0F), parts);
+        PoseStack right = new PoseStack();
+        model.translateToHand(new HumanoidRenderState(), HumanoidArm.RIGHT, right);
+        BotAnimation.hand(model, HumanoidArm.RIGHT, right, null, parts);
+        assertTrue(plain.last().pose().equals(right.last().pose(), 0F));
+        // the left hand's own item is its own through the carry
+        PoseStack leftCarried = new PoseStack(), leftOwn = new PoseStack();
+        model.translateToHand(new HumanoidRenderState(), HumanoidArm.LEFT, leftCarried);
+        BotAnimation.hand(model, HumanoidArm.LEFT, leftCarried, carry, parts);
+        model.translateToHand(new HumanoidRenderState(), HumanoidArm.LEFT, leftOwn);
+        BotAnimation.hand(model, HumanoidArm.LEFT, leftOwn, null, parts);
+        assertTrue(leftCarried.last().pose().equals(leftOwn.last().pose(), 0F));
     }
 
     // NTM fits a suit's mesh to a limb's own largest box (ArmorWorldRenderer.fit, MixinBotSuitFit): the split limb is
