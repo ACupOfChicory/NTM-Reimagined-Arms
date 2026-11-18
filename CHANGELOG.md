@@ -10,6 +10,8 @@
   client and the server.
 - Dense smoke in front of glass or the sky's clouds no longer has holes a pixel
   or two wide in it.
+- With the Vulkan renderer the game no longer stops at an error while loading
+  its resources: three of the smoke's shaders did not load there.
 
 ## X1687
 

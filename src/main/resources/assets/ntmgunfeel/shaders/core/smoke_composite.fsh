@@ -14,8 +14,14 @@
 #moj_import <ntmgunfeel:smoke_info.glsl>
 #moj_import <ntmgunfeel:smoke_ray.glsl>
 
+// each variant declares and reads only the samplers its layout has (SmokeRender): Vulkan's compiler keeps every
+// one declared and read, and a pipeline whose shader has one its layout lacks does not load
+#if !defined(CHAIN_MAIN)
 uniform sampler2D FramePost;
+#endif
+#if !defined(CHAIN_GLASS)
 uniform sampler2D FrameOpaque;
+#endif
 uniform sampler2D SmokeFront;
 uniform sampler2D SmokeFull;
 uniform sampler2D Depth0;
@@ -61,7 +67,9 @@ vec4 frontAt(vec2 uv) {
 
 void main() {
     ivec2 px = ivec2(gl_FragCoord.xy);
+#if !defined(CHAIN_MAIN)
     vec4 p = texelFetch(FramePost, px, 0);
+#endif
     vec4 full = texture(SmokeFull, texCoord);
     bool glass = nearer(texelFetch(Depth1, px, 0).r, texelFetch(Depth0, px, 0).r);
 #if defined(CHAIN_MAIN)

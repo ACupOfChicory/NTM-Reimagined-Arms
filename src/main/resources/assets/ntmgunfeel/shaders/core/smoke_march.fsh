@@ -6,7 +6,10 @@
 
 uniform sampler2D SmokeAtlas;
 uniform sampler2D SceneDepth;
+// only the march in front of glass reads it (and only its layout has it: see smoke_composite.fsh)
+#ifdef FRONT
 uniform sampler2D OpaqueDepth;
+#endif
 
 in vec3 vPos;
 flat in int vGroup;
