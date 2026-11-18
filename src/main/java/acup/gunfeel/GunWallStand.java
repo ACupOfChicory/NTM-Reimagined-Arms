@@ -282,7 +282,7 @@ final class GunWallStand {
                     hold(new ItemStack(item));
                     startTrack(Double.NEGATIVE_INFINITY);
                     trackItem = item;
-                    wait(40, 20);
+                    wait(30, 20);
                 }
                 case 20 -> {
                     track = false;
