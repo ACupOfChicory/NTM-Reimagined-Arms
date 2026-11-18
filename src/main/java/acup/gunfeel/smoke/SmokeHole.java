@@ -38,6 +38,6 @@ public final class SmokeHole {
     public static void blast(ServerLevel level, Vec3 at, float reach) {
         if (at == null || !(reach > 0F) || !enabled() || SmokeClouds.get(level) == null) return;
         float r = Math.min(REACH_MAX, reach * REACH);
-        SmokeClouds.stir(level, new SmokeClouds.Stir(0, true, at.x, at.y, at.z, r, 0, 0, MOST, 1F), k -> GasKind.of(k) == null);
+        SmokeClouds.stir(level, new SmokeClouds.Stir(0, true, at.x, at.y, at.z, r, 0, 0, MOST, 1F), k -> !GasKind.gas(k));
     }
 }

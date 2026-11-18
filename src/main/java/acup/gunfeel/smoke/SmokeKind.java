@@ -42,12 +42,14 @@ public record SmokeKind(int id, String name, float volume, int release, int bomb
     public static SmokeKind byId(int id) {
         for (SmokeKind k : ALL) if (k.id == id) return k;
         for (acup.gunfeel.gas.GasKind g : acup.gunfeel.gas.GasKind.values()) if (g.smoke().id == id) return g.smoke();
+        for (acup.gunfeel.gas.NtmGas g : acup.gunfeel.gas.NtmGas.values()) if (g.smoke().id == id) return g.smoke();
         return SMOKE;
     }
 
     public static SmokeKind byName(String name) {
         for (SmokeKind k : ALL) if (k.name.equalsIgnoreCase(name)) return k;
         for (acup.gunfeel.gas.GasKind g : acup.gunfeel.gas.GasKind.values()) if (g.smoke().name.equalsIgnoreCase(name)) return g.smoke();
+        for (acup.gunfeel.gas.NtmGas g : acup.gunfeel.gas.NtmGas.values()) if (g.smoke().name.equalsIgnoreCase(name)) return g.smoke();
         return null;
     }
 

@@ -17,13 +17,17 @@ public final class GasSetup {
             if (e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
                 GasServer.tick(level);
                 GasPoison.tick(level);
+                if (acup.gunfeel.compat.Feature.NTM_GAS.on()) ChemClouds.tick(level);
             }
         });
         bus.addListener(net.neoforged.neoforge.event.level.LevelEvent.Unload.class, e -> {
             if (e.getLevel() instanceof net.minecraft.world.level.Level level) {
                 GasServer.forget(level);
                 // the server's thread only: the sums are the server's
-                if (level instanceof net.minecraft.server.level.ServerLevel) GasPoison.forget(level);
+                if (level instanceof net.minecraft.server.level.ServerLevel server) {
+                    GasPoison.forget(level);
+                    if (acup.gunfeel.compat.Feature.NTM_GAS.on()) ChemClouds.forget(server);
+                }
             }
         });
         bus.addListener(net.neoforged.neoforge.event.entity.EntityJoinLevelEvent.class, e -> {

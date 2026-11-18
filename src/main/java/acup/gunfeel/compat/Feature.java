@@ -45,6 +45,7 @@ public enum Feature {
     THERMAL_OUTLINES("thermal_outlines", List.of("MixinThermalEdges"), List.of("BoxEdges")),
     MINI_NUKE_CLOUD("mini_nuke_cloud", List.of("MukePayloadAccess", "MixinMiniNukeSend", "MixinMiniNukeSize", "MixinMiniNukeParams", "MixinMiniNukeMk5", "MixinMiniNukeCreeper", "MixinMiniNukeTorex", "MixinMiniNukeFx"), List.of("MiniNukeCloud", "MiniNukeStand")),
     AMMO_BAG("ammo_bag", List.of("MixinAmmoBagOurs"), List.of("AmmoBagOurs")),
+    NTM_GAS("ntm_gas", List.of("MistAccess", "MixinPhosgeneCreeper", "MixinChemthrowerCloud"), List.of("ChemClouds", "ChemStand")),
     // its mixin is the HUD's (MixinClientRegistry): not listed here, so the crosshair going off leaves the HUD on
     DYNAMIC_CROSSHAIR("dynamic_crosshair", List.of(), List.of("DynamicCrosshair", "CrosshairSpread", "CrosshairClass", "CrosshairStyle", "CrosshairStand")),
     OVERHEAT("overheat", List.of("MixinOverheat", "MixinOverheatDecider", "MixinOverheatTick"), List.of("Overheat", "OverheatServer", "OverheatSmoke", "OverheatClient", "AiCheckOverheat"));
