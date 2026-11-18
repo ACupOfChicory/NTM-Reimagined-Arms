@@ -68,6 +68,11 @@ public final class NtmMeshHits {
         if(frame!=null) frame.incomplete()[0]=true;
     }
     public static boolean prepared(net.minecraft.client.renderer.feature.ModelFeatureRenderer.Submit<?> submit) {
+        long started=MobBenchMetrics.start();
+        try { return preparedTimed(submit); }
+        finally { MobBenchMetrics.add(MobBenchMetrics.GEOMETRY,started); }
+    }
+    private static boolean preparedTimed(net.minecraft.client.renderer.feature.ModelFeatureRenderer.Submit<?> submit) {
         var frame=MODELS.get(new ModelKey(submit.model(),submit.state(),new org.joml.Matrix4f(submit.pose().pose())));
         if(frame==null || !(submit.model() instanceof EntityModel<?> model)) return false;
         var stack=new PoseStack(); stack.last().set(submit.pose());
@@ -115,6 +120,7 @@ public final class NtmMeshHits {
     }
     public static void blocks(PoseStack stack,List<net.minecraft.client.renderer.block.dispatch.BlockStateModelPart> parts) {
         var frame=SUBMIT.get(); if(frame==null) return;
+        long started=MobBenchMetrics.start();
         var geometry=BLOCKS.computeIfAbsent(parts,key -> {
             var data=new java.util.ArrayList<Float>();
             for(var part:parts) {
@@ -130,6 +136,7 @@ public final class NtmMeshHits {
         var out=new java.util.ArrayList<ModelBox>();
         geometry.append(out,"block_layer",stack.last().pose(),frame.offset().x,frame.offset().y,frame.offset().z);
         frame.boxes().addAll(out); PENDING.put(frame,Boolean.TRUE);
+        MobBenchMetrics.add(MobBenchMetrics.GEOMETRY,started);
     }
 
     // NTM's beams (BeamPronter: the tesla and taint crabs' arcs, the UFO's and the radiation blaze's rays) are light, not
@@ -153,6 +160,7 @@ public final class NtmMeshHits {
             try {
                 renderer.render(pose, captured);
                 if(frame.boxes().size()==before) {
+                    long started=MobBenchMetrics.start();
                     try {
                         var offset=frame.offset();
                         frame.boxes().addAll(captured.boxes(type.primitiveTopology(),DRAW_TEXTURE.get(),type.hasBlending(),
@@ -161,6 +169,7 @@ public final class NtmMeshHits {
                         frame.incomplete()[0]=true;
                         ModelHitLog.event("client","submitted_geometry_failed",frame.entity(),() -> ex.toString());
                     }
+                    MobBenchMetrics.add(MobBenchMetrics.GEOMETRY,started);
                 }
             }
             finally {
@@ -185,6 +194,7 @@ public final class NtmMeshHits {
             ModelHitLog.event("client","group_capture_failed",frame.entity(),() -> ex.toString());
         }
         ModelHitClient.captureCost(System.nanoTime() - started);
+        if(MobBenchMetrics.ENABLED) MobBenchMetrics.nanos[MobBenchMetrics.GEOMETRY]+=System.nanoTime()-started;
     }
 
     public static void flush() {

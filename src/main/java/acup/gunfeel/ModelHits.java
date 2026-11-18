@@ -379,6 +379,12 @@ public final class ModelHits {
     }
 
     public static synchronized void receive(ServerPlayer observer, ModelPosePayload p) {
+        long started=MobBenchMetrics.start();
+        try { receiveTimed(observer,p); }
+        finally { if(MobBenchMetrics.ENABLED) MobBenchMetrics.server.add(System.nanoTime()-started); }
+    }
+
+    private static void receiveTimed(ServerPlayer observer, ModelPosePayload p) {
         ModelHitLog.count("server", "packet_received");
         if (!enabled()) {
             ModelHitLog.event("server", "disabled", observer, () -> "packet_entity=" + p.entity());
