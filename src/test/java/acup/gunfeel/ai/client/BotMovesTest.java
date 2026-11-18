@@ -985,4 +985,103 @@ class BotMovesTest {
         assertTrue(own < 0.07F, "the mod's gait " + own);
         assertTrue(runs < 0.07F, "the mob's own " + runs);
     }
+
+    /**
+     * a stand's run to a place, its stop and the AI walking it back over the place it ran past, turning it round in
+     * four ticks (BotFeelStand start_stop, ticks 60 to 139): each tick the yaw sent and the place at its end (blocks)
+     */
+    static final float[] RUN_PAST = {
+            -90.0F, 0.000F, 0.000F, -90.0F, 0.000F, 0.000F, -90.0F, 0.000F, 0.000F, -90.0F, 0.000F, 0.000F,
+            -90.0F, 0.000F, 0.000F, -90.0F, 0.000F, 0.000F, -90.0F, 0.000F, 0.000F, -90.0F, 0.000F, 0.000F,
+            -90.0F, 0.000F, 0.000F, -90.0F, 0.000F, 0.000F, -90.0F, 0.000F, 0.000F, -90.0F, 0.000F, 0.000F,
+            -90.0F, 0.051F, 0.000F, -90.0F, 0.101F, 0.000F, -90.0F, 0.152F, 0.000F, -90.0F, 0.426F, 0.000F,
+            -90.0F, 0.699F, 0.000F, -90.0F, 0.973F, 0.000F, -90.0F, 1.298F, 0.000F, -90.0F, 1.623F, 0.000F,
+            -90.0F, 1.948F, 0.000F, -90.0F, 2.281F, 0.000F, -90.0F, 2.615F, 0.000F, -90.0F, 2.948F, 0.000F,
+            -90.0F, 3.283F, 0.000F, -90.0F, 3.618F, 0.000F, -90.0F, 3.952F, 0.000F, -90.0F, 4.287F, 0.000F,
+            -90.0F, 4.622F, 0.000F, -90.0F, 4.957F, 0.000F, -90.0F, 5.292F, 0.000F, -90.0F, 5.627F, 0.000F,
+            -90.0F, 5.962F, 0.000F, -90.0F, 6.297F, 0.000F, -90.0F, 6.632F, 0.000F, -90.0F, 6.968F, 0.000F,
+            -90.0F, 7.303F, 0.000F, -90.0F, 7.638F, 0.000F, -90.0F, 7.973F, 0.000F, -90.0F, 8.308F, 0.000F,
+            -90.0F, 8.643F, 0.000F, -90.0F, 8.978F, 0.000F, -90.0F, 9.090F, 0.000F, -90.0F, 9.202F, 0.000F,
+            -90.0F, 9.315F, 0.000F, -180.0F, 9.333F, 0.000F, 90.0F, 9.347F, -0.051F, 90.0F, 9.306F, -0.112F,
+            90.0F, 9.250F, -0.168F, 90.0F, 9.195F, -0.224F, 2.8F, 9.140F, -0.281F, 2.8F, 9.109F, -0.245F,
+            2.8F, 9.078F, -0.210F, -357.2F, 9.047F, -0.174F, -357.2F, 9.039F, -0.126F, -357.2F, 9.032F, -0.077F,
+            -357.2F, 9.024F, -0.029F, -357.2F, 9.024F, -0.021F, -357.2F, 9.024F, -0.013F, -357.2F, 9.024F, -0.005F,
+            -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F,
+            -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F,
+            -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F,
+            -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F,
+            -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F, -357.2F, 9.024F, -0.005F
+    };
+
+    /** the largest turn of a part between two frames (48 a tick) through RUN_PAST, as BotAnimator.frame draws it */
+    static float runPastJump(@org.jspecify.annotations.Nullable BotGaitOverride gait) {
+        return runPast(gait)[0];
+    }
+
+    /** RUN_PAST: the largest turn of a part a frame, and frames with a stop under way from tick 100 to 110 */
+    static float[] runPast(@org.jspecify.annotations.Nullable BotGaitOverride gait) {
+        BotGaitOverride.BY_ENTITY = id -> gait;
+        try {
+            BotAnimator a = new BotAnimator();
+            acup.gunfeel.ai.AiPose p = BotPoserTest.pose(acup.gunfeel.ai.AiPose.STAND, 0, 0, 0, acup.gunfeel.ai.AiPose.HOLD,
+                    acup.gunfeel.ai.AiPose.NONE, 0, 0).withAlert(acup.gunfeel.ai.AiPose.FIGHT);
+            BotPoser.Parts prev = null;
+            float most = 0F, stopped = 0F;
+            for (int k = 3; k < RUN_PAST.length; k += 3) {
+                float yaw = RUN_PAST[k];
+                double x = RUN_PAST[k + 1], z = RUN_PAST[k + 2], xo = RUN_PAST[k - 2], zo = RUN_PAST[k - 1];
+                long tick = 60 + k / 3;
+                for (int fr = 0; fr < 48; fr++) {
+                    float partial = fr / 48F;
+                    double now = tick + partial;
+                    float sent = a.sent.at(yaw, now), head = a.sentHead.at(yaw, now);
+                    a.turn(sent, head, 1F, now);
+                    a.move(x - xo, z - zo, a.bodyYaw, now, BotGaitOverride.of(7), tick);
+                    a.fly(false, 0, now);
+                    BotAnimator.Frame f = a.step(p, tick, partial, 0, false, (float) now, 7, false);
+                    double px = xo + (x - xo) * partial, pz = zo + (z - zo) * partial;
+                    a.moves(true, a.still() >= 1F - 1e-4F, now, sent, px, pz);
+                    a.feet(px, pz, Math.max(a.still(), a.pathFeet), now);
+                    f = new BotAnimator.Frame(f.crouch(), f.lean(), f.arms(), f.act(), f.fading(), f.hits(), f.idleSec(), f.entity(),
+                            a.speed, a.heading, -1F, a.walk, a.walkPos, f.alert(), a.air, f.dashed(), Mth.wrapDegrees(a.bodyYaw),
+                            Mth.wrapDegrees(a.headYaw), a.feetOut.snapshot(), a.gait, null, a.moving());
+                    BotPoser.Parts parts = BotPoserTest.parts();
+                    BotPoser.apply(parts, f, 0F, a.walk, a.walkPos);
+                    if (prev != null) most = Math.max(most, BotPoserTest.jump(prev, parts));
+                    prev = parts;
+                    for (BotAnimator.Moving mv : a.moving())
+                        if (tick >= 100 && tick < 110 && BotMoves.stops().stream().anyMatch(s -> s.clip() == mv.clip())) stopped++;
+                }
+            }
+            return new float[] { most, stopped };
+        } finally {
+            BotGaitOverride.BY_ENTITY = BotGaitOverride.OWN;
+        }
+    }
+
+    @Test
+    void aStopTheAIWalksBackLetsItsFeetGo() {
+        // the stop gone back has stood, the AI walking it back and round: the lock held its feet whole, a foot it
+        // stepped waited where it stood (its step at the turn's pace, six ticks) as the body went off and round, the
+        // leg flung out a block, till the lock lost it and put it back in a frame (1.47 rad, 16_56's run under it). Its
+        // weight now goes with the stop's as the mob goes on, and a foot far from its place steps quicker: a part turns
+        // under 0.25 rad a frame of 48 a tick, whatever the gait
+        BotGaitOverride quick = null;
+        for (int n = 0; n < BotGaits.count(); n++) {
+            BotGaitOverride o = BotGaits.variant(n);
+            if ("run_cmu16_56".equals(o.jog()) && "sprint_cmu127_08_long".equals(o.sprint()) && "walk_swat_fw".equals(o.stroll().clip())) quick = o;
+        }
+        assertNotNull(quick);
+        float most = 0F;
+        StringBuilder all = new StringBuilder();
+        for (BotGaitOverride o : new BotGaitOverride[] { quick, null, BotGaits.variant(0), BotGaits.variant(21) }) {
+            float[] r = runPast(o);
+            all.append(' ').append(r[0]);
+            most = Math.max(most, r[0]);
+            // the run past it ends in a stop, whatever the gait
+            assertTrue(r[1] > 48F, "a stop played " + r[1] + " frames");
+        }
+        System.out.println("bot moves: run past and walked back, the most a frame at 48 a tick:" + all);
+        assertTrue(most < 0.25F, "a part turned " + all + " rad in a frame");
+    }
 }

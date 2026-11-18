@@ -3,15 +3,16 @@ AI mob moves from recordings of people
 
 The moves AI mobs play from recordings of people (src/main/resources/assets/ntmgunfeel/animations/bot_moves.json:
 turns on the spot, starts into a run, stops from one; bot_people.animation.json: a grenade's throw;
-bot_gaits.animation.json: runs, sprints and walks ahead) are put on the AI mobs' model (Minecraft's humanoid, its arms and
-legs cut at the elbow and the knee: ten parts) by tools/motion/retarget_moves.py and moves_to_mod.py,
-retarget_actions.py and actions_to_mod.py, retarget_mocap.py and gaits_to_mod.py:
+bot_gaits.animation.json: runs, sprints and walks ahead, walks aside and back with the gun up) are put on the AI mobs'
+model (Minecraft's humanoid, its arms and legs cut at the elbow and the knee: ten parts) by
+tools/motion/retarget_moves.py and moves_to_mod.py, retarget_actions.py and actions_to_mod.py, retarget_mocap.py and
+gaits_to_mod.py:
 
   100STYLE by Ian Mason
     https://www.ianxmason.com/100style/  https://zenodo.org/records/8127870
     I. Mason, S. Starke, T. Komura. Real-Time Style Modelling of Human Locomotion via Feature-Wise Transformations
     and Local Motion Phases. Proc. ACM Comput. Graph. Interact. Tech. 5, 1 (2022).
-    StartStop_FW, Swat_TR1, Swat_FW, Neutral_FW
+    StartStop_FW, Swat_TR1, Swat_FW, Swat_SR, Swat_BR, Neutral_FW
     License: Creative Commons Attribution 4.0 International (CC BY 4.0)
              https://creativecommons.org/licenses/by/4.0/
 
@@ -28,4 +29,4 @@ frame for the turn or the way the move was made with, the legs only kept, keys t
 mirrored for the other. The throw: the upper body only, a short piece of the swing, the head kept at the eye. The
 runs and sprints: one step of both legs looped, the legs only, under hips held at one height, each foot down kept on
 the floor and moved out to its own side (people's feet run nearly on one line), the knees straight ahead; some with
-the steps made longer. The walks the same, slower.
+the steps made longer. The walks the same, slower; the walk aside (Swat_SR) the same, mirrored for the other side.

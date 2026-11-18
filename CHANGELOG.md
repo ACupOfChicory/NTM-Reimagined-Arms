@@ -14,6 +14,16 @@
   barrels do not overheat. The server key `gunOverheat` scales the heat, `0`
   turns it off.
 
+## X1633
+
+- AI soldiers creeping along with their gun up, aiming or shooting, walk as a
+  soldier does, ahead, aside and back, easing into it as the gun comes up.
+
+## X1631
+
+- An AI soldier that is walked back or aside as it pulls up from a run no
+  longer flings a leg out and snaps it back.
+
 ## X1629
 
 - AI soldiers walk, run and sprint with legs recorded from people, each soldier
