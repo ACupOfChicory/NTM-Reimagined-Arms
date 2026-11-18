@@ -447,14 +447,24 @@ public final class SmokeGrid {
     }
 
     private void spread() {
-        System.arraycopy(d, 0, next, 0, CELLS);
         float k = kind.spread(), up = k * (1F + kind.rise()), down = k * (1F - kind.rise()), lift = kind.lift(), liftFrom = kind.fill() * 0.5F;
         // the faces between a cell and its +x, +y, +z neighbour, one cell around the occupied box (and the box's own
         // faces out of the grid: lost)
         int ax = Math.max(0, x0 - 1), ay = Math.max(0, y0 - 1), az = Math.max(0, z0 - 1);
         int bx = Math.min(SX - 1, x1 + 1), by = Math.min(SY - 1, y1 + 1), bz = Math.min(SZ - 1, z1 + 1);
-        for (int y = ay; y <= by; y++) for (int z = az; z <= bz; z++) {
+        // what the step reads and writes: these cells and their +x, +y, +z neighbours; a row (y, z) with no smoke whose
+        // +y and +z rows have none either gives and takes nothing (no cell in it pushes, none of its neighbours does)
+        int ex = Math.min(SX - 1, bx + 1), ey = Math.min(SY - 1, by + 1), ez = Math.min(SZ - 1, bz + 1);
+        copy(d, next, ax, ex, ay, ey, az, ez);
+        for (int y = ay; y <= ey; y++) for (int z = az; z <= ez; z++) {
             int row = (y * SZ + z) * SX;
+            boolean any = false;
+            for (int x = ax; x <= ex && !any; x++) any = d[row + x] != 0F;
+            smokeRow[y * SZ + z] = any;
+        }
+        for (int y = ay; y <= by; y++) for (int z = az; z <= bz; z++) {
+            int row = (y * SZ + z) * SX, r = y * SZ + z;
+            if (!smokeRow[r] && (z + 1 >= SZ || !smokeRow[r + 1]) && (y + 1 >= SY || !smokeRow[r + SZ])) continue;
             for (int x = ax; x <= bx; x++) {
                 int a = row + x;
                 if (closedAt(a)) continue;
@@ -487,7 +497,18 @@ public final class SmokeGrid {
                 } else next[a] -= limit(up * pa + (lift > 0F && da > liftFrom ? lift * da : 0F), da);
             }
         }
-        System.arraycopy(next, 0, d, 0, CELLS);
+        copy(next, d, ax, ex, ay, ey, az, ez);
+    }
+
+    // rows of the grid (y, z) with smoke in the step's cells, see spread
+    private final boolean[] smokeRow = new boolean[SY * SZ];
+
+    // the cells x0..x1, y0..y1, z0..z1 (inclusive) of one array into the other
+    private static void copy(float[] from, float[] to, int x0, int x1, int y0, int y1, int z0, int z1) {
+        for (int y = y0; y <= y1; y++) for (int z = z0; z <= z1; z++) {
+            int row = (y * SZ + z) * SX + x0;
+            System.arraycopy(from, row, to, row, x1 - x0 + 1);
+        }
     }
 
     // a cell gives no more than a seventh of what it has across one face, so six faces never take it below zero
@@ -595,6 +616,12 @@ public final class SmokeGrid {
         for (int y = by0; y <= by1; y++) for (int z = bz0; z <= bz1; z++) {
             int row = (y * SZ + z) * SX;
             boolean zUp = z - sz >= 0 && z - sz < SZ, zDown = z + sz >= 0 && z + sz < SZ;
+            if (!mixing) {
+                // out in the open a row with no cell thick enough to carry does nothing
+                boolean any = false;
+                for (int x = bx0; x <= bx1 && !any; x++) any = d[row + x] >= TAIL;
+                if (!any) continue;
+            }
             for (int x = bx0; x <= bx1; x++) {
                 int a = row + x;
                 if (closedAt(a)) continue;

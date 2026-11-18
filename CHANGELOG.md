@@ -1,5 +1,18 @@
 # Changelog
 
+## X1699
+
+- Smoke and gas clouds cost less to draw. A cloud that fills only part of the
+  screen no longer costs as much as one that fills all of it. Smoke in front of
+  the sky's clouds or of glass far behind it is no longer drawn twice. A ray
+  through dense smoke stops when 3% of the light is left (was 1%), too little
+  to see. Each step of a cloud takes about a tenth less time on both the
+  client and the server.
+- Dense smoke in front of glass or the sky's clouds no longer has holes a pixel
+  or two wide in it.
+- With the Vulkan renderer the game no longer stops at an error while loading
+  its resources: three of the smoke's shaders did not load there.
+
 ## X1690
 
 - A block of NTM's C4 or semtex going off no longer stutters the game for the

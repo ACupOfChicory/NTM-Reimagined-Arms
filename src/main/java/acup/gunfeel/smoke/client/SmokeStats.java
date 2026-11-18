@@ -32,6 +32,32 @@ public final class SmokeStats {
 
     // never reset: the card's time summed, for the stand to take differences of
     public static long cardNanos, cardFrames;
+    /**
+     * The card's time per pass in the frames that drew the volume, never reset (the stands take differences): the
+     * copies before glass and water (the depth, the frame, its alpha cleared), the copies after them, the march in
+     * front of glass, the march, the composite, the alpha put back.
+     */
+    public static final String[] CARD_PARTS = {"copy", "copy2", "front", "march", "lay", "alpha"};
+    public static final long[] cardPart = new long[CARD_PARTS.length];
+    public static long cardPartFrames;
+
+    /** The card's passes of the frames since {@code at} (a copy of {@link #cardPart} with the frames last), ms a frame. */
+    public static String cardParts(long[] at) {
+        long frames = cardPartFrames - at[CARD_PARTS.length];
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < CARD_PARTS.length; i++) {
+            if (i > 0) b.append(' ');
+            b.append(CARD_PARTS[i]).append(' ').append(String.format(Locale.ROOT, "%.3f", frames > 0 ? (cardPart[i] - at[i]) / 1e6 / frames : 0));
+        }
+        return b.toString();
+    }
+
+    /** {@link #cardPart} and the frames, to give {@link #cardParts} later. */
+    public static long[] cardMark() {
+        long[] at = java.util.Arrays.copyOf(cardPart, CARD_PARTS.length + 1);
+        at[CARD_PARTS.length] = cardPartFrames;
+        return at;
+    }
 
     public static void add(int part, long nanos) {
         NANOS[part] += nanos;
