@@ -135,7 +135,7 @@ final class SmokeCloudStand {
         } catch (Exception e) {
             ClientSmoke.check(false, "дым: папка " + DIR + ": " + e);
         }
-        ROWS.add(COMPARE ? "pose\tvariant\tclouds_drawn\tframe_ms\tp95_ms\tfps\tcard_ms\tat_camera\tcard_parts_ms"
+        ROWS.add(COMPARE ? "pose\tvariant\tclouds_drawn\tframe_ms\tp95_ms\tfps\tcard_ms\tat_camera\tcard_parts_ms\tglass"
                 : "pose\tquality\tclouds_drawn\tframe_ms\tp95_ms\tfps\tcard_ms\tat_camera\tcard_parts_ms");
         phase = 0;
         last = System.nanoTime();
@@ -359,6 +359,8 @@ final class SmokeCloudStand {
         double card = cardFrames > 0 ? (SmokeStats.cardNanos - cardAt[0]) / 1e6 / cardFrames : 0;
         String r = String.format(Locale.ROOT, "%s\t%s\t%d\t%.3f\t%.3f\t%.0f\t%.3f\t%.2f\t%s", p.name, q, q.equals("none") || q.equals("off") ? 0 : drawn, avg, p95,
                 avg > 0 ? 1000 / avg : 0, card, SmokeFog.atCamera(), SmokeStats.cardParts(partsAt));
+        // compare: how the smoke told glass from the rest (none, alpha, chain = the transparency chain)
+        if (COMPARE) r += "\t" + acup.gunfeel.smoke.client.SmokeRender.glassMode();
         ROWS.add(r);
         SmokeClouds known = SmokeClient.current();
         if (known != null) for (SmokeClouds.Cloud c : known.clouds()) {
