@@ -113,7 +113,7 @@ public final class DynamicCrosshair {
      * while aiming), false for NTM's own
      */
     public static boolean render(GuiGraphicsExtractor g) {
-        if (!Config.enabled || !Config.dynamicCrosshair) return false;
+        if (!Config.enabled || !Config.dynamicCrosshair || !acup.gunfeel.compat.Feature.DYNAMIC_CROSSHAIR.on()) return false;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null) return false;
