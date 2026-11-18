@@ -156,16 +156,18 @@ SPDX-FileCopyrightText = [
 ]
 SPDX-License-Identifier = "CC0-1.0"
 
-# AI mob moves from recordings of people: 100STYLE and the CMU database (third-party/bot-moves.txt).
+# AI mob moves from recordings of people: 100STYLE, the CMU database and ACCAD's Open Motion Project
+# (third-party/bot-moves.txt).
 [[annotations]]
 path = "src/main/resources/assets/ntmgunfeel/animations/bot_moves.json"
 precedence = "override"
 SPDX-FileCopyrightText = [
     "Ian Mason (100STYLE)",
     "Carnegie Mellon University (CMU Graphics Lab Motion Capture Database)",
+    "ACCAD/The Ohio State University (Open Motion Project)",
     "2026 ACupOfChicory",
 ]
-SPDX-License-Identifier = "CC-BY-4.0 AND LicenseRef-CMU-Mocap"
+SPDX-License-Identifier = "CC-BY-4.0 AND LicenseRef-CMU-Mocap AND CC-BY-3.0"
 
 # AI mob actions from recordings of people: the CMU database (third-party/bot-moves.txt).
 [[annotations]]

@@ -713,7 +713,9 @@ AI mobs' turns on the spot, starts, stops, grenade throw and their legs walking,
 running and sprinting ahead, and walking aside and back with the gun up, are
 made from recordings of people: 100STYLE by Ian Mason (CC BY 4.0) and the CMU
 Graphics Lab Motion Capture Database (mocap.cs.cmu.edu; created with funding
-from NSF EIA-0196217). Takes used and the changes made are in
+from NSF EIA-0196217). Their ways down into a crouch and up out of it are made
+from the Open Motion Project by ACCAD/The Ohio State University (CC BY 3.0).
+Takes used and the changes made are in
 [third-party/bot-moves.txt](third-party/bot-moves.txt).
 
 The jar bundles XZ for Java 1.10 (0BSD), which unpacks the machine shapes

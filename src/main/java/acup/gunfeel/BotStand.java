@@ -16,7 +16,9 @@ import org.joml.Quaternionf;
 import acup.gunfeel.ai.AiPose;
 import acup.gunfeel.ai.AiPoseGeometry;
 import acup.gunfeel.ai.client.BotAnimation;
+import acup.gunfeel.ai.client.BotAnimator;
 import acup.gunfeel.ai.client.BotClips;
+import acup.gunfeel.ai.client.BotMoves;
 import acup.gunfeel.ai.client.BotPoser;
 import acup.gunfeel.ai.client.LayerSeams;
 import acup.gunfeel.ai.client.SuitBend;
@@ -45,9 +47,11 @@ import net.minecraft.world.phys.Vec3;
  * it, lying must keep it low;</li>
  * <li>no jumps on the game's own frames: one agent through a script of changes, its parts' largest turn from one
  * frame to the next;</li>
- * <li>the clips: one agent moved by the stand ahead at a walk, a jog and a sprint, back, to each side, crawling,
- * sliding and rolling, then still as it reloads, hit, hit by a blast, killed: the clip each plays (its weight), no jumps on the way; and an agent the
- * game moves at the speeds the mob AI asks for (AiSoldier.WALK, RUN), the speeds the gait's clips are set to;</li>
+ * <li>the clips: one agent moved by the stand ahead at a walk, a jog and a sprint, crouched as it stops from a run and
+ * up into a run again (the moves from people down into the crouch and up out of it: the head no further from where the
+ * crouch has it than 3 cm), back, to each side, crawling, sliding and rolling, then still as it reloads, hit, hit by a
+ * blast, killed: the clip each plays (its weight), no jumps on the way; and an agent the game moves at the speeds the
+ * mob AI asks for (AiSoldier.WALK, RUN), the speeds the gait's clips are set to;</li>
  * <li>the cost: 100 agents, each always changing pose, the frame time and the server's tick with the player on and
  * off (on, off, off, on).</li>
  * </ol>
@@ -956,18 +960,36 @@ final class BotStand {
     private record Leg(String name, int from, double ahead, double right, String want) {
         /** lying, at the AI's crawl (AiProne.CRAWL_SPEED of its walk): the crawl (BotPoser.crawl), not a clip */
         static final String CRAWL = "ползок";
+        /** a run, crouched as it stops (LOW_STEPS): a down (BotMoves.downs) */
+        static final String DOWN = "спуск";
+        /** crouched still, up and off into a run: an up (BotMoves.up) */
+        static final String UP = "подъём";
     }
 
     /** facing -X: ahead is -X, its right -Z */
     /** the walk and the run at the speeds the stand's agent goes at as the mob AI tells it (0.194, 0.327 blocks a tick) */
     private static final Leg[] LEGS = { new Leg("стоит", 0, 0, 0, null), new Leg("шаг", 20, 0.19, 0, BotClips.WALK),
             new Leg("трусца", 45, 0.27, 0, BotClips.JOG), new Leg("бег", 70, 0.33, 0, BotClips.SPRINT),
-            new Leg("назад", 95, -0.10, 0, BotClips.BACK), new Leg("влево", 125, 0, -0.10, BotClips.STRAFE_LEFT),
-            new Leg("вправо", 155, 0, 0.10, BotClips.STRAFE_RIGHT), new Leg("ползком", 185, 0.057, 0, Leg.CRAWL),
-            new Leg("подкат", 215, 0.2, 0, BotClips.SLIDE), new Leg("кувырок", 240, 0.16, 0, BotClips.ROLL),
-            new Leg("стоит, перезарядка", 265, 0, 0, null) };
-    private static final int CLIPS_CRAWL = 185, CLIPS_UP = 215, CLIPS_SLIDE = 217, CLIPS_ROLL = 242;
-    private static final int CLIPS_RELOAD = 285, CLIPS_HIT = 330, CLIPS_KNOCK = 355, CLIPS_DEATH = 380, CLIPS_END = 420;
+            new Leg("присед с бега", 95, 0, 0, Leg.DOWN), new Leg("из приседа в бег", 120, 0, 0, Leg.UP),
+            new Leg("назад", 145, -0.10, 0, BotClips.BACK), new Leg("влево", 175, 0, -0.10, BotClips.STRAFE_LEFT),
+            new Leg("вправо", 205, 0, 0.10, BotClips.STRAFE_RIGHT), new Leg("ползком", 235, 0.057, 0, Leg.CRAWL),
+            new Leg("подкат", 265, 0.2, 0, BotClips.SLIDE), new Leg("кувырок", 290, 0.16, 0, BotClips.ROLL),
+            new Leg("стоит, перезарядка", 315, 0, 0, null) };
+    private static final int CLIPS_CRAWL = 235, CLIPS_UP = 265, CLIPS_SLIDE = 267, CLIPS_ROLL = 292;
+    private static final int CLIPS_RELOAD = 335, CLIPS_HIT = 380, CLIPS_KNOCK = 405, CLIPS_DEATH = 430, CLIPS_END = 470;
+    /**
+     * from the run into the crouch and up again (the down's and the up's stretches, from 95): as the mob AI goes into
+     * cover (AiMover: crouched as it comes within its reach, on a few ticks at the run and stopped at once, vanilla's
+     * move control), crouched still, then up and off (AiSoldier leaving the cover): blocks a tick, by tick from 95
+     */
+    static final double[] LOW_STEPS = { 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.12, 0.03, 0.005, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.03, 0.06, 0.1, 0.15, 0.2, 0.24, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27, 0.27,
+            0.27, 0.27 };
+    /** crouched (the server's pose) from the tick of LOW_STEPS it comes within reach to the tick it gets up */
+    static final int CLIPS_DOWN = 95, CLIPS_LOW = 105, CLIPS_LOW_UP = 125;
+    /** frames a down and an up played (weight over a half), and the most each moved the head (cm) from where the crouch has it */
+    private static final int[] LOW_SEEN = new int[2];
+    private static final float[] LOW_HEAD = new float[2];
     /** the agent with its own AI on another line, told to walk then run as the mob AI tells it (AiSoldier.WALK, RUN) */
     private static final double[] CAL = { 1.0, 1.3 };
     private static final int CAL_EACH = 70;
@@ -1011,6 +1033,8 @@ final class BotStand {
             p.teleportTo(level, 0.5, O.getY() + 18, 11.5, Set.of(), 0F, 90F, false);
         }).join();
         int id = one.getId(), calId = cal.getId();
+        Arrays.fill(LOW_SEEN, 0);
+        Arrays.fill(LOW_HEAD, 0F);
         clipsT0 = now() + 20;
         lastServerTick = Long.MIN_VALUE;
         posed = AiPose.IDLE;
@@ -1036,6 +1060,7 @@ final class BotStand {
             if (seenFrame >= 0 && time <= seenTime + 1e-4F) return;
             int leg = LEGS.length - 1;
             while (leg > 0 && t < LEGS[leg].from) leg--;
+            if (LEGS[leg].want == Leg.DOWN || LEGS[leg].want == Leg.UP) lowHead(f, parts, LEGS[leg].want == Leg.DOWN);
             int end = leg + 1 < LEGS.length ? LEGS[leg + 1].from : CLIPS_HIT;
             // a slide or a roll is measured in its middle (it starts 2 ticks into its stretch: 3 to 10 ticks in)
             boolean dash = LEGS[leg].want == BotClips.SLIDE || LEGS[leg].want == BotClips.ROLL;
@@ -1050,6 +1075,8 @@ final class BotStand {
                     // the action's weight at its middle (3 to 10 ticks in)
                     byte kind = LEGS[leg].want == BotClips.SLIDE ? AiPose.SLIDE : AiPose.ROLL;
                     if (f.act() != null && f.act().kind() == kind) LEG_SUMS[leg][1] += f.act().w();
+                } else if (LEGS[leg].want == Leg.DOWN || LEGS[leg].want == Leg.UP) {
+                    // (lowHead)
                 } else if (LEGS[leg].want != null) {
                     String[] names = BotPoser.gaitClips(f.heading());
                     float[] ws = BotPoser.gaitWeights(f.speed(), f.heading());
@@ -1089,6 +1116,50 @@ final class BotStand {
         measuring = 0;
     }
 
+    /**
+     * A down (or an up) under way: the frames it plays (weight over a half), and the eye (the face's middle) it draws
+     * against the same frame's with the downs and the ups taken out, the crouch's own: posed both on parts of the
+     * model's own pivots, cm apart. Its legs are made for the trunk crouched as far as its own share, the hips no
+     * lower than a start's or a stop's: the head stays where the crouch has it.
+     */
+    private static void lowHead(BotAnimator.Frame f, BotPoser.Parts like, boolean down) {
+        float w = 0F;
+        boolean kind = false;
+        List<BotAnimator.Moving> rest = new ArrayList<>();
+        for (BotAnimator.Moving mv : f.moves()) {
+            if (!mv.low()) {
+                rest.add(mv);
+                continue;
+            }
+            w = Math.max(w, mv.w());
+            kind |= BotMoves.downs().stream().anyMatch(d -> d.clip() == mv.clip()) == down;
+        }
+        if (w <= 0F) return;
+        int k = down ? 0 : 1;
+        if (w > 0.5F && kind) LOW_SEEN[k]++;
+        org.joml.Vector3f with = eye(like, f.probe(f.moves())), without = eye(like, f.probe(rest.toArray(new BotAnimator.Moving[0])));
+        LOW_HEAD[k] = Math.max(LOW_HEAD[k], with.distance(without) * 100F / 16F);
+    }
+
+    /** the eye (the face's middle, model px) a frame puts on the head, posed on parts of these' pivots (a probe: Frame.probe) */
+    private static org.joml.Vector3f eye(BotPoser.Parts like, BotAnimator.Frame f) {
+        BotPoser.Parts p = new BotPoser.Parts(fresh(like.head()), fresh(like.body()), fresh(like.rightArm()), fresh(like.leftArm()),
+                fresh(like.rightLeg()), fresh(like.leftLeg()), fresh(like.rightForearm()), fresh(like.leftForearm()), fresh(like.rightShin()),
+                fresh(like.leftShin()));
+        BotPoser.apply(p, f, 0F, f.walk(), f.walkPos());
+        ModelPart h = p.head();
+        return new org.joml.Matrix4f().translate(h.x, h.y, h.z).rotateZYX(h.zRot, h.yRot, h.xRot).transformPosition(new org.joml.Vector3f(0F, -4F, -4F));
+    }
+
+    /** a part with no boxes at that one's first pivot */
+    private static ModelPart fresh(ModelPart of) {
+        if (of == null) return null;
+        ModelPart p = new ModelPart(List.of(), Map.of());
+        p.setInitialPose(of.getInitialPose());
+        p.resetPose();
+        return p;
+    }
+
     /** the steel layer on the bent limbs by the clips' stretch: the most loose and corner texels on a tick */
     private static final Map<String, int[]> CLIP_SEAMS = new java.util.LinkedHashMap<>();
 
@@ -1122,7 +1193,10 @@ final class BotStand {
                 : t >= CLIPS_SLIDE && t < CLIPS_ROLL ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.SLIDE,
                         (int) (clipsT0 + CLIPS_SLIDE), (short) acup.gunfeel.ai.AiDash.TICKS, AiPose.FIGHT)
                 : t >= CLIPS_ROLL && t < CLIPS_ROLL + acup.gunfeel.ai.AiDash.TICKS + 2 ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0,
-                        AiPose.HOLD, AiPose.ROLL, (int) (clipsT0 + CLIPS_ROLL), (short) acup.gunfeel.ai.AiDash.TICKS, AiPose.FIGHT) : AiPose.IDLE;
+                        AiPose.HOLD, AiPose.ROLL, (int) (clipsT0 + CLIPS_ROLL), (short) acup.gunfeel.ai.AiDash.TICKS, AiPose.FIGHT)
+                // crouched as it comes into cover from the run (LOW_STEPS), up as it leaves
+                : t >= CLIPS_LOW && t < CLIPS_LOW_UP ? new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0, AiPose.FIGHT)
+                : AiPose.IDLE;
         int leg = LEGS.length - 1;
         while (leg > 0 && t < LEGS[leg].from) leg--;
         Leg l = LEGS[leg];
@@ -1130,8 +1204,9 @@ final class BotStand {
         server.submit(() -> {
             ServerLevel level = server.overworld();
             Mob m = (Mob) level.getEntity(one.getId());
-            if (m != null && m.isAlive() && tt < CLIPS_RELOAD && (l.ahead != 0 || l.right != 0))
-                m.setPos(m.getX() - l.ahead, m.getY(), m.getZ() - l.right);
+            double ahead = tt >= CLIPS_DOWN && tt < CLIPS_DOWN + LOW_STEPS.length ? LOW_STEPS[(int) (tt - CLIPS_DOWN)] : l.ahead;
+            if (m != null && m.isAlive() && tt < CLIPS_RELOAD && (ahead != 0 || l.right != 0))
+                m.setPos(m.getX() - ahead, m.getY(), m.getZ() - l.right);
             // the crawl: lying as the mob AI lays it (AiProne), up again after
             if (m != null && tt == CLIPS_CRAWL) m.setPose(Pose.SWIMMING);
             if (m != null && tt == CLIPS_UP) m.setPose(Pose.STANDING);
@@ -1161,6 +1236,20 @@ final class BotStand {
             double[] sm = LEG_SUMS[i];
             double n = Math.max(1, sm[0]), w = sm[1] / n, v = sm[2] / n;
             Leg g = LEGS[i];
+            if (g.want == Leg.DOWN || g.want == Leg.UP) {
+                int k = g.want == Leg.DOWN ? 0 : 1;
+                ROWS.add(String.format(Locale.ROOT, "клипы\t%s\t%s\tкадров %d\tголова от хода %.2f см\t\t\t\t\t\t\t%d", g.name, g.want, LOW_SEEN[k],
+                        LOW_HEAD[k], (long) sm[0]));
+                // a down plays as the client draws the steps slow before the crouch is whole: the place sent every
+                // third tick (a mob's tracker, the AI's going on straight), in two of the three ticks it may fall on
+                // as the run stops; with the third it goes into the crouch as the mod's. An up plays each time
+                // (BotAnimator.UP_WITHIN). The head, whenever one plays, within 3 cm of the crouch's own
+                boolean must = k == 1;
+                ClientSmoke.check((!must || LOW_SEEN[k] >= 6) && LOW_HEAD[k] < 3F, String.format(Locale.ROOT,
+                        "клипы: %s — %s из записи людей (%d кадров с весом больше половины%s), голова от него не дальше 3 см от приседа мода: %.2f см", g.name,
+                        g.want, LOW_SEEN[k], must ? "" : "; играет, как ляжет место с сервера: раз в третий тик", LOW_HEAD[k]));
+                continue;
+            }
             ROWS.add(String.format(Locale.ROOT, "клипы	%s	%s	вес %.2f	скорость %.3f бл/тик							%d", g.name, g.want == null ? "-" : g.want, w, v,
                     (long) sm[0]));
             if (g.want == null) ClientSmoke.check(sm[0] > 0 && v < 0.01, String.format(Locale.ROOT, "клипы: %s, ноги не идут (скорость %.3f, кадров %d)", g.name, v, (long) sm[0]));

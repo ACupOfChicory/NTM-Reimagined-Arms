@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers running into cover drop into a crouch the way a person does,
+  their legs slowing into a squat, and get up out of it into a run (or, aiming,
+  into a walk) with a person's first steps.
+
 ## X1633
 
 - AI soldiers creeping along with their gun up, aiming or shooting, walk as a

@@ -34,7 +34,7 @@ import net.minecraft.world.entity.Pose;
 /**
  * -PbotFeelStand: how an AI mob's body moves, frame by frame, in the moves a player sees most: a turn on the spot of
  * 90 and 180 degrees at the aim's speed, a turn on the walk and on the run, a start and a stop, a crouch on the walk,
- * the gun raised, a strafe turned back, a hit. Nothing is judged here: each frame drawn (the client's own, at 60 a
+ * a run into a crouch and up into a run, the gun raised, a strafe turned back, a hit. Nothing is judged here: each frame drawn (the client's own, at 60 a
  * second) goes to {@code <label>-feel.tsv} as numbers (where the model is, how its body and head face, each part's
  * turn in the world, where its feet, hands, hips and head are), each server tick to {@code <label>-feel-ticks.tsv}
  * (the yaw and the place the server has). tools/motion/feel.py works out the turn's speed, its lag, the jerk and the
@@ -130,6 +130,18 @@ final class BotFeelStand {
                 double v = t >= 20 && t < 45 ? 0.1 : 0.19;
                 m.setPos(m.getX() + v, m.getY(), m.getZ());
             }, t -> t >= 20 && t < 45 ? pose(AiPose.CROUCH, AiPose.HOLD, AiPose.FIGHT) : READY),
+            // a run into cover, crouched as it comes within reach, on a few ticks and stopped at once (vanilla's move
+            // control), crouched still, then up and off at a run (BotStand.LOW_STEPS: the moves from people down into
+            // the crouch and up out of it)
+            new Scene("run_crouch_run", false, BotStand.LOW_STEPS.length + 10, (level, m, t) -> {
+                if (t < 0) {
+                    place(m, -9.5, AZ, -90F);
+                    return;
+                }
+                double v = t < BotStand.LOW_STEPS.length ? BotStand.LOW_STEPS[t] : 0.27;
+                if (v != 0.0) m.setPos(m.getX() + v, m.getY(), m.getZ());
+            }, t -> t >= BotStand.CLIPS_LOW - BotStand.CLIPS_DOWN && t < BotStand.CLIPS_LOW_UP - BotStand.CLIPS_DOWN
+                    ? pose(AiPose.CROUCH, AiPose.HOLD, AiPose.FIGHT) : READY),
             new Scene("raise", false, 100, (level, m, t) -> {
                 if (t < 0) place(m, AX, AZ, 180F);
             }, t -> t < 20 ? CALM : t < 50 ? AIMED : t < 75 ? READY : CALM),

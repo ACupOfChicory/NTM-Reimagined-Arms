@@ -303,6 +303,9 @@ neoForge {
             // -PbotGait=<n>: the feel stand's mobs play gait variant n (BotGaits.variant), not each its own (-1: the
             // mod's own clips)
             providers.gradleProperty("botGait").orNull?.let { systemProperty("ntmgunfeel.botGait", it) }
+            // -PbotLowMoves=off: no moves from people down into the crouch and up out of it, the mod's own crouch
+            // (BotAnimator.lowMoves), to set the two side by side
+            providers.gradleProperty("botLowMoves").orNull?.let { systemProperty("ntmgunfeel.botLowMoves", it) }
             systemProperty("ntmgunfeel.suitBendNoBand",providers.gradleProperty("suitBendNoBand").isPresent.toString())
             // -PbotStandJfr: a flight recording of the run beside its table
             if(providers.gradleProperty("botStandJfr").isPresent) jvmArgument("-XX:StartFlightRecording=filename=${root.resolve("notes/ai/bot-stand/$label.jfr").path},settings=profile,dumponexit=true")

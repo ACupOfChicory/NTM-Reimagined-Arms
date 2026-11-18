@@ -371,11 +371,14 @@ public final class BotPoser {
         // a clip put in bare: its foot down is on the floor already (BotGaitOverride.bare)
         plant(p, upright * (1F - crawl) * (1F - bare), walkPos, move * gw[3], walk, knees);
         // a move from recordings holding the legs (BotMoves: a turn on the spot, its feet standing as the body turns),
-        // each over the one before
+        // each over the one before; a down or an up over the crouch's legs, after the stoop (3.: its legs are made for
+        // that trunk; crouched or not, the stoop puts the hips by the same legs, the head not stepping as the crouch
+        // goes)
         float moved = 0F, twist = 0F;
         for (BotAnimator.Moving mv : f.moves()) {
-            set(p, mv.clip(), mv.t(), mv.w() * upright, LEGS, a);
             moved = Math.max(moved, mv.w() * upright * mv.drop());
+            if (mv.low()) continue;
+            set(p, mv.clip(), mv.t(), mv.w() * upright, LEGS, a);
             twist = Mth.lerp(mv.w() * upright, twist, mv.twist());
         }
         twistLegs(p, twist);
@@ -444,6 +447,7 @@ public final class BotPoser {
                         hip(thigh, oLow.drop(), behind, backW);
                     }
                 }
+                lowMoves(p, f, upright, a);
                 // each of the two stands on the ground, a mix of them (starting, stopping, going down) does not: a
                 // leg that would go into the ground is lifted to it, up into the trunk
                 org.joml.Matrix4f m = M4.get();
@@ -458,6 +462,7 @@ public final class BotPoser {
                 // no clips: vanilla's, the legs back
                 p.rightLeg.z += 4F * c;
                 p.leftLeg.z += 4F * c;
+                lowMoves(p, f, upright, a);
             }
             p.body.xRot += lean * c;
             // vanilla tips the arms with the body; arms aimed, held up or close at the chest keep their line
@@ -467,7 +472,7 @@ public final class BotPoser {
             p.body.y += CROUCH_BODY * c;
             p.rightArm.y += AiPoseGeometry.CROUCH_ARM_DROP_PX * c;
             p.leftArm.y += AiPoseGeometry.CROUCH_ARM_DROP_PX * c;
-        }
+        } else lowMoves(p, f, upright, a);
 
         // 4. the action, and the one it cut short fading out under it. A throw recorded from a person: the rifle goes
         // with the left hand as the arms hold it under the throw (Carry)
@@ -1263,6 +1268,22 @@ public final class BotPoser {
                 part.z = Mth.lerp(w, part.z, d.z() + a[2]);
             }
         }
+    }
+
+    /**
+     * a down's or an up's legs (BotAnimator.Moving.low) over the crouch's, each over the one before, turned the way it
+     * goes: made for the trunk crouched as far as the move's own share, the hips where the crouch puts them
+     */
+    private static void lowMoves(Parts p, BotAnimator.Frame f, float upright, float[] a) {
+        float twist = 0F;
+        boolean any = false;
+        for (BotAnimator.Moving mv : f.moves()) {
+            if (!mv.low()) continue;
+            set(p, mv.clip(), mv.t(), mv.w() * upright, LEGS, a);
+            twist = Mth.lerp(mv.w() * upright, twist, mv.twist());
+            any = true;
+        }
+        if (any) twistLegs(p, twist);
     }
 
     /** px vanilla's crouch puts the trunk's top down, and the trunk's length */

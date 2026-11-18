@@ -29,6 +29,26 @@ class MovesToMod(unittest.TestCase):
 		self.assertEqual(set(d["a"]["bones"]), set(m.LEGS))
 		self.assertEqual(d["a"]["drop"], 0.45)
 
+	def test_a_down_and_an_up_with_their_crouch(self):
+		down, up = meta("down"), meta("up")
+		down["crouch"] = [0.0, 1.0, 1.0]
+		up["crouch"] = [1.0, 0.0, 0.0]
+		del up["drop_px"]
+		up["gait_drop_px"] = 0.45
+		d = m.build({"a_lower": anim(), "b_lower": anim(), "c_lower": anim()}, {"a": down, "b": up, "c": meta("stop")})
+		self.assertEqual(d["moves"]["a"]["crouch"], [0.0, 1.0, 1.0])
+		self.assertEqual(d["moves"]["b"]["crouch"], [1.0, 0.0, 0.0])
+		self.assertEqual(d["moves"]["b"]["drop"], 0.45)
+		self.assertEqual(d["moves"]["a"]["curve"], [0.0, 0.5, 1.0])
+		self.assertNotIn("crouch", d["moves"]["c"])
+		self.assertIn("ACCAD", d["about"])
+		self.assertNotIn("ACCAD", m.build({"c_lower": anim()}, {"c": meta("stop")})["about"])
+		# a share off the curve's samples, or out of 0 to 1
+		for bad in ([0.0, 1.0], [0.0, 1.5, 1.0]):
+			down["crouch"] = bad
+			with self.assertRaises(ValueError):
+				m.build({"a_lower": anim()}, {"a": down})
+
 	def test_no_legs_no_move(self):
 		a = anim()
 		del a["bones"]["left_shin"]

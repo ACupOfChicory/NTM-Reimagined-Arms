@@ -488,7 +488,7 @@ def table(bot_path: str, root: str) -> str:
 	L += ["", "## Starts and stops", "", "s from standing (under 0.1 m/s) to 90 % of the speed it holds / from 90 % to under 0.1 m/s; feet lifted meanwhile.", "",
 		"| take | starts s (steps) | stops s (steps) |", "|---|---|---|"]
 	ss = lambda xs, k: ", ".join(f"{x['s']:.2f} ({x['steps']})" for x in xs if x["kind"] == k) or "—"
-	for name in ("start_stop", "walk_turn90", "run_turn180"):
+	for name in ("start_stop", "walk_turn90", "run_turn180", "run_crouch_run"):
 		if name in b:
 			L.append(f"| bot {name} | {ss(b[name]['stops'], 'start')} | {ss(b[name]['stops'], 'stop')} |")
 	for tk, _, _, st in p.get("start_stop", []):

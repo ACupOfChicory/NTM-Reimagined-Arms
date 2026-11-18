@@ -16,6 +16,7 @@ import com.google.gson.JsonParser;
 
 import acup.gunfeel.Config;
 import acup.gunfeel.GunFeel;
+import net.minecraft.util.Mth;
 
 /**
  * The AI mobs' moves from recordings of people (tools/motion/retarget_moves.py, moves_to_mod.py): a turn on the spot,
@@ -35,6 +36,13 @@ public final class BotMoves {
     static final String START = "start_run_cmu143_03";
     /** the stops, each also mirrored: the one whose legs are nearest the gait's as it slows down is played */
     static final String[] STOPS = { "stop_run_cmu104_56", "stop_run_cmu104_57", "stop_run_cmu143_02", "stop_run_cmu16_57" };
+    /**
+     * into a crouch on the spot from a walk and a run (ACCAD Female1 B24, C26; tools/motion/retarget_crouch.py), each
+     * also mirrored: as the stops, the one whose legs are nearest the gait's
+     */
+    static final String[] DOWNS = { "walk_to_crouch_female1", "run_to_crouch_female1" };
+    /** up out of a crouch into a walk and into a run (ACCAD Female1 B25, C27), the left foot stepping first; mirrored the right */
+    static final String UP_WALK = "crouch_to_walk_female1", UP_RUN = "crouch_to_run_female1";
 
     /**
      * One move.
@@ -42,8 +50,54 @@ public final class BotMoves {
      * @param curve   how far it has turned to its left (degrees) or gone ahead (blocks) by then, hz samples a second
      * @param drop    how far its hips go down, px (its legs are made for it)
      * @param stances each foot (right, left): the times it stands, from and to, seconds after each other
+     * @param crouch  a down's or an up's crouch share (0 .. 1) by then, as the curve's samples; none for the others: its
+     *                legs are made for the mod's crouched trunk at that share (BotPoser's crouch)
      */
-    public record Move(String name, String kind, BotClip clip, float[] curve, float hz, float drop, float[][] stances) {
+    public record Move(String name, String kind, BotClip clip, float[] curve, float hz, float drop, float[][] stances, float[] crouch) {
+        /** with no crouch (a turn, a start, a stop) */
+        public Move(String name, String kind, BotClip clip, float[] curve, float hz, float drop, float[][] stances) {
+            this(name, kind, clip, curve, hz, drop, stances, new float[0]);
+        }
+
+        /** going off from where it stood (a start, an up): played by all the way it goes, out into the gait near its end */
+        public boolean starts() {
+            return "start".equals(kind) || "up".equals(kind);
+        }
+
+        /** coming to stand (a stop, a down): its legs held together at its end */
+        public boolean ends() {
+            return "stop".equals(kind) || "down".equals(kind);
+        }
+
+        /** a down or an up: its legs go with the mod's crouch (crouchAt) */
+        public boolean low() {
+            return crouch.length > 0;
+        }
+
+        /** its crouch share at t (0 none), linear between its samples */
+        public float crouchAt(float t) {
+            if (crouch.length == 0) return 0F;
+            float at = Mth.clamp(t * hz, 0F, crouch.length - 1);
+            int i = Math.min((int) at, crouch.length - 2);
+            return crouch[i] + (crouch[i + 1] - crouch[i]) * (at - i);
+        }
+
+        /**
+         * the first time its crouch share comes to {@code c} (going down: as far down; going up: as far up), linear
+         * between its samples; 0 for none
+         */
+        public float timeAtCrouch(float c) {
+            if (crouch.length < 2) return 0F;
+            boolean up = crouch[crouch.length - 1] < crouch[0];
+            for (int i = 0; i < crouch.length; i++) {
+                if (up ? crouch[i] > c : crouch[i] < c) continue;
+                if (i == 0) return 0F;
+                float a = crouch[i - 1], b = crouch[i];
+                return (i - 1 + (a == b ? 1F : (c - a) / (b - a))) / hz;
+            }
+            return (crouch.length - 1) / hz;
+        }
+
         /** how far it goes all told, the way it turns or goes (a turn to its right: its right) */
         public float total() {
             return Math.abs(curve[curve.length - 1]);
@@ -173,13 +227,13 @@ public final class BotMoves {
             if (n == 0) return 0F;
             float first = n > 1 ? p[2] - p[0] : 0.5F;
             if (t <= p[0]) return p[1] - Math.min(0.25F, 0.5F * (p[0] - t) / first);
-            if (n == 1) return "stop".equals(kind) ? p[1] : p[1] + Math.min(0.25F, 0.5F * (t - p[0]) / first);
+            if (n == 1) return ends() ? p[1] : p[1] + Math.min(0.25F, 0.5F * (t - p[0]) / first);
             for (int i = 1; i < n; i++)
                 if (t <= p[i * 2]) {
                     float a = p[(i - 1) * 2], b = p[i * 2];
                     return p[(i - 1) * 2 + 1] + (p[i * 2 + 1] - p[(i - 1) * 2 + 1]) * (t - a) / (b - a);
                 }
-            if ("stop".equals(kind)) return p[(n - 1) * 2 + 1];
+            if (ends()) return p[(n - 1) * 2 + 1];
             float span = p[(n - 1) * 2] - p[(n - 2) * 2];
             return p[(n - 1) * 2 + 1] + Math.min(0.25F, 0.5F * (t - p[(n - 1) * 2]) / span);
         }
@@ -188,7 +242,7 @@ public final class BotMoves {
         Move mirrored() {
             float[] c = curve.clone();
             if ("turn".equals(kind)) for (int i = 0; i < c.length; i++) c[i] = -c[i];
-            return new Move(name + "_mirrored", kind, clip.mirrored(), c, hz, drop, new float[][] { stances[1], stances[0] });
+            return new Move(name + "_mirrored", kind, clip.mirrored(), c, hz, drop, new float[][] { stances[1], stances[0] }, crouch);
         }
     }
 
@@ -244,7 +298,7 @@ public final class BotMoves {
             // a stop's legs coming together after its last pass (apart, then side by side, not crossing): that is its
             // last, where they come within PASS_APART / 4 for good (after the last time they are PASS_APART / 2 apart:
             // on the way they may come near and go apart again, CMU 104_57 to 2 degrees at 1.38 s, then 11)
-            if (!out.isEmpty() && apart != 0 && "stop".equals(m.kind()) && Math.abs(d[n]) < PASS_APART / 2F) {
+            if (!out.isEmpty() && apart != 0 && m.ends() && Math.abs(d[n]) < PASS_APART / 2F) {
                 int at = n, last = from;
                 for (int j = n; j >= from; j--)
                     if (Math.abs(d[j]) >= PASS_APART / 2F) {
@@ -307,6 +361,30 @@ public final class BotMoves {
 
     private static volatile java.util.@Nullable List<Move> stops;
 
+    /** the downs into a crouch and their mirrors there are (found once) */
+    public static java.util.List<Move> downs() {
+        java.util.List<Move> out = downs;
+        if (out != null) return out;
+        java.util.List<Move> found = new java.util.ArrayList<>(DOWNS.length * 2);
+        for (String n : DOWNS)
+            for (String v : new String[] { n, n + "_mirrored" }) {
+                Move m = get(v);
+                if (m != null) found.add(m);
+            }
+        return downs = java.util.List.copyOf(found);
+    }
+
+    private static volatile java.util.@Nullable List<Move> downs;
+
+    /** up out of a crouch into a run (or a walk), its first step the left foot's or the right's */
+    public static @Nullable Move up(boolean run, boolean leftFirst) {
+        Move m = get(run ? UP_RUN : UP_WALK);
+        if (m == null) return null;
+        // the foot it lifts first
+        boolean left = m.firstLift(1) < m.firstLift(0);
+        return left == leftFirst ? m : get(m.name() + "_mirrored");
+    }
+
     /** the turn on the spot to its left (or right), a quarter or half a turn */
     public static @Nullable Move turn(boolean left, boolean half) {
         String n = half ? TURN_180 : TURN_90;
@@ -354,7 +432,10 @@ public final class BotMoves {
         float[] curve = floats(o.getAsJsonArray("curve"));
         float hz = o.get("hz").getAsFloat();
         if (curve.length < 2 || !(hz > 0F)) throw new IllegalArgumentException("curve of " + curve.length + " at " + hz + " Hz");
-        return new Move(name, o.get("kind").getAsString(), clip, curve, hz, o.get("drop").getAsFloat(), stances);
+        float[] crouch = o.has("crouch") ? floats(o.getAsJsonArray("crouch")) : new float[0];
+        if (crouch.length != 0 && crouch.length != curve.length)
+            throw new IllegalArgumentException("crouch of " + crouch.length + " by a curve of " + curve.length);
+        return new Move(name, o.get("kind").getAsString(), clip, curve, hz, o.get("drop").getAsFloat(), stances, crouch);
     }
 
     private static float[] floats(JsonArray a) {
