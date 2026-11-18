@@ -255,6 +255,18 @@ public final class GunAtWall {
         return new WalkSprint.Pose(deg * (1F - low), 0F, 0F, 0F, 0F, back);
     }
 
+    /**
+     * An NTM animation the gun at a wall gives way to (it goes out of its pose while it plays): all but a shot's (a fire key
+     * held lowers the muzzle there, the gun stays back) and a barrel spinning up or down; one with no type gives way too.
+     */
+    static boolean givesWay(com.hbm.render.anim.AnimationEnums.GunAnimation type) {
+        if (type == null) return true;
+        return switch (type) {
+            case CYCLE, CYCLE_EMPTY, SPINUP, SPINDOWN -> false;
+            default -> true;
+        };
+    }
+
     /** The muzzle's turn up for the gun drawn now, for the limit of the last into (WalkSprint.apply). */
     static float pitchNow(Item item, Vector3f pivot, float backUnits) {
         if (measured != item) return 0F;

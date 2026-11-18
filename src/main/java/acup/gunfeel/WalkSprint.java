@@ -134,6 +134,8 @@ public final class WalkSprint {
     private static float walk, sprint, calm, fly, sprintHeld;
     // the gun at a wall (GunAtWall): how far in, eased toward the rays' share, and its muzzle lowered by a fire key or aiming
     private static float wall, wallLow, wallPitch;
+    // the sprint pose's weight as applied the last frame, for the stand
+    private static float sprintShare;
     // run, walk or idle for the player, from the last client tick
     private static MoveState state = MoveState.IDLE;
     // the walk distance walked on the ground (the phase), and vanilla's walk distance at the last frame
@@ -341,6 +343,7 @@ public final class WalkSprint {
         // the gun is measured every frame, moving or not (gunPlaced)
         float js = Config.walkSway > 0F && measuredItem == item && Float.isFinite(jump) ? jump * Config.walkSway : 0F;
         if (walk <= 0F && sprint <= 0F && wall <= 0F && wallPitch <= 0F && js == 0F) {
+            sprintShare = 0F;
             applied(pose, item);
             return;
         }
@@ -348,6 +351,7 @@ public final class WalkSprint {
         float uw = phase(d - walkFrom), us = phase(d - sprintFrom);
         float ws = ease(walk) * Config.walkSway * (1F - ease(sprint)), ss = ease(sprint) * Config.sprintPose;
         boolean pistol = pistol(Config.kickPreset);
+        sprintShare = ss;
         Pose w = walk(uw, aiming, pistol, ws), s = sprint(us, ease(fly), pistol, ss);
         Pose a = GunAtWall.pose(wallPitch, ease(wallLow), wallBack);
         // a pistol in pistolHold is where the measured pistols are: it takes the full drop
@@ -370,6 +374,10 @@ public final class WalkSprint {
     /** For the stand: the gun at a wall's weight now, and its muzzle lowered. */
     static float wallNow() {
         return wall;
+    }
+
+    static float sprintShareNow() {
+        return sprintShare;
     }
 
     static float wallPitchNow() {
