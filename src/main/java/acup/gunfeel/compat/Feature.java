@@ -10,7 +10,7 @@ import java.util.List;
 public enum Feature {
     CORE("core", List.of(), List.of("GunFeel", "GunFeelMod", "Config", "GunDump", "BlockDump")),
     MODEL_HITBOXES("model_hitboxes", List.of("MixinNtmMeshHits", "GlyphidGeometryAccess", "MixinGlyphidModelHits", "MixinMobObjModelHits", "MixinMobModelHits", "MixinGpuEntityGeometry", "MixinHeadDamage"),
-            List.of("NtmMeshHits", "MobObjPose", "ModelMeshCapture", "MobStageCleanup", "HeadDamage")),
+            List.of("NtmMeshHits", "MobObjPose", "ModelMeshCapture", "SubmittedModelGeometry", "MobStageCleanup", "HeadDamage")),
     HOLD_AIM("hold_aim", List.of("MixinHoldAim", "MixinAimButton"), List.of("ReaimTimes", "AimButton")),
     BULLETS("bullets", List.of("MixinBulletServer", "MixinThrowableHit", "MixinLegacyBullet", "MixinWaterBullet", "MixinWaterMuffle", "MixinBeamModelQuery", "MixinBeamBlocks", "MixinBeamTurretSight", "MixinBeamTauon", "MixinBeamMaxwell", "MixinBeamTesla", "TurretMaxwellAccess", "MixinExplosiveBullet", "MixinExplosionContext", "MixinExplosiveProcessor", "MixinWaterBlast", "MixinWaterBlastProcessor", "MixinBlastPartsStandard", "MixinWaterImpact", "MixinWaterFire", "MixinWaterFireRocket", "MixinWaterFireFlamer"),
             List.of("BulletServer", "PassableClip", "Cells", "Structures", "BulletFx", "BulletRules", "ExplosiveAmmo", "ExplosiveDamage", "LegacyBullets", "BeamServer", "BeamTurrets")),
@@ -46,6 +46,7 @@ public enum Feature {
     MINI_NUKE_CLOUD("mini_nuke_cloud", List.of("MukePayloadAccess", "MixinMiniNukeSend", "MixinMiniNukeSize", "MixinMiniNukeParams", "MixinMiniNukeMk5", "MixinMiniNukeCreeper", "MixinMiniNukeTorex", "MixinMiniNukeFx"), List.of("MiniNukeCloud", "MiniNukeStand")),
     AMMO_BAG("ammo_bag", List.of("MixinAmmoBagOurs"), List.of("AmmoBagOurs")),
     NTM_GAS("ntm_gas", List.of("MistAccess", "MixinPhosgeneCreeper", "MixinChemthrowerCloud"), List.of("ChemClouds", "ChemStand")),
+    NTM_WP("ntm_wp", List.of("MixinWpGrenade", "MixinWp40mm", "MixinWpRocket", "MixinWpArtillery", "MixinWpHimars"), List.of("WpSmoke", "WpStand")),
     // its mixin is the HUD's (MixinClientRegistry): not listed here, so the crosshair going off leaves the HUD on
     DYNAMIC_CROSSHAIR("dynamic_crosshair", List.of(), List.of("DynamicCrosshair", "CrosshairSpread", "CrosshairClass", "CrosshairStyle", "CrosshairStand")),
     OVERHEAT("overheat", List.of("MixinOverheat", "MixinOverheatDecider", "MixinOverheatTick"), List.of("Overheat", "OverheatServer", "OverheatSmoke", "OverheatClient", "AiCheckOverheat"));

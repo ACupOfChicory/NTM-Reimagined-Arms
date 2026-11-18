@@ -20,7 +20,8 @@ import net.minecraft.world.level.GameType;
 // отключены. Сохраняет сырые фазы, распределение кадра, аллокации и трафик.
 // Сцены (-PmobBenchScenes): номера 0–3 из SCENES или имена (ntm|van)N[w] —
 // N мобов NTM или ванили сеткой перед камерой; с w сервер водит каждого
-// туда-обратно, поза новая каждый кадр.
+// туда-обратно, поза новая каждый кадр. botN[w][:<комплект>] — N агентов ФБР
+// (боты ИИ, BotModel) в комплекте BotStandHits (STEAM, NCRPA, T51…).
 // -PmobBenchLimit=<мс>[,<мс ходьбы>]: сцена падает, если наш F3+B добавляет
 // к среднему кадру больше предела сверх ванильного F3+B (оба прохода ABBA).
 // -PmobBenchFps=<n>: предел FPS (по умолчанию 260, то есть без предела).
@@ -54,8 +55,8 @@ final class MobBenchmark {
     private static volatile boolean pending;
     private static volatile String failure;
     private static long since,last,measuring,allocationStart,bytesStart,packetsStart;
-    private static long publishStart,shapeStart,cpuStart;
-    private static final long[] costs=new long[4];
+    private static long publishStart,shapeStart,cpuStart,encodeStart,serverStart;
+    private static final long[] costs=new long[MobBenchMetrics.STAGES];
     private static final double WARM=2;
     private static final double MEASURE=4;
     private MobBenchmark() {}
@@ -66,26 +67,33 @@ final class MobBenchmark {
         return new double[]{still,parts.length>1?Double.parseDouble(parts[1]):still};
     }
     private static boolean numbered(String scene) { return scene.matches("[0-3]"); }
+    private static String bare(String scene) { int at=scene.indexOf(':'); return at<0?scene:scene.substring(0,at); }
+    private static BotStandHits.Loadout loadout(String scene) {
+        int at=scene.indexOf(':'); if(at<0) return null;
+        String name=scene.substring(at+1);
+        return java.util.Arrays.stream(BotStandHits.LOADOUTS).filter(l -> l.name().equals(name)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("комплект "+name));
+    }
     static String label(String scene) { return numbered(scene)?SCENES[Integer.parseInt(scene)]:scene; }
     static int count(String scene) {
-        if(!numbered(scene)) return Integer.parseInt(scene.substring(3).replace("w",""));
+        if(!numbered(scene)) return Integer.parseInt(bare(scene).substring(3).replace("w",""));
         int n=Integer.parseInt(scene);
         return n<2?1:n==2?64:8;
     }
-    static boolean walks(String scene) { return scene.endsWith("w"); }
+    static boolean walks(String scene) { return bare(scene).endsWith("w"); }
     static void start() {
         var mc=Minecraft.getInstance();
         mc.options.framerateLimit().set(Integer.getInteger("ntmgunfeel.benchFps",260)); mc.options.enableVsync().set(false);
         mc.options.inactivityFpsLimit().set(InactivityFpsLimit.MINIMIZED);
         mc.options.pauseOnLostFocus=false; mc.options.fov().set(70);
         for(String s:System.getProperty("ntmgunfeel.benchScenes","0,1,2,3").split(",")) {
-            if(!numbered(s) && !s.matches("(ntm|van)[1-9][0-9]*w?")) { failure="сцена "+s; return; }
+            if(!numbered(s) && !s.matches("(ntm|van)[1-9][0-9]*w?|bot[1-9][0-9]*w?(:[A-Za-z0-9+]+)?")) { failure="сцена "+s; return; }
             for(int pass=0;pass<2;pass++) for(int j=0;j<4;j++) {
                 int v=pass==0?j:3-j;
                 PLAN.add(new Phase(s,pass,v%2,v>=2));
             }
         }
-        ROWS.add("сцена\tповтор\tсистема\tF3B\tкадров\tсекунд\tFPS\tсредний_мс\tмедиана_мс\tp95_мс\tp99_мс\tаллокаций_байт_кадр\tзахват_мс\tсеть_мс\tконтур_мс\tрисование_мс\tбайт_с\tпакетов_с\tсущностей_клиент\tпубликаций_кадр\tобводок_кадр\tпроцессор_ядер");
+        ROWS.add("сцена\tповтор\tсистема\tF3B\tкадров\tсекунд\tFPS\tсредний_мс\tмедиана_мс\tp95_мс\tp99_мс\tаллокаций_байт_кадр\tзахват_мс\tсеть_мс\tконтур_мс\tрисование_мс\tбайт_с\tпакетов_с\tсущностей_клиент\tпубликаций_кадр\tобводок_кадр\tпроцессор_ядер\tвершины_мс\tпубликация_мс\tупаковка_мс\tсервер_мс");
         org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info("[mobbench] окно={}x{} расстояние={} FPS={} vsync={} камера=70",
                 mc.gameRenderer.mainRenderTarget().width,mc.gameRenderer.mainRenderTarget().height,
                 mc.options.renderDistance().get(),mc.options.framerateLimit().get(),mc.options.enableVsync().get());
@@ -125,7 +133,7 @@ final class MobBenchmark {
                         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.ServerTickEvent.Pre.class,e -> walk());
                     }
                     for(int i=0;i<count;i++) {
-                        String type=named?(placed.startsWith("ntm")?NTM:VANILLA)[i%4]:n==2?TYPES[i%TYPES.length]:"hbm:entity_ufo";
+                        String type=placed.startsWith("bot")?"hbm:entity_fbi":named?(placed.startsWith("ntm")?NTM:VANILLA)[i%4]:n==2?TYPES[i%TYPES.length]:"hbm:entity_ufo";
                         var created=BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.parse(type)).create(level,EntitySpawnReason.COMMAND);
                         if(!(created instanceof LivingEntity living)) throw new IllegalStateException(type);
                         double x=named?(i%columns-(columns-1)/2.0)*3:n<2?0:n==2?(i%8-3.5)*2.4:(i%4-1.5)*24;
@@ -134,6 +142,7 @@ final class MobBenchmark {
                         if(named) { living.setYRot(180); living.setYBodyRot(180); living.setYHeadRot(180); }
                         if(living instanceof net.minecraft.world.entity.monster.cubemob.Slime slime) slime.setSize(1,true);
                         if(living instanceof Mob mob) { mob.setNoAi(true); mob.setPersistenceRequired(); }
+                        if(living instanceof Mob mob && loadout(placed)!=null) BotStandHits.wear(mob,loadout(placed));
                         level.addFreshEntity(living);
                         if(walks(placed)) { at[walking.size()]=x; walking.add(living); }
                     }
@@ -156,6 +165,15 @@ final class MobBenchmark {
             var mob=list.get(i);
             if(!mob.isRemoved()) mob.setPos(at[i]+.6*Math.sin(walkTick*.32),mob.getY(),mob.getZ());
         }
+    }
+    private static void shot(String scene) {
+        var file=System.getProperty("ntmgunfeel.benchFile");
+        if(file==null) return;
+        var path=java.nio.file.Path.of(file.replaceFirst("\\.tsv$","")+"-"+scene.replaceAll("[^A-Za-z0-9+_-]","_")+".png");
+        net.minecraft.client.Screenshot.takeScreenshot(Minecraft.getInstance().gameRenderer.mainRenderTarget(),image -> {
+            try(image) { image.writeToFile(path); }
+            catch(java.io.IOException ex) { org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").warn("[mobbench] снимок {}: {}",path,ex.toString()); }
+        });
     }
     private static void report() {
         for(var e:MEANS.entrySet()) {
@@ -183,11 +201,15 @@ final class MobBenchmark {
             allocationStart=THREADS.getThreadAllocatedBytes(Thread.currentThread().threadId());
             bytesStart=MobBenchMetrics.bytes.sum(); packetsStart=MobBenchMetrics.packets.sum();
             publishStart=MobBenchMetrics.published; shapeStart=MobBenchMetrics.shapes; cpuStart=SYSTEM.getProcessCpuTime();
-            System.arraycopy(MobBenchMetrics.nanos,0,costs,0,4); ContourAge.reset(); return;
+            System.arraycopy(MobBenchMetrics.nanos,0,costs,0,MobBenchMetrics.STAGES); ContourAge.reset();
+            encodeStart=MobBenchMetrics.encode.sum(); serverStart=MobBenchMetrics.server.sum(); return;
         }
         if(samples<TIMES.length) TIMES[samples++]=now-last;
         last=now;
         if((now-measuring)/1e9<MEASURE) return;
+        // a frame of each scene with the hitboxes and F3+B on (first pass), taken once the window is measured: what F3+B
+        // shows, beside the table, to set one run's against another's
+        if(PLAN.get(index).debug() && PLAN.get(index).mode()==1 && PLAN.get(index).pass()==0) shot(label(PLAN.get(index).scene()));
         double seconds=(now-measuring)/1e9;
         long allocation=THREADS.getThreadAllocatedBytes(Thread.currentThread().threadId())-allocationStart;
         long[] sorted=Arrays.copyOf(TIMES,samples); Arrays.sort(sorted);
@@ -205,8 +227,11 @@ final class MobBenchmark {
         int expected=count(p.scene());
         if(alive!=expected) { failure="Ожидалось сущностей "+expected+", клиент видит "+alive; return; }
         // процессор всего процесса (клиент, сервер, фоновые сборки) — в среднем ядер за фазу
-        row+=String.format(Locale.ROOT,"\t%d\t%.2f\t%.2f\t%.2f",alive,(MobBenchMetrics.published-publishStart)/(double)samples,
-                (MobBenchMetrics.shapes-shapeStart)/(double)samples,(SYSTEM.getProcessCpuTime()-cpuStart)/1e9/seconds);
+        row+=String.format(Locale.ROOT,"\t%d\t%.2f\t%.2f\t%.2f\t%.5f\t%.5f\t%.5f\t%.5f",alive,(MobBenchMetrics.published-publishStart)/(double)samples,
+                (MobBenchMetrics.shapes-shapeStart)/(double)samples,(SYSTEM.getProcessCpuTime()-cpuStart)/1e9/seconds,
+                (MobBenchMetrics.nanos[MobBenchMetrics.GEOMETRY]-costs[MobBenchMetrics.GEOMETRY])/1e6/samples,
+                (MobBenchMetrics.nanos[MobBenchMetrics.PUBLISH]-costs[MobBenchMetrics.PUBLISH])/1e6/samples,
+                (MobBenchMetrics.encode.sum()-encodeStart)/1e6/samples,(MobBenchMetrics.server.sum()-serverStart)/1e6/samples);
         MEANS.computeIfAbsent(p.scene(),k -> new double[4])[p.mode()+(p.debug()?2:0)]+=seconds*1000/samples;
         if(ContourAge.ENABLED && p.mode()==1 && p.debug()) {
             long[] a=AGES.computeIfAbsent(p.scene(),k -> new long[4]);

@@ -240,6 +240,11 @@ public final class SmokeGrid {
         return feeds.size();
     }
 
+    /** The age feed {@code i} (0 the first after the cloud's own) began to let its smoke out at. */
+    public int feedFrom(int i) {
+        return feeds.get(i).from;
+    }
+
     public float total() {
         double sum = 0;
         for (float v : d) sum += v;

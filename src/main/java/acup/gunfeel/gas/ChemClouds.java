@@ -37,7 +37,9 @@ import net.minecraft.world.phys.Vec3;
  * mod's gases; steam, oxygen, UF6, PuF6 and waste gas are {@link NtmGas} clouds that do what NTM's mist of the fluid
  * does ({@link #affect}). The blobs of one stream are gathered {@link #GATHER} ticks and go out together, the first as
  * a cloud and the next ones feeding it while it takes feeds and they land near it: at most two events a second a
- * stream, and a full tank (50 s) makes about a dozen clouds.
+ * stream, and a full tank (50 s) makes about a dozen clouds. A stream's cloud leaves its own thrower alone until
+ * {@link ChemSpare#SPARE} ticks after the last of their gas is out of it, as NTM's stream does, and then hurts them as
+ * it does anyone.
  * </ul>
  *
  * The stream itself (its damage and look) is NTM's.
@@ -73,6 +75,7 @@ public final class ChemClouds {
     // what each one has taken of a cloud's NTM rule, by gas: a whole one is one tick of NTM's mist
     private static final Map<ServerLevel, Map<LivingEntity, float[]>> TAKEN = new WeakHashMap<>();
     private static final Map<ServerLevel, EntityMist[]> MISTS = new WeakHashMap<>();
+    private static final Map<ServerLevel, ChemSpare> SPARES = new WeakHashMap<>();
 
     private ChemClouds() {
     }
@@ -132,12 +135,14 @@ public final class ChemClouds {
     /** Once a level tick: the gathered blobs go out, and the NTM gases' clouds do their work. */
     public static void tick(ServerLevel level) {
         Map<Key, Stream> streams = STREAMS.get(level);
+        long now = level.getGameTime();
+        ChemSpare spare = SPARES.get(level);
+        if (spare != null) spare.expire(now);
         if (streams != null && !streams.isEmpty()) {
-            long now = level.getGameTime();
             for (Iterator<Map.Entry<Key, Stream>> it = streams.entrySet().iterator(); it.hasNext(); ) {
                 Map.Entry<Key, Stream> e = it.next();
                 Stream s = e.getValue();
-                if (s.blobs > 0 && now - s.first >= GATHER) let(level, e.getKey().kind(), s);
+                if (s.blobs > 0 && now - s.first >= GATHER) let(level, e.getKey(), s);
                 else if (s.blobs == 0 && now - s.last > FORGET) it.remove();
             }
         }
@@ -145,16 +150,27 @@ public final class ChemClouds {
     }
 
     // a stream's gathered blobs go out where they ended on average: feeding its cloud, or as a new one
-    private static void let(ServerLevel level, SmokeKind kind, Stream s) {
+    private static void let(ServerLevel level, Key key, Stream s) {
+        SmokeKind kind = key.kind();
         int n = s.blobs;
         Vec3 at = new Vec3(s.x / n, s.y / n, s.z / n), dir = new Vec3(s.dx, s.dy, s.dz);
         float scale = n * PER_BLOB;
         s.blobs = 0;
         s.x = s.y = s.z = s.dx = s.dy = s.dz = 0;
-        if (s.cloud >= 0 && SmokeClouds.feed(level, s.cloud, at, dir, scale)) return;
-        s.cloud = SmokeClouds.spawn(level, at, dir, kind, scale);
-        // the middle of blobs that ended in two places can be in a wall: then where the last one ended
-        if (s.cloud < 0) s.cloud = SmokeClouds.spawn(level, s.lastAt, dir, kind, scale);
+        if (!(s.cloud >= 0 && SmokeClouds.feed(level, s.cloud, at, dir, scale))) {
+            s.cloud = SmokeClouds.spawn(level, at, dir, kind, scale);
+            // the middle of blobs that ended in two places can be in a wall: then where the last one ended
+            if (s.cloud < 0) s.cloud = SmokeClouds.spawn(level, s.lastAt, dir, kind, scale);
+        }
+        // the gas comes out STIR_AHEAD ticks on, over the kind's release
+        if (s.cloud >= 0 && key.thrower() >= 0)
+            SPARES.computeIfAbsent(level, l -> new ChemSpare()).let(s.cloud, key.thrower(), level.getGameTime(), SmokeClouds.STIR_AHEAD + kind.release());
+    }
+
+    /** The entity a cloud spares now (its own thrower, for a while: {@link ChemSpare}), or -1. */
+    public static int spares(ServerLevel level, SmokeClouds.Cloud c) {
+        ChemSpare s = SPARES.get(level);
+        return s == null ? -1 : s.spares(c.id, level.getGameTime());
     }
 
     /** Forgets a level's streams and doses (it unloads). */
@@ -162,6 +178,7 @@ public final class ChemClouds {
         STREAMS.remove(level);
         TAKEN.remove(level);
         MISTS.remove(level);
+        SPARES.remove(level);
     }
 
     /**
@@ -194,7 +211,9 @@ public final class ChemClouds {
                 RadiationSystemNT.incrementRad(level, mid, rad.getRadPerMB() * 2F * RAD_EVERY * share, 5120.0);
             }
             AABB box = new AABB(c.baseX() + b[0], c.baseY() + b[1], c.baseZ() + b[2], c.baseX() + b[3] + 1, c.baseY() + b[4] + 1, c.baseZ() + b[5] + 1);
+            int spared = spares(level, c);
             for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && !e.isSpectator())) {
+                if (e.getId() == spared) continue;
                 BlockPos head = BlockPos.containing(e.getEyePosition());
                 float v = Math.min(1F, c.cell(head.getX(), head.getY(), head.getZ()));
                 if (v < LEAST) continue;
