@@ -244,23 +244,48 @@ final class HeadProfiles {
     // shell0..shell19, root/shell in the profile): a cube whose name the profile lacks, numbered after a name the
     // profile holds once and no box carries, is a cube of that part. The boxes in their order, renamed so.
     static List<ModelBox> renamed(Profile profile,List<ModelBox> boxes) {
-        var once=new HashMap<String,Integer>();for(var ref:profile.parts()) once.merge(name(ref.name()),1,Integer::sum);
-        var carried=new HashSet<String>();for(var box:boxes) carried.add(name(box.part()));
-        var renamed=new ArrayList<ModelBox>();
-        for(var box:boxes) {
-            var plain=name(box.part());var base=plain.replaceFirst("\\d+$","");
-            if(!box.part().startsWith("mesh/") && !base.equals(plain) && !once.containsKey(plain) && once.getOrDefault(base,0)==1 && !carried.contains(base))
-                box=new ModelBox(base,box.x(),box.y(),box.z(),box.ux(),box.uy(),box.uz(),box.vx(),box.vy(),box.vz(),box.wx(),box.wy(),box.wz(),box.mesh());
+        var names=new String[boxes.size()];
+        for(int i=0;i<names.length;i++) names[i]=boxes.get(i).part();
+        var to=renames(profile,names);
+        var renamed=new ArrayList<ModelBox>(boxes.size());
+        for(int i=0;i<names.length;i++) {
+            var box=boxes.get(i);
+            if(to[i]!=null)
+                box=new ModelBox(to[i],box.x(),box.y(),box.z(),box.ux(),box.uy(),box.uz(),box.vx(),box.vy(),box.vz(),box.wx(),box.wy(),box.wz(),box.mesh());
             renamed.add(box);
         }
         return renamed;
     }
-    static List<ModelBox> unite(Profile profile,List<ModelBox> boxes) {
+    // what renamed calls each part (null: its own name) hangs on the profile and the parts' names only: worked out once
+    // for them (F3+B resolves the heads of every mob it shows, every frame)
+    private record Renames(Profile profile,List<String> names) {
+        @Override public boolean equals(Object o) { return o instanceof Renames r && r.profile==profile && r.names.equals(names); }
+        @Override public int hashCode() { return 31*System.identityHashCode(profile)+names.hashCode(); }
+    }
+    private static final LinkedHashMap<Renames,String[]> RENAMES=new LinkedHashMap<>(64,.75F,true);
+    private static String[] renames(Profile profile,String[] parts) {
+        var key=new Renames(profile,List.of(parts));
+        synchronized(RENAMES) { var cached=RENAMES.get(key); if(cached!=null) return cached; }
         var once=new HashMap<String,Integer>();for(var ref:profile.parts()) once.merge(name(ref.name()),1,Integer::sum);
+        var carried=new HashSet<String>();for(var part:parts) carried.add(name(part));
+        var to=new String[parts.length];
+        for(int i=0;i<parts.length;i++) {
+            var plain=name(parts[i]);var base=DIGITS.matcher(plain).replaceFirst("");
+            if(!parts[i].startsWith("mesh/") && !base.equals(plain) && !once.containsKey(plain) && once.getOrDefault(base,0)==1 && !carried.contains(base))
+                to[i]=base;
+        }
+        synchronized(RENAMES) {
+            RENAMES.put(key,to);
+            if(RENAMES.size()>256) RENAMES.remove(RENAMES.keySet().iterator().next());
+        }
+        return to;
+    }
+    static List<ModelBox> unite(Profile profile,List<ModelBox> boxes) {
         boxes=renamed(profile,boxes);
         var groups=new LinkedHashMap<String,List<ModelBox>>();
         for(var box:boxes) if(!box.part().startsWith("mesh/")) groups.computeIfAbsent(box.part(),k->new ArrayList<>()).add(box);
         if(groups.values().stream().allMatch(group->group.size()==1)) return boxes;
+        var once=new HashMap<String,Integer>();for(var ref:profile.parts()) once.merge(name(ref.name()),1,Integer::sum);
         var out=new ArrayList<ModelBox>();var done=new HashSet<String>();
         for(var box:boxes) {
             var key=box.part();var group=groups.get(key);
@@ -358,6 +383,9 @@ final class HeadProfiles {
     private static final int MAX_DRAWS=16;
     private static final java.util.regex.Pattern TREE=java.util.regex.Pattern.compile("/draws/\\d+/tree/(.+)$");
     private static final java.util.regex.Pattern DRAW=java.util.regex.Pattern.compile("/draws/(\\d+)/");
+    // the number a part's name ends in (String.replaceFirst would compile it again on every call: F3+B resolves the
+    // heads of all the mobs it shows every frame)
+    private static final java.util.regex.Pattern DIGITS=java.util.regex.Pattern.compile("\\d+$");
     // the name the part comes under without Flywheel: a layer's part under the model's own name
     private static String vanilla(Ref ref) {
         var tree=TREE.matcher(name(ref.name()));return tree.find()?name("root/"+tree.group(1)):name(ref.name());

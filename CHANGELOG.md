@@ -1,5 +1,14 @@
 # Changelog
 
+## X1707
+
+- F3+B no longer slows the game to a crawl near mobs in NTM's power armour and
+  suits. Each piece of the armour now has its outline worked out once and
+  carried along with the piece, where before the whole mob's outline was worked
+  out again for every pose. Where a piece lies flush against another piece or
+  against the mob, the line between them is now drawn. Other mobs are outlined
+  as before.
+
 ## X1699
 
 - Smoke and gas clouds cost less to draw. A cloud that fills only part of the

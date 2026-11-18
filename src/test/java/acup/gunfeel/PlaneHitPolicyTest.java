@@ -37,6 +37,24 @@ class PlaneHitPolicyTest {
         assertEquals(boxes,PlaneHitPolicy.filter(.45F,.65F,boxes));
     }
 
+    // the FBI agent's suit (and the bots'): a large mob's NTM piece with a flat island keeps its volume, and F3+B goes
+    // on outlining that volume on its own (ModelMesh.grouped), the Flywheel mark as the piece has it now
+    @Test void aVolumeKeepsItsPiecesMarks() {
+        var piece=ModelMesh.register(new ModelMesh(new float[]{
+                0,0,0, .83F,0,0, 0,.71F,0,  0,0,0, 0,.71F,0, 0,0,.67F,  0,0,0, 0,0,.67F, .83F,0,0,  .83F,0,0, 0,0,.67F, 0,.71F,0,
+                .9F,.9F,.2F, .95F,.9F,.2F, .9F,.95F,.2F}));
+        piece.grouped=true;
+        var box=new ModelBox("mesh/Chest",0,0,0,1,0,0,0,1,0,0,0,1).withMesh(piece.id());
+        var kept=PlaneHitPolicy.filter(.6F,1.8F,List.of(box));
+        assertEquals(1,kept.size());
+        long volume=kept.getFirst().mesh();
+        assertNotEquals(piece.id(),volume,"the flat island is left out");
+        assertTrue(ModelMesh.grouped(volume),"NTM's piece, outlined on its own");
+        piece.flywheel=true;
+        PlaneHitPolicy.filter(.6F,1.8F,List.of(box));
+        assertFalse(ModelMesh.grouped(volume),"Flywheel took the piece too: with the cubes");
+    }
+
     @Test void allPaperLargeModelStaysEmptyInsteadOfFallingBackToAVanillaBox() {
         var paper=MeshModelPose.surface("paper",0,0,0,1,1,0,new Matrix4f(),0,0,0);
         var empty=PlaneHitPolicy.filter(2,2,List.of(paper));

@@ -78,6 +78,9 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // LWJGL's own library for the tests that check against BufferBuilder (ModelDebugLineVerticesTest): the version
+    // Minecraft 26.2 ships, for Linux, where the tests run (here and on CI)
+    testRuntimeOnly("org.lwjgl:lwjgl:3.4.1:natives-linux")
     // MixinCheck shares its checks with the game's (acup.gunfeel.compat.MixinProbe)
     "toolsImplementation"(sourceSets.main.get().output)
     "toolsImplementation"("org.ow2.asm:asm-tree:9.10.1")

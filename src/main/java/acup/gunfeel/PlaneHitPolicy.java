@@ -35,6 +35,12 @@ public final class PlaneHitPolicy {
     private static java.util.Optional<ModelMesh> volumeOf(ModelMesh mesh) {
         var volume=mesh.volume;
         if(volume==null) mesh.volume=volume=java.util.Optional.ofNullable(volume(mesh));
+        // the volume is its mesh's piece for F3+B too (ModelMesh.grouped: NTM's suit on the FBI agent and the bots,
+        // flywheel), the mark as it is now: Flywheel may take the mesh after the volume was made
+        volume.ifPresent(v -> {
+            if(mesh.grouped && !v.grouped) v.grouped=true;
+            if(mesh.flywheel && !v.flywheel) v.flywheel=true;
+        });
         return volume;
     }
     // Плоские островки могут находиться внутри объёмной OBJ-группы и быть

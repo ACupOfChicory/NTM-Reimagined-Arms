@@ -55,7 +55,7 @@ final class MobBenchmark {
     private static volatile boolean pending;
     private static volatile String failure;
     private static long since,last,measuring,allocationStart,bytesStart,packetsStart;
-    private static long publishStart,shapeStart,cpuStart,encodeStart,serverStart;
+    private static long publishStart,shapeStart,cpuStart,encodeStart,serverStart,buildsStart,linesStart,lineVerticesStart,streamStart;
     private static final long[] costs=new long[MobBenchMetrics.STAGES];
     private static final double WARM=2;
     private static final double MEASURE=4;
@@ -93,7 +93,7 @@ final class MobBenchmark {
                 PLAN.add(new Phase(s,pass,v%2,v>=2));
             }
         }
-        ROWS.add("сцена\tповтор\tсистема\tF3B\tкадров\tсекунд\tFPS\tсредний_мс\tмедиана_мс\tp95_мс\tp99_мс\tаллокаций_байт_кадр\tзахват_мс\tсеть_мс\tконтур_мс\tрисование_мс\tбайт_с\tпакетов_с\tсущностей_клиент\tпубликаций_кадр\tобводок_кадр\tпроцессор_ядер\tвершины_мс\tпубликация_мс\tупаковка_мс\tсервер_мс");
+        ROWS.add("сцена\tповтор\tсистема\tF3B\tкадров\tсекунд\tFPS\tсредний_мс\tмедиана_мс\tp95_мс\tp99_мс\tаллокаций_байт_кадр\tзахват_мс\tсеть_мс\tконтур_мс\tрисование_мс\tбайт_с\tпакетов_с\tсущностей_клиент\tпубликаций_кадр\tобводок_кадр\tпроцессор_ядер\tвершины_мс\tпубликация_мс\tупаковка_мс\tсервер_мс\tсборок_кадр\tбуферов_кадр\tвершин_линий_кадр\tвершин_потока_кадр");
         org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").info("[mobbench] окно={}x{} расстояние={} FPS={} vsync={} камера=70",
                 mc.gameRenderer.mainRenderTarget().width,mc.gameRenderer.mainRenderTarget().height,
                 mc.options.renderDistance().get(),mc.options.framerateLimit().get(),mc.options.enableVsync().get());
@@ -202,7 +202,8 @@ final class MobBenchmark {
             bytesStart=MobBenchMetrics.bytes.sum(); packetsStart=MobBenchMetrics.packets.sum();
             publishStart=MobBenchMetrics.published; shapeStart=MobBenchMetrics.shapes; cpuStart=SYSTEM.getProcessCpuTime();
             System.arraycopy(MobBenchMetrics.nanos,0,costs,0,MobBenchMetrics.STAGES); ContourAge.reset();
-            encodeStart=MobBenchMetrics.encode.sum(); serverStart=MobBenchMetrics.server.sum(); return;
+            encodeStart=MobBenchMetrics.encode.sum(); serverStart=MobBenchMetrics.server.sum();
+            buildsStart=ModelContours.builds(); linesStart=ModelDebugLines.created; lineVerticesStart=ModelDebugLines.createdVertices; streamStart=ModelDebugLines.streamedVertices; return;
         }
         if(samples<TIMES.length) TIMES[samples++]=now-last;
         last=now;
@@ -232,6 +233,11 @@ final class MobBenchmark {
                 (MobBenchMetrics.nanos[MobBenchMetrics.GEOMETRY]-costs[MobBenchMetrics.GEOMETRY])/1e6/samples,
                 (MobBenchMetrics.nanos[MobBenchMetrics.PUBLISH]-costs[MobBenchMetrics.PUBLISH])/1e6/samples,
                 (MobBenchMetrics.encode.sum()-encodeStart)/1e6/samples,(MobBenchMetrics.server.sum()-serverStart)/1e6/samples);
+        // F3+B: contours built (ModelContours.store), new line buffers and their vertices, the vertices written into the
+        // frame's buffer, a frame
+        row+=String.format(Locale.ROOT,"\t%.2f\t%.2f\t%.0f\t%.0f",(ModelContours.builds()-buildsStart)/(double)samples,
+                (ModelDebugLines.created-linesStart)/(double)samples,(ModelDebugLines.createdVertices-lineVerticesStart)/(double)samples,
+                (ModelDebugLines.streamedVertices-streamStart)/(double)samples);
         MEANS.computeIfAbsent(p.scene(),k -> new double[4])[p.mode()+(p.debug()?2:0)]+=seconds*1000/samples;
         if(ContourAge.ENABLED && p.mode()==1 && p.debug()) {
             long[] a=AGES.computeIfAbsent(p.scene(),k -> new long[4]);
