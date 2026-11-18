@@ -371,6 +371,7 @@ public final class SmokeRender {
         if (VISIBLE.isEmpty()) return;
         long t0 = System.nanoTime();
         try {
+            timerBegin(RenderSystem.getDevice());
             RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
             GpuTexture src = main.getDepthTexture();
             if (src == null) return;
@@ -393,6 +394,7 @@ public final class SmokeRender {
                 alphaPass(main, ALPHA_ZERO);
                 alphaCleared = true;
             }
+            mark(1);
         } catch (RuntimeException ex) {
             fail("depth copy", ex);
         } finally {
@@ -421,6 +423,8 @@ public final class SmokeRender {
                     GunFeel.LOGGER.debug("Smoke: the frame's alpha was not put back", ex);
                 }
             }
+            mark(7);
+            timerSlot = -1;
         }
     }
 
@@ -449,6 +453,7 @@ public final class SmokeRender {
             // over the opaque world in the main one
             RenderTarget chain = alphaCleared ? null : chainTarget();
             boolean glass = alphaCleared || chain != null;
+            mark(2);
             if (glass) {
                 RenderTarget with = chain != null ? chain : main;
                 POST_DEPTH.ensure(depthFormat, depthW, depthH);
@@ -510,7 +515,7 @@ public final class SmokeRender {
             var device = RenderSystem.getDevice();
             var sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
             var nearest = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
-            int pair = stampStart(device);
+            mark(3);
             long tm = System.nanoTime();
             if (glass) {
                 // the smoke from the eye to the nearest translucent surface, where there is one
@@ -525,6 +530,7 @@ public final class SmokeRender {
                     pass.draw(36 * groups.length, 1, 0, 0);
                 }
             }
+            mark(4);
             try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Smoke march", targetView, Optional.of(new Vector4f(0F, 0F, 0F, 0F)),
                     null, OptionalDouble.empty())) {
                 pass.setPipeline(MARCH);
@@ -534,6 +540,7 @@ public final class SmokeRender {
                 pass.bindTexture("SceneDepth", depthView, nearest);
                 pass.draw(36 * groups.length, 1, 0, 0);
             }
+            mark(5);
             SmokeStats.add(SmokeStats.MARCH, System.nanoTime() - tm);
             long tc = System.nanoTime();
             if (chain != null) {
@@ -568,7 +575,7 @@ public final class SmokeRender {
             // the glass composite wrote the alpha back as 1
             alphaCleared = false;
             SmokeStats.add(SmokeStats.COMPOSITE, System.nanoTime() - tc);
-            if (pair >= 0) device.createCommandEncoder().writeTimestamp(timer, pair + 1);
+            mark(6);
             ubo.rotate();
             drawnLast = order.size();
             groupsLast = groups.length;
@@ -587,32 +594,58 @@ public final class SmokeRender {
         pass.bindTexture("Depth1", POST_DEPTH.view, nearest);
     }
 
-    // the card's own time on the march and the composite: two timestamps a frame in a ring of 8 frames, a pair read
-    // back the next time round (by then the card is long done with it)
-    private static final int TIMER_FRAMES = 8;
+    // the card's own time on each pass: MARKS timestamps a frame in a ring of 8 frames, a frame's read back the next
+    // time round (by then the card is long done with them). 0 before the copies before glass and water, 1 after them,
+    // 2 before the copies after them, 3 after those, 4 after the march in front, 5 after the march, 6 after the
+    // composite, 7 after the alpha put back
+    private static final int TIMER_FRAMES = 8, MARKS = 8;
     private static com.mojang.blaze3d.systems.GpuQueryPool timer;
-    private static final boolean[] stamped = new boolean[TIMER_FRAMES];
-    private static int timerFrame;
+    // per frame of the ring: the marks written
+    private static final int[] marked = new int[TIMER_FRAMES];
+    private static int timerFrame, timerSlot = -1;
     private static boolean timerOff;
 
-    private static int stampStart(com.mojang.blaze3d.systems.GpuDevice device) {
-        if (timerOff || !SmokeStats.MEASURING) return -1;
+    // a frame's first mark; the slot's last frame read back first
+    private static void timerBegin(com.mojang.blaze3d.systems.GpuDevice device) {
+        timerSlot = -1;
+        if (timerOff || !SmokeStats.MEASURING) return;
         try {
-            if (timer == null) timer = device.createTimestampQueryPool(TIMER_FRAMES * 2);
+            if (timer == null) timer = device.createTimestampQueryPool(TIMER_FRAMES * MARKS);
             int f = timerFrame++ % TIMER_FRAMES;
-            if (stamped[f]) {
-                var v = timer.getValues(f * 2, 2);
-                // in the card's ticks: nanoseconds on OpenGL, timestampPeriod of them on Vulkan (as TimerQuery takes them)
-                if (v[0].isPresent() && v[1].isPresent())
-                    SmokeStats.add(SmokeStats.GPU_MARCH, (long) ((v[1].getAsLong() - v[0].getAsLong()) * (double) device.getDeviceInfo().timestampPeriod()));
+            if (marked[f] == (1 << MARKS) - 1) {
+                var v = timer.getValues(f * MARKS, MARKS);
+                boolean all = true;
+                for (var x : v) all &= x.isPresent();
+                if (all) {
+                    // in the card's ticks: nanoseconds on OpenGL, timestampPeriod of them on Vulkan (as TimerQuery takes them)
+                    double period = device.getDeviceInfo().timestampPeriod();
+                    long[] at = new long[MARKS];
+                    for (int k = 0; k < MARKS; k++) at[k] = v[k].getAsLong();
+                    SmokeStats.add(SmokeStats.GPU_MARCH, (long) ((at[6] - at[3]) * period));
+                    long[] part = {at[1] - at[0], at[3] - at[2], at[4] - at[3], at[5] - at[4], at[6] - at[5], at[7] - at[6]};
+                    for (int k = 0; k < part.length; k++) SmokeStats.cardPart[k] += (long) (part[k] * period);
+                    SmokeStats.cardPartFrames++;
+                }
             }
-            device.createCommandEncoder().writeTimestamp(timer, f * 2);
-            stamped[f] = true;
-            return f * 2;
+            marked[f] = 0;
+            timerSlot = f;
+            mark(0);
         } catch (RuntimeException ex) {
             GunFeel.LOGGER.debug("Smoke: no timestamps on this card ({}), its own time is not measured", ex.toString());
             timerOff = true;
-            return -1;
+            timerSlot = -1;
+        }
+    }
+
+    private static void mark(int k) {
+        if (timerSlot < 0) return;
+        try {
+            RenderSystem.getDevice().createCommandEncoder().writeTimestamp(timer, timerSlot * MARKS + k);
+            marked[timerSlot] |= 1 << k;
+        } catch (RuntimeException ex) {
+            GunFeel.LOGGER.debug("Smoke: no timestamps on this card ({}), its own time is not measured", ex.toString());
+            timerOff = true;
+            timerSlot = -1;
         }
     }
 
@@ -725,8 +758,9 @@ public final class SmokeRender {
         ubo = null;
         if (timer != null) timer.close();
         timer = null;
-        java.util.Arrays.fill(stamped, false);
+        java.util.Arrays.fill(marked, 0);
         timerFrame = 0;
+        timerSlot = -1;
         copied = false;
         drawnLast = 0;
         if (world) failures = 0;

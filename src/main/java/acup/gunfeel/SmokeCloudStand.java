@@ -81,7 +81,7 @@ final class SmokeCloudStand {
     private static int pose, quality = -1, frames, phase, drifted;
     private static final float[] wind = new float[2];
     private static long last, spawnedAt;
-    private static long[] cardAt = {0, 0};
+    private static long[] cardAt = {0, 0}, partsAt = SmokeStats.cardMark();
     private static boolean reference = true;
     private static final List<Long> TIMES = new ArrayList<>();
     private static final List<String> ROWS = new ArrayList<>();
@@ -133,7 +133,7 @@ final class SmokeCloudStand {
         } catch (Exception e) {
             ClientSmoke.check(false, "дым: папка " + DIR + ": " + e);
         }
-        ROWS.add("pose\tquality\tclouds_drawn\tframe_ms\tp95_ms\tfps\tcard_ms\tat_camera");
+        ROWS.add("pose\tquality\tclouds_drawn\tframe_ms\tp95_ms\tfps\tcard_ms\tat_camera\tcard_parts_ms");
         phase = 0;
         last = System.nanoTime();
     }
@@ -219,7 +219,10 @@ final class SmokeCloudStand {
                     return;
                 }
                 frames++;
-                if (frames == 61) cardAt = new long[]{SmokeStats.cardNanos, SmokeStats.cardFrames};
+                if (frames == 61) {
+                    cardAt = new long[]{SmokeStats.cardNanos, SmokeStats.cardFrames};
+                    partsAt = SmokeStats.cardMark();
+                }
                 if (frames > 60) TIMES.add(dt);
                 if (frames == 660) {
                     shoot(p, reference ? "none" : QUALITIES[quality]);
@@ -347,8 +350,8 @@ final class SmokeCloudStand {
         int drawn = Math.max(acup.gunfeel.smoke.client.SmokeAtlas.drawn().size(), acup.gunfeel.smoke.client.SmokeSlices.drawnLast());
         long cardFrames = SmokeStats.cardFrames - cardAt[1];
         double card = cardFrames > 0 ? (SmokeStats.cardNanos - cardAt[0]) / 1e6 / cardFrames : 0;
-        String r = String.format(Locale.ROOT, "%s\t%s\t%d\t%.3f\t%.3f\t%.0f\t%.3f\t%.2f", p.name, q, q.equals("none") || q.equals("off") ? 0 : drawn, avg, p95,
-                avg > 0 ? 1000 / avg : 0, card, SmokeFog.atCamera());
+        String r = String.format(Locale.ROOT, "%s\t%s\t%d\t%.3f\t%.3f\t%.0f\t%.3f\t%.2f\t%s", p.name, q, q.equals("none") || q.equals("off") ? 0 : drawn, avg, p95,
+                avg > 0 ? 1000 / avg : 0, card, SmokeFog.atCamera(), SmokeStats.cardParts(partsAt));
         ROWS.add(r);
         SmokeClouds known = SmokeClient.current();
         if (known != null) for (SmokeClouds.Cloud c : known.clouds()) {
