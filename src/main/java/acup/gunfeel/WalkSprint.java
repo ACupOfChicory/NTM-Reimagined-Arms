@@ -132,6 +132,8 @@ public final class WalkSprint {
 
     private static long last;
     private static float walk, sprint, calm, fly, sprintHeld;
+    // the gun at a wall (GunAtWall): how far in, eased toward the rays' share, and its muzzle lowered by a fire key or aiming
+    private static float wall, wallLow, wallPitch;
     // run, walk or idle for the player, from the last client tick
     private static MoveState state = MoveState.IDLE;
     // the walk distance walked on the ground (the phase), and vanilla's walk distance at the last frame
@@ -278,6 +280,8 @@ public final class WalkSprint {
     public static void apply(PoseStack pose, LocalPlayer player, ItemStack stack) {
         Item item = stack.getItem();
         long now = System.nanoTime();
+        // the gun out of the hands (no apply for a while): the wall's pose starts over
+        if (last != 0 && now - last > 200_000_000L) wall = wallPitch = wallLow = 0F;
         float dt = last == 0 ? 0F : Math.clamp((now - last) / 1e9F, 0F, 0.1F);
         last = now;
         float partial = ItemRenderWeaponBase.interp;
@@ -319,12 +323,24 @@ public final class WalkSprint {
         sprint = approach(sprint, sprintOn, dt, SPRINT_IN, drop ? SPRINT_DROP : SPRINT_OUT);
         // flying (creative flight, gliding) the sprint pose stands without its swing
         fly = approach(fly, player.getAbilities().flying || player.isFallFlying(), dt, FLY_IN, FLY_IN);
+        // the gun at a wall comes in by how far into it the gun would go, its muzzle lowered while firing or aiming
+        float wallTo = GunAtWall.into(player, item);
+        wall = wall < wallTo ? Math.min(wallTo, wall + dt / GunAtWall.IN) : Math.max(wallTo, wall - dt / GunAtWall.OUT);
+        wallLow = approach(wallLow, firing || aiming >= 0.05F, dt, GunAtWall.LOWER, GunAtWall.OUT);
         // a gun not yet measured would turn around the last gun's middle: it stays at rest until gunPlaced measures it,
         // then comes in as usual
-        if (measuredItem != item) walk = sprint = 0F;
+        if (measuredItem != item) walk = sprint = wall = wallPitch = 0F;
+        // the muzzle turned up as far as it takes to stay before the wall, drawn back by how far in
+        float wallBack = GunAtWall.back(ease(wall), length, PIVOT.length()) * (1F - Math.clamp(aiming, 0F, 1F));
+        float pitchTo = measuredItem == item ? GunAtWall.pitchNow(item, PIVOT, wallBack * length) : 0F;
+        float rate = GunAtWall.MAX_PITCH * dt;
+        wallPitch = wallPitch < pitchTo ? Math.min(pitchTo, wallPitch + rate / GunAtWall.IN) : Math.max(pitchTo, wallPitch - rate / GunAtWall.OUT);
+        if (TestLog.frames()) TestLog.c(-1, "gunAtWall", "item", item, "wall", wall, "wallTo", wallTo, "low", wallLow, "pitch", wallPitch, "pitchTo", pitchTo,
+                "limit", GunAtWall.limitNow(), "blocksPerUnit", GunAtWall.blocksPerUnitNow(), "muzzle", GunAtWall.muzzle(item),
+                "back", GunAtWall.backEnd(item), "length", length, "middle", PIVOT.length());
         // the gun is measured every frame, moving or not (gunPlaced)
         float js = Config.walkSway > 0F && measuredItem == item && Float.isFinite(jump) ? jump * Config.walkSway : 0F;
-        if (walk <= 0F && sprint <= 0F && js == 0F) {
+        if (walk <= 0F && sprint <= 0F && wall <= 0F && wallPitch <= 0F && js == 0F) {
             applied(pose, item);
             return;
         }
@@ -333,6 +349,7 @@ public final class WalkSprint {
         float ws = ease(walk) * Config.walkSway * (1F - ease(sprint)), ss = ease(sprint) * Config.sprintPose;
         boolean pistol = pistol(Config.kickPreset);
         Pose w = walk(uw, aiming, pistol, ws), s = sprint(us, ease(fly), pistol, ss);
+        Pose a = GunAtWall.pose(wallPitch, ease(wallLow), wallBack);
         // a pistol in pistolHold is where the measured pistols are: it takes the full drop
         float down = pistol && PistolHold.on() && !PistolHold.scoped(stack) ? 1F : DROP;
         float jumpL = (pistol ? JUMP_PISTOL : JUMP_LONG) * js;
@@ -342,11 +359,25 @@ public final class WalkSprint {
                 "sprintTurn", new Vector3f(s.pitch(), s.yaw(), s.roll()), "sprintPos", new Vector3f(s.x(), s.y(), s.z()),
                 "pivot", PIVOT, "length", length, "state", state.name(), "ground", ground, "dist", d, "jump", jumpL);
         // the shifts are in the gun's length
-        pose.translate((w.x() + s.x()) * length, ((w.y() + s.y()) * down + jumpL) * length, (w.z() + s.z()) * down * length);
-        // both turn around the gun's middle, as the measurements turn it
+        pose.translate((w.x() + s.x()) * length, ((w.y() + s.y()) * down + jumpL) * length, ((w.z() + s.z()) * down + a.z()) * length);
+        // all turn around the gun's middle, as the measurements turn it
+        turn(pose, a, PIVOT.x, PIVOT.y, PIVOT.z);
         turn(pose, s, PIVOT.x, PIVOT.y, PIVOT.z);
         turn(pose, w, PIVOT.x, PIVOT.y, PIVOT.z);
         applied(pose, item);
+    }
+
+    /** For the stand: the gun at a wall's weight now, and its muzzle lowered. */
+    static float wallNow() {
+        return wall;
+    }
+
+    static float wallPitchNow() {
+        return wallPitch;
+    }
+
+    static float wallLowNow() {
+        return wallLow;
     }
 
     /** The pose before the turn's sway (WeaponSway) and apply, at the start of NTM's first-person transform. */
@@ -422,10 +453,13 @@ public final class WalkSprint {
         if (!Arms.gunEndsRendered(item, back, front) || !Arms.gunMiddleRendered(item, mid)) return;
         // APPLIED = view·T; a point in view space is view⁻¹·p, and before T it is T⁻¹ of that
         Matrix4f inv = new Matrix4f(APPLIED).invert();
+        Vector3f drawn = new Vector3f(front);
         inv.transformPosition(back);
         inv.transformPosition(front);
         inv.transformPosition(mid);
+        // the ends at rest (without the sway and our poses: BASE is the pose before both) for the gun at a wall
         float len = back.distance(front);
+        GunAtWall.placed(item, BASE.transformPosition(back, new Vector3f()), BASE.transformPosition(front, new Vector3f()), drawn, front, len);
         if (!measurable(len, mid)) {
             // a gun not measured stays still: say so in a trace
             if (TestLog.frames()) TestLog.c(-1, "walkSprintSkip", "item", item, "length", len, "middle", mid);
