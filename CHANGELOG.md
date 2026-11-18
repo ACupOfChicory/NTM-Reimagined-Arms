@@ -1,5 +1,12 @@
 # Changelog
 
+## X1620
+
+- AI soldiers turning slowly on the spot step round the way people do: their
+  legs follow a soldier's turn recorded from a person, each foot staying put
+  until it steps, the hips turning ahead of the feet and settling as the turn
+  ends. `/gunfeel botmoves old` brings back the previous steps.
+
 ## X1617
 
 - An AI soldier reloads with the rifle brought up close in front of its chest,

@@ -82,6 +82,8 @@ final class BotFeelStand {
     private static final double AX = 0.5, AZ = 24.5;
 
     private static final Scene[] SCENES = { turn("turn90", 90F), turn("turn180", 180F),
+            // a slow turn on the spot (a calm look round; the moves from recordings, BotMoves, play under 150 a second)
+            turn("turn90_slow", 90F, 5F), turn("turn180_slow", 180F, 6F),
             new Scene("walk_turn90", true, 100, (level, m, t) -> {
                 if (t < 0) {
                     place(m, -6.5, 4.5, -90F);
@@ -146,13 +148,18 @@ final class BotFeelStand {
 
     /** a turn on the spot by the aim, from facing -Z */
     private static Scene turn(String name, float by) {
+        return turn(name, by, AIM_TURN);
+    }
+
+    /** ... at most {@code most} degrees a tick */
+    private static Scene turn(String name, float by, float most) {
         return new Scene(name, false, 70, (level, m, t) -> {
             if (t < 0) {
                 place(m, AX, AZ, 180F);
                 return;
             }
             float to = t < 15 ? 180F : 180F + by, y = m.getYRot();
-            float d = Mth.clamp(Mth.wrapDegrees(to - y), -AIM_TURN, AIM_TURN);
+            float d = Mth.clamp(Mth.wrapDegrees(to - y), -most, most);
             // AiGunner.face: the head, the body and the yaw all at the aim's
             face(m, y + d);
         }, t -> AIMED);
@@ -204,7 +211,7 @@ final class BotFeelStand {
                 + "\tприсед\tскорость\tкурс\tтревога\tприцел\twalk\twalk_pos");
         for (String p : PARTS) head.append('\t').append(p).append("_qw\t").append(p).append("_qx\t").append(p).append("_qy\t").append(p).append("_qz");
         for (String p : POINTS) head.append('\t').append(p).append("_x\t").append(p).append("_y\t").append(p).append("_z");
-        head.append("\tright_sole\tleft_sole");
+        head.append("\tright_sole\tleft_sole\tmoves\tmove_len\tmove_t\tmove_w\tmove_twist\tmove2_w");
         FRAMES.add(head.toString());
         TICKS.add("сцена\tтик\tx\ty\tz\tyaw\tbody\thead\tна_земле");
         var server = mc.getSingleplayerServer();
@@ -340,6 +347,13 @@ final class BotFeelStand {
             }
             row.append('\t').append(fmt(low));
         }
+        // the moves from recordings (BotMoves): how many, the first's clip (its length), time, weight, legs' turn (degrees)
+        BotAnimator.Moving[] mv = f.moves();
+        row.append('\t').append(mv.length);
+        if (mv.length > 0) row.append('\t').append(fmt(mv[0].clip().length())).append('\t').append(fmt(mv[0].t())).append('\t')
+                .append(fmt(mv[0].w())).append('\t').append(fmt(mv[0].twist() * Mth.RAD_TO_DEG));
+        else row.append("\t0\t0\t0\t0");
+        row.append('\t').append(fmt(mv.length > 1 ? mv[1].w() : 0F));
         FRAMES.add(row.toString());
         COUNT[scene]++;
     }
