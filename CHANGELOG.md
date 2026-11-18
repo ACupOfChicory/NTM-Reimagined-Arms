@@ -1,5 +1,13 @@
 # Changelog
 
+## X1687
+
+- Mobs in NTM's power armour and suits, and NTM's own mobs, no longer slow
+  the game down near the player: taking their hitboxes made NTM draw their
+  models a vertex at a time instead of its fast way, which a handful of AI
+  bots in power armour made plain. They are drawn NTM's fast way again. The
+  hitboxes are the same as before.
+
 ## X1679
 
 - NTM's white phosphorus now lets out this mod's smoke: a dense white cloud

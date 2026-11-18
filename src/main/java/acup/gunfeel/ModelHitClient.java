@@ -114,7 +114,7 @@ public final class ModelHitClient {
                 || !(submit.model() instanceof EntityModel<?> model)) return;
         LivingEntity entity = info.gunfeel$target();
         if (entity == null || !eligible(entity)) return;
-        long started = System.nanoTime();
+        long started = System.nanoTime(), geometry=MobBenchMetrics.start();
         PoseStack pose = new PoseStack();
         pose.last().set(submit.pose());
         var camera = Minecraft.getInstance().gameRenderer.mainCamera().position();
@@ -122,6 +122,7 @@ public final class ModelHitClient {
                 camera.z - state.z, ModelBodyGeometry.parts(model,info.gunfeel$texture(),state));
         float yaw = ModelHits.takenYaw(entity, state instanceof LivingEntityRenderState living ? living.bodyRot
                 : net.minecraft.util.Mth.rotLerp(state.partialTick, entity.yBodyRotO, entity.yBodyRot), state.partialTick);
+        MobBenchMetrics.add(MobBenchMetrics.GEOMETRY,geometry);
         if (result.complete()) {
             if(MobSmoke.enabled()) APPLIED_FRAME.put(entity.getUUID(),frame);
             publishAt(entity, yaw, result.boxes(), "vanilla_prepared",new net.minecraft.world.phys.Vec3(state.x,state.y,state.z));
@@ -136,11 +137,13 @@ public final class ModelHitClient {
     }
 
     public static boolean publishAt(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
+        long started=MobBenchMetrics.start();
         try { return publishChecked(entity,yaw,boxes,source,origin); }
         catch(RuntimeException ex) {
             ModelHitLog.event("client","publish_failed",entity,() -> "source="+source+" "+ex);
             return false;
         }
+        finally { MobBenchMetrics.add(MobBenchMetrics.PUBLISH,started); }
     }
 
     private static boolean publishChecked(LivingEntity entity,float yaw,List<ModelBox> boxes,String source,net.minecraft.world.phys.Vec3 origin) {
