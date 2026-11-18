@@ -14,7 +14,7 @@ def lower():
 
 
 #: every slot, the one clip in each
-ALL = {"walk": ["run_a"], "jog": ["run_a"], "sprint": ["run_a"], "stroll": ["run_a"]}
+ALL = {s: ["run_a"] for s in m.SLOTS}
 
 
 def note(**kw):
@@ -76,6 +76,21 @@ class GaitsToMod(unittest.TestCase):
 		with self.assertRaises(ValueError):
 			m.build({"run_a_lower": lower(), "run_b_lower": lower()}, {"run_a": note(), "run_b": note(drop_px=2.8)},
 					{**ALL, "sprint": ["run_b"]})
+
+	def test_a_clip_mirrored_goes_in_by_its_own_name_its_sides_swapped(self):
+		a = lower()
+		a["bones"]["right_leg"]["rotation"] = {"0.0": [5.0, 6.0, 7.0], "0.7": [5.0, 6.0, 7.0]}
+		d = m.build({"run_a_lower": a}, {"run_a": note()}, {**ALL, "aim_right": ["run_a:mirrored"]})
+		self.assertEqual(d["slots"]["aim_right"], ["run_a_mirrored"])
+		self.assertEqual(d["slots"]["aim_left"], ["run_a"])
+		c, o = d["animations"]["run_a_mirrored"], d["animations"]["run_a"]
+		# the right's turns the left's, about y and z the other way
+		self.assertEqual(c["bones"]["left_leg"]["rotation"]["0.0000"], {"post": [5.0, -6.0, -7.0]})
+		self.assertEqual(c["bones"]["right_shin"]["rotation"]["0.3500"], {"post": [3.0, 0.0, -4.0]})
+		self.assertEqual(o["bones"]["right_leg"]["rotation"]["0.0000"], {"post": [5.0, 6.0, 7.0]})
+		self.assertEqual(c["animation_length"], 0.7)
+		self.assertEqual(d["gaits"]["run_a_mirrored"], d["gaits"]["run_a"])
+		self.assertEqual(d["about"]["run_a_mirrored"]["source"], "CMU 16_45, mirrored")
 
 	def test_a_slot_given_twice_is_an_error(self):
 		self.assertEqual(m.main(["x", "o.json", "a.animation.json", "jog=a", "jog=b"]), 2)

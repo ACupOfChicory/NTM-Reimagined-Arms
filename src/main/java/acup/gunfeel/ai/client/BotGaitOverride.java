@@ -22,15 +22,25 @@ import net.minecraft.util.Mth;
  *                    drop under a standing mob's, the trunk leaned over them from where vanilla's crouch has its top
  * @param stroll      going ahead slower than the walk's clip is made for (a run's: BotPoser.strolling), a walk's in
  *                    its place; null: the walk's clip at any speed
+ * @param aim         with the gun up (aiming or shooting: AiPose.AIM's arms) as slow as the stroll goes, a soldier's
+ *                    walk each way in place of the stroll's and the clips back and aside (BotPoser.aimed); null: none
  */
 public record BotGaitOverride(@Nullable String walk, @Nullable String jog, @Nullable String sprint, float walkSpeed,
         float jogSpeed, float sprintSpeed, float drop, boolean bare, @Nullable Way back, @Nullable Way left,
-        @Nullable Way right, @Nullable Way crouch, @Nullable Way stroll) {
+        @Nullable Way right, @Nullable Way crouch, @Nullable Way stroll, @Nullable Aim aim) {
     /**
      * A clip for one way: its name for BotClips.get, its own pace (blocks a second, its clips.json speed_m_s; 0: the
      * mod's tempo) and how far its hips go down (px, its drop_px)
      */
     public record Way(String clip, float speed, float drop) {
+    }
+
+    /** a walk with the gun up, each way: ahead, to its left, to its right and back */
+    public record Aim(Way ahead, Way left, Way right, Way back) {
+        /** the clip aside, to the side it goes at this heading (as BotPoser.gaitClips) */
+        public Way side(float heading) {
+            return Mth.sin(heading) > 0F ? right : left;
+        }
     }
 
     /** each mob's own (BotGaits.own) */
@@ -41,7 +51,7 @@ public record BotGaitOverride(@Nullable String walk, @Nullable String jog, @Null
     /** ahead only */
     public BotGaitOverride(@Nullable String walk, @Nullable String jog, @Nullable String sprint, float walkSpeed,
             float jogSpeed, float sprintSpeed, float drop, boolean bare) {
-        this(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, null, null, null, null, null);
+        this(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, null, null, null, null, null, null);
     }
 
     /** one clip for every pace ahead */
@@ -49,25 +59,29 @@ public record BotGaitOverride(@Nullable String walk, @Nullable String jog, @Null
         return new BotGaitOverride(clip, clip, clip, speed, speed, speed, drop, bare);
     }
 
-    /** none put in (the mod's own every way) till withBack, withAside, withCrouch or withStroll put one in */
+    /** none put in (the mod's own every way) till withBack, withAside, withCrouch, withStroll or withAim put one in */
     public static BotGaitOverride none(boolean bare) {
         return new BotGaitOverride(null, null, null, 0F, 0F, 0F, 0F, bare);
     }
 
     public BotGaitOverride withBack(@Nullable Way back) {
-        return new BotGaitOverride(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, back, left, right, crouch, stroll);
+        return new BotGaitOverride(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, back, left, right, crouch, stroll, aim);
     }
 
     public BotGaitOverride withAside(@Nullable Way left, @Nullable Way right) {
-        return new BotGaitOverride(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, back, left, right, crouch, stroll);
+        return new BotGaitOverride(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, back, left, right, crouch, stroll, aim);
     }
 
     public BotGaitOverride withCrouch(@Nullable Way crouch) {
-        return new BotGaitOverride(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, back, left, right, crouch, stroll);
+        return new BotGaitOverride(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, back, left, right, crouch, stroll, aim);
     }
 
     public BotGaitOverride withStroll(@Nullable Way stroll) {
-        return new BotGaitOverride(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, back, left, right, crouch, stroll);
+        return new BotGaitOverride(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, back, left, right, crouch, stroll, aim);
+    }
+
+    public BotGaitOverride withAim(@Nullable Aim aim) {
+        return new BotGaitOverride(walk, jog, sprint, walkSpeed, jogSpeed, sprintSpeed, drop, bare, back, left, right, crouch, stroll, aim);
     }
 
     /** the clip aside, to the side it goes at this heading (as BotPoser.gaitClips: sin heading over nought its right) */

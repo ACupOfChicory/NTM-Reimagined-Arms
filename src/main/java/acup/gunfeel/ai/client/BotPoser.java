@@ -143,12 +143,20 @@ public final class BotPoser {
 
     /** ... crouched this far (0 .. 1): the walk bent low's clip (BotGaitOverride.crouch) in place of them all */
     static float pace(float own, float speed, float gait, float heading, float crouch, @Nullable BotGaitOverride o) {
+        return pace(own, speed, gait, heading, crouch, 0F, o);
+    }
+
+    /** ... with the gun up this far (0 .. 1, AiPose.AIM's arms): its walk with the gun up as slow as the stroll goes */
+    static float pace(float own, float speed, float gait, float heading, float crouch, float aim, @Nullable BotGaitOverride o) {
         if (o == null) return own;
         BotGaitOverride.Way back = o.back(), side = o.side(heading), low = o.crouch(), stroll = o.walk() == null ? null : o.stroll();
+        BotGaitOverride.Aim up = o.aim();
         String[] names = { o.walk(), o.jog(), o.sprint(), back == null ? null : back.clip(), side == null ? null : side.clip(),
-                stroll == null ? null : stroll.clip() };
+                stroll == null ? null : stroll.clip(), up == null ? null : up.ahead().clip(), up == null ? null : up.back().clip(),
+                up == null ? null : up.side(heading).clip() };
         float[] at = { o.walkSpeed(), o.jogSpeed(), o.sprintSpeed(), back == null ? 0F : back.speed(), side == null ? 0F : side.speed(),
-                stroll == null ? 0F : stroll.speed() }, ws = strolled(gaitShares(gait, heading), stroll == null ? 0F : strolling(speed));
+                stroll == null ? 0F : stroll.speed(), up == null ? 0F : up.ahead().speed(), up == null ? 0F : up.back().speed(),
+                up == null ? 0F : up.side(heading).speed() }, ws = shares(speed, gait, heading, o, aim);
         float out = own;
         for (int i = 0; i < names.length; i++) {
             BotClip clip = names[i] == null || at[i] <= 0F || ws[i] <= 0F ? null : BotClips.get(names[i]);
@@ -300,8 +308,11 @@ public final class BotPoser {
         // Config.botMoves old): their share of the gait going ahead
         BotGaitOverride o = BotGaitOverride.of(f.entity());
         BotGaitOverride.Way oBack = o == null ? null : o.back(), oSide = o == null ? null : o.side(f.heading());
-        float aheadSwapped = o == null ? 0F : (o.walk() != null ? gw[0] : 0F) + (o.jog() != null ? gw[1] : 0F) + (o.sprint() != null ? gw[2] : 0F);
-        float swapped = aheadSwapped + (oBack != null ? gw[3] : 0F) + (oSide != null ? gw[4] : 0F);
+        // and the walk with the gun up's each way, as gait plays them (shares: the stroll's ahead with the walk's)
+        BotGaitOverride.Aim up = o == null ? null : o.aim();
+        float[] sw = shares(f.speed(), f.gaitPace(), f.heading(), o, f.arm(AiPose.AIM));
+        float aheadSwapped = o == null ? 0F : (o.walk() != null ? sw[0] + sw[5] : 0F) + (o.jog() != null ? sw[1] : 0F) + (o.sprint() != null ? sw[2] : 0F);
+        float swapped = aheadSwapped + (oBack != null ? sw[3] : 0F) + (oSide != null ? sw[4] : 0F) + (up != null ? sw[6] + sw[7] + sw[8] : 0F);
         float bare = o != null && o.bare() ? move * swapped : 0F;
         float run = move * (gw[1] * JOG_RUN + gw[2]), alert = BotAnimator.smooth(f.alert());
         float gun = f.arm(AiPose.HOLD) * upright;
@@ -335,7 +346,7 @@ public final class BotPoser {
 
         // on the move: the legs from the clips (crouching: vanilla's crouched legs, the clips' would lower the hips
         // and the eye the server keeps)
-        if (move > 0F) gait(p, f.speed(), f.gaitPace(), f.heading(), walkPos, move, a, o);
+        if (move > 0F) gait(p, f.speed(), f.gaitPace(), f.heading(), walkPos, f.arm(AiPose.AIM), move, a, o);
 
         // the knees, slower than the clips: vanilla swings straight legs (xRot cos(pos 0.6662) 1.4 speed); a leg
         // swinging forward lifts its foot. The elbows: bent a little with no gun, more as it walks; with a gun the
@@ -383,7 +394,8 @@ public final class BotPoser {
         // top of the stoop's, or a move's (its legs made for it): the one height both are made for, not one under the
         // other (the head within 3 cm of the eye)
         float drop = Math.max(moved, o == null ? 0F
-                : move * (o.drop() * aheadSwapped + (oBack != null ? oBack.drop() * gw[3] : 0F) + (oSide != null ? oSide.drop() * gw[4] : 0F)));
+                : move * (o.drop() * aheadSwapped + (oBack != null ? oBack.drop() * sw[3] : 0F) + (oSide != null ? oSide.drop() * sw[4] : 0F)
+                        + (up != null ? up.ahead().drop() * sw[6] + up.back().drop() * sw[7] + up.side(f.heading()).drop() * sw[8] : 0F)));
         if (drop > 0F) for (ModelPart part : new ModelPart[] { p.head, p.body, p.rightArm, p.leftArm, p.rightLeg, p.leftLeg }) part.y += drop;
 
         // in the air (a jump up a block, a fall): the legs of a jump, one knee drawn up
@@ -914,8 +926,13 @@ public final class BotPoser {
 
     /** ... at a gait drawn of its own (Frame.gait) */
     static void gait(Parts p, float speed, float gait, float heading, float walkPos, float w, float[] a, @Nullable BotGaitOverride o) {
+        gait(p, speed, gait, heading, walkPos, 0F, w, a, o);
+    }
+
+    /** ... with the gun up this far (gaitLegs) */
+    static void gait(Parts p, float speed, float gait, float heading, float walkPos, float aim, float w, float[] a, @Nullable BotGaitOverride o) {
         float[] legs = new float[LEGS.length * 3];
-        if (!gaitLegs(speed, gait, heading, walkPos, o, legs, a)) return;
+        if (!gaitLegs(speed, gait, heading, walkPos, aim, o, legs, a)) return;
         for (int b = 0; b < LEGS.length; b++) {
             ModelPart part = p.get(LEGS[b]);
             if (part == null) continue;
@@ -930,13 +947,25 @@ public final class BotPoser {
      * no clip is there. {@code a} a scratch of 3
      */
     static boolean gaitLegs(float speed, float gait, float heading, float walkPos, @Nullable BotGaitOverride o, float[] out, float[] a) {
+        return gaitLegs(speed, gait, heading, walkPos, 0F, o, out, a);
+    }
+
+    /** ... with the gun up this far (0 .. 1, AiPose.AIM's arms): its walk with the gun up as slow as the stroll goes */
+    static boolean gaitLegs(float speed, float gait, float heading, float walkPos, float aim, @Nullable BotGaitOverride o, float[] out,
+            float[] a) {
         float u = walkPos / CYCLE;
         float[][] acc = new float[LEGS.length][3];
         float total = 0F;
-        String[] names = java.util.Arrays.copyOf(gaitClips(heading), 6);
+        String[] names = java.util.Arrays.copyOf(gaitClips(heading), 9);
         BotGaitOverride.Way stroll = o == null || o.walk() == null ? null : o.stroll();
-        float[] ws = strolled(gaitShares(gait, heading), stroll == null ? 0F : strolling(speed));
+        float[] ws = shares(speed, gait, heading, o, aim);
         if (stroll != null) names[5] = stroll.clip();
+        BotGaitOverride.Aim up = o == null ? null : o.aim();
+        if (up != null) {
+            names[6] = up.ahead().clip();
+            names[7] = up.back().clip();
+            names[8] = up.side(heading).clip();
+        }
         if (o != null) {
             if (o.walk() != null) names[0] = o.walk();
             if (o.jog() != null) names[1] = o.jog();
@@ -1039,6 +1068,35 @@ public final class BotPoser {
         out[5] = ws[0] * stroll;
         out[0] = ws[0] - out[5];
         return out;
+    }
+
+    /**
+     * strolled's with three more, the walk with the gun up's (BotGaitOverride.aim) ahead, back and aside: this share
+     * of the walk's and the stroll's ahead (the stroll's first), of the back's and of the side's going to them (none: 0)
+     */
+    static float[] aimed(float[] ws, float aim) {
+        float[] out = java.util.Arrays.copyOf(ws, 9);
+        float ahead = (ws[0] + ws[5]) * aim, ofStroll = Math.min(ws[5], ahead);
+        out[5] = ws[5] - ofStroll;
+        out[0] = ws[0] - (ahead - ofStroll);
+        out[6] = ahead;
+        out[7] = ws[3] * aim;
+        out[3] = ws[3] - out[7];
+        out[8] = ws[4] * aim;
+        out[4] = ws[4] - out[8];
+        return out;
+    }
+
+    /**
+     * each slot's weight with {@code o}'s clips (pace's and gaitLegs' nine: gaitClips', the stroll's, the walk with the
+     * gun up's ahead, back and aside), summing to 1: the stroll's as slow as it goes (strolling), the gun up's as slow
+     * as that too, as far as the gun is up (aim, 0 .. 1)
+     */
+    static float[] shares(float speed, float gait, float heading, @Nullable BotGaitOverride o, float aim) {
+        boolean stroll = o != null && o.walk() != null && o.stroll() != null;
+        float slow = strolling(speed);
+        float[] ws = strolled(gaitShares(gait, heading), stroll ? slow : 0F);
+        return aimed(ws, o == null || o.aim() == null ? 0F : Mth.clamp(aim, 0F, 1F) * slow);
     }
 
     /** each of gaitClips' weights at this speed and heading, summing to 1 */

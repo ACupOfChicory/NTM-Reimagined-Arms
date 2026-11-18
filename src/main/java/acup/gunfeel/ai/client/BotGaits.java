@@ -25,12 +25,15 @@ import acup.gunfeel.GunFeel;
  * and for going slower than the walk's run (BotPoser.strolling: a walk), by the mob's entity id: every client draws it
  * the same. Its walk is its jog's clip where the walk has that one (16_56's quick steps go on the run only). The clips
  * put in bare (their foot down on the floor already) and each at its own pace (BotPoser.pace): its feet stand. Going
- * back, aside and crouched the mod's own clips.
+ * back, aside and crouched the mod's own clips; with the gun up as slow as the stroll goes, every mob the one walk with
+ * the gun up each way (BotGaitOverride.aim: 100STYLE's Swat, ahead, aside and back).
  */
 public final class BotGaits {
     static final String PATH = "/assets/ntmgunfeel/animations/bot_gaits.animation.json";
     /** the slots in the file: the walk, the jog, the sprint; slower than the walk's clip is made for, the stroll */
     static final String WALK = "walk", JOG = "jog", SPRINT = "sprint", STROLL = "stroll";
+    /** the slots of the walk with the gun up (BotGaitOverride.Aim): the first clip of each */
+    static final String AIM_AHEAD = "aim_ahead", AIM_LEFT = "aim_left", AIM_RIGHT = "aim_right", AIM_BACK = "aim_back";
 
     /** each jog with each sprint and each stroll, its walk by the jog; none if the file or a slot is missing */
     private static volatile BotGaitOverride @Nullable [] variants;
@@ -114,6 +117,11 @@ public final class BotGaits {
         List<String> walk = slot(slots, WALK, paces), jog = slot(slots, JOG, paces), sprint = slot(slots, SPRINT, paces),
                 stroll = slot(slots, STROLL, paces);
         if (walk.isEmpty() || jog.isEmpty() || sprint.isEmpty()) return new BotGaitOverride[0];
+        // one way of it missing: none
+        BotGaitOverride.Way ahead = way(slots, AIM_AHEAD, paces), left = way(slots, AIM_LEFT, paces), right = way(slots, AIM_RIGHT, paces),
+                back = way(slots, AIM_BACK, paces);
+        BotGaitOverride.@Nullable Aim aim = ahead == null || left == null || right == null || back == null ? null
+                : new BotGaitOverride.Aim(ahead, left, right, back);
         List<BotGaitOverride> out = new ArrayList<>();
         // none read for the stroll: the walk's clip at any speed
         int strolls = Math.max(1, stroll.size());
@@ -127,9 +135,17 @@ public final class BotGaits {
                     // 0.45 px: gaits_to_mod.py takes no other)
                     BotGaitOverride.Way st = stroll.isEmpty() ? null
                             : new BotGaitOverride.Way(stroll.get(k), paces.get(stroll.get(k)).speed(), paces.get(stroll.get(k)).drop());
-                    out.add(new BotGaitOverride(wn, jn, sn, w.speed(), jp.speed(), sp.speed(), jp.drop(), true).withStroll(st));
+                    out.add(new BotGaitOverride(wn, jn, sn, w.speed(), jp.speed(), sp.speed(), jp.drop(), true).withStroll(st).withAim(aim));
                 }
         return out.toArray(new BotGaitOverride[0]);
+    }
+
+    /** a slot's first clip read, or null */
+    private static BotGaitOverride.@Nullable Way way(JsonObject slots, String name, Map<String, Pace> paces) {
+        List<String> s = slot(slots, name, paces);
+        if (s.isEmpty()) return null;
+        Pace p = paces.get(s.get(0));
+        return new BotGaitOverride.Way(s.get(0), p.speed(), p.drop());
     }
 
     private static List<String> slot(JsonObject slots, String name, Map<String, Pace> paces) {
