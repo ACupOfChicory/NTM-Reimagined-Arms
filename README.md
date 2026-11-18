@@ -537,7 +537,6 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `cornerHud` | `true` | Corner ammo counter instead of NTM's |
 | `hitMarker` | `true` | A mark round the crosshair and a quiet sound when your shot hurts someone (red on the head, a bell on a kill) |
 | `damageIndicator` | `true` | An arc round the crosshair towards where damage you take came from |
-| `dynamicCrosshair` | `true` | The dynamic crosshair instead of NTM's |
 | `ammoMenu` | `steel` | Look of the ammo wheel: `steel`, `petals`, `bubbles`, `ntm`, `glass`, `arc` |
 | `quality` | `high` | Impact effects: `low`, `medium`, `high`, `realism` |
 | `hitVolume` | `2` | Loudness of hit sounds, 0 to 4 |
