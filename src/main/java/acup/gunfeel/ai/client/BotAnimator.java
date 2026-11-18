@@ -1803,9 +1803,7 @@ public final class BotAnimator {
                 // a shot's kick comes in half a tick (a snap, not a jump); anything else fades in and out
                 // a reload takes the arms from wherever they are (over the head, firing blind) to its clip's:
                 // slower in (BotPoser.RELOAD_IN)
-                float in = Math.min(1F, t / (actKind == AiPose.SHOT ? SHOT_IN : actKind == AiPose.RELOAD ? BotPoser.RELOAD_IN
-                        : actKind == AiPose.SLIDE || actKind == AiPose.ROLL ? DASH_IN
-                        : actKind == AiPose.THROW && BotPoser.throwsAsAPerson() ? BotPoser.THROW_IN : ACTION_FADE));
+                float in = Math.min(1F, t / actIn(actKind));
                 actW = smooth(Math.min(in, Math.min(1F, (actLen - t) / ACTION_FADE)));
                 act = new Act(actKind, t / actLen, actW, t);
             }
@@ -1864,8 +1862,21 @@ public final class BotAnimator {
         // and hides what is under it), slowly out
         boolean dash = act != null && BotPoser.dash(act.kind());
         for (Act out : fading) dash |= BotPoser.dash(out.kind());
-        dashed = dash ? approach(dashed, 1F, dt / DASH_IN) : approach(dashed, 0F, dt / DASH_OUT);
+        // (a roll from a person comes in slower, from its dive: the legs under it run on as it comes)
+        dashed = dash ? approach(dashed, 1F, dt / (act != null && BotPoser.dash(act.kind()) ? actIn(act.kind()) : DASH_IN))
+                : approach(dashed, 0F, dt / DASH_OUT);
         return new Frame(crouch, lean, eased(arms), act, fading, hitList, age / 20F, entity, 0F, 0F, -1F, 0F, 0F, alert, 0F, dashed);
+    }
+
+    /**
+     * ticks an action comes in over: a shot's kick at once, a reload from wherever the arms are, a slide or a roll on
+     * the run (a roll from a person from its dive, BotPoser.ROLL_IN), a throw from a person with its swing begun
+     */
+    static float actIn(byte kind) {
+        return kind == AiPose.SHOT ? SHOT_IN : kind == AiPose.RELOAD ? BotPoser.RELOAD_IN
+                : kind == AiPose.ROLL && BotPoser.rollsAsAPerson() ? BotPoser.ROLL_IN
+                : kind == AiPose.SLIDE || kind == AiPose.ROLL ? DASH_IN
+                : kind == AiPose.THROW && BotPoser.throwsAsAPerson() ? BotPoser.THROW_IN : ACTION_FADE;
     }
 
     /** the flinch of the n-th hit, by turns: the head back, the chest, doubled up, thrown back */

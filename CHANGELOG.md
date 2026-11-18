@@ -1,5 +1,10 @@
 # Changelog
 
+## X1645
+
+- AI soldiers roll forward the way a person does: a dive out of the run, over
+  the back and up again.
+
 ## X1643
 
 - AI soldiers running into cover drop into a crouch the way a person does,

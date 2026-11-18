@@ -3,6 +3,7 @@ package acup.gunfeel.ai.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import org.junit.jupiter.api.Test;
 
@@ -443,6 +444,11 @@ class BotMoveClipsTest {
 
     /** an agent crouched (as the server keeps it sliding or rolling) through the dash's ticks from 100, posed at now */
     static float[] dashed(byte kind, float now) {
+        return posed(dashFrame(kind, now), 0F, 0F);
+    }
+
+    /** ... its frame at now */
+    static BotAnimator.Frame dashFrame(byte kind, float now) {
         BotAnimator a = new BotAnimator();
         AiPose crouch = new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0);
         AiPose pose = new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, kind, 100, (short) acup.gunfeel.ai.AiDash.TICKS);
@@ -450,7 +456,27 @@ class BotMoveClipsTest {
         BotAnimator.Frame f = null;
         for (float t = 90F; t <= now + 1e-4F; t += 0.2F)
             f = a.step(t >= 100F - 1e-4F ? pose : crouch, (long) (t + 1e-4F), (t + 1e-4F) % 1F, 0, false, t, 1);
-        return posed(f, 0F, 0F);
+        return f;
+    }
+
+    @Test
+    void theLegsUnderADashGoStillAsItComesIn() {
+        // Frame.dashed (the legs under a slide or a roll kept still) comes in at the action's own rate: a roll from a
+        // person over ROLL_IN (its body bends into the dive from the run, the legs running on), the slide and UAL's
+        // roll over DASH_IN; out over DASH_OUT
+        float half = BotPoser.ROLL_IN / 2F;
+        assertEquals(0.5F, dashFrame(AiPose.ROLL, 100F + half).dashed(), 0.06F, "a person's roll, half ROLL_IN in");
+        assertEquals(1F, dashFrame(AiPose.ROLL, 100F + BotPoser.ROLL_IN + 0.2F).dashed(), 1e-4F);
+        assertEquals(1F, dashFrame(AiPose.SLIDE, 100F + BotAnimator.DASH_IN + 0.2F).dashed(), 1e-4F, "the slide");
+        String was = System.getProperty("ntmgunfeel.botMoves");
+        System.setProperty("ntmgunfeel.botMoves", "old");
+        try {
+            assertEquals(1F, dashFrame(AiPose.ROLL, 100F + BotAnimator.DASH_IN + 0.2F).dashed(), 1e-4F, "UAL's roll");
+        } finally {
+            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
+            else System.setProperty("ntmgunfeel.botMoves", was);
+        }
+        assertEquals(1F - 2F / BotAnimator.DASH_OUT, dashFrame(AiPose.ROLL, 100F + acup.gunfeel.ai.AiDash.TICKS + 2F).dashed(), 0.06F, "going after");
     }
 
     @Test
@@ -486,37 +512,92 @@ class BotMoveClipsTest {
         return out;
     }
 
-    /** Frame.dashed as the animator has it: 1 through the dash (in within DASH_IN ticks, under its clip), going after */
-    static float after(float tick, int len) {
-        return tick < len ? Math.min(1F, tick / BotAnimator.DASH_IN) : Math.max(0F, 1F - (tick - len) / BotAnimator.DASH_OUT);
+    /** Frame.dashed as the animator has it: 1 through the dash (in as its clip comes: actIn), going after */
+    static float after(byte kind, float tick, int len) {
+        return tick < len ? Math.min(1F, tick / BotAnimator.actIn(kind)) : Math.max(0F, 1F - (tick - len) / BotAnimator.DASH_OUT);
+    }
+
+    @Test
+    void theRollFromAPersonIsTheDefaultAndOldKeepsUals() {
+        BotClip r = BotClips.get(BotClips.ROLL_PERSON);
+        assertNotNull(r);
+        assertEquals(BotClip.Mode.ONCE, r.mode());
+        float[] a = new float[3];
+        for (String bone : BotPoser.ALL) assertTrue(r.rotation(bone, 0.4F, a), bone);
+        String was = System.getProperty("ntmgunfeel.botMoves");
+        try {
+            // the default (nothing set), then old
+            System.clearProperty("ntmgunfeel.botMoves");
+            assertSame(r, BotPoser.rollClip());
+            System.setProperty("ntmgunfeel.botMoves", "old");
+            assertSame(BotClips.get(BotClips.ROLL), BotPoser.rollClip());
+        } finally {
+            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
+            else System.setProperty("ntmgunfeel.botMoves", was);
+        }
+        // it starts with the dive begun, the trunk bent near a quarter turn forward (BotPoser.ROLL_IN brings it in from
+        // the run), not upside down already, and ends upright again over a whole turn
+        assertTrue(r.rotation("body", 0F, a) && a[0] > 70F && a[0] < 100F, "the trunk at the start: " + a[0]);
+        assertTrue(r.rotation("body", r.length(), a) && a[0] > 340F && a[0] < 400F, "the trunk at the end: " + a[0]);
+        assertTrue(BotPoser.rollsAsAPerson() && BotAnimator.actIn(AiPose.ROLL) == BotPoser.ROLL_IN && BotAnimator.actIn(AiPose.SLIDE) == BotAnimator.DASH_IN);
+        // the hips' middle over the mob's place at its start and its end (the way past the person's put where no leg
+        // is down: midway the body is behind)
+        float[] l = new float[3];
+        for (float t : new float[] { 0F, r.length() }) {
+            assertTrue(r.position("right_leg", t, a) && r.position("left_leg", t, l));
+            assertEquals(0F, (a[2] + l[2]) / 2F, 1.5F, "the hips' middle at " + t + " s, z px");
+        }
+    }
+
+    /** runs it with Config.botMoves as given (null: the default), put back after */
+    static void withMoves(@org.jspecify.annotations.Nullable String mode, Runnable run) {
+        String was = System.getProperty("ntmgunfeel.botMoves");
+        if (mode == null) System.clearProperty("ntmgunfeel.botMoves");
+        else System.setProperty("ntmgunfeel.botMoves", mode);
+        try {
+            run.run();
+        } finally {
+            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
+            else System.setProperty("ntmgunfeel.botMoves", was);
+        }
     }
 
     @Test
     void slidingOrRollingHasNoJump() {
+        // the roll from a person and UAL's (botMoves old)
+        for (String mode : new String[] { null, "old" }) withMoves(mode, () -> slidingOrRollingHasNoJump(mode));
+    }
+
+    private static void slidingOrRollingHasNoJump(@org.jspecify.annotations.Nullable String mode) {
         for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL }) {
             int len = acup.gunfeel.ai.AiDash.TICKS;
             java.util.function.Function<Float, float[]> at = tick -> {
-                float in = Math.min(1F, tick / BotAnimator.DASH_IN), out = Math.min(1F, (len - tick) / BotAnimator.ACTION_FADE);
+                float in = Math.min(1F, tick / BotAnimator.actIn(kind)), out = Math.min(1F, (len - tick) / BotAnimator.ACTION_FADE);
                 BotAnimator.Act act = tick < len ? new BotAnimator.Act(kind, tick / len, BotAnimator.smooth(Math.min(in, out)), tick) : null;
                 BotPoser.Parts p = BotPoserTest.parts();
                 BotPoser.apply(p, new BotAnimator.Frame(1F, 0F, HOLD, act, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, 0.2F, 0F, -1F, 0F, 0F, 1F,
-                        0F, after(tick, len)), 0F, 0F, 0F);
+                        0F, after(kind, tick, len)), 0F, 0F, 0F);
                 return turns(p);
             };
             float share = jumpShare(at, 0F, len + 6, (len + 6) * 3, 12, "abcdefghiXYZ");
-            assertTrue(share < 0.25F, kind + ": a part jumped: " + share + "; " + where);
+            assertTrue(share < 0.25F, kind + " " + mode + ": a part jumped: " + share + "; " + where);
         }
     }
 
     @Test
     void slidingOrRollingOverVanillasWalkingLegsHasNoJump() {
         // the stand's case: the run's legs (vanilla's swing, as setupAnim leaves them, at 0.19 a tick) under the
-        // slide fading in and out; a slide's leg raised high is near half a turn from a leg swinging back
+        // slide fading in and out; a slide's leg raised high is near half a turn from a leg swinging back. The roll
+        // from a person and UAL's (botMoves old)
+        for (String mode : new String[] { null, "old" }) withMoves(mode, () -> overWalkingLegs(mode));
+    }
+
+    private static void overWalkingLegs(@org.jspecify.annotations.Nullable String mode) {
         for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL }) for (int phase = 0; phase < 8; phase++) {
             int len = acup.gunfeel.ai.AiDash.TICKS;
             float start = phase * BotPoser.CYCLE / 8F;
             java.util.function.Function<Float, float[]> at = tick -> {
-                float in = Math.min(1F, tick / BotAnimator.DASH_IN), out = Math.min(1F, (len - tick) / BotAnimator.ACTION_FADE);
+                float in = Math.min(1F, tick / BotAnimator.actIn(kind)), out = Math.min(1F, (len - tick) / BotAnimator.ACTION_FADE);
                 BotAnimator.Act act = tick < len ? new BotAnimator.Act(kind, tick / len, BotAnimator.smooth(Math.min(in, out)), tick) : null;
                 BotPoser.Parts p = BotPoserTest.parts();
                 // HumanoidModel.setupAnim (26.2, javap): xRot cos(pos 0.6662) 1.4 speed, yRot and zRot +-0.005
@@ -524,11 +605,11 @@ class BotMoveClipsTest {
                 p.rightLeg().setRotation(net.minecraft.util.Mth.cos(pos * 0.6662F) * 1.4F * walk, 0.005F, 0.005F);
                 p.leftLeg().setRotation(net.minecraft.util.Mth.cos(pos * 0.6662F + (float) Math.PI) * 1.4F * walk, -0.005F, -0.005F);
                 BotPoser.apply(p, new BotAnimator.Frame(1F, 0F, HOLD, act, BotAnimator.NO_ACTS, BotAnimator.NO_HITS, 0F, 0, 0.19F, 0F, -1F, 0F, 0F, 1F,
-                        0F, after(tick, len)), 0F, walk, pos);
+                        0F, after(kind, tick, len)), 0F, walk, pos);
                 return turns(p);
             };
             float share = jumpShare(at, 0F, len + 6, (len + 6) * 6, 12, "abcdefghiXYZ");
-            assertTrue(share < 0.25F, kind + " phase " + phase + ": a part jumped over walking legs: " + share + "; " + where);
+            assertTrue(share < 0.25F, kind + " " + mode + " phase " + phase + ": a part jumped over walking legs: " + share + "; " + where);
         }
     }
 }

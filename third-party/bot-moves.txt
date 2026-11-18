@@ -3,9 +3,9 @@ AI mob moves from recordings of people
 
 The moves AI mobs play from recordings of people (src/main/resources/assets/ntmgunfeel/animations/bot_moves.json:
 turns on the spot, starts into a run, stops from one, down into a crouch from a walk or a run and up out of it into
-one; bot_people.animation.json: a grenade's throw; bot_gaits.animation.json: runs, sprints and walks ahead, walks
-aside and back with the gun up) are put on the AI mobs' model (Minecraft's humanoid, its arms and legs cut at the
-elbow and the knee: ten parts) by tools/motion/retarget_moves.py, retarget_crouch.py and moves_to_mod.py,
+one; bot_people.animation.json: a grenade's throw, a forward roll; bot_gaits.animation.json: runs, sprints and walks
+ahead, walks aside and back with the gun up) are put on the AI mobs' model (Minecraft's humanoid, its arms and legs
+cut at the elbow and the knee: ten parts) by tools/motion/retarget_moves.py, retarget_crouch.py and moves_to_mod.py,
 retarget_actions.py and actions_to_mod.py, retarget_mocap.py and gaits_to_mod.py:
 
   100STYLE by Ian Mason
@@ -21,7 +21,7 @@ retarget_actions.py and actions_to_mod.py, retarget_mocap.py and gaits_to_mod.py
     The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from
     NSF EIA-0196217.
     Subjects 9 (09_06), 16 (16_45, 16_46, 16_56, 16_57), 69 (69_14), 78 (78_06), 79 (79_35), 104 (104_53, 104_55,
-    104_56, 104_57), 127 (127_06, 127_08), 139 (139_10), 143 (143_02, 143_03)
+    104_56, 104_57), 127 (127_06, 127_08), 128 (128_11), 139 (139_10), 143 (143_02, 143_03)
     Terms: free for all uses; the data itself may not be resold, even converted.
 
   Open Motion Project by ACCAD/The Ohio State University
@@ -39,3 +39,6 @@ the steps made longer. The walks the same, slower; the walk aside (Swat_SR) the 
 The ways down into a crouch and up out of it: the legs only, a piece from the walk or the run to the squat (or from
 the squat to the walk or the run), the hips going down or up as the mod's crouch does over its first fifth of a
 second, each foot down kept on the floor, the knees straight ahead, the feet apart; each mirrored for the other foot.
+The forward roll: the whole body from the dive (the trunk bent a quarter turn forward) to the hips coming up again,
+squeezed to the mob's roll and stretched to its way (the way past the person's put where no leg is down), lifted
+where it would go into the floor.
