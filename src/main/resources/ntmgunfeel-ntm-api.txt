@@ -1234,6 +1234,21 @@ NTM_GAS method com/hbm/inventory/fluid/NTMFluidProperty getTrait (Ljava/lang/Cla
 NTM_GAS method com/hbm/inventory/fluid/NTMFluidProperty hasTrait (Ljava/lang/Class;)Z
 NTM_GAS method com/hbm/inventory/fluid/trait/FT_VentRadiation getRadPerMB ()F
 NTM_GAS method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
+NTM_WP class com/hbm/entity/effect/EntityFireLingering
+NTM_WP class com/hbm/entity/grenade/EntityGrenadeUniversal
+NTM_WP class com/hbm/handler/threading/TargetPoint
+NTM_WP class com/hbm/packet/threading/ThreadedPayload
+NTM_WP field com/hbm/entity/ModEntities FIRE_LINGERING Lcom/hbm/registration/RegistryHandle;
+NTM_WP field com/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling WP Lcom/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling;
+NTM_WP field com/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze S3 Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;
+NTM_WP field com/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell FRAG Lcom/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell;
+NTM_WP method com/hbm/entity/grenade/EntityGrenadeUniversal <init> (Lnet/minecraft/world/level/Level;Lnet/minecraft/world/item/ItemStack;)V
+NTM_WP method com/hbm/entity/grenade/EntityGrenadeUniversal discard ()V
+NTM_WP method com/hbm/entity/grenade/EntityGrenadeUniversal setDeltaMovement (Lnet/minecraft/world/phys/Vec3;)V
+NTM_WP method com/hbm/entity/grenade/EntityGrenadeUniversal setPos (DDD)V
+NTM_WP method com/hbm/items/weapon/grenade/ItemGrenadeFilling explode (Lcom/hbm/entity/grenade/EntityGrenadeUniversal;)V
+NTM_WP method com/hbm/items/weapon/grenade/ItemGrenadeUniversal make (Lcom/hbm/items/weapon/grenade/ItemGrenadeShell$EnumGrenadeShell;Lcom/hbm/items/weapon/grenade/ItemGrenadeFilling$EnumGrenadeFilling;Lcom/hbm/items/weapon/grenade/ItemGrenadeFuze$EnumGrenadeFuze;)Lnet/minecraft/world/item/ItemStack;
+NTM_WP method com/hbm/registration/RegistryHandle get ()Ljava/lang/Object;
 NUCLEAR_BMG50 class com/hbm/entity/projectile/EntityBulletBaseMK4
 NUCLEAR_BMG50 class com/hbm/explosion/vanillant/ExplosionVNT
 NUCLEAR_BMG50 class com/hbm/explosion/vanillant/standard/EntityProcessorCrossSmooth

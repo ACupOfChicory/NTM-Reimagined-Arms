@@ -48,6 +48,7 @@
   "ntmgunfeel.feature.overheat": "Barrel overheating (M2, AM-180)",
   "ntmgunfeel.feature.mini_nuke_cloud": "Small nuclear blasts drawn as the bombs' cloud",
   "ntmgunfeel.feature.ntm_gas": "NTM's phosgene creeper and chemical thrower leave gas clouds",
+  "ntmgunfeel.feature.ntm_wp": "NTM's white phosphorus grenade lets out white smoke",
   "ntmgunfeel.feature.ammo_bag": "NTM's ammo bags take the mod's rounds",
   "ntmgunfeel.feature.prone_fire": "No shot while crawling",
   "ntmgunfeel.feature.mob_ai": "Mob AI",

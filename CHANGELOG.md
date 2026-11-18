@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- NTM's white phosphorus hand grenade now lets out this mod's smoke: a dense
+  white cloud about 20 blocks across, in place of NTM's faint white haze, that
+  hides what is behind it as a smoke grenade does and stays while the
+  phosphorus burns on the ground (about half a minute). It is much lighter on
+  the frame rate, inside the cloud above all. The blast, the fire on the
+  ground with its flames and sparks, the burning and the blocks it sets alight
+  are NTM's as before. With smoke turned off on the server the grenade stays
+  as NTM had it.
+
 ## X1676
 
 - The cloud NTM's chemical thrower leaves no longer hurts the one who fired it

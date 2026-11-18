@@ -37,7 +37,14 @@ public record SmokeKind(int id, String name, float volume, int release, int bomb
 
     public static final SmokeKind SMOKE = new SmokeKind(0, "smoke", 380F, 40, 5, 24F, 3.5F, 0.7F, 0.08F, 0F, 0.001F, 400, 0.968F,
             0xB4B6B8, 3.5F);
-    private static final List<SmokeKind> ALL = List.of(SMOKE);
+    /**
+     * NTM's white phosphorus hand grenade ({@code acup.gunfeel.gas.WpSmoke}): white, as dense as smoke, about three smoke
+     * grenades let out of seven points ringed up to 6 blocks round the burst (NTM's three hazes lie 4 blocks about it):
+     * some 20 blocks across. It holds while NTM's fire on the ground burns (30 s) and thins after.
+     */
+    public static final SmokeKind WP = new SmokeKind(5, "wp", 1100F, 40, 7, 24F, 6F, 0.7F, 0.08F, 0F, 0.001F, 480, 0.968F,
+            0xF0F0EC, 3.5F);
+    private static final List<SmokeKind> ALL = List.of(SMOKE, WP);
 
     public static SmokeKind byId(int id) {
         for (SmokeKind k : ALL) if (k.id == id) return k;
