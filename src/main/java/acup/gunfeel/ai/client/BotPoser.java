@@ -743,6 +743,22 @@ public final class BotPoser {
 
     /** ... at a gait drawn of its own (Frame.gait) */
     static void gait(Parts p, float speed, float gait, float heading, float walkPos, float w, float[] a, @Nullable BotGaitOverride o) {
+        float[] legs = new float[LEGS.length * 3];
+        if (!gaitLegs(speed, gait, heading, walkPos, o, legs, a)) return;
+        for (int b = 0; b < LEGS.length; b++) {
+            ModelPart part = p.get(LEGS[b]);
+            if (part == null) continue;
+            part.xRot = Mth.lerp(w, part.xRot, Mth.DEG_TO_RAD * legs[b * 3]);
+            part.yRot = Mth.lerp(w, part.yRot, Mth.DEG_TO_RAD * legs[b * 3 + 1]);
+            part.zRot = Mth.lerp(w, part.zRot, Mth.DEG_TO_RAD * legs[b * 3 + 2]);
+        }
+    }
+
+    /**
+     * The gait's legs at walkPos (gait): each of LEGS' rotation, degrees (x, y, z after each other) into out; false if
+     * no clip is there. {@code a} a scratch of 3
+     */
+    static boolean gaitLegs(float speed, float gait, float heading, float walkPos, @Nullable BotGaitOverride o, float[] out, float[] a) {
         float u = walkPos / CYCLE;
         float[][] acc = new float[LEGS.length][3];
         float total = 0F;
@@ -765,22 +781,21 @@ public final class BotPoser {
                 if (clip.rotation(LEGS[b], t, a)) for (int k = 0; k < 3; k++) acc[b][k] += ws[i] * a[k];
             total += ws[i];
         }
-        if (total <= 0F) return;
+        if (total <= 0F) return false;
         // ahead only (the walk's, the jog's and the sprint's share): the clips back and aside swing about another middle;
         // a stand's clips at their own stride
         float ahead = (o != null && o.walk() != null ? 0F : ws[0]) + (o != null && o.jog() != null ? 0F : ws[1])
                 + (o != null && o.sprint() != null ? 0F : ws[2]);
         float wide = 1F + (stride(speed) - 1F) * ahead;
         for (int b = 0; b < LEGS.length; b++) {
-            ModelPart part = p.get(LEGS[b]);
-            if (part == null) continue;
             float x = acc[b][0] / total;
             // the thighs (not the shins) wider on the run
             if (wide != 1F && (b == 0 || b == 2)) x = STRIDE_MIDDLE + (x - STRIDE_MIDDLE) * wide;
-            part.xRot = Mth.lerp(w, part.xRot, Mth.DEG_TO_RAD * x);
-            part.yRot = Mth.lerp(w, part.yRot, Mth.DEG_TO_RAD * acc[b][1] / total);
-            part.zRot = Mth.lerp(w, part.zRot, Mth.DEG_TO_RAD * acc[b][2] / total);
+            out[b * 3] = x;
+            out[b * 3 + 1] = acc[b][1] / total;
+            out[b * 3 + 2] = acc[b][2] / total;
         }
+        return true;
     }
 
     /**
