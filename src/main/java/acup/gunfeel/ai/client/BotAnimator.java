@@ -774,6 +774,8 @@ public final class BotAnimator {
     private float moveDirX, moveDirZ, moveBody0, strayRate;
     /** the move went out stood (out); it plays its step on to both feet down, its way not going on (stand) */
     private boolean moveStood, moveStanding;
+    /** a start or a stop: how fast the mob goes any way this frame (on, aside or back), blocks a tick */
+    private float movePathRate;
     /**
      * the whole cycles of walkPos a start or a stop goes on from (its step's own, Move.cycle, over them), and how far
      * the walk was from its step as it came in (cycles, half a cycle at most, going over MOVE_FADE ticks)
@@ -897,6 +899,7 @@ public final class BotAnimator {
             if (under) pathAlong += on;
             float along = moveAt0 + pathAlong;
             boolean going = pathRate >= PATH_STILL, start = "start".equals(m.kind());
+            movePathRate = pathRate + strayRate;
             if (moveStage == MoveStage.FADE) {
             } else if (!upright) out(false);
             // the body turned round over its feet (the feet it has down would cross): out at once, the lock's steps
@@ -1018,10 +1021,15 @@ public final class BotAnimator {
             return;
         }
         // a start or a stop going out on the move holds the feet as it goes too, their weight going with it; stood, the
-        // lock has them standing (and steps them as the body turns)
+        // lock has them standing (and steps them as the body turns), as far as it stands by its own way (the lock's band
+        // of speeds, LOCK_FROM to LOCK_FULL: the speed drawn comes down over some ten ticks). Going on (a stop gone back:
+        // the AI walking it back to its place), the lock's weight goes with the move's as on the move: held whole, a
+        // foot the lock steps waits where it stood as the body goes off and turns, the leg flung out, till the lock
+        // lost it
         moveFeet = moveStage != MoveStage.FADE || movePath && !moveStood;
         if (movePath) {
-            pathFeet = moveStage == MoveStage.FADE && !moveStood ? smooth(moveW) : 1F;
+            float stands = 1F - smooth((movePathRate - LOCK_FROM) / (LOCK_FULL - LOCK_FROM));
+            pathFeet = moveStage != MoveStage.FADE ? 1F : moveStood ? Math.max(smooth(moveW), stands) : smooth(moveW);
             feetNow = true;
         }
         for (int k = 0; k < 2; k++) {
@@ -1208,6 +1216,13 @@ public final class BotAnimator {
      * turning that fast all but hops round, and the feet would else be drawn along (DRAG) half the turn
      */
     static final float QUICK_TURN = 300F, QUICKEST = 1.5F;
+    /**
+     * a foot in a step farther from where the pose has it than a step goes (STEP_DIST: left by a move) with the body
+     * going on (not still: a stop gone back, the AI walking it back and round) steps quicker by how far, up to
+     * FAR_QUICKEST: at its own pace the body would leave it, the leg flung out, till the lock lost it (LOST) and put it
+     * back in a frame. Still, at its own pace
+     */
+    static final float FAR_QUICKEST = 3F;
 
     /**
      * Where the feet go in the model, for BotPoser: right foot then left. The poser writes back where the pose put
@@ -1407,6 +1422,8 @@ public final class BotAnimator {
         for (int k = 0; k < 2; k++) {
             if (stepU[k] < 0F) continue;
             // a step: to where the pose has the foot now (it moves on as the body turns), lifted on the way
+            float far = (float) Math.hypot(footX[k] - nx[k], footZ[k] - nz[k]) * 16F / STEP_DIST, going = 1F - still();
+            if (going > 0F) stepPace[k] = Math.max(stepPace[k], 1F + (Math.min(far / 2F, FAR_QUICKEST) - 1F) * going);
             stepU[k] = Math.min(1F, stepU[k] + dt * stepPace[k] / STEP_TICKS);
             // lifted first, it would wait where it stood as the body goes on (let go by a move: from where it was)
             if (!loose[k]) {

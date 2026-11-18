@@ -1,5 +1,10 @@
 # Changelog
 
+## X1631
+
+- An AI soldier that is walked back or aside as it pulls up from a run no
+  longer flings a leg out and snaps it back.
+
 ## X1629
 
 - AI soldiers walk, run and sprint with legs recorded from people, each soldier
