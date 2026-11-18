@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- AI soldiers creeping along with their gun up, aiming or shooting, walk as a
+  soldier does, ahead, aside and back, easing into it as the gun comes up.
+
 ## X1631
 
 - An AI soldier that is walked back or aside as it pulls up from a run no

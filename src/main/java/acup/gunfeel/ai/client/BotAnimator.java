@@ -455,7 +455,7 @@ public final class BotAnimator {
         walk += (walkTo - walk) * kw;
         if (dt <= 20F) {
             // on the run, fewer steps by the player's choice (Config.botRunGait tempo; vanilla's pace at a walk)
-            float on = dt * BotPoser.pace((walkWas + walk) / 2F * BotPoser.tempo(speed), speed, gait, heading, crouch, swap);
+            float on = dt * BotPoser.pace((walkWas + walk) / 2F * BotPoser.tempo(speed), speed, gait, heading, crouch, aimDrawn(), swap);
             if (s < BotPoser.MOVE_FROM) {
                 // only where it goes on faster than its fading walk would: a tick with no step in a run (a late
                 // packet) leaves the run's pace as it was. Clips put in go by the speed drawn, which fades slower
@@ -1088,7 +1088,7 @@ public final class BotAnimator {
     private boolean stopMove() {
         if (speed < STOP_FROM || step > STOP_DROP * speed || stepWas > STOP_DROP * speed || Float.isNaN(gait)) return false;
         float[] g = stopGait, c = stopClip, a = stopA;
-        if (!BotPoser.gaitLegs(speed, gait, heading, walkPos, swap, g, a)) return false;
+        if (!BotPoser.gaitLegs(speed, gait, heading, walkPos, aimDrawn(), swap, g, a)) return false;
         float rest = STOP_REST * step, off = Float.MAX_VALUE, t0 = 0F;
         // the foot the gait has standing (BotPoser.plant: the right swings over the first half of a cycle), -1 both
         float u = walkPos / BotPoser.CYCLE - (float) Math.floor(walkPos / BotPoser.CYCLE);
@@ -1671,6 +1671,13 @@ public final class BotAnimator {
      * arm starts and stops without a jolt; still summing to 1 (from one way to another smooth(w) + smooth(1 - w) is 1
      * as it is; among three, shared out again)
      */
+    /** the gun up as far as the frame draws it (eased: Frame.arm(AiPose.AIM)), its legs' pace with them */
+    private float aimDrawn() {
+        float sum = 0F;
+        for (float w : arms) sum += smooth(w);
+        return sum > 1e-6F ? smooth(arms[AiPose.AIM]) / sum : smooth(arms[AiPose.AIM]);
+    }
+
     static float[] eased(float[] w) {
         float[] out = new float[w.length];
         float sum = 0F;
