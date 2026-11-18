@@ -133,6 +133,14 @@ public final class Hud {
             int fillR = barL + Math.round((barR - barL) * health);
             g.fill(barL, barY, fillR, barY + 2, durabilityColor(health));
         }
+        // the barrel's heat (acup.gunfeel.heat.Overheat, the M2 and the AM-180) just under it while warm: yellow, to red as
+        // its effects come on
+        float heat = acup.gunfeel.heat.Overheat.heat(stack, player.level().getGameTime());
+        if (heat > 0.02F) {
+            int heatY = barY + 3;
+            g.fill(barL, heatY, barR, heatY + 2, 0x80000000);
+            g.fill(barL, heatY, barL + Math.round((barR - barL) * heat), heatY + 2, heatColor(heat));
+        }
         // a mixed magazine: its order behind the barrel's grenade as coloured dots (2 x 2, 3 px apart)
         if (gl != null) for (int i = 0; i < gl.dots().length; i++) g.fill(bigX + i * 3, top + 21, bigX + i * 3 + 2, top + 23, gl.dots()[i]);
 
@@ -200,6 +208,13 @@ public final class Hud {
 
     private static int reserve(BulletConfig type, Inventory inv) {
         return AmmoLock.count(type, inv);
+    }
+
+    // yellow below the heat where it starts to tell, to red at the top
+    private static int heatColor(float heat) {
+        float t = acup.gunfeel.heat.Overheat.ramp(heat, acup.gunfeel.heat.Overheat.SPREAD_FROM, 1F);
+        int gr = (int) (208 - 176 * t), b = (int) (64 - 32 * t);
+        return 0xFF000000 | 0xFF << 16 | gr << 8 | b;
     }
 
     private static int durabilityColor(float health) {
