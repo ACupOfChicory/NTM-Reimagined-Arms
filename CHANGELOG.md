@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The cloud NTM's chemical thrower leaves no longer hurts the one who fired it
+  until 3 seconds after the last of their gas has come out into it, as the
+  stream itself never does, so spraying a wall at point-blank range no longer
+  kills the shooter at once. After that it hurts them like anyone else.
+
 ## X1674
 
 - NTM's phosgene creeper now leaves a phosgene cloud of this mod's gas (doses,
