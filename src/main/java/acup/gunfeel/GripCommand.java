@@ -62,7 +62,7 @@ public final class GripCommand {
                 })))
                 .then(Commands.literal("botrungait").executes(c -> {
                     c.getSource().sendSuccess(() -> Component.literal("Бег ботов: " + Config.botRunGait
-                            + " (vanilla, tempo — реже шаг, stride — шире шаг; только при /gunfeel botmoves old). /gunfeel botrungait <режим>"), false);
+                            + " (vanilla, tempo — реже шаг, stride — шире шаг; только ноги мода: вперёд бегут записи людей своим шагом). /gunfeel botrungait <режим>"), false);
                     return 1;
                 }).then(Commands.argument("gait", StringArgumentType.word())
                         .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(Config.RUN_GAITS, b))
@@ -80,28 +80,6 @@ public final class GripCommand {
                         return 0;
                     }
                     c.getSource().sendSuccess(() -> Component.literal("Бег ботов: " + g), false);
-                    return 1;
-                })))
-                .then(Commands.literal("botmoves").executes(c -> {
-                    c.getSource().sendSuccess(() -> Component.literal("Ходы ботов: " + Config.botMoves
-                            + " (clips — повороты на месте, старт, стоп, бросок, кувырок и ноги на ходу и бегу по записям людей, old — прежние). /gunfeel botmoves <режим>"), false);
-                    return 1;
-                }).then(Commands.argument("mode", StringArgumentType.word())
-                        .suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(Config.MOVE_MODES, b))
-                        .executes(c -> {
-                    String g = StringArgumentType.getString(c, "mode").toLowerCase(java.util.Locale.ROOT);
-                    if (!Config.MOVE_MODES.contains(g)) {
-                        c.getSource().sendFailure(Component.literal("Нет такого режима: " + g + " (clips, old)"));
-                        return 0;
-                    }
-                    Config.botMoves = g;
-                    try {
-                        Config.setInFile("botMoves", g);
-                    } catch (java.io.IOException e) {
-                        c.getSource().sendFailure(Component.literal("Не записалось в конфиг: " + e.getMessage()));
-                        return 0;
-                    }
-                    c.getSource().sendSuccess(() -> Component.literal("Ходы ботов: " + g), false);
                     return 1;
                 })))
                 .then(Commands.literal("quality").executes(c -> {

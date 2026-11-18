@@ -994,7 +994,7 @@ final class BotStand {
             new Leg("присед с бега", 95, 0, 0, Leg.DOWN), new Leg("из приседа в бег", 120, 0, 0, Leg.UP),
             new Leg("назад", 145, -0.10, 0, BotClips.BACK), new Leg("влево", 175, 0, -0.10, BotClips.STRAFE_LEFT),
             new Leg("вправо", 205, 0, 0.10, BotClips.STRAFE_RIGHT), new Leg("ползком", 235, 0.057, 0, Leg.CRAWL),
-            new Leg("подкат", 265, 0.2, 0, BotClips.SLIDE), new Leg("кувырок", 290, 0.16, 0, BotClips.ROLL),
+            new Leg("подкат", 265, 0.2, 0, BotClips.SLIDE), new Leg("кувырок", 290, 0.16, 0, BotClips.ROLL_PERSON),
             new Leg("стоит, перезарядка", 315, 0, 0, null) };
     private static final int CLIPS_CRAWL = 235, CLIPS_UP = 265, CLIPS_SLIDE = 267, CLIPS_ROLL = 292;
     private static final int CLIPS_RELOAD = 335, CLIPS_HIT = 380, CLIPS_KNOCK = 405, CLIPS_DEATH = 430, CLIPS_END = 470;
@@ -1084,7 +1084,7 @@ final class BotStand {
             if (LEGS[leg].want == Leg.DOWN || LEGS[leg].want == Leg.UP) lowHead(f, parts, LEGS[leg].want == Leg.DOWN);
             int end = leg + 1 < LEGS.length ? LEGS[leg + 1].from : CLIPS_HIT;
             // a slide or a roll is measured in its middle (it starts 2 ticks into its stretch: 3 to 10 ticks in)
-            boolean dash = LEGS[leg].want == BotClips.SLIDE || LEGS[leg].want == BotClips.ROLL;
+            boolean dash = LEGS[leg].want == BotClips.SLIDE || LEGS[leg].want == BotClips.ROLL_PERSON;
             int from = dash ? LEGS[leg].from + 5 : end - 10, to = dash ? LEGS[leg].from + 12 : end;
             if (t >= from && t < to) {
                 LEG_SUMS[leg][0]++;
@@ -1092,7 +1092,7 @@ final class BotStand {
                 if (LEGS[leg].want == Leg.CRAWL) {
                     if (mc().level.getEntity(id) instanceof net.minecraft.world.entity.LivingEntity e)
                         LEG_SUMS[leg][1] += BotPoser.crawlWeight(e.getSwimAmount(1F), f.speed());
-                } else if (LEGS[leg].want == BotClips.SLIDE || LEGS[leg].want == BotClips.ROLL) {
+                } else if (LEGS[leg].want == BotClips.SLIDE || LEGS[leg].want == BotClips.ROLL_PERSON) {
                     // the action's weight at its middle (3 to 10 ticks in)
                     byte kind = LEGS[leg].want == BotClips.SLIDE ? AiPose.SLIDE : AiPose.ROLL;
                     if (f.act() != null && f.act().kind() == kind) LEG_SUMS[leg][1] += f.act().w();

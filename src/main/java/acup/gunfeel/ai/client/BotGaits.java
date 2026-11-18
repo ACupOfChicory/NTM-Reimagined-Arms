@@ -19,7 +19,7 @@ import com.google.gson.JsonParser;
 import acup.gunfeel.GunFeel;
 
 /**
- * Each AI mob's own gait ahead (Config.botMoves clips): loops recorded from people, the legs only
+ * Each AI mob's own gait ahead: loops recorded from people, the legs only
  * (bot_gaits.animation.json, tools/motion/gaits_to_mod.py: CMU's runs and sprints, 100STYLE's walks, put on the mod's
  * legs held apart), one of each slot's variants for the walk, the jog and the sprint (BotPoser.gaitClips' first three)
  * and for going slower than the walk's run (BotPoser.strolling: a walk), by the mob's entity id: every client draws it
@@ -41,9 +41,8 @@ public final class BotGaits {
     private BotGaits() {
     }
 
-    /** the mob's own (null with Config.botMoves old, or none read: the mod's own clips) */
+    /** the mob's own (null if none were read: the mod's own clips) */
     public static @Nullable BotGaitOverride own(int entity) {
-        if (!BotMoves.on()) return null;
         BotGaitOverride[] v = all();
         return v.length == 0 ? null : v[pick(entity, v.length)];
     }

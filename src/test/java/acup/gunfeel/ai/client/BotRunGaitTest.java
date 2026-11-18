@@ -10,7 +10,7 @@ import acup.gunfeel.Config;
 
 // An AI mob's legs on the march (0.27 blocks a tick, a jog) and the run (0.32, a sprint): each its own clip whole
 // over its speed going up and down, and the player's choice of legs (Config.botRunGait), vanilla's by default and at
-// a walk. The mod's own clips (Config.botMoves old); the runs recorded from people go at their own pace whatever it is.
+// a walk. The mod's own clips (none put in); the runs recorded from people go at their own pace whatever it is.
 class BotRunGaitTest {
     @BeforeEach
     void own() {

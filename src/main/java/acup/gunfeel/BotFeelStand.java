@@ -282,7 +282,7 @@ final class BotFeelStand {
         }).join();
         int a = scripted.getId(), l = live.getId();
         // -PbotGait=<n>: both play gait variant n (BotGaits.variant) in place of their own; below nought the mod's own
-        // clips (as Config.botMoves old has them, the moves from recordings kept)
+        // clips (the moves from recordings kept)
         Integer gait = Integer.getInteger("ntmgunfeel.botGait");
         if (gait != null) BotGaitOverride.BY_ENTITY = gait < 0 ? id -> null : id -> BotGaits.variant(gait);
         acup.gunfeel.GunFeel.LOGGER.info("feel stand: the agent's gait {}, the live one's {}", BotGaitOverride.of(a), BotGaitOverride.of(l));

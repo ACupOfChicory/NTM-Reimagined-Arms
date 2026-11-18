@@ -765,22 +765,6 @@ class BotMovesTest {
     }
 
     @Test
-    void oldMovesNeitherStartNorStop() {
-        String was = System.getProperty("ntmgunfeel.botMoves");
-        System.setProperty("ntmgunfeel.botMoves", "old");
-        try {
-            BotAnimator a = new BotAnimator();
-            boolean[] moved = { false };
-            walk(a, fromStanding(concat(repeat(0.19, 20), new double[] { 0.07, 0.07, 0.06, 0.01 }, repeat(0.0, 10))), 0.0,
-                    (n, p) -> moved[0] |= a.moving().length > 0);
-            assertFalse(moved[0]);
-        } finally {
-            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
-            else System.setProperty("ntmgunfeel.botMoves", was);
-        }
-    }
-
-    @Test
     void aLookBackWithinATickChangesNothing() {
         BotAnimator a = new BotAnimator();
         double t = 0.0;
@@ -885,24 +869,6 @@ class BotMovesTest {
         }
     }
 
-    @Test
-    void oldMovesAreTheFeetsOwnSteps() {
-        System.setProperty("ntmgunfeel.botMoves", "old");
-        try {
-            assertFalse(BotMoves.on());
-            BotAnimator a = new BotAnimator();
-            double t = 0.0;
-            for (; t < 30.0; t += FRAME) frame(a, 0F, t);
-            float yaw = 0F;
-            for (; t < 60.0; t += FRAME) {
-                yaw = Math.min(90F, yaw + 5F * (float) FRAME);
-                frame(a, yaw, t);
-                assertEquals(0, a.moving().length);
-            }
-        } finally {
-            System.clearProperty("ntmgunfeel.botMoves");
-        }
-    }
 
     @Test
     void theLegsAreTheMovesAndTheHipsGoDownAsFarAsItsLegsAreMadeFor() {

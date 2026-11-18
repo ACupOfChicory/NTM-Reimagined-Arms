@@ -23,15 +23,14 @@ import acup.gunfeel.GunFeel;
 public final class BotClips {
     static final String PATH = "/assets/ntmgunfeel/animations/bot.animation.json",
             PEOPLE = "/assets/ntmgunfeel/animations/bot_people.animation.json";
-    public static final String IDLE = "idle", HIT_CHEST = "hit_chest", HIT_HEAD = "hit_head", THROW = "throw",
-            WAVE = "wave";
+    public static final String IDLE = "idle", HIT_CHEST = "hit_chest", HIT_HEAD = "hit_head", WAVE = "wave";
     /** on the move, the legs only: walking, jogging, sprinting forward, walking back, sideways left and right */
     public static final String WALK = "walk", JOG = "jog", SPRINT = "sprint", BACK = "back", STRAFE_LEFT = "strafe_left",
             STRAFE_RIGHT = "strafe_right";
     /** a rifle's reload (the arms), a fall dead (the whole body), a hit that throws it back (the arms and body) */
     public static final String RELOAD = "reload", DEATH = "death", HIT_KNOCK = "hit_knock";
-    /** a slide into cover, a forward roll (the whole body, AiPose.SLIDE, ROLL) */
-    public static final String SLIDE = "slide", ROLL = "roll";
+    /** a slide into cover (the whole body, AiPose.SLIDE) */
+    public static final String SLIDE = "slide";
     /**
      * crouching, the legs and the trunk's lean, fitted under the head where vanilla's crouch has it (tools/quaternius
      * fit.py): down on a knee at a stand, a walk bent low on the move

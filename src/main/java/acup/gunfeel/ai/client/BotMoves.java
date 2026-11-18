@@ -14,7 +14,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import acup.gunfeel.Config;
 import acup.gunfeel.GunFeel;
 import net.minecraft.util.Mth;
 
@@ -322,11 +321,6 @@ public final class BotMoves {
     }
 
     private BotMoves() {
-    }
-
-    /** the moves played at all (Config.botMoves: clips, the default; old: the mod's own steps, to set them side by side) */
-    public static boolean on() {
-        return !"old".equals(System.getProperty("ntmgunfeel.botMoves", Config.botMoves));
     }
 
     /** by name; a name ending "_mirrored" the move mirrored */

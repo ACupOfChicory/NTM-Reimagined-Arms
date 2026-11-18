@@ -272,7 +272,7 @@ class BotMoveClipsTest {
     @Test
     void itsWalkKeepsVanillasPace() {
         // a step of 0.1 a tick for 40 ticks, frames 0.05 tick apart: vanilla's swing speed (0.4) and about its place;
-        // the mod's own clips (Config.botMoves old)
+        // the mod's own clips (none put in)
         BotGaitOverride.BY_ENTITY = id -> null;
         try {
             float[] w = walked(0.1);
@@ -461,21 +461,13 @@ class BotMoveClipsTest {
 
     @Test
     void theLegsUnderADashGoStillAsItComesIn() {
-        // Frame.dashed (the legs under a slide or a roll kept still) comes in at the action's own rate: a roll from a
-        // person over ROLL_IN (its body bends into the dive from the run, the legs running on), the slide and UAL's
-        // roll over DASH_IN; out over DASH_OUT
+        // Frame.dashed (the legs under a slide or a roll kept still) comes in at the action's own rate: the roll over
+        // ROLL_IN (its body bends into the dive from the run, the legs running on), the slide over DASH_IN; out over
+        // DASH_OUT
         float half = BotPoser.ROLL_IN / 2F;
         assertEquals(0.5F, dashFrame(AiPose.ROLL, 100F + half).dashed(), 0.06F, "a person's roll, half ROLL_IN in");
         assertEquals(1F, dashFrame(AiPose.ROLL, 100F + BotPoser.ROLL_IN + 0.2F).dashed(), 1e-4F);
         assertEquals(1F, dashFrame(AiPose.SLIDE, 100F + BotAnimator.DASH_IN + 0.2F).dashed(), 1e-4F, "the slide");
-        String was = System.getProperty("ntmgunfeel.botMoves");
-        System.setProperty("ntmgunfeel.botMoves", "old");
-        try {
-            assertEquals(1F, dashFrame(AiPose.ROLL, 100F + BotAnimator.DASH_IN + 0.2F).dashed(), 1e-4F, "UAL's roll");
-        } finally {
-            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
-            else System.setProperty("ntmgunfeel.botMoves", was);
-        }
         assertEquals(1F - 2F / BotAnimator.DASH_OUT, dashFrame(AiPose.ROLL, 100F + acup.gunfeel.ai.AiDash.TICKS + 2F).dashed(), 0.06F, "going after");
     }
 
@@ -484,7 +476,7 @@ class BotMoveClipsTest {
         // pose-contract §4: crouched, the head where the crouch puts it (the eye the server keeps) but for the action's
         // ticks; from the first tick after, back within 3 cm (0.03 blocks); a dash's clips load
         for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL }) {
-            assertNotNull(BotClips.get(kind == AiPose.SLIDE ? BotClips.SLIDE : BotClips.ROLL));
+            assertNotNull(BotClips.get(kind == AiPose.SLIDE ? BotClips.SLIDE : BotClips.ROLL_PERSON));
             float[] crouched = dashed(AiPose.NONE, 120F), mid = dashed(kind, 108F);
             float[] after = dashed(kind, 100F + acup.gunfeel.ai.AiDash.TICKS);
             float off = Math.max(Math.abs(mid[4] - crouched[4]), Math.abs(mid[5] - crouched[5]));
@@ -524,22 +516,12 @@ class BotMoveClipsTest {
         assertEquals(BotClip.Mode.ONCE, r.mode());
         float[] a = new float[3];
         for (String bone : BotPoser.ALL) assertTrue(r.rotation(bone, 0.4F, a), bone);
-        String was = System.getProperty("ntmgunfeel.botMoves");
-        try {
-            // the default (nothing set), then old
-            System.clearProperty("ntmgunfeel.botMoves");
-            assertSame(r, BotPoser.rollClip());
-            System.setProperty("ntmgunfeel.botMoves", "old");
-            assertSame(BotClips.get(BotClips.ROLL), BotPoser.rollClip());
-        } finally {
-            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
-            else System.setProperty("ntmgunfeel.botMoves", was);
-        }
+        assertSame(r, BotPoser.rollClip());
         // it starts with the dive begun, the trunk bent near a quarter turn forward (BotPoser.ROLL_IN brings it in from
         // the run), not upside down already, and ends upright again over a whole turn
         assertTrue(r.rotation("body", 0F, a) && a[0] > 70F && a[0] < 100F, "the trunk at the start: " + a[0]);
         assertTrue(r.rotation("body", r.length(), a) && a[0] > 340F && a[0] < 400F, "the trunk at the end: " + a[0]);
-        assertTrue(BotPoser.rollsAsAPerson() && BotAnimator.actIn(AiPose.ROLL) == BotPoser.ROLL_IN && BotAnimator.actIn(AiPose.SLIDE) == BotAnimator.DASH_IN);
+        assertTrue(BotAnimator.actIn(AiPose.ROLL) == BotPoser.ROLL_IN && BotAnimator.actIn(AiPose.SLIDE) == BotAnimator.DASH_IN);
         // the hips' middle over the mob's place at its start and its end (the way past the person's put where no leg
         // is down: midway the body is behind)
         float[] l = new float[3];
@@ -549,26 +531,8 @@ class BotMoveClipsTest {
         }
     }
 
-    /** runs it with Config.botMoves as given (null: the default), put back after */
-    static void withMoves(@org.jspecify.annotations.Nullable String mode, Runnable run) {
-        String was = System.getProperty("ntmgunfeel.botMoves");
-        if (mode == null) System.clearProperty("ntmgunfeel.botMoves");
-        else System.setProperty("ntmgunfeel.botMoves", mode);
-        try {
-            run.run();
-        } finally {
-            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
-            else System.setProperty("ntmgunfeel.botMoves", was);
-        }
-    }
-
     @Test
     void slidingOrRollingHasNoJump() {
-        // the roll from a person and UAL's (botMoves old)
-        for (String mode : new String[] { null, "old" }) withMoves(mode, () -> slidingOrRollingHasNoJump(mode));
-    }
-
-    private static void slidingOrRollingHasNoJump(@org.jspecify.annotations.Nullable String mode) {
         for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL }) {
             int len = acup.gunfeel.ai.AiDash.TICKS;
             java.util.function.Function<Float, float[]> at = tick -> {
@@ -580,19 +544,14 @@ class BotMoveClipsTest {
                 return turns(p);
             };
             float share = jumpShare(at, 0F, len + 6, (len + 6) * 3, 12, "abcdefghiXYZ");
-            assertTrue(share < 0.25F, kind + " " + mode + ": a part jumped: " + share + "; " + where);
+            assertTrue(share < 0.25F, kind + ": a part jumped: " + share + "; " + where);
         }
     }
 
     @Test
     void slidingOrRollingOverVanillasWalkingLegsHasNoJump() {
         // the stand's case: the run's legs (vanilla's swing, as setupAnim leaves them, at 0.19 a tick) under the
-        // slide fading in and out; a slide's leg raised high is near half a turn from a leg swinging back. The roll
-        // from a person and UAL's (botMoves old)
-        for (String mode : new String[] { null, "old" }) withMoves(mode, () -> overWalkingLegs(mode));
-    }
-
-    private static void overWalkingLegs(@org.jspecify.annotations.Nullable String mode) {
+        // slide fading in and out; a slide's leg raised high is near half a turn from a leg swinging back
         for (byte kind : new byte[] { AiPose.SLIDE, AiPose.ROLL }) for (int phase = 0; phase < 8; phase++) {
             int len = acup.gunfeel.ai.AiDash.TICKS;
             float start = phase * BotPoser.CYCLE / 8F;
@@ -609,7 +568,7 @@ class BotMoveClipsTest {
                 return turns(p);
             };
             float share = jumpShare(at, 0F, len + 6, (len + 6) * 6, 12, "abcdefghiXYZ");
-            assertTrue(share < 0.25F, kind + " " + mode + " phase " + phase + ": a part jumped over walking legs: " + share + "; " + where);
+            assertTrue(share < 0.25F, kind + " phase " + phase + ": a part jumped over walking legs: " + share + "; " + where);
         }
     }
 }

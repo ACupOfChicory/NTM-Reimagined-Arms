@@ -23,7 +23,6 @@ BOT = {
     "idle": ("ual1", "idle_loop"),               # UAL Idle_Loop: upper good, lower good
     "hit_chest": ("ual1", "hit_chest"),          # UAL Hit_Chest: good, good
     "hit_head": ("ual1", "hit_head"),            # UAL Hit_Head: good, good
-    "throw": ("ual2", "overhandthrow_upper"),    # UAL OverhandThrow: upper fair (legs poor: not used)
     "wave": ("kaykit", "waving_upper"),          # KayKit Waving: upper fair, the right arm waves
     # on the move: the legs only (the arms keep the gun); ten parts' grades
     "walk": ("ual1", "walk_loop_lower"),         # UAL Walk_Loop: lower good
@@ -36,9 +35,6 @@ BOT = {
     # KayKit Hit_B: thrown back and up on its feet again, first and last frame the rest pose (added as a flinch).
     # UAL Hit_Knockback is a fall onto the back (the body to -88 degrees and lying there): no flinch over standing legs
     "hit_knock": ("kaykit", "hit_b"),
-    # a forward roll under fire (AiPose.ROLL), the whole body: UAL Roll, upper and lower poor by the numbers (knees bent
-    # past 120 degrees), played squeezed into the action's 16 ticks; in place (no move in its root: the game moves it)
-    "roll": ("ual1", "roll"),
     # in the air (a jump up a block, a fall): the legs, one knee drawn up
     "jump": ("ual1", "jump_loop_lower"),         # UAL Jump_Loop: lower good
     # two more flinches: doubled up forward, thrown back (Quaternius SWAT HitRecieve, HitRecieve_2: good, good)

@@ -141,6 +141,35 @@ class BotTacticsTest {
                     }
     }
 
+    @Test
+    void theHeadTrailsTheEyeOnlyForTheCrouchsTicks() {
+        // pose-contract §6: the server's eye takes the new stance's height at once, the drawn crouch goes over
+        // CROUCH_TICKS (not to jump); over them the head trails the eye by what is left of the crouch's 4.2 px, from
+        // the last back within 3 cm (0.48 px). Going down and getting up, at a stand, 48 frames a tick
+        AiPose stand = new AiPose(AiPose.STAND, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0, AiPose.FIGHT);
+        AiPose crouch = new AiPose(AiPose.CROUCH, (byte) 0, (byte) 0, 0, AiPose.HOLD, AiPose.NONE, 0, (short) 0, AiPose.FIGHT);
+        for (boolean down : new boolean[] { true, false }) {
+            BotAnimator a = new BotAnimator();
+            float most = 0F;
+            for (int i = 0; i <= 20 * 48; i++) {
+                float t = 90F + i / 48F;
+                AiPose pose = (t >= 100F) == down ? crouch : stand;
+                BotPoser.Parts p = BotPoserTest.parts();
+                BotPoser.apply(p, a.step(pose, (long) t, t % 1F, 0, false, t, 1), 0F, 0F, 0F);
+                float off = Math.abs(p.head().y - (pose.stance() == AiPose.CROUCH ? 4.2F : 0F));
+                most = Math.max(most, off);
+                float into = t - 100F;
+                assertTrue(off <= 4.2F + 1e-4F, String.format(Locale.ROOT, "%s at %.2f ticks: the head %.2f px off the eye",
+                        down ? "down" : "up", into, off));
+                if (into < 0F || into >= BotAnimator.CROUCH_TICKS)
+                    assertTrue(off <= 0.48F, String.format(Locale.ROOT, "%s at %.2f ticks: the head %.2f px off the eye",
+                            down ? "down" : "up", into, off));
+            }
+            // it does trail: the crouch is drawn over its ticks, not at once
+            assertTrue(most > 3F, (down ? "down" : "up") + ": the head trailed " + most + " px at most");
+        }
+    }
+
     /**
      * A slide or a roll from tick 100 as the animator has it, crouched and going at {@code speed}, the walk at
      * {@code start} when it begins: the model at {@code tick} ticks into it (and after it).

@@ -552,7 +552,6 @@ Often used client keys (`ntm-gunfeel.properties`):
 | `casingInstances` | `true` | NTM's spent casings drawn by the graphics card, all of a kind in one draw (`false` = NTM's way); off by itself under an Iris shader pack |
 | `soundNoWait` | `true` | A new sound no longer makes the frame wait while the sound thread is busy (many shots, Sound Physics); it starts in the sound thread's turn as before (`false` = the game's way) |
 | `botRunGait` | `vanilla` | AI soldiers' legs on the run: `vanilla`, `tempo` (fewer steps, nearer the run's own pace; the feet slide more), `stride` (longer steps; the feet slide less) |
-| `botMoves` | `clips` | AI soldiers' moves from recordings of people: `clips` (a slow turn on the spot steps as people step), `old` (the feet's own steps) |
 | `smokeQuality` | `high` | Smoke clouds: `off`, `slices`, `low`, `medium`, `high`, `ultra` |
 | `smokeMaxClouds`, `smokeDistance` | `8`, `128` | How many clouds are drawn and how far away |
 | `enabled` | `true` | The mod's client side as a whole |
@@ -635,7 +634,6 @@ Often used server keys (`ntm-gunfeel-server.properties`):
 - `/gunfeel quality <preset>`: impact-effect quality.
 - `/gunfeel hitvolume <0..4>`: loudness of hit sounds.
 - `/gunfeel botrungait <vanilla|tempo|stride>`: AI soldiers' legs on the run.
-- `/gunfeel botmoves <clips|old>`: AI soldiers' moves from recordings of people, or the old steps.
 - `/gunfeel clearholes`: remove the bullet holes on your screen.
 - `/gunfeel settings`: the settings of the gun in hand.
 - `/gunsmoke` (operators): let out smoke clouds, clear them, show how many
@@ -736,7 +734,7 @@ The GL-54's grenade and magazine textures are by Nuclear GrandFather, who
 allows their use and modification in NTM Reimagined Arms and its forks with
 credit to the author; see [third-party/gl54-textures.txt](third-party/gl54-textures.txt).
 
-AI mobs' idle, flinch, throw and wave clips are carried over from Quaternius'
+AI mobs' idle, flinch and wave clips are carried over from Quaternius'
 Universal Animation Library 1 and 2 and Kay Lousberg's KayKit Character
 Animations, both CC0; see [third-party/bot-animations.txt](third-party/bot-animations.txt).
 

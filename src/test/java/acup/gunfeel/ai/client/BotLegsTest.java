@@ -45,7 +45,7 @@ class BotLegsTest {
 
     @Test
     void theLowerFootIsOnTheGround() {
-        // the mod's own clips (Config.botMoves old); the mob's own runs from recordings: eachRunsFeetComeDownOnTheGround
+        // the mod's own clips (none put in); the mob's own runs from recordings: eachRunsFeetComeDownOnTheGround
         BotGaitOverride.BY_ENTITY = id -> null;
         try {
             lowerFootOnTheGround();

@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 import net.minecraft.util.Mth;
 
 /**
- * A mob's gait clips put in place of the mod's: its own from recordings (BotGaits, Config.botMoves clips), or a
+ * A mob's gait clips put in place of the mod's: its own from recordings (BotGaits), or a
  * stand's (BotGalleryStand: the gait candidates side by side): going ahead BotClips.WALK, JOG and SPRINT; going back
  * BotClips.BACK; aside STRAFE_LEFT and STRAFE_RIGHT; crouched on the move CROUCH_WALK. A null clip keeps the mod's own.
  *

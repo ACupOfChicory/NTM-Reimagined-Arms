@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import acup.gunfeel.ai.AiPose;
 
-// A grenade's throw recorded from a person (BotClips.THROW_PERSON, Config.botMoves clips): the right hand lets the grip
+// A grenade's throw recorded from a person (BotClips.THROW_PERSON): the right hand lets the grip
 // go and throws, the rifle goes with the left hand down at the side, and back into both hands after
 class BotThrowTest {
     /** the throw's first tick and how long it is (AiSoldier.THROW_TICKS) */
@@ -98,7 +98,7 @@ class BotThrowTest {
     }
 
     @Test
-    void theThrowFromAPersonIsTheDefaultAndOldKeepsUals() {
+    void theThrowIsAPersons() {
         BotClip t = BotClips.get(BotClips.THROW_PERSON);
         assertNotNull(t);
         assertEquals(BotClip.Mode.ONCE, t.mode());
@@ -106,20 +106,7 @@ class BotThrowTest {
         float[] a = new float[3];
         for (String bone : BotPoser.UPPER) assertTrue(t.rotation(bone, 0.3F, a), bone);
         assertSame(t, BotPoser.throwClip());
-        assertTrue(BotPoser.throwsAsAPerson());
-        String was = System.getProperty("ntmgunfeel.botMoves");
-        System.setProperty("ntmgunfeel.botMoves", "old");
-        try {
-            assertSame(BotClips.get(BotClips.THROW), BotPoser.throwClip());
-            // and the rifle stays in the right hand
-            for (F f : run(3, THROW)) {
-                assertEquals(0F, f.w(), "carried at " + f.now());
-                assertTrue(f.rifle().equals(f.right(), 0F), "the right hand's at " + f.now());
-            }
-        } finally {
-            if (was == null) System.clearProperty("ntmgunfeel.botMoves");
-            else System.setProperty("ntmgunfeel.botMoves", was);
-        }
+        assertEquals(BotPoser.THROW_IN, BotAnimator.actIn(AiPose.THROW));
     }
 
     @Test

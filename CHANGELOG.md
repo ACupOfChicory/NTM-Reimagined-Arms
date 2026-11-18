@@ -1,5 +1,12 @@
 # Changelog
 
+## X1654
+
+- ⚠ Breaks compatibility: the botMoves config key is gone, and with it
+  `/gunfeel botmoves` and its `old` mode. AI soldiers always turn, start, stop,
+  throw and roll as recorded from people; a script, a command block or a
+  datapack function that calls the command no longer works.
+
 ## X1649
 
 - A dynamic crosshair replaces NTM's while you hold an NTM gun: it opens with
