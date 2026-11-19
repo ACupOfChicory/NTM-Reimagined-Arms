@@ -18,6 +18,12 @@ import net.minecraft.core.BlockPos;
  * only cells and voxel bytes, so it runs off the server thread as the path search does.
  */
 public final class AiRooms {
+    /**
+     * Whether a place under a roof is a building by its shell (the server setting aiRoomsShell, AiBlockKinds.KEY; false:
+     * any roof makes one, as before). Set by AiBlockKinds.tick every server tick, the only one that writes it (the stand
+     * AiCheckDoors and AiRoomsTest besides); read here, on any thread.
+     */
+    static volatile boolean shell = true;
     private AiRooms() {
     }
 
@@ -259,7 +265,7 @@ public final class AiRooms {
         int sx = BlockPos.getX(seed), sy = BlockPos.getY(seed), sz = BlockPos.getZ(seed);
         if ((r.flags(sx, sy, sz) & SectionCells.ROOF) == 0 || !r.has(sx, sy, sz)) return null;
         // the cells under the roof that are the wild's: a cave is no building
-        LongOpenHashSet wild = AiBlockKinds.shell ? wild(src, r, seed, reach, most) : null;
+        LongOpenHashSet wild = shell ? wild(src, r, seed, reach, most) : null;
         if (wild != null && wildOut != null) wildOut.addAll(wild);
         if (wild != null && wild.contains(seed)) return null;
 

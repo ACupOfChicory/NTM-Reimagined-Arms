@@ -209,11 +209,11 @@ class AiRoomsTest {
         for (int x = 5; x <= 8; x++) cave.own.put(BlockPos.asLong(x, -1, 7), AiBlockKinds.BUILT);
         assertNull(AiRooms.of(cave, BlockPos.asLong(6, 0, 7)));
         // with the setting off any roof makes one, as before
-        AiBlockKinds.shell = false;
+        AiRooms.shell = false;
         try {
             assertNotNull(AiRooms.of(cave, BlockPos.asLong(6, 0, 7)));
         } finally {
-            AiBlockKinds.shell = true;
+            AiRooms.shell = true;
         }
     }
 
