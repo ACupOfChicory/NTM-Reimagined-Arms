@@ -541,7 +541,7 @@ final class SmokeCloudStand {
             .filter(p -> !System.getProperty("ntmgunfeel.smokePoses", "").startsWith("compare:")
                     || List.of(System.getProperty("ntmgunfeel.smokePoses").substring(8).split("\\+")).contains(p.name)).toList();
     private static int cPose, cVariant, cStage, cFrames;
-    // how far the camera is turned aside before each variant, degrees (a third of it up)
+    // how far the camera is turned aside before each variant, degrees (and a third of it down)
     private static final float TURN = 20F;
 
     private static int glassKind(Pose p) {

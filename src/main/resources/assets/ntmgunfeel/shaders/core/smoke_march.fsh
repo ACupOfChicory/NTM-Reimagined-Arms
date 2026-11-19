@@ -45,8 +45,8 @@ vec2 smokeAt(vec3 g, float slot) {
 }
 
 // the noise's lattice repeats every PERIOD cells: 0.9 a block, so every 1000 blocks, the step of the Anchor's lattice,
-// and the noise does not jump when the camera takes the Anchor to its next point (the second octave's scale is a whole
-// number for the same reason: its jump is then a whole number of periods too)
+// and the noise does not jump when the camera takes the Anchor to its next point (one octave; a finer one would need
+// a whole-number scale for the same reason)
 const float PERIOD = 900.0;
 
 float hash(vec3 p) {

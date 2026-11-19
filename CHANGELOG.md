@@ -2,11 +2,12 @@
 
 ## Unreleased
 
-- Smoke and gas clouds are drawn the cheaper way that was to be tried with F7,
-  all three of its parts for good: inside a cloud the smoke is drawn coarser and
-  laid over the walls by their depth, the smoke far off is gone through in
-  longer steps, and its grain has one layer of noise instead of two. F7 and the
-  look shown in the top left corner are gone again.
+- Smoke and gas clouds cost less to draw. At the high and ultra smoke quality,
+  with the camera inside a cloud the smoke is drawn coarser and laid over the
+  walls by their depth. Smoke far off is sampled in longer steps, and its grain
+  has one layer of noise instead of two, so it looks a little softer. The F7
+  key that switched between these looks is gone, as is the look's name in the
+  top left corner.
 
 ## X1713
 
