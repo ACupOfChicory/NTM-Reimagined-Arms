@@ -4,7 +4,7 @@
   "package": "acup.gunfeel.mixin.mc",
   "compatibilityLevel": "JAVA_21",
   "mixins": ["MixinEntityModelBox", "MixinProjectileModelQuery", "MixinSmokeSight", "LivingEntityAccess", "MixinVanillaBack", "EntityAccess", "MixinAiBlockChange", "MobGoalsAccess", "MixinAiNavigation", "MixinAiProneSize", "MixinAiHoldPush", "MixinPathCount", "MixinPathSearchCount", "MixinPoisonTick", "MixinGunHitServer", "TrapDoorAccess", "MixinAiTurnSync"],
-  "client": ["MixinSoundNoWait", "ChannelAccessAccess", "ChannelHandleAccess", "MixinSubmitNodeCollection", "MixinItemInHandRenderer", "MixinParticleEngine", "MixinParticlesSubmit", "MixinFlywheelFrame", "MixinParticleStandEngine", "MixinParticleStandGroup",
+  "client": ["MixinSoundNoWait", "ChannelAccessAccess", "ChannelHandleAccess", "MixinSubmitNodeCollection", "MixinItemInHandRenderer", "MixinParticleEngine", "MixinLavaTrail", "MixinParticlesSubmit", "MixinFlywheelFrame", "MixinParticleStandEngine", "MixinParticleStandGroup",
     "MixinParticleStandSubmit", "MixinParticleStandQuads", "MixinParticleStandFlywheel",
     "MixinMouseTurn", "KeyMappingAccess", "LocalPlayerAccess", "GuiGraphicsAccess", "ModelPartAccess", "LivingEntityRendererAccess", "MixinLivingModelHits", "MixinModelHitboxDebug",
     "MixinModelHitState", "MixinPreparedModelHit", "MixinVanillateModelHit", "VanillateEntityAccess", "MixinSpawnLerp", "MixinHandBob", "GameRendererAccess", "MixinSprintStop",

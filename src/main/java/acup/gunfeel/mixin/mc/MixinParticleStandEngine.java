@@ -25,8 +25,7 @@ import net.minecraft.client.renderer.state.level.ParticleGroupRenderState;
 import net.minecraft.core.particles.ParticleOptions;
 
 // The particle stand only (ParticleStand, off in the game): the particle tick timed with the groups' sizes, gathering
-// them for drawing timed (by group) or skipped (its hidden frames), and every particle counted or refused (its X runs,
-// the smoke of its notrail trial)
+// them for drawing timed (by group) or skipped (its hidden frames), and every particle counted or refused (its X runs)
 @Mixin(ParticleEngine.class)
 public abstract class MixinParticleStandEngine {
     @Shadow
@@ -38,9 +37,7 @@ public abstract class MixinParticleStandEngine {
 
     @Inject(method = "tick", at = @At("HEAD"))
     private void gunfeel$standTick(CallbackInfo ci) {
-        if (!ParticleStand.ENABLED) return;
-        ParticleStand.tickBegin();
-        gunfeel$standTickAt = System.nanoTime();
+        if (ParticleStand.ENABLED) gunfeel$standTickAt = System.nanoTime();
     }
 
     @Inject(method = "tick", at = @At("RETURN"))
