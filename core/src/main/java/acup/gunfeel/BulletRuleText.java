@@ -1,5 +1,10 @@
 package acup.gunfeel;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,8 +18,89 @@ import org.jspecify.annotations.Nullable;
  * is the version's (BulletRules on 26.2: ids, tags and sound types of the game); so is where the file is and when it is
  * read again.
  */
-public final class BulletRuleText {
-    private BulletRuleText() {
+public class BulletRuleText {
+    BulletRuleText() {
+    }
+
+    public static final String FILE = "ntm-gunfeel-bullets.txt";
+
+    private static List<Rule> rules = List.of();
+
+    private static long stamp = Long.MIN_VALUE, lastPoll;
+
+    // the server's settings the rules were last read with (null: none, this game's own file alone)
+    private static ServerSettings.@Nullable Snapshot rulesOf;
+
+    private static boolean builtinRead;
+
+    private static List<Rule> builtin = List.of();
+
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("ntm-gunfeel");
+
+    // concrete gives way to bullets only when the server says so (off by default): ntm-gunfeel-server.properties
+    public static final String CONCRETE_KEY = "bulletBreakConcrete";
+
+    private static boolean concreteOf;
+
+    /** the file and the concrete key looked at again at the next use, whatever the clock (ReaimTimes.reloadNow) */
+    static synchronized void reloadNow() {
+        lastPoll = 0;
+    }
+
+    // goes up each time the rules are read anew: what a version worked out of the old ones starts over
+    static int readings;
+
+    // the rules as they are now: the jar's, then config/'s (the server's lines of its kinds on another game's
+    // server), the file looked at every second
+    static synchronized List<Rule> load() {
+        long now = System.currentTimeMillis();
+        if (!builtinRead) {
+            builtinRead = true;
+            // the block review's materials first: the mod's bullet rules, then the config's, come after and win
+            List<Rule> mine = new ArrayList<>();
+            for (String name : List.of("/ntmgunfeel-materials.txt", "/ntmgunfeel-bullets.txt")) {
+                try (var in = BulletRuleText.class.getResourceAsStream(name)) {
+                    if (in != null) mine.addAll(parse(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)).lines().toList()));
+                } catch (Exception e) {
+                    LOGGER.warn("Could not read the built-in bullet rules {}", name, e);
+                }
+            }
+            builtin = mine;
+            stamp = Long.MIN_VALUE + 1;
+            lastPoll = 0;
+        }
+        ServerSettings.Snapshot remote = ServerSettings.remote();
+        if (now - lastPoll > 1000L || remote != rulesOf) {
+            lastPoll = now;
+            Path f = GameDirs.get().config().resolve(FILE);
+            try {
+                if (!Files.exists(f)) Files.writeString(f, HELP);
+                long m = Files.getLastModifiedTime(f).toMillis();
+                boolean concrete = ReaimTimes.flag(CONCRETE_KEY, false);
+                if (m != stamp || remote != rulesOf || concrete != concreteOf) {
+                    stamp = m;
+                    rulesOf = remote;
+                    concreteOf = concrete;
+                    List<Rule> all = new ArrayList<>(builtin);
+                    if (concrete) all.addAll(parse(List.of(CONCRETE_RULE)));
+                    List<Rule> own = parse(Files.readAllLines(f, StandardCharsets.UTF_8));
+                    if (remote == null) {
+                        all.addAll(own);
+                    } else {
+                        // on another game's server: what the server acts on by its rules, what only this client draws
+                        // by the player's
+                        for (Rule r : own) if (!ServerSettings.serverKind(r.kind())) all.add(r);
+                        for (Rule r : parse(remote.bullets().lines().toList())) if (ServerSettings.serverKind(r.kind())) all.add(r);
+                    }
+                    rules = all;
+                    TestLog.here("rules", "own", own.size(), "remote", remote != null, "total", all.size(), "concrete", concrete);
+                    readings++;
+                }
+            } catch (Exception e) {
+                if (rules.isEmpty()) rules = builtin;
+            }
+        }
+        return rules;
     }
 
     // break: how a block gives way. mode: 0 never, 1 instant, 2 after `amount` hits, 3 after `amount` x hardness damage,

@@ -28,27 +28,16 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.fml.loading.FMLPaths;
 
 // What bullets do to the blocks and creatures they hit, besides NTM's damage: break blocks, particles, sounds.
 // Rules come from ntmgunfeel-bullets.txt in the mod jar, then config/ntm-gunfeel-bullets.txt (its lines win: of the
 // rules that match, the last one counts). The server acts on break, material, path, ricochet, entity and kill lines; the
 // client draws by hit, decal, hole, whizz and fly, and predicts the server's by the same lines. On another game's server
 // the client takes the server's lines of the server's kinds instead of its own (ServerSettings).
-public final class BulletRules {
+public final class BulletRules extends BulletRuleText {
     private BulletRules() {
     }
 
-    public static final String FILE = "ntm-gunfeel-bullets.txt";
-
-
-    private static List<Rule> rules = List.of();
-    private static long stamp = Long.MIN_VALUE, lastPoll;
-    // the server's settings the rules were last read with (null: none, this game's own file alone)
-    private static ServerSettings.@Nullable Snapshot rulesOf;
-    private static boolean builtinRead;
-    private static List<Rule> builtin = List.of();
-    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("ntm-gunfeel");
     private static final Map<BlockState, java.util.Optional<Break>> BREAKS = new java.util.IdentityHashMap<>();
     private static final Map<BlockState, Effect> HITS = new java.util.IdentityHashMap<>();
     private static final Map<BlockState, Boolean> RICOCHETS = new java.util.IdentityHashMap<>();
@@ -58,75 +47,28 @@ public final class BulletRules {
     // goes up each time the rules are read anew (PassableClip forgets the shapes it took from them)
     private static int generation;
 
-    // concrete gives way to bullets only when the server says so (off by default): ntm-gunfeel-server.properties
-    public static final String CONCRETE_KEY = "bulletBreakConcrete";
-    // bullets pierce machines (material machine) only when the server says so (off by default)
-    public static final String MACHINES_KEY = "bulletPierceMachines";
-    private static boolean concreteOf;
-
-    /** the file and the concrete key looked at again at the next use, whatever the clock (ReaimTimes.reloadNow) */
-    static synchronized void reloadNow() {
-        lastPoll = 0;
-    }
+    // the rules' reading the caches above were worked out of
+    private static int readingSeen;
 
     private static synchronized List<Rule> rules() {
-        long now = System.currentTimeMillis();
-        if (!builtinRead) {
-            builtinRead = true;
-            // the block review's materials first: the mod's bullet rules, then the config's, come after and win
-            List<Rule> mine = new ArrayList<>();
-            for (String name : List.of("/ntmgunfeel-materials.txt", "/ntmgunfeel-bullets.txt")) {
-                try (var in = BulletRules.class.getResourceAsStream(name)) {
-                    if (in != null) mine.addAll(BulletRuleText.parse(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)).lines().toList()));
-                } catch (Exception e) {
-                    LOGGER.warn("Could not read the built-in bullet rules {}", name, e);
-                }
-            }
-            builtin = mine;
-            stamp = Long.MIN_VALUE + 1;
-            lastPoll = 0;
+        List<Rule> all = load();
+        if (readingSeen != readings) {
+            readingSeen = readings;
+            BREAKS.clear();
+            HITS.clear();
+            RICOCHETS.clear();
+            DECALS.clear();
+            PATHS.clear();
+            HOLES.clear();
+            generation++;
+            MATERIALS.clear();
+            materialRules = null;
         }
-        ServerSettings.Snapshot remote = ServerSettings.remote();
-        if (now - lastPoll > 1000L || remote != rulesOf) {
-            lastPoll = now;
-            Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
-            try {
-                if (!Files.exists(f)) Files.writeString(f, BulletRuleText.HELP);
-                long m = Files.getLastModifiedTime(f).toMillis();
-                boolean concrete = ReaimTimes.flag(CONCRETE_KEY, false);
-                if (m != stamp || remote != rulesOf || concrete != concreteOf) {
-                    stamp = m;
-                    rulesOf = remote;
-                    concreteOf = concrete;
-                    List<Rule> all = new ArrayList<>(builtin);
-                    if (concrete) all.addAll(BulletRuleText.parse(List.of(BulletRuleText.CONCRETE_RULE)));
-                    List<Rule> own = BulletRuleText.parse(Files.readAllLines(f, StandardCharsets.UTF_8));
-                    if (remote == null) {
-                        all.addAll(own);
-                    } else {
-                        // on another game's server: what the server acts on by its rules, what only this client draws
-                        // by the player's
-                        for (Rule r : own) if (!ServerSettings.serverKind(r.kind())) all.add(r);
-                        for (Rule r : BulletRuleText.parse(remote.bullets().lines().toList())) if (ServerSettings.serverKind(r.kind())) all.add(r);
-                    }
-                    rules = all;
-                    TestLog.here("rules", "own", own.size(), "remote", remote != null, "total", all.size(), "concrete", concrete);
-                    BREAKS.clear();
-                    HITS.clear();
-                    RICOCHETS.clear();
-                    DECALS.clear();
-                    PATHS.clear();
-                    HOLES.clear();
-                    generation++;
-                    MATERIALS.clear();
-                    materialRules = null;
-                }
-            } catch (Exception e) {
-                if (rules.isEmpty()) rules = builtin;
-            }
-        }
-        return rules;
+        return all;
     }
+
+    // bullets pierce machines (material machine) only when the server says so (off by default)
+    public static final String MACHINES_KEY = "bulletPierceMachines";
 
     // ---- matching
 
