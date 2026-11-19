@@ -233,8 +233,8 @@ public final class PassableClip extends ClipContext {
             } else if (solid(state, hit)) {
                 return hit;
             }
-            if (TestLog.on(level) && TestLog.shot() >= 0)
-                TestLog.at(level, "gap", "block", state, "pos", hit.getBlockPos(), "at", hit.getLocation(),
+            if (WorldLog.on(level) && TestLog.shot() >= 0)
+                WorldLog.at(level, "gap", "block", state, "pos", hit.getBlockPos(), "at", hit.getLocation(),
                         "how", cells != null ? "cells" : vox != null ? (shell(vox) ? "shell" : "model") : maskOf(state) != null ? "mask" : "open");
             skip.add(hit.getBlockPos().immutable());
         }

@@ -63,7 +63,7 @@ public final class Gl54Probe {
             put(pose, out, rear ? "rearSlot" : "frontTip", 0, rear ? (lo + hi) / 2F : hi, (zLo + zHi) / 2F);
         }
         for (int c = 0; c < 8; c++) put(pose, out, "c" + c, all[(c & 1) * 3], all[1 + ((c >> 1) & 1) * 3], all[2 + ((c >> 2) & 1) * 3]);
-        Grips.Grip g = Grips.get(Identifier.fromNamespaceAndPath("ntmgunfeel", "gun_gl54"));
+        Grips.Grip g = Grips.get(Identifier.fromNamespaceAndPath("ntmgunfeel", "gun_gl54").toString());
         for (int q = -16; q <= 16; q++) {
             float z = q / 4F;
             if (g.leftAt() != null) put(pose, out, "L" + z, g.leftAt()[0], g.leftAt()[1], z);

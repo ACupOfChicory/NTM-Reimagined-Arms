@@ -822,7 +822,7 @@ public final class Tracers {
                 break;
             }
             if (TestLog.client && !known) TestLog.c(s.id, "block", "block", level.getBlockState(pos), "pos", pos, "at", block.getLocation(),
-                    "material", TestLog.material(level, block), "result", "pierce", "damage", s.damage, "left", left,
+                    "material", WorldLog.material(level, block), "result", "pierce", "damage", s.damage, "left", left,
                     "path", block.getLocation().distanceTo(out.getLocation()));
             standBlock(s, pos);
             if (!known) {
@@ -875,7 +875,7 @@ public final class Tracers {
                 // NTM's standard ricochet: a scratch, no hit effects (the server plays the ricochet's sound; on steel
                 // ours, BulletFx.ricochetSound); the bullet flies on mirrored on the face's axis unless that was its last
                 if (TestLog.client) TestLog.c(s.id, "ricochet", "block", level.getBlockState(block.getBlockPos()), "pos", block.getBlockPos(),
-                        "material", TestLog.material(level, block.getBlockPos()), "result", "bounced", "bounce", s.ricochets + 1);
+                        "material", WorldLog.material(level, block.getBlockPos()), "result", "bounced", "bounce", s.ricochets + 1);
                 if (holes(s.config)) {
                     scratch = vel.normalize();
                     try {
@@ -1057,7 +1057,7 @@ public final class Tracers {
     private static void logStop(Shot s, ClientLevel level, BlockHitResult hit, String why, float path) {
         if (!TestLog.client) return;
         BlockPos pos = hit.getBlockPos();
-        TestLog.c(s.id, "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(), "material", TestLog.material(level, hit),
+        TestLog.c(s.id, "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(), "material", WorldLog.material(level, hit),
                 "result", "stop", "why", why, "damage", s.damage, "path", Float.isNaN(path) ? null : path);
     }
 

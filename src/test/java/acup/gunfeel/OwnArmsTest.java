@@ -15,19 +15,19 @@ class OwnArmsTest {
     void handsOfOwnArmsAreReadAndWrittenOnTheGunItself() {
         var opened = Grips.snapshot();
         try {
-            float[] sexyRight = Grips.get(Identifier.parse(SEXY)).right().clone(), sexyAt = Grips.get(Identifier.parse(SEXY)).rightAt();
+            float[] sexyRight = Grips.get(Identifier.parse(SEXY).toString()).right().clone(), sexyAt = Grips.get(Identifier.parse(SEXY).toString()).rightAt();
             Grips.copyArms(HERETIC);
             Grips.setAt(HERETIC, true, 9F, 8F, 7F, false);
-            assertArrayEquals(new float[] {9F, 8F, 7F}, Grips.get(Identifier.parse(HERETIC)).rightAt());
-            assertArrayEquals(sexyAt, Grips.get(Identifier.parse(SEXY)).rightAt(), "Sexy's hand is untouched");
-            assertArrayEquals(sexyRight, Grips.get(Identifier.parse(SEXY)).right());
+            assertArrayEquals(new float[] {9F, 8F, 7F}, Grips.get(Identifier.parse(HERETIC).toString()).rightAt());
+            assertArrayEquals(sexyAt, Grips.get(Identifier.parse(SEXY).toString()).rightAt(), "Sexy's hand is untouched");
+            assertArrayEquals(sexyRight, Grips.get(Identifier.parse(SEXY).toString()).right());
             Grips.set(HERETIC + "-Barrel", false, 0.1F, 0.2F, 0.3F, false);
             assertTrue(Grips.variantHand(HERETIC + "-Barrel", false, false));
             assertFalse(Grips.variantHand(SEXY + "-Barrel", false, false));
             Grips.shareArms(HERETIC);
             assertNull(Grips.own(HERETIC, "rightAt"), "shared again: nothing of its own left");
             assertFalse(Grips.variantHand(HERETIC + "-Barrel", false, false), "nor of its variants");
-            assertArrayEquals(sexyAt, Grips.get(Identifier.parse(HERETIC)).rightAt());
+            assertArrayEquals(sexyAt, Grips.get(Identifier.parse(HERETIC).toString()).rightAt());
         } finally {
             Grips.restoreUnsaved(opened);
             Config.select(null);
@@ -40,13 +40,13 @@ class OwnArmsTest {
         var opened = Grips.snapshot();
         String dragon = "hbm:gun_double_barrel_sacred_dragon", barrel = "hbm:gun_double_barrel";
         try {
-            float[] sawnOff = Grips.get(Identifier.parse(barrel), "-Barrel").leftAt();
+            float[] sawnOff = Grips.get(Identifier.parse(barrel).toString(), "-Barrel").leftAt();
             assertNotNull(sawnOff);
             Grips.copyArms(dragon);
             assertTrue(Grips.ownArms(dragon));
             assertEquals(Grips.gunValue(barrel, "armLeftKeys"), Grips.own(dragon, "armLeftKeys"));
             assertTrue(Grips.variantHand(dragon + "-Barrel", false, false));
-            assertArrayEquals(sawnOff, Grips.get(Identifier.parse(dragon), "-Barrel").leftAt());
+            assertArrayEquals(sawnOff, Grips.get(Identifier.parse(dragon).toString(), "-Barrel").leftAt());
             assertEquals(0, Grips.armsToCopy(dragon));
         } finally {
             Grips.restoreUnsaved(opened);

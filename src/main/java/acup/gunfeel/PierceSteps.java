@@ -80,7 +80,7 @@ public final class PierceSteps {
             float left = wk == 1F ? PassableClip.pierced(level, s.in(), s.out(), bullet.damage, bullet.config, penetration)
                     : wk <= 0F ? -1F : PassableClip.pierced(level, s.in(), s.out(), bullet.damage * wk, bullet.config, penetration) / wk;
             if (TestLog.server) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(s.in().getBlockPos()), "pos", s.in().getBlockPos(),
-                    "at", s.in().getLocation(), "material", TestLog.material(level, s.in()), "result", left < 0F ? "stop" : "pierce",
+                    "at", s.in().getLocation(), "material", WorldLog.material(level, s.in()), "result", left < 0F ? "stop" : "pierce",
                     "why", "after_entity", "damage", bullet.damage, "left", left);
             if (left < 0F) {
                 // it stops in this block now that it hit a creature before it

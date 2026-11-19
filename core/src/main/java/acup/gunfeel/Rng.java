@@ -34,7 +34,7 @@ public final class Rng {
             try {
                 return Long.parseLong(s.trim());
             } catch (NumberFormatException e) {
-                DebugLog.LOGGER.warn("ntmgunfeel.seed is not a number: {}", s);
+                ModLog.LOGGER.warn("ntmgunfeel.seed is not a number: {}", s);
             }
         }
         // a trace compares runs: the same seed every time
