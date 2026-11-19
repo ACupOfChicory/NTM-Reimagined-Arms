@@ -113,14 +113,20 @@ void main() {
     float len = t1 - t0;
     int steps = int(clamp(ceil(len / Atlas.w), 2.0, Screen.w));
     float dt = len / float(steps);
+    // with the step growing the ray needs fewer of them: the ray's end stops it
+    if (Look.y > 0.5) steps = 128;
     // interleaved gradient noise: the first step's offset, so the steps leave no bands
     float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-    float t = t0 + dt * jitter;
+    // look b: t is where a step starts and the point is the jitter into it, so the last step, cut at the ray's end,
+    // still covers the whole ray
+    float t = Look.y > 0.5 ? t0 : t0 + dt * jitter;
     float through = 1.0;
     vec3 light = vec3(0.0);
     for (int i = 0; i < 128; i++) {
-        if (i >= steps || through < Anchor.w) break;
-        vec3 p = dir * t;
+        if (i >= steps || through < Anchor.w || Look.y > 0.5 && t >= t1 - 1e-3) break;
+        // a look to choose from (Look.y): the step grows beyond 8 blocks, twice as long from 16
+        float dti = Look.y > 0.5 ? min(dt * clamp(1.0 + max(0.0, t - 8.0) / 8.0, 1.0, 2.0), max(t1 - t, 0.0)) : dt;
+        vec3 p = dir * (Look.y > 0.5 ? t + dti * jitter : t);
         // every cloud of the group at this point: their smoke is one smoke, its extinctions add up and its colour is
         // theirs by how much each puts in
         float sigma = 0.0;
@@ -146,11 +152,11 @@ void main() {
             tint += e * Clouds[at + 3].rgb * (0.10 + 0.90 * dl.y);
         }
         if (sigma > 0.0) {
-            float a = 1.0 - exp(-sigma * dt);
+            float a = 1.0 - exp(-sigma * dti);
             light += through * a * (tint / sigma) * (0.88 + 0.24 * noise);
             through *= 1.0 - a;
         }
-        t += dt;
+        t += dti;
     }
     if (through > 0.999) discard;
     fragColor = vec4(light, 1.0 - through);

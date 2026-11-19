@@ -8,6 +8,8 @@ layout(std140) uniform SmokeInfo {
     vec4 Extra;     // x: groups, y: 1 = two octaves of noise, z: depth pixels per smoke pixel up, w: 1 = smokeEndsBefore on
     vec4 Anchor;    // xyz: a world point on a 1000-block lattice from the camera, where the noise is laid from;
                     // w: the light let through at which a ray stops
+    vec4 Look;      // the looks to choose from (temporary, SmokeRender.look): x 1 = the composite upscales by depth,
+                    // y 1 = the step grows with distance
     mat4 InvProjView; // the inverse of the level's projection times View (SmokeRender.projView)
     // per cloud, by group: origin of its grid from the camera (w: atlas slot), box min in cells (w: extinction),
     // box max in cells, colour (w: unused)

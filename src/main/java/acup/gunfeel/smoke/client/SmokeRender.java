@@ -179,7 +179,7 @@ public final class SmokeRender {
     // the matrix, four vec4 and the inverse of the projection times the view, then per cloud (SmokeAtlas.SLOTS of them) four vec4: origin, box min, box max, colour;
     // then per group (as many at most) two: its box's min and max. Clouds[] in smoke_info.glsl must be SLOTS * 4 long,
     // Groups[] SLOTS * 2 (SmokeShaderLinkTest checks)
-    static final int UBO_SIZE = 64 + 16 * 4 + 64 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16;
+    static final int UBO_SIZE = 64 + 16 * 5 + 64 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16;
     /** The noise is laid from a world point on a lattice this many blocks apart (the shader's PERIOD is 0.9 of it). */
     static final int ANCHOR = 1000;
     private static MappableRingBuffer ubo;
@@ -212,6 +212,12 @@ public final class SmokeRender {
     public static final int OLD_RECT = 1, OLD_DEPTH = 2, OLD_FRONT = 4, OLD_THROUGH = 8, OLD = 15;
     /** The stands only: the noise's time (seconds) and the partial tick held, so that two frames are the same; NaN: live. */
     public static float standSeconds = Float.NaN;
+    /**
+     * Temporary, the looks for the owner to choose from (SmokeLooks in the game, SmokeCompare on the stands): 1 while
+     * the camera is in a cloud's box the march at a part of the screen one coarser (high: a third, ultra: a half), laid
+     * over with an upscale by depth; 2 the step grows beyond 8 blocks, twice as long from 16; 4 one octave of noise.
+     */
+    public static int look;
     /** A ray stops when this much light is let through (1% before 2026-11-18). */
     static final float THROUGH_MIN = 0.03F;
 
@@ -466,7 +472,10 @@ public final class SmokeRender {
         try {
             int q = quality();
             RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
-            int div = divisor(q), w = Math.max(1, main.width / div), h = Math.max(1, main.height / div);
+            int div = divisor(q);
+            boolean lowInside = (look & 1) != 0 && div <= 2 && cameraInBox(slots, e.getLevelRenderState().cameraRenderState.pos);
+            if (lowInside) div++;
+            int w = Math.max(1, main.width / div), h = Math.max(1, main.height / div);
             if (target == null || targetW != w || targetH != h) {
                 closeTarget();
                 targetW = w;
@@ -517,9 +526,10 @@ public final class SmokeRender {
                 b.putMat4f(new Matrix4f(e.getModelViewMatrix()));
                 b.putVec4((float) depthW / w, zeroToOne ? 1F : 0F, seconds, maxSteps(q));
                 b.putVec4(1F / SmokeAtlas.WIDTH, 1F / SmokeAtlas.HEIGHT, partial, stepLength(q));
-                b.putVec4(groups.length, q >= 3 ? 1F : 0F, (float) depthH / h, (standOld & OLD_FRONT) != 0 || projView == null ? 0F : 1F);
+                b.putVec4(groups.length, q >= 3 && (look & 4) == 0 ? 1F : 0F, (float) depthH / h, (standOld & OLD_FRONT) != 0 || projView == null ? 0F : 1F);
                 b.putVec4((float) (Math.floor(cam.x / ANCHOR) * ANCHOR - cam.x), (float) (Math.floor(cam.y / ANCHOR) * ANCHOR - cam.y),
                         (float) (Math.floor(cam.z / ANCHOR) * ANCHOR - cam.z), (standOld & OLD_THROUGH) != 0 ? 0.01F : THROUGH_MIN);
+                b.putVec4(lowInside ? 1F : 0F, (look & 2) != 0 ? 1F : 0F, 0F, 0F);
                 b.putMat4f(projView != null ? new Matrix4f(projView).invert() : new Matrix4f());
                 for (int i = 0; i < SmokeAtlas.SLOTS; i++) {
                     if (i >= order.size()) {
@@ -633,6 +643,15 @@ public final class SmokeRender {
         pass.bindTexture("Depth1", postDepthView, nearest);
     }
 
+    // whether the camera is in one of the drawn clouds' boxes
+    private static boolean cameraInBox(List<SmokeAtlas.Slot> slots, Vec3 cam) {
+        for (SmokeAtlas.Slot s : slots) {
+            double[] b = worldBox(s.cloud());
+            if (cam.x >= b[0] && cam.x <= b[3] && cam.y >= b[1] && cam.y <= b[4] && cam.z >= b[2] && cam.z <= b[5]) return true;
+        }
+        return false;
+    }
+
     // this frame's depth with glass: the target's own, or the copy (standOld)
     private static GpuTextureView postDepthView;
 
@@ -716,7 +735,7 @@ public final class SmokeRender {
     // a frame's first mark; the slot's last frame read back first
     private static void timerBegin(com.mojang.blaze3d.systems.GpuDevice device) {
         timerSlot = -1;
-        if (timerOff || !SmokeStats.MEASURING) return;
+        if (timerOff || !SmokeStats.MEASURING && !SmokeLooks.measuring()) return;
         try {
             if (timer == null) timer = device.createTimestampQueryPool(TIMER_FRAMES * MARKS);
             int f = timerFrame++ % TIMER_FRAMES;
