@@ -120,6 +120,15 @@ public interface Body {
     /** left-handed; a mob only */
     boolean leftHanded();
 
+    /** the hands of {@link #held} */
+    int MAIN_HAND = 0, OFF_HAND = 1;
+
+    /**
+     * The item in a hand by the mod's own number (one an Item, the same while the game runs; not the registry's, which
+     * a server renumbers), 0 an empty hand; the living only
+     */
+    int held(int hand);
+
     /** its walking speed (the movement speed attribute); living */
     double speed();
 

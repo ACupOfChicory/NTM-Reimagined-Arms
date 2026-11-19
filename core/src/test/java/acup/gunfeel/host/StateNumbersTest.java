@@ -161,8 +161,8 @@ class StateNumbersTest {
         }
 
         @Override
-        public float destroySpeed(int x, int y, int z) {
-            return blocks.getOrDefault(key(x, y, z), AIR_STATE).key.equals("minecraft:stone") ? 1.5F : 0F;
+        public float destroySpeed(int state, int x, int y, int z) {
+            return table.state(state).key.equals("minecraft:stone") ? 1.5F : 0F;
         }
 
         @Override

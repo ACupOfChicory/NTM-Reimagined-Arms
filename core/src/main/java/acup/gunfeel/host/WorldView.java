@@ -11,8 +11,12 @@ public interface WorldView extends BlockTable {
     /** the block state at the place, as {@link BlockTable}'s number */
     int state(int x, int y, int z);
 
-    /** how long the block at the place takes to break, there (as the game's BlockState.getDestroySpeed(level, pos)); not facts.hardness() */
-    float destroySpeed(int x, int y, int z);
+    /**
+     * how long the block at the place takes to break, there: the game's BlockState.getDestroySpeed(level, pos) of the
+     * state with that number, the world not read again (not facts.hardness()). The number is the one {@link #state}
+     * gave for this place; another is the asker's mistake, not caught here.
+     */
+    float destroySpeed(int state, int x, int y, int z);
 
     /** the level's game tick (the game's Level.getGameTime: the overworld's, as the game keeps it for every dimension) */
     long gameTime();

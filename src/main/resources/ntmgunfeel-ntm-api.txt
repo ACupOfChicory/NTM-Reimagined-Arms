@@ -1186,6 +1186,7 @@ MOB_AI class com/hbm/items/armor/ModArmorItem
 MOB_AI class com/hbm/items/weapon/sedna/BulletConfig
 MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT
 MOB_AI class com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext
+MOB_AI class com/hbm/items/weapon/sedna/Receiver
 MOB_AI class com/hbm/items/weapon/sedna/mags/IMagazine
 MOB_AI class com/hbm/items/weapon/sedna/mags/MagazineBelt
 MOB_AI class com/hbm/items/weapon/sedna/mags/MagazineSingleTypeBase
@@ -1225,6 +1226,9 @@ MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getIsAiming (Lnet/minecra
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT getState (Lnet/minecraft/world/item/ItemStack;I)Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT handleKeybind (Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;Lnet/minecraft/world/item/ItemStack;Lcom/hbm/handler/HbmKeybinds$EnumKeybind;Z)V
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT setValueInt (Lnet/minecraft/world/item/ItemStack;Ljava/lang/String;I)V
+MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState name ()Ljava/lang/String;
+MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState ordinal ()I
+MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState values ()[Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI method com/hbm/items/weapon/sedna/ItemGunBaseNT$LambdaContext <init> (Lcom/hbm/items/weapon/sedna/GunConfig;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/Container;I)V
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getAmmoSpread (Lnet/minecraft/world/item/ItemStack;)F
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getBaseDamage (Lnet/minecraft/world/item/ItemStack;)F

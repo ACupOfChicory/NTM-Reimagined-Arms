@@ -118,6 +118,11 @@ public final class EntityBody implements Body {
     @Override public boolean alive() { return e.isAlive(); }
     @Override public boolean removed() { return e.isRemoved(); }
     @Override public boolean leftHanded() { return ((Mob) e).isLeftHanded(); }
+    @Override
+    public int held(int hand) {
+        LivingEntity l = (LivingEntity) e;
+        return ItemNumbers.number((hand == MAIN_HAND ? l.getMainHandItem() : l.getOffhandItem()).getItem());
+    }
     @Override public double speed() { return ((LivingEntity) e).getAttributeValue(Attributes.MOVEMENT_SPEED); }
 
     @Override
