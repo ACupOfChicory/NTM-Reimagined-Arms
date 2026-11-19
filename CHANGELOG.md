@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Smoke and gas clouds are drawn the cheaper way that was to be tried with F7,
+  all three of its parts for good: inside a cloud the smoke is drawn coarser and
+  laid over the walls by their depth, the smoke far off is gone through in
+  longer steps, and its grain has one layer of noise instead of two. F7 and the
+  look shown in the top left corner are gone again.
+
 ## X1713
 
 - With the OpenGL renderer a smoke or gas cloud no longer shows a picture of the
