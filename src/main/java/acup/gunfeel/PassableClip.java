@@ -169,7 +169,7 @@ public final class PassableClip extends ClipContext {
         // Проверяем до правил пробития, чтобы они тоже не обходили общий выключатель.
         if ((Cells.machine(state) || Cells.machine(ruleState) || v.material() == Materials.Material.MACHINE)
                 && !ReaimTimes.flag(BulletRules.MACHINES_KEY, false)) return -1F;
-        BulletRules.Break rule = BulletRules.breakRule(state);
+        BulletRuleText.Break rule = BulletRules.breakRule(state);
         if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, state.getDestroySpeed(level, in.getBlockPos()), in.getLocation().distanceTo(out.getLocation()));
         float left = penetration.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
         return left >= 1F ? left : -1F;

@@ -4,8 +4,6 @@ import java.util.AbstractList;
 import java.util.List;
 import java.util.RandomAccess;
 
-import net.minecraft.core.BlockPos;
-
 /**
  * Client: NTM's standard blast effect (its ExplosionStandardPayload, sent by the blocks of semtex and C4, NTM's torpedo
  * and crashing plane, its volatile and gold creepers, the discharge beam and a bursting boiler) puffs and smokes at
@@ -20,20 +18,23 @@ public final class BlastParticles {
     private BlastParticles() {
     }
 
-    /** The blocks NTM's effect goes through: all of them up to {@link #MAX}, else MAX of them, every size/MAX-th. */
-    public static List<BlockPos> cap(List<BlockPos> blocks) {
-        return blocks.size() <= MAX ? blocks : new Every(blocks);
+    /**
+     * The blocks NTM's effect goes through (its BlockPos list on 26.2): all of them up to {@link #MAX}, else MAX of them,
+     * every size/MAX-th.
+     */
+    public static <T> List<T> cap(List<T> blocks) {
+        return blocks.size() <= MAX ? blocks : new Every<>(blocks);
     }
 
-    private static final class Every extends AbstractList<BlockPos> implements RandomAccess {
-        private final List<BlockPos> all;
+    private static final class Every<T> extends AbstractList<T> implements RandomAccess {
+        private final List<T> all;
 
-        Every(List<BlockPos> all) {
+        Every(List<T> all) {
             this.all = all;
         }
 
         @Override
-        public BlockPos get(int i) {
+        public T get(int i) {
             return all.get((int) ((long) i * all.size() / MAX));
         }
 

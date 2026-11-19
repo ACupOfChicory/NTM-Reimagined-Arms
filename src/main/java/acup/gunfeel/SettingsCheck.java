@@ -167,7 +167,7 @@ public final class SettingsCheck {
     }
 
     private static Object mode(BlockState state) {
-        BulletRules.Break b = BulletRules.breakRule(state);
+        BulletRuleText.Break b = BulletRules.breakRule(state);
         return b == null ? null : b.mode();
     }
 
