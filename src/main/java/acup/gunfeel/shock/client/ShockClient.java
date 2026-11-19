@@ -46,7 +46,7 @@ public final class ShockClient {
         // the discharges and the light vignette at the screen's edges, over the camera's own overlays
         modBus.addListener(net.neoforged.neoforge.client.event.RegisterGuiLayersEvent.class,
                 e -> e.registerAbove(net.neoforged.neoforge.client.gui.VanillaGuiLayers.CAMERA_OVERLAYS,
-                        Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_arcs"), ShockArcs::draw));
+                        Identifier.fromNamespaceAndPath("ntmgunfeel", "shock_arcs"), ShockHud::arcs));
         var bus = NeoForge.EVENT_BUS;
         bus.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> {
             if (!Minecraft.getInstance().isPaused()) tick++;

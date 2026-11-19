@@ -22,6 +22,7 @@ import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 
+import acup.gunfeel.GuiShapes;
 import acup.gunfeel.GunFeel;
 import acup.gunfeel.mixin.mc.GameRendererAccess;
 import acup.gunfeel.mixin.mc.GuiLayerManagerAccess;
@@ -199,5 +200,34 @@ public final class ShockHud {
         }
         ubo.rotate();
         frames++;
+    }
+
+    /** the discharges and the vignette at the screen's edges (ShockArcs: their look), a layer (ShockClient.init) */
+    static void arcs(GuiGraphicsExtractor g, DeltaTracker delta) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.gui.hud.isHidden()) return;
+        float k = ShockClient.glitch();
+        if (k <= 0.001F) return;
+        float w = g.guiWidth(), h = g.guiHeight();
+        GuiShapes s = new GuiShapes(g);
+        // the vignette: a band along each edge, mitred at the corners, from the edge's colour to nothing
+        float d = Math.min(w, h) * ShockArcs.VIGNETTE_DEPTH;
+        int e = GuiShapes.argb(ShockArcs.EDGE, ShockArcs.vignette(k)), o = ShockArcs.EDGE & 0xFFFFFF;
+        s.quad(0, 0, e, w, 0, e, w - d, d, o, d, d, o);
+        s.quad(w, h, e, 0, h, e, d, h - d, o, w - d, h - d, o);
+        s.quad(0, h, e, 0, 0, e, d, d, o, d, h - d, o);
+        s.quad(w, 0, e, w, h, e, w - d, h - d, o, w - d, d, o);
+        // the discharges: the same picture for ShockArcs.FRAME_TICKS ticks, a glow and a thin core
+        Random r = new Random(ShockClient.ticks() / ShockArcs.FRAME_TICKS * 0x9E3779B97F4A7C15L + ShockClient.started());
+        for (int i = ShockArcs.arcs(k); i > 0; i--) {
+            float[] p = ShockArcs.arc(r, w, h);
+            float a = k * p[p.length - 1];
+            int glow = GuiShapes.argb(ShockArcs.GLOW, 0.35F * a), core = GuiShapes.argb(ShockArcs.CORE, 0.9F * a);
+            for (int j = 0; j + 3 < p.length - 1; j += 2) {
+                s.line(p[j], p[j + 1], p[j + 2], p[j + 3], 3F, glow);
+                s.line(p[j], p[j + 1], p[j + 2], p[j + 3], 1F, core);
+            }
+        }
+        s.submit(g);
     }
 }

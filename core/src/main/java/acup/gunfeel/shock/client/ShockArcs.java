@@ -2,14 +2,10 @@ package acup.gunfeel.shock.client;
 
 import java.util.Random;
 
-import acup.gunfeel.GuiShapes;
-import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-
 /**
- * Client: the shock seen at the screen's edges, a layer of the HUD (no pass over the whole frame): a light bluish
- * white vignette round the edges and a few discharges jagging in from them, a new picture of them every other tick.
+ * Client: the shock seen at the screen's edges, its look (ShockHud.arcs draws it, a layer of the HUD, no pass over the
+ * whole frame): a light bluish white vignette round the edges and a few discharges jagging in from them, a new picture
+ * of them every other tick.
  * Both as strong as the HUD's glitch (ShockClient.glitch(): the shock's envelope times shockGlitch), so they wear off
  * with the shock and a player who turned the glitch down sees less of them. Not glitched itself (ShockHud.KEEP).
  */
@@ -28,7 +24,8 @@ public final class ShockArcs {
     /** a new picture every this many game ticks */
     static final int FRAME_TICKS = 2;
 
-    private static final int GLOW = 0x6FB8FF, CORE = 0xF2F8FF, EDGE = 0xDDEEFF;
+    /** the discharges' glow and core, the vignette's edge (RGB) */
+    static final int GLOW = 0x6FB8FF, CORE = 0xF2F8FF, EDGE = 0xDDEEFF;
 
     /** the vignette's alpha at the edge for a glitch of {@code k} (0 to 1) */
     static float vignette(float k) {
@@ -67,34 +64,5 @@ public final class ShockArcs {
         }
         p[p.length - 1] = 0.5F + r.nextFloat() * 0.5F;
         return p;
-    }
-
-    /** the layer (ShockClient.init) */
-    static void draw(GuiGraphicsExtractor g, DeltaTracker delta) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.gui.hud.isHidden()) return;
-        float k = ShockClient.glitch();
-        if (k <= 0.001F) return;
-        float w = g.guiWidth(), h = g.guiHeight();
-        GuiShapes s = new GuiShapes(g);
-        // the vignette: a band along each edge, mitred at the corners, from the edge's colour to nothing
-        float d = Math.min(w, h) * VIGNETTE_DEPTH;
-        int e = GuiShapes.argb(EDGE, vignette(k)), o = EDGE & 0xFFFFFF;
-        s.quad(0, 0, e, w, 0, e, w - d, d, o, d, d, o);
-        s.quad(w, h, e, 0, h, e, d, h - d, o, w - d, h - d, o);
-        s.quad(0, h, e, 0, 0, e, d, d, o, d, h - d, o);
-        s.quad(w, 0, e, w, h, e, w - d, h - d, o, w - d, d, o);
-        // the discharges: the same picture for FRAME_TICKS ticks, a glow and a thin core
-        Random r = new Random(ShockClient.ticks() / FRAME_TICKS * 0x9E3779B97F4A7C15L + ShockClient.started());
-        for (int i = arcs(k); i > 0; i--) {
-            float[] p = arc(r, w, h);
-            float a = k * p[p.length - 1];
-            int glow = GuiShapes.argb(GLOW, 0.35F * a), core = GuiShapes.argb(CORE, 0.9F * a);
-            for (int j = 0; j + 3 < p.length - 1; j += 2) {
-                s.line(p[j], p[j + 1], p[j + 2], p[j + 3], 3F, glow);
-                s.line(p[j], p[j + 1], p[j + 2], p[j + 3], 1F, core);
-            }
-        }
-        s.submit(g);
     }
 }

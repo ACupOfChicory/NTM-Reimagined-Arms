@@ -51,7 +51,7 @@ SPDX-License-Identifier = "GPL-3.0-only"
 
 # Code copied from TaCZ (third-party/tacz.txt).
 [[annotations]]
-path = "src/main/java/acup/gunfeel/tacz/**"
+path = ["src/main/java/acup/gunfeel/tacz/**", "core/src/main/java/acup/gunfeel/tacz/**"]
 precedence = "override"
 SPDX-FileCopyrightText = [
     "MCModderAnchor and contributors to TaCZ",
