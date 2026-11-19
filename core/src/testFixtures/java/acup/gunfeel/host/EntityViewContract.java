@@ -128,6 +128,7 @@ public abstract class EntityViewContract {
         assertThrows(RuntimeException.class, p::climbing);
         assertThrows(RuntimeException.class, p::speed);
         assertThrows(RuntimeException.class, p::lying);
+        assertThrows(RuntimeException.class, () -> p.held(Body.MAIN_HAND));
     }
 
     @Test

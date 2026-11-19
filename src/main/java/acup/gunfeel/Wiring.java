@@ -45,8 +45,9 @@ public final class Wiring implements Ports {
         // ---- ballistics and balance (the world comes per level: world below)
         put(BlockTable.class, new BlockStates());
         // ---- water (its world comes per level: liquids below)
-        // ---- other: hitboxes, GL-54, HUD, tacz
+        // ---- other: hitboxes, GL-54, HUD, tacz, NTM's guns
         put(acup.gunfeel.host.GamePause.class, new ClientPause());
+        put(acup.gunfeel.host.NtmGuns.class, new acup.gunfeel.ai.AiGunner.Guns());
     }
 
     // one implementation each: a second for the same port is a mistake of this file
