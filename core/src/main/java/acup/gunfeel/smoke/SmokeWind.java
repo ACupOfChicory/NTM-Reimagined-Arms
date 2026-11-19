@@ -1,13 +1,12 @@
 package acup.gunfeel.smoke;
 
-import net.minecraft.server.level.ServerLevel;
-
 /**
  * The wind over a level, on the server: one for the whole level, from its seed and its game time, so it needs no saving
  * and every cloud born at one time gets the same. It swings slowly round a way of its own (two slow waves, of 30 and 17
  * minutes: a third of a turn a minute at most, a quarter to half a turn in 10 to 20 minutes) and blows by the weather,
  * half a block a second in the clear, a block in the rain and two in a thunderstorm, with the weather's own fading
- * between them. No wind where the level has no sky or has a ceiling (the Nether, the End).
+ * between them. No wind where the level has no sky or has a ceiling (the Nether, the End): the version's adapter
+ * asks the level for that, its seed, time and weather (26.2: {@code SmokeClouds.wind}).
  *
  * <p>A cloud takes the wind of its birth for its life ({@link SmokeClouds#spawn}, sent in the cloud's {@code Spawn}):
  * the client steps the same drift without a wind of its own.
@@ -19,13 +18,6 @@ public final class SmokeWind {
     private static final double SLOW = 36_000, FAST = 20_400, SLOW_SWING = 1.6, FAST_SWING = 0.6;
 
     private SmokeWind() {
-    }
-
-    /** The wind now, {x, z} in blocks a tick. */
-    public static float[] at(ServerLevel level) {
-        if (!level.dimensionType().hasSkyLight() || level.dimensionType().hasCeiling()) return new float[2];
-        float rain = level.getRainLevel(1F), thunder = level.getThunderLevel(1F);
-        return at(level.getSeed(), level.getGameTime(), rain, thunder);
     }
 
     /** The wind for a seed at a game time with this much rain and thunder (0 to 1, thunder counted within the rain). */

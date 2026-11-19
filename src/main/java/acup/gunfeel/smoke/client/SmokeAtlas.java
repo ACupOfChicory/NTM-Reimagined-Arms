@@ -28,13 +28,14 @@ import net.minecraft.world.phys.Vec3;
  * <p>A texel: R the density a tick ago and G now (the shader blends them by the partial tick, so the spreading is smooth
  * at 20 Hz), both times "open" and scaled by 1/{@link #SCALE}; B how lit the cell is; A 255 open, 0 closed. The shader
  * divides the filtered density by the filtered openness: a sample next to a wall takes only the open cells' smoke, so
- * there is no clear strip along a wall and no film through one.
+ * there is no clear strip along a wall and no film through one. The texels are core's ({@link SmokeAtlasTexels});
+ * here the texture, the light looked up and the rows sent.
  */
 public final class SmokeAtlas {
-    public static final int TILE_W = SmokeGrid.SX + 2, TILE_H = SmokeGrid.SZ + 2;
-    public static final int WIDTH = TILE_W * SmokeGrid.SY, SLOTS = 16, HEIGHT = TILE_H * SLOTS;
+    public static final int TILE_W = SmokeAtlasTexels.TILE_W, TILE_H = SmokeAtlasTexels.TILE_H;
+    public static final int WIDTH = SmokeAtlasTexels.WIDTH, SLOTS = 16, HEIGHT = TILE_H * SLOTS;
     /** Densities up to this go in a byte. */
-    public static final float SCALE = 1.25F;
+    public static final float SCALE = SmokeAtlasTexels.SCALE;
     private static final int SLOT_BYTES = WIDTH * TILE_H * 4;
 
     /** A cloud being drawn: its slot, and the atlas texels last sent. */
@@ -141,8 +142,8 @@ public final class SmokeAtlas {
             int mx = c.grid.shiftX() - s.shiftX, mz = c.grid.shiftZ() - s.shiftZ;
             boolean moved = !first && (mx != 0 || mz != 0);
             if (moved) {
-                move(s.now, mx, mz, (byte) 0);
-                move(s.light, mx, mz, s.light[SmokeGrid.index(SmokeGrid.OX, c.grid.oy(), SmokeGrid.OZ)]);
+                SmokeAtlasTexels.move(s.now, mx, mz, (byte) 0);
+                SmokeAtlasTexels.move(s.light, mx, mz, s.light[SmokeGrid.index(SmokeGrid.OX, c.grid.oy(), SmokeGrid.OZ)]);
             }
             s.shiftX = c.grid.shiftX();
             s.shiftZ = c.grid.shiftZ();
@@ -165,15 +166,6 @@ public final class SmokeAtlas {
             encoder.writeToTexture(texture, upload, 0, 0, 0, s.index * TILE_H + lo, WIDTH, hi - lo + 1);
         }
         SmokeStats.add(SmokeStats.ATLAS, System.nanoTime() - t0);
-    }
-
-    // a cell's bytes dx, dz cells back (the box went dx, dz on); the cells that came in get {@code empty}
-    private static void move(byte[] a, int dx, int dz, byte empty) {
-        byte[] was = a.clone();
-        for (int y = 0; y < SmokeGrid.SY; y++) for (int z = 0; z < SmokeGrid.SZ; z++) for (int x = 0; x < SmokeGrid.SX; x++) {
-            int fx = x + dx, fz = z + dz;
-            a[SmokeGrid.index(x, y, z)] = SmokeGrid.inside(fx, y, fz) ? was[SmokeGrid.index(fx, y, fz)] : empty;
-        }
     }
 
     // every cell as lit as the cloud's origin, until its layer is looked up
@@ -201,27 +193,7 @@ public final class SmokeAtlas {
 
     // the slot's texels into the upload buffer: the old "now" becomes "a tick ago"
     private static void fill(Slot s, SmokeClouds.Cloud c, boolean first, int lo, int hi) {
-        SmokeGrid g = c.grid;
-        ByteBuffer out = upload;
-        out.clear();
-        for (int ty = lo; ty <= hi; ty++) {
-            int z = ty - 1;
-            for (int y = 0; y < SmokeGrid.SY; y++) {
-                for (int tx = 0; tx < TILE_W; tx++) {
-                    int x = tx - 1, at = (ty * WIDTH + y * TILE_W + tx) * 4;
-                    if (x < 0 || z < 0 || x >= SmokeGrid.SX || z >= SmokeGrid.SZ) {
-                        out.put(at, (byte) 0).put(at + 1, (byte) 0).put(at + 2, (byte) 255).put(at + 3, (byte) 255);
-                        continue;
-                    }
-                    int i = SmokeGrid.index(x, y, z);
-                    boolean closed = g.closedAt(i);
-                    int v = closed ? 0 : Math.min(255, Math.round(g.density(i) / SCALE * 255F));
-                    byte before = first ? (byte) v : s.now[i];
-                    s.now[i] = (byte) v;
-                    out.put(at, closed ? 0 : before).put(at + 1, (byte) v).put(at + 2, s.light[i]).put(at + 3, closed ? 0 : (byte) 255);
-                }
-            }
-        }
+        SmokeAtlasTexels.fill(c.grid, s.now, s.light, first, lo, hi, upload);
     }
 
     /** Frees the atlas and its upload buffer; the next cloud to draw makes them again. */
