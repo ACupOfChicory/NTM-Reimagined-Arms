@@ -180,7 +180,7 @@ public final class Hud {
     private static acup.gunfeel.gl54.Gl54Hud.Model glModel(acup.gunfeel.gl54.GrenadeMagazine mag, ItemStack stack, LocalPlayer player, Inventory inv) {
         var gun = acup.gunfeel.gl54.GrenadeMagazine.gun(stack);
         int reserve = acup.gunfeel.gl54.MagLogic.reserve(acup.gunfeel.gl54.GrenadeType.magazines(inv), acup.gunfeel.gl54.GrenadeType.counts(inv), mag.wanted(stack, inv));
-        float frac = acup.gunfeel.gl54.Gl54Hud.reloadFrac(com.hbm.render.anim.HbmAnimations.getGunAnimation(0),
+        float frac = acup.gunfeel.gl54.Gl54Gun.reloadFrac(com.hbm.render.anim.HbmAnimations.getGunAnimation(0),
                 com.hbm.render.anim.HbmAnimations.getGunAnimationTimer(0), ItemGunBaseNT.getState(stack, 0), mag.getAmountBeforeReload(stack) <= 0);
         return acup.gunfeel.gl54.Gl54Hud.model(gun, reserve, frac);
     }
