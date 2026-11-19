@@ -24,7 +24,6 @@ public final class SmokeClientSetup {
 
     public static void init(IEventBus modBus) {
         SmokeRender.register(modBus);
-        SmokeLooks.register(modBus);
         modBus.addListener(RegisterGuiLayersEvent.class,
                 e -> e.registerAbove(VanillaGuiLayers.CAMERA_OVERLAYS, Identifier.fromNamespaceAndPath("ntmgunfeel", "smoke"), SmokeFog::layer));
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.client.event.ClientTickEvent.Post.class, e -> {

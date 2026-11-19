@@ -524,6 +524,9 @@ final class SmokeCloudStand {
     // the noise's time held (SmokeRender.standSeconds), so every frame is the same; then each way of drawing them
     // (SmokeCompare.VARIANTS, the first one twice more at the end: the noise floor) set, 30 frames to settle, 300
     // timed, a shot <dir>/<pose>-<variant>.png and a row. High quality, the sky's clouds on.
+    // In the first 10 frames of each the camera is turned aside (TURN) with the whole frame copied, then back: a copy
+    // of the clouds' part of the screen that is not made again leaves that turned view in it, and the shot differs
+    // from old-rect's (whole copies each frame). The same frame each time could not show that (X1699's copies on OpenGL).
     // glass-front: stained glass between the eye and the clouds; glass-behind: behind them
     private static final List<Pose> COMPARE_POSES = List.of(
             new Pose("outside", 0.5, Y + 3.2, 4.5, 0F, 8F, false),
@@ -538,6 +541,8 @@ final class SmokeCloudStand {
             .filter(p -> !System.getProperty("ntmgunfeel.smokePoses", "").startsWith("compare:")
                     || List.of(System.getProperty("ntmgunfeel.smokePoses").substring(8).split("\\+")).contains(p.name)).toList();
     private static int cPose, cVariant, cStage, cFrames;
+    // how far the camera is turned aside before each variant, degrees (and a third of it down)
+    private static final float TURN = 20F;
 
     private static int glassKind(Pose p) {
         return p.name.equals("glass-front") ? 0 : p.name.equals("glass-behind") ? 3 : -1;
@@ -600,6 +605,14 @@ final class SmokeCloudStand {
                 int at = cVariant < variants.size() ? cVariant : 0;
                 String name = cVariant < variants.size() ? variants.get(cVariant) : variants.get(0) + (cVariant - variants.size() + 2);
                 if (cFrames == -200 || cFrames == 0 && cVariant > 0) acup.gunfeel.smoke.client.SmokeCompare.set(variants.get(at));
+                if (cFrames >= 0 && cFrames < 10) {
+                    var player = Minecraft.getInstance().player;
+                    player.setYRot(p.yaw + TURN);
+                    player.yRotO = p.yaw + TURN;
+                    player.setXRot(p.pitch + TURN / 3);
+                    player.xRotO = p.pitch + TURN / 3;
+                    acup.gunfeel.smoke.client.SmokeRender.standOld |= acup.gunfeel.smoke.client.SmokeRender.OLD_RECT;
+                } else if (cFrames == 10) acup.gunfeel.smoke.client.SmokeCompare.set(variants.get(at));
                 cFrames++;
                 if (cFrames == 31) {
                     cardAt = new long[]{SmokeStats.cardNanos, SmokeStats.cardFrames};

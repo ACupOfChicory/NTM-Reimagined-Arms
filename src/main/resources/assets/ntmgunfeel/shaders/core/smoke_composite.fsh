@@ -65,8 +65,8 @@ vec4 frontAt(vec2 uv) {
     return sum;
 }
 
-// a look to choose from (Look.x): SmokeFull upscaled by depth, a texel whose depth is far from this pixel's counts
-// for little, so the smoke does not bleed over the edge of a wall
+// with the camera in a cloud (Extra.y, the march coarser then): SmokeFull upscaled by depth, a texel whose depth is
+// far from this pixel's counts for little, so the smoke does not bleed over the edge of a wall
 vec4 fullByDepth(vec2 uv, float here) {
     ivec2 low = textureSize(SmokeFull, 0);
     vec2 scale = vec2(textureSize(Depth0, 0)) / vec2(low);
@@ -95,7 +95,7 @@ void main() {
 #if !defined(CHAIN_MAIN)
     vec4 p = texelFetch(FramePost, px, 0);
 #endif
-    vec4 full = Look.x > 0.5 ? fullByDepth(texCoord, texelFetch(Depth0, px, 0).r) : texture(SmokeFull, texCoord);
+    vec4 full = Extra.y > 0.5 ? fullByDepth(texCoord, texelFetch(Depth0, px, 0).r) : texture(SmokeFull, texCoord);
     bool glass = nearer(texelFetch(Depth1, px, 0).r, texelFetch(Depth0, px, 0).r);
 #if defined(CHAIN_MAIN)
     vec3 world = texelFetch(FrameOpaque, px, 0).rgb;
