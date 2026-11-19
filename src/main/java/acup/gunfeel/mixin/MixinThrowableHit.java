@@ -127,16 +127,19 @@ public abstract class MixinThrowableHit {
         if (level.isClientSide()) hit = acup.gunfeel.BeamLasers.clip(level, bullet.config, context.getFrom(), to);
         else {
             // blocks it pierced (bullet rules "pierce"), kept between ticks: one it stopped inside of is not paid twice
-            if (gunfeel$pierced == null) gunfeel$pierced = new java.util.HashSet<>();
+            if (gunfeel$pierced == null) gunfeel$pierced = new acup.gunfeel.PaidBlocks();
             hit = acup.gunfeel.BulletServer.clip(bullet, level, context.getFrom(), to, gunfeel$pierced);
             // the blast stand: the blocks a player's bullet went through
-            if (acup.gunfeel.ClientHits.standLog) for (var pos : gunfeel$pierced) acup.gunfeel.ClientHits.standPierced(bullet, pos, context.getFrom());
+            if (acup.gunfeel.ClientHits.standLog) {
+                Vec3 from = context.getFrom();
+                gunfeel$pierced.forEach(pos -> acup.gunfeel.ClientHits.standPierced(bullet, net.minecraft.core.BlockPos.of(pos), from));
+            }
         }
         return acup.gunfeel.water.WaterTick.blocks(bullet, hit);
     }
 
     @Unique
-    private java.util.Set<net.minecraft.core.BlockPos> gunfeel$pierced;
+    private acup.gunfeel.PaidBlocks gunfeel$pierced;
 
     @Unique
     private Vec3 gunfeel$start(Vec3 from) {
