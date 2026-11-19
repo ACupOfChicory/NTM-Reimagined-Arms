@@ -8,12 +8,12 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import acup.gunfeel.Vec3d;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.phys.Vec3;
 
 // Where to hide from a threat, on hand-made cells: behind the wall, hidden, with a place to shoot from at its end.
 class CoverQueryTest {
-    static final Vec3 NORTH = new Vec3(12.3, 1.6, 2.5), SOUTH = new Vec3(12.3, 1.6, 22.5), SELF = new Vec3(11.5, 0, 14.5);
+    static final Vec3d NORTH = new Vec3d(12.3, 1.6, 2.5), SOUTH = new Vec3d(12.3, 1.6, 22.5), SELF = new Vec3d(11.5, 0, 14.5);
 
     /** a stone wall two high at z = 10, x 10..13, and a concrete one one high at z = 20, x 4..8 */
     static PathSearchTest.Grid yard() {
@@ -41,19 +41,19 @@ class CoverQueryTest {
             if (s.height() == 2) assertEquals(11, z, "behind the wall: " + BlockPos.of(s.cell()));
             else assertEquals(21, z, "behind the low wall: " + BlockPos.of(s.cell()));
             assertTrue(s.hard());
-            assertFalse(VoxelRay.clear(rays(g), NORTH.x, NORTH.y, NORTH.z, x + 0.5, s.height() == 2 ? 1.6 : 0.5, z + 0.5, Voxel.SIGHT));
+            assertFalse(VoxelRay.clear(rays(g), NORTH.x(), NORTH.y(), NORTH.z(), x + 0.5, s.height() == 2 ? 1.6 : 0.5, z + 0.5, Voxel.SIGHT));
         }
         CoverQuery.Spot best = spots.get(0);
         assertEquals(2, best.height(), "high cover first");
         assertTrue(best.hasPeek(), "the best spot has a place beside it to shoot from");
         long peek = best.peek();
-        assertTrue(VoxelRay.clear(rays(g), NORTH.x, NORTH.y, NORTH.z, BlockPos.getX(peek) + 0.5, 1.6, BlockPos.getZ(peek) + 0.5, Voxel.SIGHT));
+        assertTrue(VoxelRay.clear(rays(g), NORTH.x(), NORTH.y(), NORTH.z(), BlockPos.getX(peek) + 0.5, 1.6, BlockPos.getZ(peek) + 0.5, Voxel.SIGHT));
         int bx = BlockPos.getX(best.cell());
         assertTrue(bx == 10 || bx == 13, "at an end of the wall: " + bx);
         // a step out and two: more than one place to look out from, each seeing the threat
         assertTrue(best.peeks().length >= 2, "places to look out from: " + best.peeks().length);
         for (long k : best.peeks())
-            assertTrue(VoxelRay.clear(rays(g), NORTH.x, NORTH.y, NORTH.z, BlockPos.getX(k) + 0.5, 1.6, BlockPos.getZ(k) + 0.5, Voxel.SIGHT));
+            assertTrue(VoxelRay.clear(rays(g), NORTH.x(), NORTH.y(), NORTH.z(), BlockPos.getX(k) + 0.5, 1.6, BlockPos.getZ(k) + 0.5, Voxel.SIGHT));
     }
 
     @Test
@@ -94,7 +94,7 @@ class CoverQueryTest {
         List<CoverQuery.Spot> spots = CoverQuery.find(g, rays(g), SELF, List.of(NORTH, SOUTH), new CoverQuery.Params(), k -> false, 6);
         for (CoverQuery.Spot s : spots) {
             int x = BlockPos.getX(s.cell()), z = BlockPos.getZ(s.cell());
-            assertFalse(VoxelRay.clear(rays(g), SOUTH.x, SOUTH.y, SOUTH.z, x + 0.5, s.height() == 2 ? 1.6 : 0.5, z + 0.5, Voxel.SIGHT));
+            assertFalse(VoxelRay.clear(rays(g), SOUTH.x(), SOUTH.y(), SOUTH.z(), x + 0.5, s.height() == 2 ? 1.6 : 0.5, z + 0.5, Voxel.SIGHT));
         }
         assertTrue(spots.stream().noneMatch(s -> BlockPos.getZ(s.cell()) == 11), "the wall hides nothing from the south");
     }
@@ -110,7 +110,7 @@ class CoverQueryTest {
         // hidden from the one it fights, every one
         for (CoverQuery.Spot s : spots) {
             int x = BlockPos.getX(s.cell()), z = BlockPos.getZ(s.cell());
-            assertFalse(VoxelRay.clear(rays(g), NORTH.x, NORTH.y, NORTH.z, x + 0.5, s.height() == 2 ? 1.6 : 0.5, z + 0.5, Voxel.SIGHT));
+            assertFalse(VoxelRay.clear(rays(g), NORTH.x(), NORTH.y(), NORTH.z(), x + 0.5, s.height() == 2 ? 1.6 : 0.5, z + 0.5, Voxel.SIGHT));
         }
         // the same spots weighed against the north alone score more: the south sees them
         List<CoverQuery.Spot> alone = CoverQuery.find(g, rays(g), SELF, List.of(NORTH), p, k -> false, 6);
@@ -122,10 +122,10 @@ class CoverQueryTest {
     @Test
     void lowCoverHidesTheLegsAndIsShotOver() {
         PathSearchTest.Grid g = yard();
-        Vec3 south = new Vec3(6.5, 1.6, 30.5);
+        Vec3d south = new Vec3d(6.5, 1.6, 30.5);
         CoverQuery.Params p = new CoverQuery.Params();
         p.radius = 5;
-        List<CoverQuery.Spot> spots = CoverQuery.find(g, rays(g), new Vec3(6.5, 0, 16.5), List.of(south), p, k -> false, 6);
+        List<CoverQuery.Spot> spots = CoverQuery.find(g, rays(g), new Vec3d(6.5, 0, 16.5), List.of(south), p, k -> false, 6);
         assertFalse(spots.isEmpty());
         CoverQuery.Spot s = spots.get(0);
         assertEquals(19, BlockPos.getZ(s.cell()));
@@ -154,7 +154,7 @@ class CoverQueryTest {
     @Test
     void inAFightCoverToShootFromAheadIsTriedNotOnlyTheStepsNear() {
         PathSearchTest.Grid g = ridge();
-        Vec3 north = new Vec3(23.5, 1.6, 2.5), self = new Vec3(23.5, ridgeHeight(26), 26.5);
+        Vec3d north = new Vec3d(23.5, 1.6, 2.5), self = new Vec3d(23.5, ridgeHeight(26), 26.5);
         CoverQuery.Params p = new CoverQuery.Params();
         p.fight = true;
         p.peekBonus = CoverQuery.PEEK_FIGHT;
@@ -210,7 +210,7 @@ class CoverQueryTest {
             g.set(x, 0, 8, CellBuilderTest.STONE);
         }
         g.build();
-        Vec3 north = new Vec3(23.5, 1.6, 2.5), crest = new Vec3(23.5, hillHeight(30), 30.5);
+        Vec3d north = new Vec3d(23.5, 1.6, 2.5), crest = new Vec3d(23.5, hillHeight(30), 30.5);
         CoverQuery.Params p = new CoverQuery.Params();
         p.fight = true;
         p.peekBonus = CoverQuery.PEEK_FIGHT;
@@ -219,11 +219,11 @@ class CoverQueryTest {
         p.reach = AiSoldier.SLOPE_REACH;
         // from the plain by it: the wall there is cover
         p.fightAt = 8;
-        List<CoverQuery.Spot> near = CoverQuery.find(g, rays(g), new Vec3(23.5, 0, 12.5), List.of(north), p, k -> false, 64);
+        List<CoverQuery.Spot> near = CoverQuery.find(g, rays(g), new Vec3d(23.5, 0, 12.5), List.of(north), p, k -> false, 64);
         assertTrue(near.stream().anyMatch(s -> BlockPos.getZ(s.cell()) == 9 && BlockPos.getY(s.cell()) == 0), "behind the wall: " + near);
         // from up the slope (7 over the plain), the range it fights at there none the less: not out on the plain in front
         // of its squad
-        Vec3 up = new Vec3(23.5, hillHeight(24), 24.5);
+        Vec3d up = new Vec3d(23.5, hillHeight(24), 24.5);
         assertTrue(hillHeight(24) > CoverQuery.DOWN);
         List<CoverQuery.Spot> spots = CoverQuery.find(g, rays(g), up, List.of(north), p, k -> false, 64);
         assertFalse(spots.isEmpty());
