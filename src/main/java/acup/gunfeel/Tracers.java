@@ -1067,14 +1067,13 @@ public final class Tracers {
         BulletConfig c = s.config;
         if (c.onImpact != null || c.onRicochet != BulletConfig.LAMBDA_STANDARD_RICOCHET) return false;
         BlockState state = level.getBlockState(hit.getBlockPos());
-        if (state.isAir() || state.instrument() == net.minecraft.world.level.block.state.properties.NoteBlockInstrument.HAT
-                || state.is(net.minecraft.world.level.block.Blocks.GLOWSTONE) || !BulletRules.ricochet(Cells.ruleState(level, hit.getBlockPos(), state))) return false;
+        if (state.isAir()) return false;
+        // the decision is core's (Ricochet); what NTM's ricochet breaks and the rules asked first, in the order they were
+        boolean breaks = state.instrument() == net.minecraft.world.level.block.state.properties.NoteBlockInstrument.HAT
+                || state.is(net.minecraft.world.level.block.Blocks.GLOWSTONE);
+        boolean rule = !breaks && BulletRules.ricochet(Cells.ruleState(level, hit.getBlockPos(), state));
         Direction f = hit.getDirection();
-        double l = vel.length();
-        if (l < 1e-9) return false;
-        double cos = (f.getStepX() * vel.x + f.getStepY() * vel.y + f.getStepZ() * vel.z) / l;
-        double angle = Math.abs(Math.toDegrees(Math.acos(Math.clamp(cos, -1.0, 1.0))) - 90.0);
-        return angle <= c.ricochetAngle;
+        return Ricochet.bounces(breaks, rule, f.getStepX(), f.getStepY(), f.getStepZ(), vel.x, vel.y, vel.z, c.ricochetAngle);
     }
 
     // set while a ricochet's scratch is made (the bullet's direction): the hole paths lay a scratch along it instead
