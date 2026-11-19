@@ -11,7 +11,10 @@ final class RoundSpecs {
     private RoundSpecs() {
     }
 
-    /** the round's numbers (none: all 0), in this thread's RoundSpec */
+    /**
+     * the round's numbers (none: all 0), in this thread's RoundSpec: it lives until the next fill on this thread, so it
+     * is not kept past the call it is given to
+     */
     static RoundSpec fill(@Nullable BulletConfig round) {
         RoundSpec out = SPEC.get().clear();
         if (round == null) return out;

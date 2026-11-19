@@ -20,21 +20,25 @@ public final class Pierce {
     private Pierce() {
     }
 
-    /** What the version knows of the block, each asked only when it is needed, in this order. */
+    /**
+     * What the version knows of the block, each asked only when it is needed, in this order; {@code state} is the
+     * world's number for it, read once by {@link #left}.
+     */
     public interface Block {
         /** the material its rules give it (a machine's cell: its machine's) */
-        Materials.Verdict material();
+        Materials.Verdict material(int state);
 
         /** it or the block whose rules it takes is NTM's machine (a core or a cell of one) */
-        boolean machine();
+        boolean machine(int state);
 
         /** its break rule, if any */
-        BulletRuleText.@Nullable Break breakRule();
+        BulletRuleText.@Nullable Break breakRule(int state);
     }
 
     public static float left(WorldView w, int x, int y, int z, float damage, RoundSpec round, boolean glass, double path,
             Materials.Penetration penetration, Block block) {
-        if (w.air(w.state(x, y, z)) || !(damage >= 1F)) return -1F;
+        int state = w.state(x, y, z);
+        if (w.air(state) || !(damage >= 1F)) return -1F;
         float negation = round.armorThresholdNegation;
         float piercing = round.armorPiercingPercent;
         // a machine's window is glass, not the machine's casing: bulletPierceMachines is not asked
@@ -42,11 +46,11 @@ public final class Pierce {
             float left = penetration.left(MachineGlass.VERDICT, path, damage, negation, piercing);
             return left >= 1F ? left : -1F;
         }
-        Materials.Verdict v = block.material();
+        Materials.Verdict v = block.material(state);
         // Запрет относится к машине, даже если её часть определилась как none/stone.
         // Проверяем до правил пробития, чтобы они тоже не обходили общий выключатель.
-        if ((block.machine() || v.material() == Materials.Material.MACHINE) && !ReaimTimes.flag(MACHINES_KEY, false)) return -1F;
-        BulletRuleText.Break rule = block.breakRule();
+        if ((block.machine(state) || v.material() == Materials.Material.MACHINE) && !ReaimTimes.flag(MACHINES_KEY, false)) return -1F;
+        BulletRuleText.Break rule = block.breakRule(state);
         if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, w.destroySpeed(x, y, z), path);
         float left = penetration.left(v, path, damage, negation, piercing);
         return left >= 1F ? left : -1F;

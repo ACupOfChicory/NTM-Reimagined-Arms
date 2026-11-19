@@ -162,37 +162,35 @@ public final class PassableClip extends ClipContext {
     }
 
     // what pierced asks of the block beyond the world: its rules' material (a machine's cell: its machine's), NTM's
-    // machines, its break rule; the state read once and the machine's once
+    // machines, its break rule; the state the one core read (its number), the machine's rule state once
     private static final class PierceBlock implements Pierce.Block {
         private final Level level;
         private final BlockPos pos;
-        private final BlockState state;
         private @Nullable BlockState ruleState;
 
         PierceBlock(Level level, BlockPos pos) {
             this.level = level;
             this.pos = pos;
-            this.state = level.getBlockState(pos);
         }
 
-        private BlockState ruleState() {
-            if (ruleState == null) ruleState = Cells.ruleState(level, pos, state);
+        private BlockState ruleState(int state) {
+            if (ruleState == null) ruleState = Cells.ruleState(level, pos, BlockStates.state(state));
             return ruleState;
         }
 
         @Override
-        public Materials.Verdict material() {
-            return BulletRules.material(ruleState());
+        public Materials.Verdict material(int state) {
+            return BulletRules.material(ruleState(state));
         }
 
         @Override
-        public boolean machine() {
-            return Cells.machine(state) || Cells.machine(ruleState());
+        public boolean machine(int state) {
+            return Cells.machine(BlockStates.state(state)) || Cells.machine(ruleState(state));
         }
 
         @Override
-        public BulletRuleText.@Nullable Break breakRule() {
-            return BulletRules.breakRule(state);
+        public BulletRuleText.@Nullable Break breakRule(int state) {
+            return BulletRules.breakRule(BlockStates.state(state));
         }
     }
 

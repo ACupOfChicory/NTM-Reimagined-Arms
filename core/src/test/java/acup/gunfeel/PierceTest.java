@@ -26,19 +26,20 @@ class PierceTest {
         final List<String> asked = new ArrayList<>();
 
         @Override
-        public Materials.Verdict material() {
+        public Materials.Verdict material(int state) {
+            assertEquals(7, state);
             asked.add("material");
             return verdict;
         }
 
         @Override
-        public boolean machine() {
+        public boolean machine(int state) {
             asked.add("machine");
             return machineState || machineRule;
         }
 
         @Override
-        public BulletRuleText.@Nullable Break breakRule() {
+        public BulletRuleText.@Nullable Break breakRule(int state) {
             asked.add("breakRule");
             return rule;
         }
