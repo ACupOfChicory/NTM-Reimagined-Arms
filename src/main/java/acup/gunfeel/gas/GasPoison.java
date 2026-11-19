@@ -33,10 +33,10 @@ import acup.gunfeel.smoke.SmokeGrid;
  * players again.
  *
  * <p>How long is long. A biome cell is 4 by 4 blocks across; the server adds up the gas on its floor, the density of
- * every floor cell under the gas times the ticks it lay there times the gas's {@link #weight}, averaged over the 16
- * columns. The cell turns at {@link #THRESHOLD}. What is gathered halves every {@link #HALF_LIFE} ticks (10 minutes), so
- * a grenade now and then at one place never turns it. All four gases do it, each as hard as it is on plants and soil
- * (one magazine is 8 grenades fired a second apart; the sums in GasPoisonTest):
+ * every floor cell under the gas times the ticks it lay there times the gas's weight ({@link GasSoil#weight}),
+ * averaged over the 16 columns. The cell turns at {@link #THRESHOLD}. What is gathered halves every
+ * {@link #HALF_LIFE} ticks (10 minutes), so a grenade now and then at one place never turns it. All four gases do it,
+ * each as hard as it is on plants and soil (one magazine is 8 grenades fired a second apart; the sums in GasSoilTest):
  *
  * <ul>
  * <li>mustard, weight 2: a persistent agent, its liquid soaks the soil and stays there for weeks. One magazine turns it
@@ -53,13 +53,13 @@ import acup.gunfeel.smoke.SmokeGrid;
 public final class GasPoison {
     public static final String KEY = "gasPoison";
     public static final ResourceKey<Biome> BIOME = ResourceKey.create(Registries.BIOME, Identifier.fromNamespaceAndPath("ntmgunfeel", "poisoned"));
-    /** Density times ticks, averaged over a biome cell's floor, at which it turns. */
-    public static final float THRESHOLD = 2000F;
-    public static final int HALF_LIFE = 12000;
+    /** Density times ticks, averaged over a biome cell's floor, at which it turns ({@link GasSoil}, as the rest here). */
+    public static final float THRESHOLD = GasSoil.THRESHOLD;
+    public static final int HALF_LIFE = GasSoil.HALF_LIFE;
     /** Ticks between two sums. */
-    public static final int EVERY = 20;
+    public static final int EVERY = GasSoil.EVERY;
     /** A floor cell with less in it adds nothing. */
-    public static final float LEAST = 0.05F;
+    public static final float LEAST = GasSoil.LEAST;
     /** Blocks under and over the floor the biome goes. */
     public static final int BELOW = 4, ABOVE = 12;
 
@@ -80,20 +80,6 @@ public final class GasPoison {
         return acup.gunfeel.ReaimTimes.flag(KEY, true);
     }
 
-    /** How hard a gas is on the ground, what its density counts for in the sum (the class's comment). */
-    public static float weight(GasKind g) {
-        return switch (g) {
-            case MUSTARD -> 2.0F;
-            case CHLORINE -> 0.6F;
-            case ACID -> 0.7F;
-            case PHOSGENE -> 0.5F;
-        };
-    }
-
-    static long key(int qx, int qz) {
-        return (long) qx << 32 | qz & 0xFFFFFFFFL;
-    }
-
     /** Every server tick; the sums every {@link #EVERY}. */
     public static void tick(ServerLevel level) {
         if (level.getGameTime() % EVERY != 0 || !enabled()) return;
@@ -105,13 +91,13 @@ public final class GasPoison {
             for (SmokeClouds.Cloud c : all.clouds()) {
                 GasKind g = GasKind.of(c.kind());
                 if (g == null) continue;
-                float w = weight(g);
+                float w = GasSoil.weight(g);
                 for (int i : c.grid.floorCells(LEAST)) {
                     int x = c.baseX() + i % SmokeGrid.SX, z = c.baseZ() + i / SmokeGrid.SX % SmokeGrid.SZ, y = c.baseY() + i / (SmokeGrid.SX * SmokeGrid.SZ);
                     // gas on water soaks nothing
                     if (!level.getFluidState(new BlockPos(x, y - 1, z)).isEmpty()) continue;
                     if (doses == null) LEVELS.put(level, doses = new HashMap<>());
-                    long k = key(QuartPos.fromBlock(x), QuartPos.fromBlock(z));
+                    long k = GasSoil.key(QuartPos.fromBlock(x), QuartPos.fromBlock(z));
                     Dose d = doses.computeIfAbsent(k, q -> new Dose());
                     add(d, Math.min(1F, c.grid.density(i)) * w * EVERY / 16F, now);
                     d.floorY = y;
@@ -128,17 +114,13 @@ public final class GasPoison {
         // the ones that faded out are dropped now and then
         if (doses != null && level.getGameTime() % 1200 == 0) {
             long now = level.getGameTime();
-            doses.values().removeIf(d -> !d.done && decayed(d.sum, now - d.at) < 1F);
+            doses.values().removeIf(d -> !d.done && GasSoil.decayed(d.sum, now - d.at) < 1F);
             if (doses.isEmpty()) LEVELS.remove(level);
         }
     }
 
-    static float decayed(float sum, long ticks) {
-        return ticks <= 0 ? sum : (float) (sum * Math.pow(0.5, ticks / (double) HALF_LIFE));
-    }
-
     private static void add(Dose d, float amount, long now) {
-        d.sum = decayed(d.sum, now - d.at) + amount;
+        d.sum = GasSoil.decayed(d.sum, now - d.at) + amount;
         d.at = now;
     }
 
@@ -232,7 +214,7 @@ public final class GasPoison {
     // dev and tests: the sum of the biome cell a block is in, now
     public static float sumAt(Level level, int x, int z) {
         Map<Long, Dose> doses = LEVELS.get(level);
-        Dose d = doses == null ? null : doses.get(key(QuartPos.fromBlock(x), QuartPos.fromBlock(z)));
-        return d == null ? 0F : decayed(d.sum, level.getGameTime() - d.at);
+        Dose d = doses == null ? null : doses.get(GasSoil.key(QuartPos.fromBlock(x), QuartPos.fromBlock(z)));
+        return d == null ? 0F : GasSoil.decayed(d.sum, level.getGameTime() - d.at);
     }
 }

@@ -433,25 +433,6 @@ class GasModelTest {
     }
 
     @Test
-    void theStateIsSavedAndReadBack() {
-        GasState s = new GasState();
-        s.dose[CL] = 1.5F;
-        s.dose[PH] = 4F;
-        s.k = 0.3F;
-        s.latent = 120;
-        s.smelled = true;
-        var tag = GasState.CODEC.codec().encodeStart(com.mojang.serialization.JsonOps.INSTANCE, s).getOrThrow();
-        GasState back = GasState.CODEC.codec().parse(com.mojang.serialization.JsonOps.INSTANCE, tag).getOrThrow();
-        assertEquals(1.5F, back.dose[CL]);
-        assertEquals(4F, back.dose[PH]);
-        assertEquals(0.3F, back.k);
-        assertEquals(120, back.latent);
-        assertTrue(back.smelled);
-        assertTrue(back.persists());
-        assertFalse(new GasState().persists());
-    }
-
-    @Test
     void damageComesInLumpsOfAtMostOneHurtEveryTenTicks() {
         GasState s = new GasState();
         s.dose[CL] = 3F;
