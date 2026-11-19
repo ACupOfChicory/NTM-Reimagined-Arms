@@ -5,10 +5,11 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.PosLong;
+
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import net.minecraft.core.BlockPos;
 
 /**
  * The rooms of a building and the ways between them, read off the cells (stage 4.5b): the cells under a roof
@@ -104,7 +105,7 @@ public final class AiRooms {
                 return f != NONE ? f : end;
             }
             int out = r == b ? Dirs.opposite(dir) : dir;
-            return BlockPos.asLong(BlockPos.getX(end) + Dirs.DX[out], BlockPos.getY(end), BlockPos.getZ(end) + Dirs.DZ[out]);
+            return PosLong.block(PosLong.blockX(end) + Dirs.DX[out], PosLong.blockY(end), PosLong.blockZ(end) + Dirs.DZ[out]);
         }
 
         /** the cells beside the opening at room r's end */
@@ -255,14 +256,14 @@ public final class AiRooms {
         StringBuilder at = new StringBuilder();
         for (int i = 0; i < Math.min(4, st.length); i++) at.append(i == 0 ? "" : " < ").append(st[i].getClassName().replace("acup.gunfeel.ai.", "")).append('.')
                 .append(st[i].getMethodName()).append(':').append(st[i].getLineNumber());
-        acup.gunfeel.DebugLog.LOGGER.warn("armsai: {} at {} {} {} failed, the AI goes on as with no building there ({} so far): {} at {}", doing,
-                BlockPos.getX(cell), BlockPos.getY(cell), BlockPos.getZ(cell), faults, e, at);
+        acup.gunfeel.ModLog.LOGGER.warn("armsai: {} at {} {} {} failed, the AI goes on as with no building there ({} so far): {} at {}", doing,
+                PosLong.blockX(cell), PosLong.blockY(cell), PosLong.blockZ(cell), faults, e, at);
     }
 
     /** the reading itself: what it throws goes to the caller (the tests) */
     static @Nullable Plan read(CellSource src, long seed, @Nullable LongOpenHashSet wildOut, int reach, int most) {
         PathSearch.Reader r = new PathSearch.Reader(src);
-        int sx = BlockPos.getX(seed), sy = BlockPos.getY(seed), sz = BlockPos.getZ(seed);
+        int sx = PosLong.blockX(seed), sy = PosLong.blockY(seed), sz = PosLong.blockZ(seed);
         if ((r.flags(sx, sy, sz) & SectionCells.ROOF) == 0 || !r.has(sx, sy, sz)) return null;
         // the cells under the roof that are the wild's: a cave is no building
         LongOpenHashSet wild = shell ? wild(src, r, seed, reach, most) : null;
@@ -285,15 +286,15 @@ public final class AiRooms {
         roofed.set(0);
         for (int head = 0; head < under.size(); head++) {
             long c = under.getLong(head);
-            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
             int[] n = {-1, -1, -1, -1};
             for (int k = 0; k < 4; k++) {
                 long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
                 if (next == PathSearch.NONE) continue;
                 int i = index.get(next);
                 if (i < 0) {
-                    int nx = BlockPos.getX(next), nz = BlockPos.getZ(next);
-                    boolean roof = (r.flags(nx, BlockPos.getY(next), nz) & SectionCells.ROOF) != 0 && (wild == null || !wild.contains(next));
+                    int nx = PosLong.blockX(next), nz = PosLong.blockZ(next);
+                    boolean roof = (r.flags(nx, PosLong.blockY(next), nz) & SectionCells.ROOF) != 0 && (wild == null || !wild.contains(next));
                     if (roof && (Math.abs(nx - sx) > reach || Math.abs(nz - sz) > reach || inside >= most)) {
                         cut = true;
                         continue;
@@ -326,7 +327,7 @@ public final class AiRooms {
             if (n[0] >= 0 && n[2] >= 0 && n[1] < 0 && n[3] < 0) axis[i] = 0;
             else if (n[1] >= 0 && n[3] >= 0 && n[0] < 0 && n[2] < 0) axis[i] = 1;
             long c = cells.getLong(i);
-            door[i] = (src.voxel(BlockPos.getX(c), BlockPos.getY(c), BlockPos.getZ(c)) & Voxel.DOOR) != 0;
+            door[i] = (src.voxel(PosLong.blockX(c), PosLong.blockY(c), PosLong.blockZ(c)) & Voxel.DOOR) != 0;
         }
         // runs of them along their axis; a short run is one way, a long one a corridor with a way at each mouth and at each door
         boolean[] inWay = new boolean[total];
@@ -439,9 +440,9 @@ public final class AiRooms {
                     int c = stack[--top];
                     long at = cells.getLong(c);
                     sum[0]++;
-                    sum[1] += BlockPos.getX(at);
-                    sum[2] += BlockPos.getY(at);
-                    sum[3] += BlockPos.getZ(at);
+                    sum[1] += PosLong.blockX(at);
+                    sum[2] += PosLong.blockY(at);
+                    sum[3] += PosLong.blockZ(at);
                     for (int k = 0; k < 4; k++) {
                         int n = near[c][k];
                         if (n < 0 || near[n] == null || inWay[n] || room[n] != OUTSIDE) continue;
@@ -480,7 +481,7 @@ public final class AiRooms {
             int[] s = sums.get(id);
             size[id] = s[0];
             long at = cells.getLong(i);
-            double dx = BlockPos.getX(at) - (double) s[1] / s[0], dy = BlockPos.getY(at) - (double) s[2] / s[0], dz = BlockPos.getZ(at) - (double) s[3] / s[0];
+            double dx = PosLong.blockX(at) - (double) s[1] / s[0], dy = PosLong.blockY(at) - (double) s[2] / s[0], dz = PosLong.blockZ(at) - (double) s[3] / s[0];
             double d = dx * dx + dy * dy * 4 + dz * dz;
             if (d < best[id]) {
                 best[id] = d;
@@ -506,7 +507,7 @@ public final class AiRooms {
             Way w = new Way(at, dir, a, b, 1, hasDoor, beside(r, row, dir), beside(r, rowB, Dirs.opposite(dir))).far(r, row, rowB);
             // room a is never OUTSIDE
             Way made = a != OUTSIDE ? w : w.flipped();
-            made.sill = BlockPos.getY(at[0]) > BlockPos.getY(cells.getLong(endA)) || BlockPos.getY(at[at.length - 1]) > BlockPos.getY(cells.getLong(endB));
+            made.sill = PosLong.blockY(at[0]) > PosLong.blockY(cells.getLong(endA)) || PosLong.blockY(at[at.length - 1]) > PosLong.blockY(cells.getLong(endB));
             ways.add(made);
         }
         // the ways two and three wide
@@ -533,7 +534,7 @@ public final class AiRooms {
             int dir = CARDINAL[on];
             Way wy = new Way(at.toLongArray(), dir, a, b, w, hasDoor, beside(r, rowA, dir), beside(r, rowB, Dirs.opposite(dir))).far(r, rowA, rowB);
             Way made = a != OUTSIDE ? wy : wy.flipped();
-            made.sill = BlockPos.getY(cells.getLong(firstRow[0])) > BlockPos.getY(rowA[0]) || BlockPos.getY(cells.getLong(lastRow[0])) > BlockPos.getY(rowB[0]);
+            made.sill = PosLong.blockY(cells.getLong(firstRow[0])) > PosLong.blockY(rowA[0]) || PosLong.blockY(cells.getLong(lastRow[0])) > PosLong.blockY(rowB[0]);
             ways.add(made);
         }
         // the open sides: a room's cells with a cell out from under the roof next to them, in rows along the edge
@@ -594,12 +595,12 @@ public final class AiRooms {
         for (int i = 0; i < total; i++) {
             if (near[i] == null) continue;
             long c = cells.getLong(i);
-            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
             int up = -1, down = -1;
             for (int k = 0; k < 4; k++) {
                 int n = near[i][k];
                 if (n >= 0) {
-                    int ny = BlockPos.getY(cells.getLong(n));
+                    int ny = PosLong.blockY(cells.getLong(n));
                     if (ny > y) up = n;
                     else if (ny < y) down = n;
                     continue;
@@ -610,12 +611,12 @@ public final class AiRooms {
                 if (Voxel.sight(head) || ((feet | head) & Voxel.DOOR) != 0) continue;
                 // a sill that hides under a hole, or glass (bars) at head height; a rail seen over is cover, not a window
                 if (Voxel.open(head) && !Voxel.sight(feet)) continue;
-                windows.add(new Window(BlockPos.asLong(wx, y + 1, wz), CARDINAL[k], room[i], !Voxel.open(head)));
+                windows.add(new Window(PosLong.block(wx, y + 1, wz), CARDINAL[k], room[i], !Voxel.open(head)));
             }
             if ((r.flags(x, y, z) & SectionCells.CLIMB) != 0) ladders.add(c);
             else if (up >= 0 && down >= 0) stair[i] = stair[up] = stair[down] = true;
         }
-        for (int i = 0; i < total; i++) if (stair[i] && near[i] != null && (r.flags(BlockPos.getX(cells.getLong(i)), BlockPos.getY(cells.getLong(i)), BlockPos.getZ(cells.getLong(i))) & SectionCells.CLIMB) == 0) stairs.add(cells.getLong(i));
+        for (int i = 0; i < total; i++) if (stair[i] && near[i] != null && (r.flags(PosLong.blockX(cells.getLong(i)), PosLong.blockY(cells.getLong(i)), PosLong.blockZ(cells.getLong(i))) & SectionCells.CLIMB) == 0) stairs.add(cells.getLong(i));
 
         Long2IntOpenHashMap roomOf = new Long2IntOpenHashMap();
         roomOf.defaultReturnValue(OUTSIDE);
@@ -628,11 +629,11 @@ public final class AiRooms {
      * it, the roof over it and the blocks of its walls (where a mob does not step on): of the ground as the world made
      * it more than of blocks put there (the roof counts most, then the floor), the cell is wild (a cave, a hollow under
      * a tree). A wild cell is a building's
-     * all the same between two cells that are not wild (a doorway through rock), and within DWELT steps of a sign that someone lives there (AiBlockKinds.MARKER: a chest, a bed, a
+     * all the same between two cells that are not wild (a doorway through rock), and within DWELT steps of a sign that someone lives there (CellKind.MARKER: a chest, a bed, a
      * machine) through wild cells, not through a door: a cellar dug out of the rock, and not the cave past its door.
      */
     private static @Nullable LongOpenHashSet wild(CellSource src, PathSearch.Reader r, long seed, int reach, int most) {
-        int sx = BlockPos.getX(seed), sz = BlockPos.getZ(seed);
+        int sx = PosLong.blockX(seed), sz = PosLong.blockZ(seed);
         LongArrayList cells = new LongArrayList();
         LongOpenHashSet seen = new LongOpenHashSet(), wild = new LongOpenHashSet();
         LongArrayList dwelt = new LongArrayList();
@@ -640,14 +641,14 @@ public final class AiRooms {
         seen.add(seed);
         for (int head = 0; head < cells.size() && cells.size() <= most; head++) {
             long c = cells.getLong(head);
-            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
             int natural = 0, built = 0;
             boolean marker = false;
             int[] shell = new int[10];
             int n = 0;
             shell[n++] = src.kind(x, y - 1, z);
             // a sign of it in the cell itself: a ladder, a lantern hung or stood in it
-            for (int up = 0; up < 3; up++) marker |= src.kind(x, y + up, z) == AiBlockKinds.MARKER;
+            for (int up = 0; up < 3; up++) marker |= src.kind(x, y + up, z) == CellKind.MARKER;
             for (int up = 2; up < 2 + CellBuilder.ROOF_REACH; up++) {
                 int at = src.voxel(x, y + up, z);
                 if (!Voxel.open(at) || Voxel.sight(at)) {
@@ -664,11 +665,11 @@ public final class AiRooms {
                     shell[n++] = src.kind(wx, y + 1, wz);
                     continue;
                 }
-                int nx = BlockPos.getX(next), nz = BlockPos.getZ(next);
+                int nx = PosLong.blockX(next), nz = PosLong.blockZ(next);
                 if (seen.contains(next) || Math.abs(nx - sx) > reach || Math.abs(nz - sz) > reach) continue;
-                if ((r.flags(nx, BlockPos.getY(next), nz) & SectionCells.ROOF) == 0) {
+                if ((r.flags(nx, PosLong.blockY(next), nz) & SectionCells.ROOF) == 0) {
                     // a door out under the open sky: this side of it, the roofed one, is lived in
-                    marker |= (src.voxel(nx, BlockPos.getY(next), nz) & Voxel.DOOR) != 0;
+                    marker |= (src.voxel(nx, PosLong.blockY(next), nz) & Voxel.DOOR) != 0;
                     continue;
                 }
                 seen.add(next);
@@ -678,9 +679,9 @@ public final class AiRooms {
                 // the roof counts for three, the floor for two, a wall's block for one: a roof put over bare ground is a
                 // house, a floor laid under the rock's roof a path through a cave
                 int w = i == 0 ? 2 : i < roofed ? 3 : 1;
-                if (shell[i] == AiBlockKinds.NATURAL) natural += w;
-                else if (shell[i] == AiBlockKinds.BUILT) built += w;
-                else if (shell[i] == AiBlockKinds.MARKER) {
+                if (shell[i] == CellKind.NATURAL) natural += w;
+                else if (shell[i] == CellKind.BUILT) built += w;
+                else if (shell[i] == CellKind.MARKER) {
                     built += w;
                     marker = true;
                 }
@@ -693,7 +694,7 @@ public final class AiRooms {
         // a wild cell between two that are not (a doorway cut through rock between two built rooms: mostly wall) is the building's
         LongArrayList between = new LongArrayList();
         for (long c : wild) {
-            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c), tame = 0;
+            int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c), tame = 0;
             for (int k = 0; k < 4; k++) {
                 long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
                 if (next != PathSearch.NONE && seen.contains(next) && !wild.contains(next)) tame++;
@@ -704,14 +705,14 @@ public final class AiRooms {
         // a door in the rock: someone hung it. The side of it with the fewer wild cells (a room dug out off a tunnel, a box of
         // stone with the open sky past its door) is lived in; both, the same
         for (long c : wild.toLongArray()) {
-            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
             if ((src.voxel(x, y, z) & Voxel.DOOR) == 0) continue;
             long[] side = new long[4];
             int[] size = new int[4];
             int sides = 0, least = Integer.MAX_VALUE;
             for (int k = 0; k < 4; k++) {
                 long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
-                if (next == PathSearch.NONE || !wild.contains(next) || (src.voxel(BlockPos.getX(next), BlockPos.getY(next), BlockPos.getZ(next)) & Voxel.DOOR) != 0) continue;
+                if (next == PathSearch.NONE || !wild.contains(next) || (src.voxel(PosLong.blockX(next), PosLong.blockY(next), PosLong.blockZ(next)) & Voxel.DOOR) != 0) continue;
                 side[sides] = next;
                 size[sides] = wildPast(r, src, wild, c, next);
                 least = Math.min(least, size[sides++]);
@@ -724,7 +725,7 @@ public final class AiRooms {
         for (int step = 0; step < DWELT && !at.isEmpty(); step++) {
             for (int i = 0; i < at.size(); i++) {
                 long c = at.getLong(i);
-                int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+                int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
                 if ((src.voxel(x, y, z) & Voxel.DOOR) != 0) continue;
                 for (int k = 0; k < 4; k++) {
                     long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
@@ -748,11 +749,11 @@ public final class AiRooms {
         seen.add(door);
         for (int head = 0; head < q.size() && q.size() < WILD_PAST; head++) {
             long c = q.getLong(head);
-            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
             for (int k = 0; k < 4; k++) {
                 long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
                 if (next == PathSearch.NONE || !wild.contains(next) || !seen.add(next)) continue;
-                if ((src.voxel(BlockPos.getX(next), BlockPos.getY(next), BlockPos.getZ(next)) & Voxel.DOOR) != 0) continue;
+                if ((src.voxel(PosLong.blockX(next), PosLong.blockY(next), PosLong.blockZ(next)) & Voxel.DOOR) != 0) continue;
                 q.add(next);
             }
         }
@@ -816,13 +817,13 @@ public final class AiRooms {
             int best = Integer.MAX_VALUE;
             long from = row[0];
             for (long q : row) {
-                int d = Math.abs(BlockPos.getX(q) - BlockPos.getX(c)) + Math.abs(BlockPos.getZ(q) - BlockPos.getZ(c));
+                int d = Math.abs(PosLong.blockX(q) - PosLong.blockX(c)) + Math.abs(PosLong.blockZ(q) - PosLong.blockZ(c));
                 if (d < best) {
                     best = d;
                     from = q;
                 }
             }
-            int dx = Integer.signum(BlockPos.getX(c) - BlockPos.getX(from)), dz = Integer.signum(BlockPos.getZ(c) - BlockPos.getZ(from));
+            int dx = Integer.signum(PosLong.blockX(c) - PosLong.blockX(from)), dz = Integer.signum(PosLong.blockZ(c) - PosLong.blockZ(from));
             for (int d = 0; d < 8; d += 2) {
                 if (Dirs.DX[d] != dx || Dirs.DZ[d] != dz) continue;
                 LongArrayList one = new LongArrayList(1);
@@ -834,9 +835,9 @@ public final class AiRooms {
     }
 
     private static void side(PathSearch.Reader r, long from, int d, int through, LongArrayList out) {
-        long c = PathSearch.step(r, BlockPos.getX(from), BlockPos.getY(from), BlockPos.getZ(from), d);
+        long c = PathSearch.step(r, PosLong.blockX(from), PosLong.blockY(from), PosLong.blockZ(from), d);
         if (c == PathSearch.NONE || out.contains(c)) return;
-        int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+        int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
         SectionCells s = r.section(x, y, z);
         int i = s.find(x & 15, y & 15, z & 15);
         if (i >= 0 && SectionCells.height(s.cover(i), through) == 2) out.add(c);
