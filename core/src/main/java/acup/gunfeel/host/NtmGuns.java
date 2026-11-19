@@ -19,7 +19,7 @@ public interface NtmGuns {
     /** the loaded bullet's numbers, their places in {@link #bullet}'s out; DUPLEX 1 is the mod's Duplex round */
     int B_VELOCITY = 0, B_SPREAD = 1, B_PROJECTILES_MAX = 2, B_DAMAGE_MULT = 3, B_DUPLEX = 4, B_COUNT = 5;
 
-    /** {@link #rounds} and {@link #fill} where there is no magazine that counts single rounds */
+    /** {@link #settle} and {@link #fill} where there is no magazine that counts single rounds */
     int NO_ROUNDS = Integer.MIN_VALUE;
 
     /** NTM's keys a mob presses on its gun ({@link #key}): GUN_PRIMARY, RELOAD */
@@ -33,12 +33,6 @@ public interface NtmGuns {
      * way to the magazine is caught (none then), the count is not.
      */
     int loaded(Body holder, int hand);
-
-    /**
-     * Rounds in a magazine that counts single rounds of one type, as it holds them; {@link #NO_ROUNDS} with no gun or no
-     * such magazine. The way to the magazine is caught, the count is not.
-     */
-    int rounds(Body holder, int hand);
 
     /** Its magazine's capacity; 0 with no gun or no magazine. The way to the magazine is caught, the capacity is not. */
     int capacity(Body holder, int hand);
@@ -74,8 +68,12 @@ public interface NtmGuns {
      */
     void key(Body holder, int hand, int key, boolean down);
 
-    /** Its magazine's rounds set to {@code n}; nothing with no magazine. The way to the magazine is caught, the setting is not. */
-    void setLoaded(Body holder, int hand, int n);
+    /**
+     * A magazine that counts single rounds of one type, found once: its rounds {@code now}, then {@code keep =
+     * settle(now)}, set to {@code keep} only when it is not {@code now}. Gives {@code now}; {@link #NO_ROUNDS} with no
+     * gun or no such magazine, {@code settle} not called. The way to the magazine is caught, the rest is not.
+     */
+    int settle(Body holder, int hand, java.util.function.IntUnaryOperator settle);
 
     /**
      * Its magazine filled from nothing (NTM's reload with no inventory), then its rounds as {@link #loaded} gives them;
@@ -93,11 +91,6 @@ public interface NtmGuns {
         @Override
         public int loaded(Body holder, int hand) {
             return -1;
-        }
-
-        @Override
-        public int rounds(Body holder, int hand) {
-            return NO_ROUNDS;
         }
 
         @Override
@@ -131,7 +124,8 @@ public interface NtmGuns {
         }
 
         @Override
-        public void setLoaded(Body holder, int hand, int n) {
+        public int settle(Body holder, int hand, java.util.function.IntUnaryOperator settle) {
+            return NO_ROUNDS;
         }
 
         @Override

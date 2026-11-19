@@ -510,11 +510,15 @@ public final class AiGunner extends AiGunnerBase {
         }
 
         @Override
-        @SuppressWarnings("rawtypes")
-        public int rounds(Body holder, int hand) {
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        public int settle(Body holder, int hand, java.util.function.IntUnaryOperator settle) {
             ItemStack stack = stack(holder, hand);
             IMagazine mag = magazine(stack);
-            return mag instanceof MagazineSingleTypeBase ? mag.getAmount(stack, null) : NO_ROUNDS;
+            if (!(mag instanceof MagazineSingleTypeBase)) return NO_ROUNDS;
+            int now = mag.getAmount(stack, null);
+            int keep = settle.applyAsInt(now);
+            if (keep != now) mag.setAmount(stack, keep);
+            return now;
         }
 
         @Override
@@ -583,14 +587,6 @@ public final class AiGunner extends AiGunnerBase {
                 default -> throw new IllegalArgumentException("key " + key);
             };
             ((ItemGunBaseNT) stack.getItem()).handleKeybind((LivingEntity) ((acup.gunfeel.EntityBody) holder).entity(), null, stack, k, down);
-        }
-
-        @Override
-        @SuppressWarnings({"rawtypes", "unchecked"})
-        public void setLoaded(Body holder, int hand, int n) {
-            ItemStack stack = stack(holder, hand);
-            IMagazine mag = magazine(stack);
-            if (mag != null) mag.setAmount(stack, n);
         }
 
         @Override

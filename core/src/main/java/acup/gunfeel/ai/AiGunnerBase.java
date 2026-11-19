@@ -28,6 +28,8 @@ public abstract class AiGunnerBase {
 
     final Body body;
     public final AiAmmo ammo;
+    /** ammo.settle, made once (no object a tick) for NtmGuns.settle */
+    private final java.util.function.IntUnaryOperator settle;
     /** the ticks its last reload took, from the start to ready again (0 before its first) */
     public int lastReload;
     // fire and reload wanted (its mind), the trigger and the reload key down (its hand)
@@ -49,6 +51,7 @@ public abstract class AiGunnerBase {
     AiGunnerBase(Body body, AiAmmo ammo) {
         this.body = body;
         this.ammo = ammo;
+        this.settle = ammo::settle;
     }
 
     /** the cone kept clear for the gun it holds */
@@ -217,13 +220,9 @@ public abstract class AiGunnerBase {
      */
     int settleMagazine() {
         int gone = 0;
-        int now = GUNS.rounds(body, Body.MAIN_HAND);
-        if (now != NtmGuns.NO_ROUNDS) {
-            int before = ammo.lastLoaded;
-            int keep = ammo.settle(now);
-            if (keep != now) GUNS.setLoaded(body, Body.MAIN_HAND, keep);
-            if (before > 0 && now < before) gone = before - Math.max(0, now);
-        }
+        int before = ammo.lastLoaded;
+        int now = GUNS.settle(body, Body.MAIN_HAND, settle);
+        if (now != NtmGuns.NO_ROUNDS && before > 0 && now < before) gone = before - Math.max(0, now);
         return gone;
     }
 
