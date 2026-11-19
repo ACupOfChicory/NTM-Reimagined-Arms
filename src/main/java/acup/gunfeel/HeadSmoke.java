@@ -38,7 +38,7 @@ final class HeadSmoke {
         }
         if(Boolean.getBoolean("ntmgunfeel.dumpParts")) try {
             var parts=ModelHits.profileParts(target).stream().map(p->{var r=p.ref();return Map.of("name",r.name(),"size",r.size(),
-                    "shape",Long.toUnsignedString(r.shape(),16),"center",new double[]{r.center().x,r.center().y,r.center().z},
+                    "shape",Long.toUnsignedString(r.shape(),16),"center",new double[]{r.center().x(),r.center().y(),r.center().z()},
                     "vertices",p.vertices().stream().map(v->new double[]{v.x,v.y,v.z}).toList());}).toList();
             java.nio.file.Files.writeString(java.nio.file.Path.of("../notes/head-labels/research/parts-"+MobSmoke.current().replace(':','_').replace('#','-')+".json"),
                     new com.google.gson.Gson().toJson(parts));
