@@ -12,6 +12,8 @@ import acup.gunfeel.host.Ports;
 import acup.gunfeel.smoke.SmokeClouds;
 import acup.gunfeel.smoke.SmokeGrid;
 import acup.gunfeel.smoke.SmokeMask;
+import acup.gunfeel.water.LiquidPath;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 
 /**
@@ -45,5 +47,10 @@ public final class Wiring implements Ports {
     /** The smoke's walls in a level: which cells of a cloud are closed to smoke ({@link SmokeMask}). */
     public static Function<SmokeClouds.Cloud, SmokeGrid.Mask> smokeWalls(Level level) {
         return c -> SmokeMask.of(level, c);
+    }
+
+    /** The liquids of a level (or of any blocks) for the water's path ({@link LiquidPath#trace}). */
+    public static LiquidPath.Fluids liquids(BlockGetter level) {
+        return acup.gunfeel.water.LevelFluids.of(level);
     }
 }

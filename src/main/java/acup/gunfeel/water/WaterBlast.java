@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.explosion.vanillant.ExplosionVNT;
 
-import acup.gunfeel.water.WaterEvents.Liquid;
+import acup.gunfeel.water.LiquidEvents.Liquid;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;

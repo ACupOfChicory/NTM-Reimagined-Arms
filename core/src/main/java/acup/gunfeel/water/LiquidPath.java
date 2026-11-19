@@ -45,6 +45,11 @@ public class LiquidPath {
     public record Settings(boolean on, double stopFraction, double rangeScale, double skipAngle, double fuzeSkipAngle, int maxSkips) {
         public static final Settings DEFAULT = new Settings(true, 0.15, 1.0, 6.0, 10.0, 2);
 
+        // the server's settings (on a client: the server's it is connected to)
+        public static Settings current() {
+            return WaterSettings.path();
+        }
+
         public double skipAngle(WaterClass cls) {
             return cls.explosive ? fuzeSkipAngle : skipAngle;
         }

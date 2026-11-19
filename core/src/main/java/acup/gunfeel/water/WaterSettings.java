@@ -8,8 +8,8 @@ public final class WaterSettings {
     private WaterSettings() {
     }
 
-    public static WaterPath.Settings path() {
-        return new WaterPath.Settings(ballistics(), Math.clamp(ReaimTimes.number("waterStopFraction", 0.15F), 0.001F, 0.99F),
+    public static LiquidPath.Settings path() {
+        return new LiquidPath.Settings(ballistics(), Math.clamp(ReaimTimes.number("waterStopFraction", 0.15F), 0.001F, 0.99F),
                 Math.max(0.01F, ReaimTimes.number("waterRangeScale", 1F)), ReaimTimes.number("waterSkipAngle", 6F),
                 ReaimTimes.number("waterFuzeSkipAngle", 10F), 2);
     }
