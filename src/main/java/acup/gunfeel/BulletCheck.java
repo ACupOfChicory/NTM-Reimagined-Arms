@@ -510,12 +510,21 @@ public final class BulletCheck {
             one.addAll(r.selectors());
         }
         for (String s : one) lists.add(List.of(s));
-        int states = 0, asked = 0, yes = 0, wrong = 0, facts = 0;
-        String first = null;
+        int states = 0, asked = 0, yes = 0, wrong = 0, facts = 0, threw = 0;
+        String first = null, thrown = null;
+        java.util.Set<String> mods = new java.util.TreeSet<>();
         for (Block b : net.minecraft.core.registries.BuiltInRegistries.BLOCK) {
+            mods.add(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).getNamespace());
             for (BlockState st : b.getStateDefinition().getPossibleStates()) {
                 states++;
-                if (BlockStates.factsOf(BlockStates.number(st)).machineOrPartial() != OldMatch.machineOrPartial(st)) facts++;
+                try {
+                    // the facts made here as the selectors make them: one that throws would be a bullet's
+                    if (BlockStates.factsOf(BlockStates.number(st)).machineOrPartial() != OldMatch.machineOrPartial(st)) facts++;
+                } catch (RuntimeException e) {
+                    threw++;
+                    if (thrown == null) thrown = st + ": " + e;
+                    continue;
+                }
                 for (List<String> sel : lists) {
                     boolean was = OldMatch.blockMatches(sel, st), now = BulletRules.blockMatches(sel, st);
                     asked++;
@@ -527,7 +536,9 @@ public final class BulletCheck {
                 }
             }
         }
-        lines.add("     selectors: " + states + " states, " + lists.size() + " selector lists, " + asked + " asked, " + yes + " taken");
+        lines.add("     selectors: " + states + " states of " + mods.size() + " namespaces " + mods + ", " + lists.size() + " selector lists, "
+                + asked + " asked, " + yes + " taken");
+        check("selectors: every state's facts made" + (thrown == null ? "" : " (first: " + thrown + ")"), 0, threw);
         lines.add("     selectors: the facts' machine-or-partial unlike the game's own (%mod asks the game's) on " + facts + " states");
         check("selectors: every state, every selector, as before" + (first == null ? "" : " (first: " + first + ")"), 0, wrong);
         check("selectors: enough of them taken and not", true, yes > 1000 && asked - yes > 1000);

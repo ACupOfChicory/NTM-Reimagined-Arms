@@ -16,6 +16,12 @@ public final class BlockStates implements BlockTable {
     private static final class Table {
         static final StateNumbers<BlockState> T = new StateNumbers<>(Blocks.AIR.defaultBlockState(), BlockFactsOf::of, PassableClip::key,
                 BlockState::isAir);
+
+        // the game's block tags applied anew (a /reload; a server's, on joining it): the facts with them. Listened to from
+        // the table's making on: no state has facts before it
+        static {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.TagsUpdatedEvent.class, e -> forgetFacts());
+        }
     }
 
     /** the state's number in the game's table */
