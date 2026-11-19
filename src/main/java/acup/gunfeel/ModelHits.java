@@ -248,7 +248,7 @@ public final class ModelHits {
     static ModelBox partAt(List<ModelBox> boxes,Vec3 local) {
         ModelBox best=null;double least=ON_PART;
         for(var b:boxes) {
-            if(!b.containsPoint(local) && surface(b,local)>ON_PART) continue;
+            if(!b.containsPoint(local.x,local.y,local.z) && surface(b,local)>ON_PART) continue;
             for(int axis=0;axis<3;axis++) for(int sign=-1;sign<=1;sign+=2) {
                 double dx=axis==0?sign*ON_PART:0,dy=axis==1?sign*ON_PART:0,dz=axis==2?sign*ON_PART:0;
                 double t=b.clip(local.x-dx,local.y-dy,local.z-dz,local.x+dx,local.y+dy,local.z+dz);
@@ -772,7 +772,7 @@ public final class ModelHits {
             if(region.getXsize()<=0 || region.getYsize()<=0 || region.getZsize()<=0) return Optional.empty();
             var carrier=new ModelBox("part_region",region.minX,region.minY,region.minZ,
                     region.getXsize(),0,0,0,region.getYsize(),0,0,0,region.getZsize());
-            double[] span=carrier.carrierSpan(from,to);
+            double[] span=carrier.carrierSpan(from.x,from.y,from.z,to.x,to.y,to.z);
             if(span==null) return Optional.empty();
             segmentFrom=from.lerp(to,span[0]); segmentTo=from.lerp(to,span[1]);
         }

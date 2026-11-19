@@ -1,8 +1,5 @@
 package acup.gunfeel;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 
 import net.minecraft.world.level.Level;
@@ -14,22 +11,19 @@ import net.minecraft.world.phys.Vec3;
 // them at once) and only then looks for creatures on the path up to where the blocks stop it: a golem standing before
 // ground the bullet pierces got what was left after the ground. Now the damage is taken back to before the first block
 // beyond the creature (enter), and the blocks the bullet has not paid for again are paid by the damage it has after
-// the hit (the hit lowers it for some rounds), when it meets the next creature or at the tick's end (finish).
+// the hit (the hit lowers it for some rounds), when it meets the next creature or at the tick's end (finish). The
+// account of the blocks is core's (PierceLedger); here the bullet, its damage and the game's hits.
 public final class PierceSteps {
     // the bullet's own steps (MixinBulletServer)
     public interface Holder {
         PierceSteps gunfeel$steps();
     }
 
-    private record Step(double at, float before, double spentBefore, BlockHitResult in, BlockHitResult out) {
-    }
-
     final Materials.Penetration penetration = new Materials.Penetration();
 
-    private final List<Step> steps = new ArrayList<>();
+    // the blocks pierced this tick, and those paid for in bullet.damage
+    private final PierceLedger<BlockHitResult> steps = new PierceLedger<>();
     private Vec3 from = Vec3.ZERO;
-    // steps paid for in bullet.damage
-    private int paid;
 
     public static PierceSteps of(EntityBulletBaseMK4 bullet) {
         return ((Holder) bullet).gunfeel$steps();
@@ -39,26 +33,22 @@ public final class PierceSteps {
     public void start(Vec3 from) {
         this.from = from;
         steps.clear();
-        paid = 0;
     }
 
     // a block pierced, paid for at once: the damage was `before`
     public void pierced(BlockHitResult in, BlockHitResult out, float before, double spentBefore) {
-        steps.add(new Step(in.getLocation().distanceTo(from), before, spentBefore, in, out));
-        paid = steps.size();
+        steps.pierced(in.getLocation().distanceTo(from), before, spentBefore, in, out);
     }
 
     // a creature is hit at `at`: the bullet's damage as it is there
     public void enter(EntityBulletBaseMK4 bullet, Vec3 at) {
-        if (steps.isEmpty()) return;
-        double d = at.distanceTo(from);
-        int k = 0;
-        while (k < steps.size() && steps.get(k).at() < d) k++;
-        if (paid > k) {
+        if (steps.size() == 0) return;
+        int k = steps.firstFrom(at.distanceTo(from));
+        if (steps.paidPast(k)) {
             // the blocks beyond it were paid too early: back to the damage before the first of them
-            bullet.damage = steps.get(k).before();
-            penetration.restore(steps.get(k).spentBefore());
-            paid = k;
+            bullet.damage = steps.damageBefore(k);
+            penetration.restore(steps.spentBefore(k));
+            steps.unpayTo(k);
             if (TestLog.server) TestLog.s(bullet.getId(), "pierce_later", "blocks", steps.size() - k, "damage", bullet.damage);
         } else {
             payTo(bullet, k);
@@ -69,22 +59,22 @@ public final class PierceSteps {
     public void finish(EntityBulletBaseMK4 bullet) {
         payTo(bullet, steps.size());
         steps.clear();
-        paid = 0;
     }
 
     private void payTo(EntityBulletBaseMK4 bullet, int k) {
         Level level = bullet.level();
-        while (paid < k && !bullet.isRemoved()) {
-            Step s = steps.get(paid++);
-            float wk = acup.gunfeel.water.WaterTick.k(bullet, s.in().getLocation());
-            float left = wk == 1F ? PassableClip.pierced(level, s.in(), s.out(), bullet.damage, bullet.config, penetration)
-                    : wk <= 0F ? -1F : PassableClip.pierced(level, s.in(), s.out(), bullet.damage * wk, bullet.config, penetration) / wk;
-            if (TestLog.server) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(s.in().getBlockPos()), "pos", s.in().getBlockPos(),
-                    "at", s.in().getLocation(), "material", WorldLog.material(level, s.in()), "result", left < 0F ? "stop" : "pierce",
+        while (steps.owes(k) && !bullet.isRemoved()) {
+            int i = steps.payNext();
+            BlockHitResult in = steps.wayIn(i), out = steps.wayOut(i);
+            float wk = acup.gunfeel.water.WaterTick.k(bullet, in.getLocation());
+            float left = wk == 1F ? PassableClip.pierced(level, in, out, bullet.damage, bullet.config, penetration)
+                    : wk <= 0F ? -1F : PassableClip.pierced(level, in, out, bullet.damage * wk, bullet.config, penetration) / wk;
+            if (TestLog.server) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(in.getBlockPos()), "pos", in.getBlockPos(),
+                    "at", in.getLocation(), "material", WorldLog.material(level, in), "result", left < 0F ? "stop" : "pierce",
                     "why", "after_entity", "damage", bullet.damage, "left", left);
             if (left < 0F) {
                 // it stops in this block now that it hit a creature before it
-                Vec3 p = s.in().getLocation();
+                Vec3 p = in.getLocation();
                 bullet.setPos(p.x, p.y, p.z);
                 bullet.discard();
                 return;
