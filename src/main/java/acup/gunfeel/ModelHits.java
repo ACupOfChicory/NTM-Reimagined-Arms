@@ -579,7 +579,7 @@ public final class ModelHits {
                 if(suit!=null && suit!=Zone.HEAD) return new ModelHeads.Hit(true,false,resolved.source(),"костюм: часть под ним",resolved.confidence());
             }
         }
-        boolean head=HeadZone.contains(wornZones(root,pose,resolved.zones()),local);
+        boolean head=HeadZone.contains(wornZones(root,pose,resolved.zones()),local.x,local.y,local.z);
         return new ModelHeads.Hit(true,head,resolved.source(),resolved.reason(),resolved.confidence());
     }
     private static ModelHeads.Hit heightHead(LivingEntity living,Vec3 point) {
@@ -605,7 +605,7 @@ public final class ModelHits {
             var suit=on==null?null:suitPiece(worn,on.part());
             if(suit!=null) return suit==Zone.LIMB;
         }
-        return HeadZone.contains(wornZones(root,pose,limbs),local);
+        return HeadZone.contains(wornZones(root,pose,limbs),local.x,local.y,local.z);
     }
     public static synchronized List<HeadZone> headZones(Entity target) {
         var poses=POSES.get(target.level());var pose=poses==null?null:poses.get(target.getId());

@@ -137,10 +137,10 @@ class WornGearTest {
         var zone = new HeadZone(head, List.of(new HeadZone.Plane(0, 1, 0, -28 * PX)));
         var grown = WornGear.zones(List.of(zone), HELMET, true).get(0);
         Vec3 aboveTheBareHead = new Vec3(0, 32.5 * PX, 0), sideOfIt = new Vec3(4.5 * PX, 30 * PX, 0), neck = new Vec3(0, 26 * PX, 0);
-        assertFalse(zone.contains(aboveTheBareHead));
-        assertTrue(grown.contains(aboveTheBareHead));
-        assertTrue(grown.contains(sideOfIt));
-        assertFalse(grown.contains(neck));
+        assertFalse(HeadZoneTests.contains(zone,aboveTheBareHead));
+        assertTrue(HeadZoneTests.contains(grown,aboveTheBareHead));
+        assertTrue(HeadZoneTests.contains(grown,sideOfIt));
+        assertFalse(HeadZoneTests.contains(grown,neck));
         assertSame(zone, WornGear.zones(List.of(zone), HELMET, false).get(0));
     }
 
@@ -204,11 +204,11 @@ class WornGearTest {
         // on the helmet's face, its top and its side: half a pixel past the head, the helmet's face, its hat's
         for (Vec3 p : new Vec3[] { new Vec3(0, 28 * PX, -4.5 * PX), new Vec3(0, 33 * PX, 0), new Vec3(5 * PX, 28 * PX, 0),
                 new Vec3(0, 28 * PX, -5.5 * PX), new Vec3(5.5 * PX, 33.5 * PX, 0) }) {
-            assertFalse(zone.contains(p), "bare " + p);
-            assertTrue(HeadZone.contains(grown, p), "helmet " + p);
+            assertFalse(HeadZoneTests.contains(zone,p), "bare " + p);
+            assertTrue(HeadZoneTests.contains(grown, p), "helmet " + p);
         }
         // two pixels past the head is past the helmet
-        assertFalse(HeadZone.contains(grown, new Vec3(0, 28 * PX, -6 * PX)));
+        assertFalse(HeadZoneTests.contains(grown, new Vec3(0, 28 * PX, -6 * PX)));
     }
 
     // a glass block on a bot's head (the GLASS+PAA loadout) is no armour: it grows neither its boxes nor its zones
@@ -232,7 +232,7 @@ class WornGearTest {
         boxes.add(part("mesh/root/armor/slots/1/draws/0/tree/body", -5, 11, -3, 10, 14, 6, 1));
         Vec3 collar = new Vec3(0, 24.5 * PX, -3 * PX);
         var grown = WornGear.zones(List.of(new HeadZone(find(boxes, "root/head"), List.of())), HELMET, true, false);
-        assertTrue(HeadZone.contains(grown, collar), "the grown head zone takes the collar");
+        assertTrue(HeadZoneTests.contains(grown, collar), "the grown head zone takes the collar");
         assertEquals(ModelHits.Zone.BODY, ModelHits.armourZone(boxes, collar));
         assertEquals(ModelHits.Zone.HEAD, ModelHits.armourZone(boxes, new Vec3(0, 28 * PX, -5 * PX)));
         assertEquals(WornGear.Worn.NOTHING, ModelHits.unarmoured(new WornGear.Worn(WornGear.Head.ARMOR, true, true, true), boxes));
