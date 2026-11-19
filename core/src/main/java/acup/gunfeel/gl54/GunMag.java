@@ -3,32 +3,13 @@ package acup.gunfeel.gl54;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-
 // What the GL-54 holds, on the gun itself (a data component of its own, without the swap animation so that a shot does not
 // draw the gun again): the grenades of the magazine in it, the one in the barrel, the contents the next reload takes, whether
 // a magazine is physically in (a new gun has none: an empty one is not given back out of nothing) and a mark that a swap
-// has just been made (the decider asks canReload once more right after it: false then, see GrenadeMagazine).
+// has just been made (the decider asks canReload once more right after it: false then, see GrenadeMagazine). Saved and sent by
+// GunMagCodecs (26.2).
 public record GunMag(List<String> mag, String chamber, List<String> want, boolean inserted, boolean fresh) {
     public static final GunMag NONE = new GunMag(List.of(), "", List.of(), false, false);
-    public static final Codec<GunMag> CODEC = RecordCodecBuilder.create(i -> i.group(
-            Codec.STRING.listOf(0, MagContents.CAPACITY).optionalFieldOf("mag", List.of()).forGetter(GunMag::mag),
-            Codec.STRING.optionalFieldOf("chamber", "").forGetter(GunMag::chamber),
-            Codec.STRING.listOf(0, MagContents.CAPACITY).optionalFieldOf("want", List.of()).forGetter(GunMag::want),
-            Codec.BOOL.optionalFieldOf("inserted", false).forGetter(GunMag::inserted),
-            Codec.BOOL.optionalFieldOf("fresh", false).forGetter(GunMag::fresh)).apply(i, GunMag::new));
-    public static final StreamCodec<RegistryFriendlyByteBuf, GunMag> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(MagContents.CAPACITY)), GunMag::mag,
-            ByteBufCodecs.STRING_UTF8, GunMag::chamber,
-            ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(MagContents.CAPACITY)), GunMag::want,
-            ByteBufCodecs.BOOL, GunMag::inserted,
-            ByteBufCodecs.BOOL, GunMag::fresh,
-            GunMag::new);
 
     public GunMag {
         mag = List.copyOf(mag);

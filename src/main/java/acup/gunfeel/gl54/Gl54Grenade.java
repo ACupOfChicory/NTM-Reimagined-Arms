@@ -39,14 +39,10 @@ public final class Gl54Grenade {
     // flight before the fuze is armed, blocks
     public static final double ARM_DISTANCE = 3.0;
     public static final float DUD_DAMAGE = 4F;
-    // the owner's: the real XM29 20 mm at about 180 m/s, scaled by NTM's own factor for the 40 mm (2.0 blocks a tick against a
-    // real M203's 76 m/s)
-    public static final float SPEED = 4.7F;
-    // Earth's gravity (the owner's): 9.8 m/s^2 with a block a metre and 20 ticks a second is 9.8 / 400 = 0.0245 blocks a tick,
-    // a tick. EntityThrowableNT keeps the heading as a unit vector, moves the grenade by it times the speed and takes the
-    // gravity off the vector, so the drop it makes is the gravity times the speed: the parameter is 0.0245 / 4.7 = 0.0052128.
-    public static final double GRAVITY = 0.0245 / SPEED;
-    public static final int LIFE = 200;
+    // the flight's numbers are the ballistics' (Gl54Ballistics, in core: the HUD's range counts on them without the game)
+    public static final float SPEED = Gl54Ballistics.SPEED;
+    public static final double GRAVITY = Gl54Ballistics.GRAVITY;
+    public static final int LIFE = Gl54Ballistics.TICKS;
     public static final String CASING = "gl54";
 
     // dev (Gl54Stand): told where a grenade went off or fell as a dud (where, blocks flown, went off, where it was fired from)
