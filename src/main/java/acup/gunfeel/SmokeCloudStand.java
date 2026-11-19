@@ -98,7 +98,9 @@ final class SmokeCloudStand {
         Minecraft mc = Minecraft.getInstance();
         mc.options.pauseOnLostFocus = false;
         mc.options.enableVsync().set(false);
-        if (Boolean.getBoolean("ntmgunfeel.smokeFabulous")) mc.options.improvedTransparency().set(true);
+        String fabulous = System.getProperty("ntmgunfeel.smokeFabulous", "false");
+        if (!fabulous.equals("false")) mc.options.improvedTransparency().set(true);
+        if (fabulous.equals("chain")) flywheelTerrainOff();
         mc.options.framerateLimit().set(260);
         if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle();
         savedQuality = Config.smokeQuality;
@@ -176,6 +178,24 @@ final class SmokeCloudStand {
         mc.player.yRotO = p.yaw;
         mc.player.xRotO = p.pitch;
         mc.player.setDeltaMovement(Vec3.ZERO);
+    }
+
+    /**
+     * -PsmokeFabulous=chain: Flywheel's terrain mode OFF for this run only (in memory, its config file is not written: the
+     * game corrects a file set to OFF back to the default at start). Without its translucent terrain OIT Flywheel leaves
+     * improved transparency to the vanilla transparency chain.
+     */
+    private static void flywheelTerrainOff() {
+        try {
+            Class<?> cfg = Class.forName("dev.engine_room.flywheel.impl.NeoForgeFlwConfig");
+            Object client = cfg.getField("client").get(cfg.getField("INSTANCE").get(null));
+            Object value = client.getClass().getField("terrainMode").get(client);
+            Class<?> mode = Class.forName("dev.engine_room.flywheel.backend.TerrainMode");
+            value.getClass().getMethod("set", Object.class).invoke(value, mode.getField("OFF").get(null));
+            GunFeel.LOGGER.info("[smokestand] Flywheel terrain mode OFF");
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            ClientSmoke.check(false, "дым: Flywheel terrain OFF не поставлен: " + e);
+        }
     }
 
     private static void teleport(Pose p) {
@@ -482,7 +502,8 @@ final class SmokeCloudStand {
                 gFrames = -1;
             }
             case 3 -> {
-                // a shot: set the quality and the blocks, settle 25 frames, measure 60, shoot, 10 frames more
+                // a shot: set the quality and the blocks, settle 25 frames, measure 40, the camera turns 20 (wobble), shoot, 10
+                // frames more
                 Object[] sh = SHOTS[gShot];
                 if (gFrames == -1) {
                     Config.smokeQuality = (String) sh[1];
@@ -492,13 +513,14 @@ final class SmokeCloudStand {
                     GTIMES.clear();
                 }
                 gFrames++;
+                place(wobble(GLASS_POSE, 85 - gFrames));
                 // a shot with smoke waits (10 s at most) until a cloud's volume is really drawn: once the first shot
                 // of a scene found nothing marched yet
                 if (gFrames == 25 && !"off".equals(sh[1]) && !acup.gunfeel.smoke.client.SmokeRender.drawingVolume() && gWait++ < 2600) {
                     gFrames = 24;
                     return;
                 }
-                if (gFrames > 25 && gFrames <= 85) GTIMES.add(dt);
+                if (gFrames > 25 && gFrames <= 85 - WOBBLE) GTIMES.add(dt);
                 if (gFrames == 86) {
                     String name = sc.name + "-" + sh[0];
                     shootNamed(name);
@@ -522,8 +544,9 @@ final class SmokeCloudStand {
 
     // ---- compare (-PsmokePoses=compare): per pose, the clouds let grow, then the game's ticks frozen (/tick freeze) and
     // the noise's time held (SmokeRender.standSeconds), so every frame is the same; then each way of drawing them
-    // (SmokeCompare.VARIANTS, the first one twice more at the end: the noise floor) set, 30 frames to settle, 300
-    // timed, a shot <dir>/<pose>-<variant>.png and a row. High quality, the sky's clouds on.
+    // (SmokeCompare.VARIANTS, the first one twice more at the end: the noise floor, then "none": no smoke) set, 30 frames
+    // to settle, 279 timed, 20 with the camera turning (wobble; the card's time takes them in), a shot
+    // <dir>/<pose>-<variant>.png and a row. High quality, the sky's clouds on.
     // In the first 10 frames of each the camera is turned aside (TURN) with the whole frame copied, then back: a copy
     // of the clouds' part of the screen that is not made again leaves that turned view in it, and the shot differs
     // from old-rect's (whole copies each frame). The same frame each time could not show that (X1699's copies on OpenGL).
@@ -564,6 +587,7 @@ final class SmokeCloudStand {
         Pose p = COMPARE_POSES.get(cPose);
         place(p);
         List<String> variants = acup.gunfeel.smoke.client.SmokeCompare.VARIANTS;
+        // after the variants and the first one twice more: "none", the frame without smoke
         switch (cStage) {
             case 0 -> {
                 teleport(p);
@@ -603,8 +627,13 @@ final class SmokeCloudStand {
             case 3 -> {
                 // the variants, then the first one twice more
                 int at = cVariant < variants.size() ? cVariant : 0;
-                String name = cVariant < variants.size() ? variants.get(cVariant) : variants.get(0) + (cVariant - variants.size() + 2);
-                if (cFrames == -200 || cFrames == 0 && cVariant > 0) acup.gunfeel.smoke.client.SmokeCompare.set(variants.get(at));
+                boolean none = cVariant == variants.size() + 2;
+                String name = none ? "none" : cVariant < variants.size() ? variants.get(cVariant) : variants.get(0) + (cVariant - variants.size() + 2);
+                String way = none ? "none" : variants.get(at);
+                if (cFrames == -200 || cFrames == 0 && cVariant > 0) {
+                    acup.gunfeel.smoke.client.SmokeCompare.set(way);
+                    Config.smokeQuality = none ? "off" : "high";
+                }
                 if (cFrames >= 0 && cFrames < 10) {
                     var player = Minecraft.getInstance().player;
                     player.setYRot(p.yaw + TURN);
@@ -612,21 +641,24 @@ final class SmokeCloudStand {
                     player.setXRot(p.pitch + TURN / 3);
                     player.xRotO = p.pitch + TURN / 3;
                     acup.gunfeel.smoke.client.SmokeRender.standOld |= acup.gunfeel.smoke.client.SmokeRender.OLD_RECT;
-                } else if (cFrames == 10) acup.gunfeel.smoke.client.SmokeCompare.set(variants.get(at));
+                } else if (cFrames == 10) acup.gunfeel.smoke.client.SmokeCompare.set(way);
                 cFrames++;
+                // the turn aside above holds in its frames; the wobble only in the last ones
+                if (329 - cFrames <= WOBBLE) place(wobble(p, 329 - cFrames));
                 if (cFrames == 31) {
                     cardAt = new long[]{SmokeStats.cardNanos, SmokeStats.cardFrames};
                     partsAt = SmokeStats.cardMark();
                     TIMES.clear();
                 }
-                if (cFrames > 30) TIMES.add(dt);
+                if (cFrames > 30 && cFrames <= 329 - WOBBLE) TIMES.add(dt);
                 if (cFrames == 330) {
                     shootNamed(p.name + "-" + name);
                     row(p, name);
                 }
                 if (cFrames >= 340) {
                     cFrames = 0;
-                    if (++cVariant >= variants.size() + 2) {
+                    if (++cVariant >= variants.size() + 3) {
+                        Config.smokeQuality = "high";
                         acup.gunfeel.smoke.client.SmokeCompare.set(variants.get(0));
                         acup.gunfeel.smoke.client.SmokeCompare.reset();
                         acup.gunfeel.smoke.client.SmokeRender.standSeconds = Float.NaN;
@@ -640,6 +672,21 @@ final class SmokeCloudStand {
             default -> {
             }
         }
+    }
+
+    /** Frames before a shot the camera turns in (see wobble). */
+    private static final int WOBBLE = 20;
+
+    /**
+     * The pose turned a little, by how many frames are left to the shot: the camera turns in the WOBBLE frames before
+     * it and is on the pose in the frame shot. A frame that keeps an older frame's part (a copy, a target or a buffer
+     * not made again) shows it there, where a frame held still would not (X1713).
+     */
+    private static Pose wobble(Pose p, int toShot) {
+        if (toShot <= 0 || toShot > WOBBLE) return p;
+        float k = toShot / (float) WOBBLE;
+        return new Pose(p.name, p.x, p.y, p.z, p.yaw + 4F * k * (float) Math.sin(toShot * 0.9), p.pitch + 2F * k * (float) Math.cos(toShot * 1.3),
+                p.wall, p.sky, p.shed);
     }
 
     private static void shootNamed(String name) {
