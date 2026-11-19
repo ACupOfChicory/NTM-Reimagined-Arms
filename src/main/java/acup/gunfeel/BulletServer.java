@@ -151,7 +151,8 @@ public final class BulletServer {
     // each one pierced takes its share of the damage (and counts towards breaking it). `paid` = blocks it already
     // pierced (one it ended a tick inside of is not paid for again). The first block that stops it, else a miss at `to`.
     // A creature NTM finds on the path before a pierced block gets the damage from before that block (PierceSteps).
-    public static BlockHitResult clip(EntityBulletBaseMK4 bullet, Level level, Vec3 from, Vec3 to, java.util.Set<BlockPos> paid) {
+    // The walk's decisions are core's (PierceWalk); here the blocks (Way) and the bullet (Shot) as the game has them.
+    public static BlockHitResult clip(EntityBulletBaseMK4 bullet, Level level, Vec3 from, Vec3 to, PaidBlocks paid) {
         java.util.function.Consumer<BlockHitResult> through = hit -> passed(bullet, hit);
         PierceSteps steps = PierceSteps.of(bullet);
         steps.start(from);
@@ -159,42 +160,107 @@ public final class BulletServer {
         // (BeamLasers)
         if (bullet.config != null && bullet.config.onImpact != null)
             return stop(bullet, level, BeamLasers.clip(level, bullet.config, from, to, through), "explosive", Float.NaN);
-        Vec3 at = from;
-        for (int i = 0; i < 16; i++) {
-            BlockHitResult hit = BeamLasers.clip(level, bullet.config, at, to, through);
-            if (hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return hit;
-            Vec3 d = to.subtract(at);
-            double len = d.length();
-            if (len < 1e-6) return hit;
-            Vec3 dir = d.scale(1.0 / len);
-            BlockPos pos = hit.getBlockPos().immutable();
-            boolean once = PassableClip.paidOnce(hit), known = once && paid.contains(pos);
-            BlockHitResult out = PassableClip.exit(level, hit, dir);
-            if (out == null) return stop(bullet, level, hit, "no_exit", Float.NaN);
-            double spentBefore = steps.penetration.spent();
-            // behind water it has f² of the damage (WaterTick.k), kept in the tick's units
-            float k = acup.gunfeel.water.WaterTick.k(bullet, hit.getLocation());
-            float left = known ? bullet.damage : k == 1F ? PassableClip.pierced(level, hit, out, bullet.damage, bullet.config, steps.penetration)
-                    : k <= 0F ? -1F : PassableClip.pierced(level, hit, out, bullet.damage * k, bullet.config, steps.penetration) / k;
-            if (left < 0F) return stop(bullet, level, hit, "held", (float) hit.getLocation().distanceTo(out.getLocation()));
-            if (TestLog.server && !known) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(pos), "pos", pos, "at", hit.getLocation(),
-                    "material", WorldLog.material(level, hit), "result", "pierce", "damage", bullet.damage, "left", left,
-                    "path", hit.getLocation().distanceTo(out.getLocation()));
-            if (!known) {
-                if (once) paid.add(pos);
-                if (level instanceof ServerLevel server) {
-                    BlockState state = level.getBlockState(pos);
-                    BulletRuleText.Break rule = BulletRules.breakRule(state);
-                    if (rule != null && rule.mode() != 0) wear(server, bullet, pos, state, rule, k);
-                }
-                steps.pierced(hit, out, bullet.damage, spentBefore);
-                bullet.damage = left;
-            }
-            // it comes out beyond this tick's end: it stays inside the block till the next tick
-            if (out.getLocation().distanceToSqr(at) >= len * len) return BlockHitResult.miss(to, hit.getDirection(), BlockPos.containing(to));
-            at = out.getLocation().add(dir.scale(1e-3));
+        return PierceWalk.clip(new Way(bullet, level, from, to, through), new Shot(bullet, level, steps), from.x, from.y, from.z, to.x, to.y, to.z, paid);
+    }
+
+    // the blocks on the bullet's way this tick (PierceWalk.Way): BeamLasers' and PassableClip's
+    private record Way(EntityBulletBaseMK4 bullet, Level level, Vec3 from, Vec3 to, java.util.function.Consumer<BlockHitResult> through)
+            implements PierceWalk.Way<BlockHitResult> {
+        @Override
+        public BlockHitResult first(double ax, double ay, double az, double tx, double ty, double tz) {
+            // the first step from the tick's own start
+            Vec3 at = ax == from.x && ay == from.y && az == from.z ? from : new Vec3(ax, ay, az);
+            return BeamLasers.clip(level, bullet.config, at, to, through);
         }
-        return BlockHitResult.miss(to, net.minecraft.core.Direction.UP, BlockPos.containing(to));
+
+        @Override
+        public boolean miss(BlockHitResult hit) {
+            return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+        }
+
+        @Override
+        public double x(BlockHitResult hit) {
+            return hit.getLocation().x;
+        }
+
+        @Override
+        public double y(BlockHitResult hit) {
+            return hit.getLocation().y;
+        }
+
+        @Override
+        public double z(BlockHitResult hit) {
+            return hit.getLocation().z;
+        }
+
+        @Override
+        public long pos(BlockHitResult hit) {
+            BlockPos p = hit.getBlockPos();
+            return PosLong.block(p.getX(), p.getY(), p.getZ());
+        }
+
+        @Override
+        public boolean once(BlockHitResult hit) {
+            return PassableClip.paidOnce(hit);
+        }
+
+        @Override
+        public @Nullable BlockHitResult exit(BlockHitResult hit, double dx, double dy, double dz) {
+            return PassableClip.exit(level, hit, new Vec3(dx, dy, dz));
+        }
+
+        @Override
+        public float water(BlockHitResult hit) {
+            return acup.gunfeel.water.WaterTick.k(bullet, hit.getLocation());
+        }
+
+        @Override
+        public BlockHitResult missAt(BlockHitResult last) {
+            return BlockHitResult.miss(to, last.getDirection(), BlockPos.containing(to));
+        }
+
+        @Override
+        public BlockHitResult missUp() {
+            return BlockHitResult.miss(to, net.minecraft.core.Direction.UP, BlockPos.containing(to));
+        }
+    }
+
+    // the bullet on its way (PierceWalk.Shot): its damage, its tick's blocks (PierceSteps), the wear and the test log
+    private record Shot(EntityBulletBaseMK4 bullet, Level level, PierceSteps steps) implements PierceWalk.Shot<BlockHitResult> {
+        @Override
+        public float damage() {
+            return bullet.damage;
+        }
+
+        @Override
+        public double spent() {
+            return steps.penetration.spent();
+        }
+
+        @Override
+        public float left(BlockHitResult in, BlockHitResult out, float damage) {
+            return PassableClip.pierced(level, in, out, damage, bullet.config, steps.penetration);
+        }
+
+        @Override
+        public void pierce(BlockHitResult in, BlockHitResult out, float left, float k, double spentBefore) {
+            BlockPos pos = in.getBlockPos().immutable();
+            if (TestLog.server) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(pos), "pos", pos, "at", in.getLocation(),
+                    "material", WorldLog.material(level, in), "result", "pierce", "damage", bullet.damage, "left", left,
+                    "path", in.getLocation().distanceTo(out.getLocation()));
+            if (level instanceof ServerLevel server) {
+                BlockState state = level.getBlockState(pos);
+                BulletRuleText.Break rule = BulletRules.breakRule(state);
+                if (rule != null && rule.mode() != 0) wear(server, bullet, pos, state, rule, k);
+            }
+            steps.pierced(in, out, bullet.damage, spentBefore);
+            bullet.damage = left;
+        }
+
+        @Override
+        public BlockHitResult stop(BlockHitResult hit, @Nullable BlockHitResult out, String why) {
+            return BulletServer.stop(bullet, level, hit, why, out == null ? Float.NaN : (float) hit.getLocation().distanceTo(out.getLocation()));
+        }
     }
 
     // the test log: the bullet stops at this block (NTM's onImpact takes it from here: a ricochet, a break rule)
