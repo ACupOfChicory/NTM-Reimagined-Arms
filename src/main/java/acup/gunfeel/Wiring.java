@@ -26,7 +26,8 @@ public final class Wiring implements Ports {
             TestLog.Printer.class, new TestLogPrint(),
             Config.Reread.class, new PistolHoldReread(),
             ReaimTimes.Reload.class, new ServerTablesReload(),
-            ServerSettings.Follow.class, new RemoteShapes());
+            ServerSettings.Follow.class, new RemoteShapes(),
+            MainHand.class, new GameMainHand());
 
     @Override
     public <T> @Nullable T port(Class<T> type) {

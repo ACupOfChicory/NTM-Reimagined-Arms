@@ -27,15 +27,15 @@ class ArmPistolScaleTest {
         }
     }
 
-    private static Arms.ArmRest rest(boolean right, Vector3f grip, float holdScale, boolean rule, float wp) {
-        var result = new Arms.ArmRest();
-        Arms.restArm(result, right, false, grip, new Vector3f(0F, -1F, 0F), grip, new Vector3f(),
+    private static ArmRest rest(boolean right, Vector3f grip, float holdScale, boolean rule, float wp) {
+        var result = new ArmRest();
+        ArmMath.restArm(result, right, false, grip, new Vector3f(0F, -1F, 0F), grip, new Vector3f(),
                 right ? Config.armDirRight : Config.armDirLeft, right ? Config.armReachRight : Config.armReachLeft,
                 holdScale, rule, wp);
         return result;
     }
 
-    private static void sameBits(Arms.ArmRest a, Arms.ArmRest b) {
+    private static void sameBits(ArmRest a, ArmRest b) {
         assertEquals(a.valid, b.valid);
         assertEquals(Float.floatToIntBits(a.s), Float.floatToIntBits(b.s));
         assertEquals(Float.floatToIntBits(a.length), Float.floatToIntBits(b.length));
@@ -84,9 +84,9 @@ class ArmPistolScaleTest {
             {-0.085F, -1.272F, 1.134F, -0.211F, -1.393F, 1.248F}, {0.102F, -0.902F, 1.793F, -0.050F, -1.007F, 1.901F},
             {-0.168F, -1.369F, 2.021F, -0.333F, -2.226F, 2.172F}, {0.148F, -1.024F, 3.305F, -0.091F, -1.820F, 3.443F}};
 
-    private static Arms.ArmRest rest(boolean right, boolean slim, Vector3f grip, float wp) {
-        var result = new Arms.ArmRest();
-        Arms.restArm(result, right, slim, grip, new Vector3f(0F, -1F, 0F), grip, new Vector3f(),
+    private static ArmRest rest(boolean right, boolean slim, Vector3f grip, float wp) {
+        var result = new ArmRest();
+        ArmMath.restArm(result, right, slim, grip, new Vector3f(0F, -1F, 0F), grip, new Vector3f(),
                 right ? Config.armDirRight : Config.armDirLeft, right ? Config.armReachRight : Config.armReachLeft,
                 1F, true, wp);
         return result;
@@ -95,7 +95,7 @@ class ArmPistolScaleTest {
     // the angle (deg) the drawn arm's slice 2 px back from its end (the middle of what is drawn when less is) takes
     // across the arm as the eye sees it: the slice's corners projected on the plane square to the line of sight,
     // measured across the arm's projected axis
-    private static double silhouette(Arms.ArmRest rest, boolean right, boolean slim) {
+    private static double silhouette(ArmRest rest, boolean right, boolean slim) {
         Matrix4f m = rest.local;
         float cx = (right ? -1F : 1F) * (slim ? 5.5F : 6F) / 16F, hx = (slim ? 1.5F : 2F) / 16F;
         float y = (12F - Math.min(2F, rest.crop / 2F)) / 16F;
@@ -128,8 +128,8 @@ class ArmPistolScaleTest {
                 Config.armLength = length;
                 double lo = Double.MAX_VALUE, hi = 0;
                 for (float[] h : HANDS) {
-                    Arms.ArmRest r = rest(true, slim, new Vector3f(h[0], h[1], h[2]), 1F);
-                    Arms.ArmRest l = rest(false, slim, new Vector3f(h[3], h[4], h[5]), 1F);
+                    ArmRest r = rest(true, slim, new Vector3f(h[0], h[1], h[2]), 1F);
+                    ArmRest l = rest(false, slim, new Vector3f(h[3], h[4], h[5]), 1F);
                     if (length < 1F) assertEquals(1, r.crop);
                     double sr = silhouette(r, true, slim), sl = silhouette(l, false, slim);
                     assertEquals(1.0, sr / sl, 0.015, "R/L " + java.util.Arrays.toString(h) + " slim " + slim + " length " + length);
@@ -152,7 +152,7 @@ class ArmPistolScaleTest {
             for (float[] h : HANDS) for (int i = 0; i < 2; i++) for (boolean slim : new boolean[] {false, true}) {
                 boolean right = i == 0;
                 Vector3f grip = new Vector3f(h[3 * i], h[3 * i + 1], h[3 * i + 2]);
-                Arms.ArmRest full = rest(right, slim, grip, 1F);
+                ArmRest full = rest(right, slim, grip, 1F);
                 // the goal: a box 1.12 x its depth thick (x armScale) seen as wide as its mean over its roll
                 double goal = 1.12 * 4 / Math.PI * ((slim ? 1.5 : 2) + 2) / 16 * Config.armScale;
                 assertEquals(goal, 2 * Math.tan(Math.toRadians(silhouette(full, right, slim)) / 2), 2e-4 * goal, "width");
@@ -169,13 +169,13 @@ class ArmPistolScaleTest {
         ConfigState old = ConfigState.capture();
         try {
             // a hand at the eye's height a block ahead: still the same width
-            Arms.ArmRest near = rest(true, false, new Vector3f(0.2F, 0F, 1F), 1F);
+            ArmRest near = rest(true, false, new Vector3f(0.2F, 0F, 1F), 1F);
             assertEquals(16.23, silhouette(near, true, false), 0.05);
             // thickness x5 and arms twice as long: the slice runs away faster than the arm widens
             Config.armScale = 5F;
             Config.armLength = 2F;
             Vector3f grip = new Vector3f(-0.333F, -2.226F, 2.172F);
-            Arms.ArmRest far = rest(false, false, grip, 1F);
+            ArmRest far = rest(false, false, grip, 1F);
             assertTrue(Float.isFinite(far.s));
             assertEquals(2F * 1.12F * grip.length() * Config.armScale, far.s, 1e-4F * far.s);
         } finally {

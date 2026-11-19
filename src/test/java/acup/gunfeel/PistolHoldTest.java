@@ -20,17 +20,17 @@ import org.junit.jupiter.api.Test;
 class PistolHoldTest {
     @Test
     void curveStartsAndEndsWhereNtmDoes() {
-        assertEquals(0F, PistolHold.curve(0F), 1e-6F);
-        assertEquals(1F, PistolHold.curve(1F), 1e-6F);
-        assertEquals(0F, PistolHold.curve(-0.5F), 1e-6F);
-        assertEquals(1F, PistolHold.curve(1.5F), 1e-6F);
+        assertEquals(0F, PistolPlace.curve(0F), 1e-6F);
+        assertEquals(1F, PistolPlace.curve(1F), 1e-6F);
+        assertEquals(0F, PistolPlace.curve(-0.5F), 1e-6F);
+        assertEquals(1F, PistolPlace.curve(1.5F), 1e-6F);
     }
 
     @Test
     void curveNeverGoesBack() {
         float last = 0F;
         for (int i = 1; i <= 200; i++) {
-            float v = PistolHold.curve(i / 200F);
+            float v = PistolPlace.curve(i / 200F);
             assertTrue(v >= last, "at " + i);
             last = v;
         }
@@ -39,7 +39,7 @@ class PistolHoldTest {
     // the measured pistols aim in and out at the same times: the curve is the same both ways
     @Test
     void curveIsTheSameInAndOut() {
-        for (int i = 0; i <= 100; i++) assertEquals(1F - PistolHold.curve(i / 100F), PistolHold.curve(1F - i / 100F), 1e-5F);
+        for (int i = 0; i <= 100; i++) assertEquals(1F - PistolPlace.curve(i / 100F), PistolPlace.curve(1F - i / 100F), 1e-5F);
     }
 
     // NTM's progress goes linearly over 0.2 s, a half tick after the key: the curve's 10 / 50 / 90 % come between the
@@ -49,7 +49,7 @@ class PistolHoldTest {
         float[] level = {0.1F, 0.5F, 0.9F}, fast = {0.05F, 0.10F, 0.18F}, slow = {0.10F, 0.18F, 0.26F};
         for (int k = 0; k < 3; k++) {
             float p = 0F;
-            while (PistolHold.curve(p) < level[k]) p += 1e-4F;
+            while (PistolPlace.curve(p) < level[k]) p += 1e-4F;
             float t = 0.025F + 0.2F * p;
             assertTrue(t >= fast[k] - 0.01F && t <= slow[k] + 0.01F, level[k] + " at " + t);
         }
@@ -130,7 +130,7 @@ class PistolHoldTest {
         return new float[] {(l + r) / 2, (t + b) / 2, r - l, b - t, angle};
     }
 
-    // the hip place as PistolHold.hip puts it (no turn before standardAimingTransform): the middle at RIGHT, UP,
+    // the hip place as PistolPlace.hip puts it (no turn before standardAimingTransform): the middle at RIGHT, UP,
     // AHEAD in the gun's length from the eye, the length along the model's axis as Arms measures it
     static Vector3f hip(List<Vector3f> model) {
         float minZ = Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
@@ -139,7 +139,7 @@ class PistolHoldTest {
             maxZ = Math.max(maxZ, v.z);
         }
         float len = maxZ - minZ;
-        return new Vector3f(-PistolHold.RIGHT * len, PistolHold.UP * len, PistolHold.AHEAD * len).sub(middle(model));
+        return new Vector3f(-PistolPlace.RIGHT * len, PistolPlace.UP * len, PistolPlace.AHEAD * len).sub(middle(model));
     }
 
     // from the hip the picture is within the two measured pistols': the middle of the frame to the screen's edge at
@@ -164,12 +164,12 @@ class PistolHoldTest {
         Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
         float aX = 0F, aY = -0.4F, aZ = 0.5F;
         Vector3f same = new Vector3f();
-        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, same));
+        assertTrue(PistolPlace.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, same));
 
         Vector3f x = new Vector3f(), y = new Vector3f(), z = new Vector3f();
-        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 0F, 1F, 1F, x));
-        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 0F, 1F, y));
-        assertTrue(PistolHold.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 2F, z));
+        assertTrue(PistolPlace.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 0F, 1F, 1F, x));
+        assertTrue(PistolPlace.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 0F, 1F, y));
+        assertTrue(PistolPlace.hip(pose, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 2F, z));
         Vector3f mx = pose.transformPosition(new Vector3f(x).add(ends[2]));
         Vector3f my = pose.transformPosition(new Vector3f(y).add(ends[2]));
         Vector3f mz = pose.transformPosition(new Vector3f(z).add(ends[2]));
@@ -189,11 +189,11 @@ class PistolHoldTest {
         Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
         float aX = 0F, aY = -0.4F, aZ = 0.5F;
         Vector3f still = new Vector3f(), turned = new Vector3f();
-        assertTrue(PistolHold.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, 0.5F, 1.5F, 1.25F, still));
+        assertTrue(PistolPlace.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, 0.5F, 1.5F, 1.25F, still));
         Matrix4f view = new Matrix4f().rotateX(0.52F).rotateY(2.36F);
         Matrix4f inView = new Matrix4f(view).invert();
         Matrix4f moved = new Matrix4f(inView).mul(new Matrix4f().translation(0.05F, 0F, 0F).rotateY(0.1F)).mul(view);
-        assertTrue(PistolHold.hip(view, new Matrix4f(moved).mul(inView).mul(ntm), moved,
+        assertTrue(PistolPlace.hip(view, new Matrix4f(moved).mul(inView).mul(ntm), moved,
                 ends, aX, aY, aZ, 0.5F, 1.5F, 1.25F, turned));
         assertEquals(still.x, turned.x, 1e-4F);
         assertEquals(still.y, turned.y, 1e-4F);
@@ -206,12 +206,12 @@ class PistolHoldTest {
         float was = Config.hipZ;
         try {
             Config.hipZ = 1F;
-            assertEquals(1F, PistolHold.hipScales("hbm:gun_laser_pistol")[2], 1e-6F);
+            assertEquals(1F, PistolPlace.hipScales("hbm:gun_laser_pistol")[2], 1e-6F);
             Config.hipZ = 0.75F;
-            assertEquals(1F, PistolHold.hipScales("hbm:gun_star_f")[2], 1e-6F);
+            assertEquals(1F, PistolPlace.hipScales("hbm:gun_star_f")[2], 1e-6F);
             Config.hipZ = 1.5F;
-            assertEquals(2F, PistolHold.hipScales("hbm:gun_star_f")[2], 1e-6F);
-            assertEquals(1.5F, PistolHold.hipScales("hbm:gun_laser_pistol")[2], 1e-6F);
+            assertEquals(2F, PistolPlace.hipScales("hbm:gun_star_f")[2], 1e-6F);
+            assertEquals(1.5F, PistolPlace.hipScales("hbm:gun_laser_pistol")[2], 1e-6F);
         } finally {
             Config.hipZ = was;
         }
@@ -219,13 +219,13 @@ class PistolHoldTest {
 
     @Test
     void hipDefaultsComeFromShippedGunSettingsOrBuiltinValues() {
-        assertEquals(0.75F, PistolHold.defaultHip("hbm:gun_heavy_revolver", "hipZ"), 0F);
-        assertEquals(0.6F, PistolHold.defaultHip("hbm:gun_star_f", "hipX"), 0F);
-        assertEquals(0.75F, PistolHold.defaultHip("hbm:gun_star_f", "hipZ"), 0F);
+        assertEquals(0.75F, PistolPlace.defaultHip("hbm:gun_heavy_revolver", "hipZ"), 0F);
+        assertEquals(0.6F, PistolPlace.defaultHip("hbm:gun_star_f", "hipX"), 0F);
+        assertEquals(0.75F, PistolPlace.defaultHip("hbm:gun_star_f", "hipZ"), 0F);
         // a value shipped for the gun wins over the built-in one
-        assertEquals(0.74F, PistolHold.defaultHip("hbm:gun_greasegun", "hipX"), 0F);
-        assertEquals(1F, PistolHold.hipScale(0F, 0F), 0F);
-        assertEquals(1.25F, PistolHold.hipScale(0.25F, 0F), 0F);
+        assertEquals(0.74F, PistolPlace.defaultHip("hbm:gun_greasegun", "hipX"), 0F);
+        assertEquals(1F, PistolPlace.hipScale(0F, 0F), 0F);
+        assertEquals(1.25F, PistolPlace.hipScale(0.25F, 0F), 0F);
     }
 
     // the hip place is found before WalkSprint's move and the move stays on top: with a shift and a turn around the
@@ -236,20 +236,20 @@ class PistolHoldTest {
         Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
         float aX = 0F, aY = -0.4F, aZ = 0.5F;
         Vector3f still = new Vector3f();
-        assertTrue(PistolHold.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, still));
+        assertTrue(PistolPlace.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, still));
         // the middle at rest, in view space
         Vector3f p0 = ntm.transformPosition(new Vector3f(still).add(ends[2]));
         float len = 3F;
-        assertEquals(-PistolHold.RIGHT * len, p0.x, 1e-4F);
-        assertEquals(PistolHold.UP * len, p0.y, 1e-4F);
-        assertEquals(PistolHold.AHEAD * len, p0.z, 1e-4F);
+        assertEquals(-PistolPlace.RIGHT * len, p0.x, 1e-4F);
+        assertEquals(PistolPlace.UP * len, p0.y, 1e-4F);
+        assertEquals(PistolPlace.AHEAD * len, p0.z, 1e-4F);
         // WalkSprint's move as apply makes it from an identity view: the shift, then the turns around the pivot
         Vector3f shift = new Vector3f(0.1F, -0.3F, 0.15F), pivot = new Vector3f(-0.2F, -0.9F, 2.6F);
         Matrix3f turn = new Matrix3f().rotateZ(0.25F).rotateY(0.5F).rotateX(0.5F);
         Matrix4f move = new Matrix4f().translation(shift).translate(pivot).rotateZ(0.25F).rotateY(0.5F).rotateX(0.5F)
                 .translate(-pivot.x, -pivot.y, -pivot.z);
         Vector3f hip = new Vector3f();
-        assertTrue(PistolHold.hip(new Matrix4f(move).mul(ntm), move, ends, aX, aY, aZ, 1F, 1F, 1F, hip));
+        assertTrue(PistolPlace.hip(new Matrix4f(move).mul(ntm), move, ends, aX, aY, aZ, 1F, 1F, 1F, hip));
         assertEquals(still.x, hip.x, 1e-5F);
         assertEquals(still.y, hip.y, 1e-5F);
         assertEquals(still.z, hip.z, 1e-5F);
@@ -269,7 +269,7 @@ class PistolHoldTest {
         Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
         float aX = 0F, aY = -0.4F, aZ = 0.5F;
         Vector3f still = new Vector3f();
-        assertTrue(PistolHold.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, still));
+        assertTrue(PistolPlace.hip(ntm, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, still));
         Vector3f p0 = ntm.transformPosition(new Vector3f(still).add(ends[2]));
         // moved knows the gun only by reference: null stands for the gun drawn (no registries in a unit test)
         net.minecraft.world.item.Item item = null;
@@ -287,7 +287,7 @@ class PistolHoldTest {
         Matrix4f moved = WalkSprint.moved(item);
         for (int i = 0; i < 16; i++) assertEquals(sway.get(i / 4, i % 4), moved.get(i / 4, i % 4), 1e-6F);
         Vector3f hip = new Vector3f();
-        assertTrue(PistolHold.hip(new Matrix4f(sway).mul(ntm), moved, ends, aX, aY, aZ, 1F, 1F, 1F, hip));
+        assertTrue(PistolPlace.hip(new Matrix4f(sway).mul(ntm), moved, ends, aX, aY, aZ, 1F, 1F, 1F, hip));
         Vector3f got = new Matrix4f(sway).mul(ntm).transformPosition(new Vector3f(hip).add(ends[2]));
         Vector3f want = sway.transformPosition(new Vector3f(p0));
         assertEquals(want.x, got.x, 1e-4F);
@@ -305,14 +305,14 @@ class PistolHoldTest {
         Vector3f[] ends = {new Vector3f(0F, 0F, -0.5F), new Vector3f(0F, 0F, 2.5F), new Vector3f(0.05F, -0.1F, 1F)};
         float aX = 0F, aY = -0.4F, aZ = 0.5F;
         Vector3f still = new Vector3f();
-        assertTrue(PistolHold.hip(new Matrix4f(), ntm, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, still));
+        assertTrue(PistolPlace.hip(new Matrix4f(), ntm, new Matrix4f(), ends, aX, aY, aZ, 1F, 1F, 1F, still));
         // looking 135° to the side and 30° down, with the turn's sway in the pose
         Matrix4f view = new Matrix4f().rotateX(0.52F).rotateY(2.36F);
         Matrix4f inView = new Matrix4f(view).invert();
         Matrix4f sway = new Matrix4f().translation(0.05F, 0F, 0F).rotateY(0.1F);
         Matrix4f moved = new Matrix4f(inView).mul(sway).mul(view);
         Vector3f hip = new Vector3f();
-        assertTrue(PistolHold.hip(view, new Matrix4f(moved).mul(inView).mul(ntm), moved,
+        assertTrue(PistolPlace.hip(view, new Matrix4f(moved).mul(inView).mul(ntm), moved,
                 ends, aX, aY, aZ, 1F, 1F, 1F, hip));
         assertEquals(still.x, hip.x, 1e-4F);
         assertEquals(still.y, hip.y, 1e-4F);
@@ -357,7 +357,7 @@ class PistolHoldTest {
         for (Gun gun : GUNS) {
             List<Vector3f> model = vertices(gun);
             Vector3f a = gun.aimed(), out = new Vector3f();
-            assertTrue(PistolHold.aim(new Matrix4f(), new Matrix4f(), corners(model), a.x, a.y, a.z, out), gun.model());
+            assertTrue(PistolPlace.aim(new Matrix4f(), new Matrix4f(), corners(model), a.x, a.y, a.z, out), gun.model());
             float[] f = frame(model, out), ntm = frame(model, a);
             float w = f[1] - f[0], h = f[3] - f[2], size = (float) Math.sqrt(w * h);
             String at = gun.model() + " " + java.util.Arrays.toString(f);
@@ -395,7 +395,7 @@ class PistolHoldTest {
         // NTM's aimed place: the slide's top on the eye's line
         Vector3f a = new Matrix4f(TURNED).invert().transformPosition(new Vector3f(0F, 0F, 0.9F));
         Vector3f out = new Vector3f();
-        assertTrue(PistolHold.aim(TURNED, new Matrix4f(), BOXES, a.x, a.y, a.z, out));
+        assertTrue(PistolPlace.aim(TURNED, new Matrix4f(), BOXES, a.x, a.y, a.z, out));
         // the gun's point that was at the eye's line, 0.9 ahead, and another one on it, its rear sight
         for (Vector3f q : new Vector3f[] {new Vector3f(), new Matrix4f(TURNED).invert().transformPosition(new Vector3f(0F, 0F, 1.4F)).sub(a)}) {
             Vector3f before = TURNED.transformPosition(new Vector3f(a).add(q)), after = TURNED.transformPosition(new Vector3f(out).add(q));
@@ -407,7 +407,7 @@ class PistolHoldTest {
         }
         Vector3f[] eye = new Vector3f[BOXES.length];
         for (int i = 0; i < eye.length; i++) eye[i] = TURNED.transformPosition(new Vector3f(out).add(BOXES[i]));
-        assertEquals(PistolHold.AIM_SIZE, PistolHold.size(eye, 0F), 1e-4F);
+        assertEquals(PistolPlace.AIM_SIZE, PistolPlace.size(eye, 0F), 1e-4F);
     }
 
     // a gun wider than it is deep still ends as big as AIM_SIZE: the search reaches far enough for its width
@@ -416,10 +416,10 @@ class PistolHoldTest {
         List<Vector3f> c = new ArrayList<>();
         for (int i = 0; i < 4; i++) c.add(new Vector3f((i & 1) == 0 ? -1F : 1F, (i & 2) == 0 ? -1F : 1F, 1F));
         Vector3f out = new Vector3f();
-        assertTrue(PistolHold.aim(new Matrix4f(), new Matrix4f(), c.toArray(new Vector3f[0]), 0F, 0F, 0F, out));
+        assertTrue(PistolPlace.aim(new Matrix4f(), new Matrix4f(), c.toArray(new Vector3f[0]), 0F, 0F, 0F, out));
         Vector3f[] eye = new Vector3f[c.size()];
         for (int i = 0; i < eye.length; i++) eye[i] = new Vector3f(c.get(i)).add(out);
-        assertEquals(PistolHold.AIM_SIZE, PistolHold.size(eye, 0F), 1e-4F);
+        assertEquals(PistolPlace.AIM_SIZE, PistolPlace.size(eye, 0F), 1e-4F);
     }
 
     // as the hip place: the aimed place is the same however the camera looks, with the turn's sway in the pose, and
@@ -428,13 +428,13 @@ class PistolHoldTest {
     void theAimedPlaceTurnsWithTheCamera() {
         Vector3f a = new Matrix4f(TURNED).invert().transformPosition(new Vector3f(0F, 0F, 0.9F));
         Vector3f still = new Vector3f();
-        assertTrue(PistolHold.aim(new Matrix4f(), TURNED, new Matrix4f(), BOXES, a.x, a.y, a.z, still));
+        assertTrue(PistolPlace.aim(new Matrix4f(), TURNED, new Matrix4f(), BOXES, a.x, a.y, a.z, still));
         Matrix4f view = new Matrix4f().rotateX(0.52F).rotateY(2.36F);
         Matrix4f inView = new Matrix4f(view).invert();
         Matrix4f sway = new Matrix4f().translation(0.05F, 0F, 0F).rotateY(0.1F);
         Matrix4f moved = new Matrix4f(inView).mul(sway).mul(view);
         Vector3f aimed = new Vector3f();
-        assertTrue(PistolHold.aim(view, new Matrix4f(moved).mul(inView).mul(TURNED), moved, BOXES, a.x, a.y, a.z, aimed));
+        assertTrue(PistolPlace.aim(view, new Matrix4f(moved).mul(inView).mul(TURNED), moved, BOXES, a.x, a.y, a.z, aimed));
         assertEquals(still.x, aimed.x, 1e-4F);
         assertEquals(still.y, aimed.y, 1e-4F);
         assertEquals(still.z, aimed.z, 1e-4F);
@@ -453,14 +453,14 @@ class PistolHoldTest {
             Config.aimHold = was;
         }
         Vector3f measured = new Vector3f(0.3F, -0.1F, 2.5F);
-        Vector3f off = PistolHold.blend(0F, 0.0, -0.4, 0.5, measured), half = PistolHold.blend(0.5F, 0.0, -0.4, 0.5, measured);
+        Vector3f off = PistolPlace.blend(0F, 0.0, -0.4, 0.5, measured), half = PistolPlace.blend(0.5F, 0.0, -0.4, 0.5, measured);
         assertEquals(0F, off.x, 0F);
         assertEquals(-0.4F, off.y, 0F);
         assertEquals(0.5F, off.z, 0F);
         assertEquals(0.15F, half.x, 1e-6F);
         assertEquals(-0.25F, half.y, 1e-6F);
         assertEquals(1.5F, half.z, 1e-6F);
-        Vector3f over = PistolHold.blend(2F, 0.0, -0.4, 0.5, measured);
+        Vector3f over = PistolPlace.blend(2F, 0.0, -0.4, 0.5, measured);
         assertEquals(measured.z, over.z, 1e-6F);
     }
 

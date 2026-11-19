@@ -1,8 +1,5 @@
 package acup.gunfeel;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.joml.Vector3f;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -11,28 +8,20 @@ import com.mojang.math.Axis;
 // Gun model kick per shot along the gun's recoil preset (RecoilPresets: kickPitch ... kickPosZ), as the preset has it
 // (times modelKick): the preset is for the gun's class already, so NTM's recoil number does not scale it again. Yaw
 // and roll get a random direction and size per shot. Overlapping shots add up. Rotation pivots on the right-hand grip.
+// The kicks and their sum are core's (ModelKick); here: the settings, the clock and the gun's pose.
 public final class ModelRecoil {
-    private record Shot(long start, float strength, float speed, float pitch, float yaw, float roll,
-            Recoil cPitch, Recoil cYaw, Recoil cRoll, Recoil cY, Recoil cZ) {
-        float length() {
-            return Math.max(Math.max(cPitch.length(), cYaw.length()), Math.max(cRoll.length(), Math.max(cY.length(), cZ.length())));
-        }
-    }
-
-    private static final List<Shot> SHOTS = new ArrayList<>();
+    private static final float[] SUM = new float[5];
 
     private ModelRecoil() {
     }
 
     public static boolean idle() {
-        return SHOTS.isEmpty();
+        return ModelKick.idle();
     }
 
     // every kick played to its end by now, drawn or not (a gun NTM draws without the mod's hook never clears them)
     public static boolean over() {
-        long now = GunClock.nanos();
-        for (Shot s : SHOTS) if ((now - s.start) / 1e9F * s.speed < s.length()) return false;
-        return true;
+        return ModelKick.over(GunClock.nanos());
     }
 
     public static void shot(boolean aiming) {
@@ -40,39 +29,21 @@ public final class ModelRecoil {
         if (s <= 0F) return;
         float loose = aiming ? 0.5F : 1F;
         float speed = Config.modelSpeed;
-        if (SHOTS.size() >= 12) SHOTS.remove(0);
         java.util.Random random = Rng.model();
-        SHOTS.add(new Shot(GunClock.nanos(), s, speed,
-                0.85F + 0.3F * random.nextFloat(),
-                loose * (random.nextBoolean() ? 1F : -1F) * (0.5F + 0.7F * random.nextFloat()),
-                loose * (random.nextBoolean() ? 1F : -1F) * (0.6F + 0.6F * random.nextFloat()),
+        ModelKick.Shot n = ModelKick.add(GunClock.nanos(), s, speed, loose, random,
                 RecoilPresets.channel("kickPitch"), RecoilPresets.channel("kickYaw"), RecoilPresets.channel("kickRoll"),
-                RecoilPresets.channel("kickPosY"), RecoilPresets.channel("kickPosZ")));
+                RecoilPresets.channel("kickPosY"), RecoilPresets.channel("kickPosZ"));
         if (TestLog.frames()) {
-            Shot n = SHOTS.getLast();
             TestLog.c(-1, "kick_shot", "strength", n.strength(), "speed", n.speed(), "pitch", n.pitch(), "yaw", n.yaw(), "roll", n.roll());
         }
     }
 
     // Pose is in NTM's gun frame before the model scale: +Z forward, +Y up. size = gun length there.
     public static void apply(PoseStack pose, float size, Vector3f pivot) {
-        if (SHOTS.isEmpty()) return;
-        long now = GunClock.nanos();
-        float pitch = 0F, yaw = 0F, roll = 0F, y = 0F, z = 0F;
-        for (int i = SHOTS.size() - 1; i >= 0; i--) {
-            Shot s = SHOTS.get(i);
-            float t = (now - s.start) / 1e9F * s.speed;
-            if (t >= s.length()) {
-                SHOTS.remove(i);
-                continue;
-            }
-            pitch += s.cPitch.at(t) * s.strength * s.pitch;
-            yaw += s.cYaw.at(t) * s.strength * s.yaw;
-            roll += s.cRoll.at(t) * s.strength * s.roll;
-            y += s.cY.at(t) * s.strength;
-            z += s.cZ.at(t) * s.strength;
-        }
-        if (TestLog.frames()) TestLog.c(-1, "kick", "shots", SHOTS.size(), "pitch", pitch, "yaw", yaw, "roll", roll, "y", y, "z", z, "size", size, "pivot", pivot);
+        if (ModelKick.idle()) return;
+        ModelKick.at(GunClock.nanos(), SUM);
+        float pitch = SUM[0], yaw = SUM[1], roll = SUM[2], y = SUM[3], z = SUM[4];
+        if (TestLog.frames()) TestLog.c(-1, "kick", "shots", ModelKick.shots(), "pitch", pitch, "yaw", yaw, "roll", roll, "y", y, "z", z, "size", size, "pivot", pivot);
         float px = size * 0.016F; // one kick unit (1/16 of the gun length scale) in this frame
         pose.translate(0F, y * px, -z * px);
         pose.translate(pivot.x, pivot.y, pivot.z);
