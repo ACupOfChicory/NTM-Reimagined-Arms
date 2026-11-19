@@ -2,10 +2,10 @@ package acup.gunfeel.ai;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.PosLong;
 import acup.gunfeel.ReaimTimes;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import net.minecraft.core.BlockPos;
 
 /**
  * A trench read off the cells as a building's rooms and ways (stage 6, T6), so that it is gone into and searched as a
@@ -87,8 +87,8 @@ public final class AiTrenches {
 
     /** a cell one up from the trench's floor the way d with a wall at its feet beyond it: a fire step, fired from over the wall */
     private static boolean step(PathSearch.Reader r, long from, long next, int d) {
-        int nx = BlockPos.getX(next), ny = BlockPos.getY(next), nz = BlockPos.getZ(next);
-        if (ny != BlockPos.getY(from) + 1 || (r.flags(nx, ny, nz) & SectionCells.ROOF) != 0) return false;
+        int nx = PosLong.blockX(next), ny = PosLong.blockY(next), nz = PosLong.blockZ(next);
+        if (ny != PosLong.blockY(from) + 1 || (r.flags(nx, ny, nz) & SectionCells.ROOF) != 0) return false;
         int v = r.src.voxel(nx + Dirs.DX[d], ny, nz + Dirs.DZ[d]);
         return !Voxel.open(v) && Voxel.sight(v);
     }
@@ -96,7 +96,7 @@ public final class AiTrenches {
     /** the reading itself: what it throws goes to the caller (the tests) */
     static AiRooms.@Nullable Plan read(CellSource src, long seed, int reach, int most) {
         PathSearch.Reader r = new PathSearch.Reader(src);
-        int sx = BlockPos.getX(seed), sy = BlockPos.getY(seed), sz = BlockPos.getZ(seed);
+        int sx = PosLong.blockX(seed), sy = PosLong.blockY(seed), sz = PosLong.blockZ(seed);
         if (!sunk(r, sx, sy, sz)) return null;
         // the trench's cells joined to the seed; the fire steps beside them
         LongArrayList cells = new LongArrayList();
@@ -109,11 +109,11 @@ public final class AiTrenches {
         boolean cut = false;
         for (int head = 0; head < cells.size(); head++) {
             long c = cells.getLong(head);
-            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
             for (int d : CARDINAL) {
                 long next = PathSearch.step(r, x, y, z, d);
                 if (next == PathSearch.NONE || index.get(next) >= 0) continue;
-                int nx = BlockPos.getX(next), ny = BlockPos.getY(next), nz = BlockPos.getZ(next);
+                int nx = PosLong.blockX(next), ny = PosLong.blockY(next), nz = PosLong.blockZ(next);
                 if (!sunk(r, nx, ny, nz)) {
                     if (step(r, c, next, d) && !steps.containsKey(next)) steps.put(next, head);
                     continue;
@@ -132,7 +132,7 @@ public final class AiTrenches {
         int[][] near = new int[total][4];
         for (int i = 0; i < total; i++) {
             long c = cells.getLong(i);
-            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
+            int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
             for (int k = 0; k < 4; k++) {
                 long next = PathSearch.step(r, x, y, z, CARDINAL[k]);
                 near[i][k] = next == PathSearch.NONE ? -1 : index.get(next);
@@ -143,7 +143,7 @@ public final class AiTrenches {
             long c = cells.getLong(i);
             boolean nine = true;
             for (int a = 0; a < 3 && nine; a++)
-                for (int b = 0; b < 3 && nine; b++) nine = index.get(BlockPos.asLong(BlockPos.getX(c) + a, BlockPos.getY(c), BlockPos.getZ(c) + b)) >= 0;
+                for (int b = 0; b < 3 && nine; b++) nine = index.get(PosLong.block(PosLong.blockX(c) + a, PosLong.blockY(c), PosLong.blockZ(c) + b)) >= 0;
             if (nine) return null;
         }
 
@@ -184,9 +184,9 @@ public final class AiTrenches {
             if (id < 0) continue;
             long at = cells.getLong(i);
             size[id]++;
-            sumX[id] += BlockPos.getX(at);
-            sumY[id] += BlockPos.getY(at);
-            sumZ[id] += BlockPos.getZ(at);
+            sumX[id] += PosLong.blockX(at);
+            sumY[id] += PosLong.blockY(at);
+            sumZ[id] += PosLong.blockZ(at);
         }
         long[] mid = new long[rooms];
         double[] best = new double[rooms];
@@ -195,8 +195,8 @@ public final class AiTrenches {
             int id = room[i];
             if (id < 0) continue;
             long at = cells.getLong(i);
-            double dx = BlockPos.getX(at) - (double) sumX[id] / size[id], dy = BlockPos.getY(at) - (double) sumY[id] / size[id],
-                    dz = BlockPos.getZ(at) - (double) sumZ[id] / size[id];
+            double dx = PosLong.blockX(at) - (double) sumX[id] / size[id], dy = PosLong.blockY(at) - (double) sumY[id] / size[id],
+                    dz = PosLong.blockZ(at) - (double) sumZ[id] / size[id];
             double d = dx * dx + dy * dy * 4 + dz * dz;
             if (d < best[id]) {
                 best[id] = d;
@@ -234,7 +234,7 @@ public final class AiTrenches {
             if (roomOf.containsKey(st)) continue;
             int id = Integer.MAX_VALUE;
             for (int d : CARDINAL) {
-                int i = index.get(BlockPos.asLong(BlockPos.getX(st) + Dirs.DX[d], BlockPos.getY(st) - 1, BlockPos.getZ(st) + Dirs.DZ[d]));
+                int i = index.get(PosLong.block(PosLong.blockX(st) + Dirs.DX[d], PosLong.blockY(st) - 1, PosLong.blockZ(st) + Dirs.DZ[d]));
                 if (i >= 0 && room[i] >= 0) id = Math.min(id, room[i]);
             }
             if (id == Integer.MAX_VALUE) continue;
@@ -297,7 +297,7 @@ public final class AiTrenches {
         // its cells from a's end to b's
         final int d0 = dir;
         long[] order = java.util.Arrays.stream(at).boxed()
-                .sorted(java.util.Comparator.comparingInt(c -> BlockPos.getX(c) * Dirs.DX[d0] + BlockPos.getZ(c) * Dirs.DZ[d0])).mapToLong(Long::longValue).toArray();
+                .sorted(java.util.Comparator.comparingInt(c -> PosLong.blockX(c) * Dirs.DX[d0] + PosLong.blockZ(c) * Dirs.DZ[d0])).mapToLong(Long::longValue).toArray();
         AiRooms.Way w = new AiRooms.Way(order, dir, a, b, Math.max(besideA.size(), besideB.size()), false, besideA.toLongArray(), besideB.toLongArray());
         w.farA = further(w.besideA, Dirs.opposite(dir), near, cells, index, room);
         w.far2A = further(w.farA, Dirs.opposite(dir), near, cells, index, room);
@@ -321,8 +321,8 @@ public final class AiTrenches {
         boolean found = false;
         int nearest = Integer.MAX_VALUE;
         for (long c : at) {
-            int x = BlockPos.getX(c), y = BlockPos.getY(c), z = BlockPos.getZ(c);
-            long behind = BlockPos.asLong(x + Dirs.DX[back], y, z + Dirs.DZ[back]);
+            int x = PosLong.blockX(c), y = PosLong.blockY(c), z = PosLong.blockZ(c);
+            long behind = PosLong.block(x + Dirs.DX[back], y, z + Dirs.DZ[back]);
             boolean next = false;
             for (long s : stack) next |= s == behind;
             if (!next) continue;
@@ -331,7 +331,7 @@ public final class AiTrenches {
                 found = true;
             }
             for (int k = 1; k <= 3; k++) {
-                int i = index.get(BlockPos.asLong(x + Dirs.DX[into] * k, y, z + Dirs.DZ[into] * k));
+                int i = index.get(PosLong.block(x + Dirs.DX[into] * k, y, z + Dirs.DZ[into] * k));
                 if (i < 0) break;
                 if (room[i] == target && k < nearest) {
                     nearest = k;

@@ -49,9 +49,9 @@ final class AiCheckDoors {
             if (level.getGameTime() - caveAt < 40) return false;
             TacticalMap map = TacticalMap.of(level);
             boolean cave = AiRooms.of(map, BlockPos.asLong(RX, y, RZ)) == null;
-            AiBlockKinds.shell = false;
+            AiRooms.shell = false;
             boolean before = AiRooms.of(map, BlockPos.asLong(RX, y, RZ)) != null;
-            AiBlockKinds.shell = true;
+            AiRooms.shell = true;
             check.out("     doors, the room of the rock's stone: " + (cave ? "no building" : "a building") + "; with aiRoomsShell off: " + (before ? "a building" : "no building")
                     + "; the wall's kind " + map.kind(RX - WALL, y, RZ) + ", the roof's " + map.kind(RX, y + 3, RZ) + ", the floor's " + map.kind(RX, y - 1, RZ));
             caveOk = cave && before;

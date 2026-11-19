@@ -728,7 +728,7 @@ public final class ModelHits {
                 var v=turn.apply(ModelContours.point(b,data[at],data[at+1],data[at+2]));
                 vertices.add(new Vec3(Math.round(v.x*1e4)/1e4,Math.round(v.y*1e4)/1e4,Math.round(v.z*1e4)/1e4));
             }
-            return new ProfilePart(new HeadProfiles.Ref(b.part(),HeadProfiles.size(b),HeadProfiles.shape(b),turn.apply(ModelContours.point(b,.5,.5,.5)),-1),List.copyOf(vertices));
+            return new ProfilePart(new HeadProfiles.Ref(b.part(),HeadProfiles.size(b),HeadProfiles.shape(b),Vecs.of(turn.apply(ModelContours.point(b,.5,.5,.5))),-1),List.copyOf(vertices));
         }).toList();
     }
     public static synchronized List<ModelBox> worldBoxes(Entity target) {
