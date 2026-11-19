@@ -7,11 +7,11 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import acup.gunfeel.water.WaterEvents.Kind;
-import acup.gunfeel.water.WaterEvents.Liquid;
-import acup.gunfeel.water.WaterEvents.Type;
-import acup.gunfeel.water.WaterPath.Cell;
-import acup.gunfeel.water.WaterPath.Settings;
+import acup.gunfeel.water.LiquidEvents.Kind;
+import acup.gunfeel.water.LiquidEvents.Liquid;
+import acup.gunfeel.water.LiquidEvents.Type;
+import acup.gunfeel.water.LiquidPath.Cell;
+import acup.gunfeel.water.LiquidPath.Settings;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
 
@@ -22,7 +22,7 @@ class WaterPathTest {
     // made-up cells: a liquid per cell, a flow per cell
     static final class World implements WaterPath.Fluids {
         final Map<Long, Cell> cells = new HashMap<>();
-        final Map<Long, Vec3> flows = new HashMap<>();
+        final Map<Long, acup.gunfeel.Vec3d> flows = new HashMap<>();
 
         static long key(int x, int y, int z) {
             return ((long) x & 0xFFFFF) | (((long) y & 0xFFFFF) << 20) | (((long) z & 0xFFFFF) << 40);
@@ -47,8 +47,8 @@ class WaterPathTest {
         }
 
         @Override
-        public Vec3 flow(int x, int y, int z) {
-            return flows.getOrDefault(key(x, y, z), Vec3.ZERO);
+        public acup.gunfeel.Vec3d flow(int x, int y, int z) {
+            return flows.getOrDefault(key(x, y, z), acup.gunfeel.Vec3d.ZERO);
         }
     }
 
@@ -401,7 +401,7 @@ class WaterPathTest {
     @Test
     void flowingWaterIsSloped() {
         World w = deep();
-        w.flows.put(World.key(0, 9, 0), new Vec3(0.7, 0, 0.7));
+        w.flows.put(World.key(0, 9, 0), new acup.gunfeel.Vec3d(0.7, 0, 0.7));
         var r = down(w, WaterClass.PISTOL, 1);
         assertEquals(Kind.SLOPE, r.events.get(0).kind());
         assertEquals(new Vec3(0.7, 0, 0.7), r.events.get(0).flow());

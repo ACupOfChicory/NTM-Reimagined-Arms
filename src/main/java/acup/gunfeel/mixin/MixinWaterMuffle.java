@@ -8,6 +8,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.hbm.sound.EntitySounds;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
+
 import net.minecraft.core.Holder;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
@@ -25,6 +28,7 @@ public abstract class MixinWaterMuffle {
 
     @Inject(method = "play(Lnet/minecraft/world/entity/Entity;DDDLnet/minecraft/core/Holder;Lnet/minecraft/sounds/SoundSource;FF)V",
             at = @At("HEAD"), cancellable = true)
+    @Hook(HookPoint.WATER_MUFFLE)
     private static void gunfeel$muffle(Entity emitter, double x, double y, double z, Holder<SoundEvent> sound, SoundSource source,
             float volume, float pitch, CallbackInfo ci) {
         boolean[] inside = gunfeel$inside.get();

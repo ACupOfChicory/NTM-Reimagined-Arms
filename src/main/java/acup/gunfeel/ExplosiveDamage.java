@@ -14,7 +14,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /** Контекст живёт только внутри обработчика снаряда, а не вокруг всех взрывов мира. */
 public final class ExplosiveDamage {
-    static final float CONTACT=.6F, BLAST=.4F;
     public static final class Context {
         final EntityBulletBaseMK4 bullet;
         final HitResult impact;
@@ -95,15 +94,14 @@ public final class ExplosiveDamage {
     /** a blast with no bound bullet: none being dealt (a hand grenade), or the bullet now is a launcher's round */
     public static boolean launchedNow(){var c=CURRENT.get();return c==null || ExplosiveAmmo.heavy(c.bullet.config);}
     /** the blast's share of an explosive bullet's damage, out of NTM's {@code original} */
-    public static float area(float original){return original*BLAST;}
-    static float total(float area,float base,float multiplier,boolean direct){return area*BLAST+(direct?base*CONTACT*multiplier:0);}
+    public static float area(float original){return ExplosiveRule.area(original);}
     public static float damage(Blast blast,Entity target,float original){
         if(blast==null)return original;
         boolean direct=blast.context.impact instanceof EntityHitResult hit && hit.getEntity()==target && !blast.contactPaid;
         // a blast hits no part of the body: no head's or limb's multiplier
         if(direct)blast.contactPaid=true;
-        float base=blast.base*(target==blast.explosion.exploder?.5F:1);
-        return total(original,base,1,direct);
+        float base=blast.base*ExplosiveRule.onSelf(target==blast.explosion.exploder);
+        return ExplosiveRule.total(original,base,1,direct);
     }
     public static boolean attack(LivingEntity target,net.minecraft.world.damagesource.DamageSource source,float damage,
             boolean first,boolean second,double knockback,float threshold,float piercing){
@@ -116,7 +114,7 @@ public final class ExplosiveDamage {
                 || !(hit.getEntity() instanceof LivingEntity target) || !target.isAlive())return;
         // Видимая часть крупной модели может находиться за пределами ванильной коробки взрыва.
         blast.contactPaid=true;var bullet=blast.context.bullet;
-        float damage=blast.base*CONTACT;
+        float damage=blast.base*ExplosiveRule.CONTACT;
         attack(target,BulletConfig.getDamage(bullet,bullet.getThrower(),bullet.config.dmgClass),damage,true,true,0,
                 bullet.config.armorThresholdNegation,bullet.config.armorPiercingPercent);
     }

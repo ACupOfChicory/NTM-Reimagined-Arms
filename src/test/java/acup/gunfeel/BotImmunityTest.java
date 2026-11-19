@@ -11,9 +11,9 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 
-import acup.gunfeel.EuphImmunity.Phase;
-import acup.gunfeel.EuphImmunity.Pool;
-import acup.gunfeel.EuphImmunity.State;
+import acup.gunfeel.EuphImmunityBase.Phase;
+import acup.gunfeel.EuphImmunityBase.Pool;
+import acup.gunfeel.EuphImmunityBase.State;
 
 // The pools of DNS, FAU and euphemium for our AI's soldiers, without the game: the hooks take a player or a soldier
 // (not other mobs), the soldier's euphemium goes by the pool's own hook, the window's message is a player's, a soldier

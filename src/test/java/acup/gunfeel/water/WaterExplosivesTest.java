@@ -8,10 +8,10 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import acup.gunfeel.water.WaterClass.Fuze;
-import acup.gunfeel.water.WaterEvents.Liquid;
-import acup.gunfeel.water.WaterEvents.Type;
-import acup.gunfeel.water.WaterPath.Cell;
-import acup.gunfeel.water.WaterPath.Settings;
+import acup.gunfeel.water.LiquidEvents.Liquid;
+import acup.gunfeel.water.LiquidEvents.Type;
+import acup.gunfeel.water.LiquidPath.Cell;
+import acup.gunfeel.water.LiquidPath.Settings;
 import net.minecraft.world.phys.Vec3;
 
 // The explosives' part without a world: which ammo has a fuze or sets alight, where a blast stands to water, how a

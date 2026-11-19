@@ -978,11 +978,11 @@ public final class Tracers {
         s.waterPath = null;
         var settings = acup.gunfeel.water.WaterPath.Settings.current();
         if (!settings.on() || k >= s.lifeTicks) return;
-        var cls = acup.gunfeel.water.WaterClass.of(s.config);
-        boolean fuze = acup.gunfeel.water.WaterClass.Fuze.of(s.config).any();
+        var cls = acup.gunfeel.water.WaterClasses.of(s.config);
+        boolean fuze = acup.gunfeel.water.WaterClasses.fuze(s.config).any();
         if (fuze) settings = settings.fuzed();
         Vec3 a = tested(s, k), b = tested(s, k + 1);
-        var r = acup.gunfeel.water.WaterPath.trace(level, a, b, s.waterF, cls, acup.gunfeel.water.WaterClass.Expansion.of(s.config),
+        var r = acup.gunfeel.water.WaterPath.trace(level, a, b, s.waterF, cls, acup.gunfeel.water.WaterClasses.expansion(s.config),
                 s.waterOpened, s.waterSkips, acup.gunfeel.water.WaterTick.seed(s.id, s.waterSkips), settings, null);
         if (r.events.isEmpty() && r.water <= 0) return;
         s.waterPath = r;
@@ -1374,7 +1374,7 @@ public final class Tracers {
             Vec3 in = at.add(p.dir().normalize().scale(1.0 / 64.0)); // just inside, along the bullet
             int x = Math.clamp((int) Math.floor((in.x - pos.getX()) * 16), 0, 15), y = Math.clamp((int) Math.floor((in.y - pos.getY()) * 16), 0, 15),
                     z = Math.clamp((int) Math.floor((in.z - pos.getZ()) * 16), 0, 15);
-            onBoard = PassableClip.cell(boards, x, y, z);
+            onBoard = ShapeCells.cell(boards, x, y, z);
         }
         int machines = 0;
         for (Hole o : HOLES) if (o.machine()) machines++;
@@ -1723,7 +1723,7 @@ public final class Tracers {
         // hit on (the bullet went through those before it). A block met by its model's pixels (a door, a scaffold) was
         // met on a 1/16 voxel: its own faces from a voxel before, and nothing much further (a door stops the bullet
         // where it came in: never its far inner face, seen through its window)
-        double reachTo = shape == null ? 1.0 + Math.max(1.0, through) : PassableClip.shell(shape) ? 1.1 : 1.15;
+        double reachTo = shape == null ? 1.0 + Math.max(1.0, through) : ShapeCells.shell(shape) ? 1.1 : 1.15;
         Vector3d o = new Vector3d(hit.getLocation().x, hit.getLocation().y, hit.getLocation().z).sub(new Vector3d(d));
         // the nearest shown pixel on the line (of two as near, the one first in the list), looked for only among the
         // triangles in the grid boxes the line passes

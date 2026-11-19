@@ -14,7 +14,7 @@ class BarsShapesTest {
     private static long[] shape(Properties props,String key) {
         String value=props.getProperty(key);assertNotNull(value,"на сервере нет модели "+key);
         if(value.startsWith("@"))value=props.getProperty(value);
-        assertNotNull(value);var shape=PassableClip.unpack(value);assertNotNull(shape);
+        assertNotNull(value);var shape=ShapeCells.unpack(value);assertNotNull(shape);
         assertTrue(ModelSurface.present(shape),key+": старая плоская маска вместо граней");
         assertTrue(ModelSurface.valid(shape));return shape;
     }

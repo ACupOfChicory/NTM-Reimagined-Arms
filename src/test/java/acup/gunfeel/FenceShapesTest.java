@@ -29,7 +29,7 @@ class FenceShapesTest {
         Map<String, long[]> out = new HashMap<>();
         for (String k : p.stringPropertyNames()) {
             if (!k.startsWith("~")) continue;
-            long[] bits = PassableClip.unpack(p.getProperty(k).trim());
+            long[] bits = ShapeCells.unpack(p.getProperty(k).trim());
             assertNotNull(bits, k);
             out.put(k, bits);
         }
@@ -46,7 +46,7 @@ class FenceShapesTest {
     }
 
     static boolean at(long[] bits, int x, int y, int z) {
-        return PassableClip.cell(bits, x, y, z);
+        return ShapeCells.cell(bits, x, y, z);
     }
 
     @Test

@@ -42,24 +42,24 @@ class ShapePackTest {
         Map<String, long[]> in = new TreeMap<>();
         long[] mask = {r.nextLong(), r.nextLong()};
         for (int b = 0; b < 4; b++) {
-            java.util.List<ModelSurface.Face> faces = new java.util.ArrayList<>();
+            java.util.List<ModelSurfaceBase.Face> faces = new java.util.ArrayList<>();
             for (int f = 0; f < 3; f++) {
                 double[] p = new double[9], uv = new double[6];
                 for (int k = 0; k < 9; k++) p[k] = r.nextDouble() * 3 - 1;
                 for (int k = 0; k < 6; k++) uv[k] = r.nextDouble();
                 // the same mask in several faces is written once
-                faces.add(new ModelSurface.Face(p, uv, 10, 12, f == 2 ? new long[] {r.nextLong(), r.nextLong()} : mask, f == 1));
+                faces.add(new ModelSurfaceBase.Face(p, uv, 10, 12, f == 2 ? new long[] {r.nextLong(), r.nextLong()} : mask, f == 1));
             }
-            in.put("hbm:fusion_torus[facing=north]@" + b + ",0,0", ModelSurface.attach(cells(b), faces));
+            in.put("hbm:fusion_torus[facing=north]@" + b + ",0,0", ModelSurfaceBase.attach(cells(b), faces));
         }
-        in.put("hbm:fusion_torus[facing=north]@9,0,0", ModelSurface.attach(cells(3), java.util.List.of()));
+        in.put("hbm:fusion_torus[facing=north]@9,0,0", ModelSurfaceBase.attach(cells(3), java.util.List.of()));
         Map<String, long[]> out = ShapePack.read(ShapePack.write(in, "x", ShapePack.XZ));
         assertEquals(in.size(), out.size());
         for (var e : in.entrySet()) {
             long[] got = out.get(e.getKey());
             assertArrayEquals(ShapePack.quantized(e.getValue()), got, e.getKey());
-            var a = ModelSurface.faces(e.getValue());
-            var b = ModelSurface.faces(got);
+            var a = ModelSurfaceBase.faces(e.getValue());
+            var b = ModelSurfaceBase.faces(got);
             for (int f = 0; f < a.size(); f++) for (int k = 0; k < 9; k++)
                 assertEquals(a.get(f).p()[k], b.get(f).p()[k], 0.5 / ShapePack.POS);
         }

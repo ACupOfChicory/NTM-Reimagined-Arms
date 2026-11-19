@@ -3,6 +3,8 @@ package acup.gunfeel.water;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -117,6 +119,7 @@ public final class WaterRings {
         }
     }
 
+    @Hook(HookPoint.WATER_DRAW)
     public static void submit(SubmitCustomGeometryEvent event, Level level, Vec3 cam) {
         long now = System.nanoTime();
         double dt = lastNanos == 0 ? 0 : Math.clamp((now - lastNanos) / 1e9, 0, 0.1);

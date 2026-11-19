@@ -6,7 +6,7 @@ import java.util.function.Function;
 
 /** Только опубликованные неизменяемые формы; временные массивы строителя сюда не передаются. */
 final class ShapePacking {
-    static final ShapePacking SHARED=new ShapePacking(PassableClip::pack);
+    static final ShapePacking SHARED=new ShapePacking(ShapeCells::pack);
     private final Map<long[],String> cache=new WeakHashMap<>();
     private final Function<long[],String> encoder;
     ShapePacking(Function<long[],String> encoder){this.encoder=encoder;}
