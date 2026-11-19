@@ -9,7 +9,7 @@ import java.util.List;
 // fires first, remaining[0] is in cell 8 - n. A grenade put in goes against the stack and so becomes remaining[0] (last in,
 // first out); only the leftmost grenade comes out. One shift-click moves exactly one grenade, either way.
 public final class MagWindow {
-    public static final int CELLS = MagContents.CAPACITY;
+    public static final int CELLS = MagLogic.CAPACITY;
 
     private MagWindow() {
     }
