@@ -7,7 +7,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.*;
-import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 // The arm editor's File page and copies: a gun's export holds its arms as the jar has them, loading it on a gun with
@@ -24,7 +23,7 @@ class ArmFilesTest {
 
     // the jar's guns, with the guns that share another's arms
     private static Set<String> guns() throws Exception {
-        var out = new TreeSet<>(ArmEditorTest.jarGuns().keySet());
+        var out = new TreeSet<>(ArmClips.jarGuns().keySet());
         for (String k : jar().stringPropertyNames()) if (k.endsWith(".sameAs")) out.add(k.substring(0, k.length() - 7));
         return out;
     }
@@ -46,9 +45,9 @@ class ArmFilesTest {
             Object v = f.get(null);
             sb.append(f.getName()).append('=').append(v instanceof float[] a ? Arrays.toString(a) : String.valueOf(v)).append('\n');
         }
-        var id = Identifier.parse(gun);
+        String id = ResourceIds.tryParse(gun);
         for (String m : variants) {
-            var g = Grips.get(id.toString(), m);
+            var g = Grips.get(id, m);
             sb.append("grip").append(m).append('=').append(Arrays.toString(g.right())).append(Arrays.toString(g.left())).append(Arrays.toString(g.rightAt()))
                     .append(Arrays.toString(g.leftAt())).append('\n');
         }
@@ -121,7 +120,7 @@ class ArmFilesTest {
     @Test
     void theExportOfAJarGunIsItsArmKeysInTheJar() throws Exception {
         var p = jar();
-        for (String gun : ArmEditorTest.jarGuns().keySet()) {
+        for (String gun : ArmClips.jarGuns().keySet()) {
             if (Grips.sharedWith(gun) != null) continue;
             Map<String, String> want = new TreeMap<>();
             for (String k : p.stringPropertyNames()) {
@@ -160,7 +159,7 @@ class ArmFilesTest {
         String gun = "hbm:gun_autoshotgun_sexy";
         freshFolder();
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.FILE;
             assertTrue(e.press("export.write"));
             String text = e.takeClipboard();
@@ -194,7 +193,7 @@ class ArmFilesTest {
             Grips.put(from, "armAimScaleLeft", "0.55", false);
             Config.select(null);
             var before = Grips.snapshot();
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.FILE;
             e.from = e.sources().indexOf(from);
             assertTrue(e.from >= 0);
@@ -221,7 +220,7 @@ class ArmFilesTest {
             var v = new ArrayList<>(variants(gun));
             for (String m : variants(from)) if (!v.contains(m)) v.add(m);
             assertTrue(v.contains("-Stock-Barrel"), v.toString());
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.FILE;
             e.from = e.sources().indexOf(from);
             assertTrue(e.press("copy.from.take"));
@@ -253,7 +252,7 @@ class ArmFilesTest {
     void aPastedKeyIsTheCopiedOneAtItsNewTime() {
         var opened = Grips.snapshot();
         try {
-            var sexy = new ArmEditor("hbm:gun_autoshotgun_sexy", ArmEditorTest.clips(List.of("RELOAD")));
+            var sexy = new ArmEditor("hbm:gun_autoshotgun_sexy", ArmClips.clips(List.of("RELOAD")));
             sexy.page = ArmEditor.Page.KEY;
             sexy.track = ArmEditor.Track.PATH;
             sexy.hand = 1;
@@ -262,7 +261,7 @@ class ArmFilesTest {
             assertFalse(sexy.action("key.copy").active());
             var k = ArmRig.pathKeys(Config.armLeftPath, Config.armPathTimes).get("RELOAD");
             var copied = k.stream().filter(x -> x.ms() == 2410F).findFirst().orElseThrow();
-            var e = new ArmEditor("gunfeel:key_probe", ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor("gunfeel:key_probe", ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.KEY;
             e.track = ArmEditor.Track.PATH;
             e.hand = 0;

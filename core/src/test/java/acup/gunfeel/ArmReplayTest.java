@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 // "Повторили старое": the arms of every gun of the jar are made again on a gun with none, with the editor's controls
@@ -75,9 +74,9 @@ class ArmReplayTest {
             else shown = String.valueOf(v);
             sb.append(n).append('=').append(shown).append('\n');
         }
-        var id = Identifier.parse(gun);
+        String id = ResourceIds.tryParse(gun);
         for (String m : variants) {
-            var g = Grips.get(id.toString(), m);
+            var g = Grips.get(id, m);
             sb.append("grip").append(m).append('=').append(f(g.right())).append(f(g.left())).append(f(g.rightAt())).append(f(g.leftAt())).append('\n');
         }
         return sb.toString();
@@ -859,7 +858,7 @@ class ArmReplayTest {
         String folder = System.getenv("REPLAY_EXPORTS");
         ArmFiles.dir = java.nio.file.Files.createTempDirectory("arm-replay");
         try {
-            for (String gun : ArmEditorTest.jarGuns().keySet()) {
+            for (String gun : ArmClips.jarGuns().keySet()) {
                 // a gun sharing another's settings with no arms of its own plays that gun's: made by «Общие руки» alone
                 if (Grips.sharedWith(gun) != null) {
                     assertFalse(Grips.ownArmsShipped(gun), gun + " shares another gun's settings but has arms of its own: not made again here");
