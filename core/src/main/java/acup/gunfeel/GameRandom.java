@@ -14,4 +14,7 @@ public interface GameRandom {
 
     /** RandomSource.nextFloat */
     float nextFloat();
+
+    /** RandomSource.nextGaussian (the second of each pair kept by the generator itself) */
+    double nextGaussian();
 }

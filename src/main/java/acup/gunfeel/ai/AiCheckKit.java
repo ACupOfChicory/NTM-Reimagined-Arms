@@ -104,7 +104,7 @@ final class AiCheckKit {
         }
         Vec3 chest = target.position().add(0, 1.0, 0);
         bot.gunner.aim(chest);
-        bot.gunner.exact = chest;
+        bot.gunner.lob(chest, Long.MAX_VALUE);
         int shots = bot.gunner.shots - shotsFrom;
         if (phase == 1 && bot.gunner.ammo.loadedTotal >= capacity) reloaded = true;
         // a part: through the magazine, a reload from the reserve and some of the next; then a few shots

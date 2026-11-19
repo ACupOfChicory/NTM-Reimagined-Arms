@@ -23,6 +23,11 @@ public final class GameRandoms {
             public float nextFloat() {
                 return r.nextFloat();
             }
+
+            @Override
+            public double nextGaussian() {
+                return r.nextGaussian();
+            }
         };
     }
 }

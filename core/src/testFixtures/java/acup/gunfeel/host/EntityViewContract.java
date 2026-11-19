@@ -78,6 +78,26 @@ public abstract class EntityViewContract {
         }
     }
 
+    // the turn BodyControl sets is the one the Body reads; a mob standing has not turned to a path; it is put back
+    @Test
+    void turnSetIsTurnRead() {
+        Body a = view().byId(mob());
+        float y0 = a.yRot(), h0 = a.yHeadRot(), x0 = a.xRot();
+        control().yRot(a, 21F);
+        control().yHeadRot(a, -33F);
+        control().xRot(a, 17F);
+        control().yBodyRot(a, 21F);
+        assertEquals(21F, a.yRot());
+        assertEquals(-33F, a.yHeadRot());
+        assertEquals(17F, a.xRot());
+        assertFalse(control().turned(a));
+        control().face(a, 21F);
+        control().lookAt(a, a.x(), a.y() + 1, a.z() + 5, 10F, 10F);
+        control().yRot(a, y0);
+        control().yHeadRot(a, h0);
+        control().xRot(a, x0);
+    }
+
     // a walk along three cells from the mob's: under way, at its first node; stopped, done; a mob standing, never stuck
     @Test
     void aWalkAndItsStop() {

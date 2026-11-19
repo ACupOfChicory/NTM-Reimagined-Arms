@@ -286,7 +286,7 @@ final class AiCheckAim {
             int k = (int) Math.ceil(dist(lane) / g.bulletSpeed());
             Vec3 at = spot(lane, ticks + k).add(0, chest, 0);
             g.aim(at);
-            g.exact = at;
+            g.lob(at, Long.MAX_VALUE);
         } else {
             g.track(t.getId(), p.add(0, chest, 0), level.getGameTime());
             if (lane == 1 && motion() == Motion.STAND && ticks > 20 && ticks < CEASE) {
