@@ -72,13 +72,6 @@ public final class AiGunner extends AiGunnerBase {
     private long reloadFrom = -1;
     /** a reload longer than this (ticks) was not seen through: it was not ticked meanwhile */
     static final int MAX_RELOAD = 200;
-    // the burst: shots so far, the tick of the last, where its sideways wander is
-    private int burstShots;
-    private long lastShot = Long.MIN_VALUE;
-    private float drift;
-    // the barrel's heat: waiting for it to cool, and no pull before this tick (a pause cut into a burst)
-    private boolean cooling;
-    private long heatPauseUntil = Long.MIN_VALUE;
     // shots since its last tick (AiShots: once a tick, whatever the projectiles), and the tick of the last
     private int fresh;
     private long shotTick = Long.MIN_VALUE;
@@ -199,7 +192,7 @@ public final class AiGunner extends AiGunnerBase {
         // a grenadier's shells go only as lobs worked out to burst clear of its own (AiGrenadier), never straight
         if (shoot && !hasExact && AiGrenadier.lobsOnly(mob, stack)) shoot = false;
         // a hot barrel (acup.gunfeel.heat.Overheat): shorter bursts with longer pauses, and near the top it waits for it to cool
-        if (shoot && heatHolds(stack, time)) shoot = false;
+        if (shoot && heatHolds(time)) shoot = false;
         // the line to the aim, the line it looks along now (a burst's kick, a turn not done) and the one its body faces
         // (the bullet's), each in a cone as wide as the gun strays: an automatic's wider
         boolean friend = false;
@@ -249,7 +242,7 @@ public final class AiGunner extends AiGunnerBase {
         if (n > 0 && acup.gunfeel.Prone.lying(mob)) shotsLying += n;
         if (n > 0 && low && mob.getPose() == net.minecraft.world.entity.Pose.CROUCHING) shotsLow += n;
         if (n > 0 && covered) coverShots += n;
-        if (n > 0 && !hasExact) recoil(n, level.getGameTime(), stack);
+        if (n > 0 && !hasExact) recoil(n, level.getGameTime());
     }
 
     /**
@@ -338,50 +331,9 @@ public final class AiGunner extends AiGunnerBase {
         fresh++;
     }
 
-    /**
-     * Each shot's kick on the view, from NTM's recoil for the gun and the part of it that stays, as on a player's camera
-     * (AiRecoil), aiming or not, lying or not; AiAim keeps it.
-     */
-    private void recoil(int shots, long tick, ItemStack stack) {
-        float strength = AiRecoil.strength();
-        String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        AiRecoil.Kick k = strength <= 0F ? null : AiRecoil.of(id);
-        // the burst is counted with no kick too: the barrel's heat cuts it by its shots (heatHolds)
-        boolean first = lastShot == Long.MIN_VALUE || tick - lastShot > BURST_GAP;
-        lastShot = tick;
-        if (first) burstShots = 0;
-        if (k == null) {
-            burstShots += shots;
-            return;
-        }
-        AiSkill skill = AiSkill.current();
-        boolean aiming = ItemGunBaseNT.getIsAiming(stack), lying = acup.gunfeel.compat.Feature.PRONE.on() && acup.gunfeel.Prone.lying(mob);
-        for (int i = 0; i < shots; i++) {
-            burstShots++;
-            drift = AiRecoil.drift(drift, first && i == 0, (float) mob.getRandom().nextGaussian());
-            float[] d = AiRecoil.degrees(k, id, strength, burstShots, drift, aiming, lying, mob.getRandom()::nextGaussian);
-            float[] moved = sight.kick(d[0], d[1], d[2], d[3], k.rebound(), skill);
-            face(mob.getYHeadRot() + moved[0], Math.max(-90F, Math.min(90F, mob.getXRot() + moved[1])), skill);
-        }
-    }
-
-    /**
-     * The barrel's heat holds its fire (Overheat): from AI_WAIT until it is down to AI_RESUME; warmer than AI_SHORT, a burst
-     * is cut at the gun's aiBurst shots and the pause after it is longer than a burst's gap (BURST_GAP), the hotter the
-     * longer: the next burst starts its climb over.
-     */
-    private boolean heatHolds(ItemStack stack, long time) {
-        acup.gunfeel.heat.Overheat.Gun g = acup.gunfeel.heat.Overheat.gun(stack);
-        if (g == null) return false;
-        float h = acup.gunfeel.heat.Overheat.heat(stack, time);
-        if (h >= acup.gunfeel.heat.Overheat.AI_WAIT) cooling = true;
-        else if (h <= acup.gunfeel.heat.Overheat.AI_RESUME) cooling = false;
-        if (cooling || time < heatPauseUntil) return true;
-        if (h > acup.gunfeel.heat.Overheat.AI_SHORT && burstShots >= g.aiBurst && lastShot != Long.MIN_VALUE && time - lastShot <= BURST_GAP) {
-            heatPauseUntil = time + heatPause(h);
-            return true;
-        }
-        return false;
+    @Override
+    boolean recoilLying() {
+        return acup.gunfeel.compat.Feature.PRONE.on() && acup.gunfeel.Prone.lying(mob);
     }
 
     @Override
@@ -551,6 +503,22 @@ public final class AiGunner extends AiGunnerBase {
             if (mag == null) return NO_ROUNDS;
             mag.reloadAction(stack, null);
             return mag instanceof MagazineSingleTypeBase ? mag.getAmount(stack, null) : -1;
+        }
+
+        @Override
+        public boolean aiming(Body holder, int hand) {
+            return ItemGunBaseNT.getIsAiming(stack(holder, hand));
+        }
+
+        @Override
+        public int heatGun(Body holder, int hand) {
+            acup.gunfeel.heat.Overheat.Gun g = acup.gunfeel.heat.Overheat.gun(stack(holder, hand));
+            return g == null ? -1 : g.ordinal();
+        }
+
+        @Override
+        public float heat(Body holder, int hand, long now) {
+            return acup.gunfeel.heat.Overheat.heat(stack(holder, hand), now);
         }
     }
 }
