@@ -9,15 +9,10 @@ import net.minecraft.world.entity.Entity;
  * Vanillate draws entities through Flywheel visuals and skips that line. {@link #settle} does the same as vanilla
  * when such a visual is made (MixinSpawnLerp). Once Vanillate does it itself, nothing is left to settle.
  */
-public final class SpawnLerp {
+public final class SpawnLerp extends SpawnLerpBase {
     private static volatile boolean said;
 
     private SpawnLerp() {
-    }
-
-    /** Not ticked yet, and its previous position is not where it is. */
-    static boolean stale(int tickCount, double ox, double oy, double oz, double x, double y, double z) {
-        return tickCount == 0 && (ox != x || oy != y || oz != z);
     }
 
     public static void settle(Entity e) {
