@@ -10,9 +10,7 @@ import java.util.function.DoubleUnaryOperator;
 
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -129,6 +127,8 @@ public final class BlastParts {
         List<Counted> counted = stand != null && !standQuiet ? new ArrayList<>() : null;
         boolean reached = false, limbs = false;
         double mean = 0;
+        Vec3d[] sight = null;
+        acup.gunfeel.host.WorldView world = null;
         for (Part p : parts) {
             limbs |= p.multiplier() < 1;
             mean += p.share() * p.multiplier();
@@ -138,8 +138,13 @@ public final class BlastParts {
                 if (counted != null) counted.add(new Counted(p.box().part(), p.multiplier(), p.share(), scaled, 0, 0));
                 continue;
             }
-            // NTM sees the whole mob from a node (density 1): every part is in sight, no rays
-            double seen = density >= 1 ? 1 : visibility(level, p.box(), nodes, entity, rays);
+            // NTM sees the whole mob from a node (density 1): every part is in sight, no rays; else the game's rays (BlastSight)
+            if (density < 1 && sight == null) {
+                sight = new Vec3d[nodes.length];
+                for (int i = 0; i < nodes.length; i++) sight[i] = new Vec3d(nodes[i].x, nodes[i].y, nodes[i].z);
+                world = Wiring.world(level);
+            }
+            double seen = density >= 1 ? 1 : BlastSight.visibility(world, EntityBody.of(entity), p.box(), sight, rays);
             float raw = Math.max(0F, calc.of(scaled, seen, push.applyAsDouble((1 - scaled) * seen)));
             total += p.share() * raw;
             weighted += p.share() * raw * p.multiplier();
@@ -288,52 +293,6 @@ public final class BlastParts {
             z += a[2] * t;
         }
         return new Vec3(x, y, z);
-    }
-
-    /** the part's points the rays start from: its middle, then pairs along its longest edge */
-    static List<Vec3> points(ModelBox b, int rays) {
-        double lu = Math.sqrt(b.ux() * b.ux() + b.uy() * b.uy() + b.uz() * b.uz());
-        double lv = Math.sqrt(b.vx() * b.vx() + b.vy() * b.vy() + b.vz() * b.vz());
-        double lw = Math.sqrt(b.wx() * b.wx() + b.wy() * b.wy() + b.wz() * b.wz());
-        int axis = lu >= lv && lu >= lw ? 0 : lv >= lw ? 1 : 2;
-        List<Vec3> out = new ArrayList<>(rays);
-        out.add(ModelContours.point(b, .5, .5, .5));
-        for (int i = 1; out.size() < rays; i++) {
-            // 0.15 and 0.85 of the length, then halfway in to the middle and so on
-            double off = 0.35 / i;
-            for (double t : new double[] { .5 - off, .5 + off }) {
-                if (out.size() >= rays) break;
-                out.add(ModelContours.point(b, axis == 0 ? t : .5, axis == 1 ? t : .5, axis == 2 ? t : .5));
-            }
-        }
-        return out;
-    }
-
-    /** the share of the part's rays that reach the blast from its best node, as NTM's getBlockDensity's */
-    static double visibility(Level level, ModelBox b, Vec3[] nodes, Entity entity, int rays) {
-        // a point inside a block (a big model reaches into a wall) sends no ray: the part's others go by themselves
-        List<Vec3> from = new ArrayList<>(rays);
-        for (Vec3 p : points(b, rays)) if (!solid(level, p)) from.add(p);
-        if (from.isEmpty()) return 0;
-        double best = 0;
-        for (Vec3 node : nodes) {
-            int clear = 0;
-            for (Vec3 p : from)
-                if (level.clip(new ClipContext(p, node, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, entity)).getType()
-                        == HitResult.Type.MISS) clear++;
-            best = Math.max(best, clear / (double) from.size());
-            if (best >= 1) break;
-        }
-        return best;
-    }
-
-    private static boolean solid(Level level, Vec3 p) {
-        var pos = net.minecraft.core.BlockPos.containing(p);
-        var shape = level.getBlockState(pos).getCollisionShape(level, pos);
-        if (shape.isEmpty()) return false;
-        Vec3 in = p.subtract(pos.getX(), pos.getY(), pos.getZ());
-        for (var box : shape.toAabbs()) if (box.contains(in)) return true;
-        return false;
     }
 
     private static boolean nuclear() {

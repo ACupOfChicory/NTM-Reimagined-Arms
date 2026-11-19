@@ -75,8 +75,8 @@ public final class Wiring implements Ports {
     }
 
     // ballistics and balance
-    /** The blocks of a level (or of any blocks) for core, by the game's one table ({@link BlockStates}). */
-    public static WorldView world(BlockGetter level) {
+    /** A level for core: its blocks by the game's one table ({@link BlockStates}), its tick, side, ray, shapes and room. */
+    public static WorldView world(Level level) {
         return new LevelWorld(level);
     }
 

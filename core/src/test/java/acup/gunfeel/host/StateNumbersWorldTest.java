@@ -1,7 +1,7 @@
 package acup.gunfeel.host;
 
 // The world's contract (WorldViewContract) on StateNumbers' fake world: air at 0 0 0, stone at 1 0 0, a fence with
-// properties at 2 0 0. Each version's tests run it on its own world.
+// properties at 2 0 0, a bottom slab at 4 0 0. Each version's tests run it on its own world.
 class StateNumbersWorldTest extends WorldViewContract {
     private final StateNumbersTest.FakeWorld world = new StateNumbersTest.FakeWorld();
 
@@ -33,5 +33,20 @@ class StateNumbersWorldTest extends WorldViewContract {
     @Override
     protected float stoneDestroySpeed() {
         return 1.5F;
+    }
+
+    @Override
+    protected int[] slab() {
+        return new int[] {4, 0, 0};
+    }
+
+    @Override
+    protected boolean clientSide() {
+        return false;
+    }
+
+    @Override
+    protected void tick() {
+        world.time++;
     }
 }
