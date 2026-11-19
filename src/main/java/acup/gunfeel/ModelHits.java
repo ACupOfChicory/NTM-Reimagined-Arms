@@ -806,7 +806,7 @@ public final class ModelHits {
                             + " origin=" + rootOrigin + " authority=" + root.position()
                             + " from=" + from + " to=" + to);
         }
-        if (TestLog.on(target.level()) && !from.equals(to)) TestLog.at(target.level(), -1, "model_hit", "target", target.getId(),
+        if (WorldLog.on(target.level()) && !from.equals(to)) WorldLog.at(target.level(), -1, "model_hit", "target", target.getId(),
                 "part", part, "result", Double.isFinite(nearest) ? "hit" : "miss", "age", target.level().getGameTime() - p.tick());
         if(!Double.isFinite(nearest))return Optional.empty();
         Vec3 point=segmentFrom.lerp(segmentTo,nearest);

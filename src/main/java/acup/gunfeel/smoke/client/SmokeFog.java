@@ -1,5 +1,7 @@
 package acup.gunfeel.smoke.client;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import acup.gunfeel.smoke.SmokeClouds;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
@@ -31,6 +33,7 @@ public final class SmokeFog {
     }
 
     // once a frame: the density where the camera is
+    @Hook(HookPoint.SMOKE_FRAME)
     public static void frame(Camera camera, float frameSeconds) {
         SmokeClouds all = SmokeClient.current();
         float d = 0F;
@@ -68,6 +71,7 @@ public final class SmokeFog {
         return Math.clamp((shown - 0.05F) / 0.4F, 0F, 1F);
     }
 
+    @Hook(HookPoint.SMOKE_FOG)
     public static void fog(ViewportEvent.RenderFog e) {
         float k = amount();
         if (k <= 0F) return;
@@ -81,6 +85,7 @@ public final class SmokeFog {
         f.cloudEnd = Math.min(f.cloudEnd, lerp(f.cloudEnd, 1.5F, k));
     }
 
+    @Hook(HookPoint.SMOKE_FOG)
     public static void color(ViewportEvent.ComputeFogColor e) {
         float k = amount();
         if (k <= 0F) return;
@@ -95,6 +100,7 @@ public final class SmokeFog {
         return !SmokeRender.drawingVolume();
     }
 
+    @Hook(HookPoint.SMOKE_FOG)
     public static void layer(GuiGraphicsExtractor g, DeltaTracker delta) {
         if (shown <= 0.05F || !layerNeeded()) return;
         float a = Math.clamp((shown - 0.05F) / 0.35F, 0F, 1F) * 0.97F;

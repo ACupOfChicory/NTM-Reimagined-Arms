@@ -25,6 +25,8 @@ import com.mojang.blaze3d.textures.FilterMode;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import acup.gunfeel.Config;
 import acup.gunfeel.GunFeel;
 import acup.gunfeel.smoke.SmokeClouds;
@@ -554,6 +556,7 @@ public final class SmokeRender {
      * AfterOpaqueFeatures: the world's depth before glass and water. Only when a drawn cloud is in the view: with none
      * the depth is not copied and nothing is marched or laid over the frame.
      */
+    @Hook(HookPoint.SMOKE_DRAW)
     public static void afterOpaque(RenderLevelStageEvent.AfterOpaqueFeatures e) {
         copied = false;
         rect = null;
@@ -608,6 +611,7 @@ public final class SmokeRender {
      * rest of its layers are laid first where the smoke may be, see fold; a chain a pack changed lays them after this,
      * over the smoke).
      */
+    @Hook(HookPoint.SMOKE_DRAW)
     public static void afterWeather(RenderLevelStageEvent.AfterWeather e) {
         try {
             marchAndLay(e);
@@ -1093,6 +1097,7 @@ public final class SmokeRender {
     }
 
     /** Once a frame, after the level: the stats. */
+    @Hook(HookPoint.SMOKE_DRAW)
     public static void frame() {
         SmokeClouds all = SmokeClient.current();
         SmokeStats.frame(all == null ? 0 : all.clouds().size(), Math.max(drawnLast, SmokeSlices.drawnLast()), SmokeFog.atCamera());

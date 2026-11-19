@@ -611,8 +611,16 @@ neoForge {
     }
 }
 
-// the tests see what the mod compiles against, the Minecraft client included
+// core/: the code every version shares, compiled into the mod as it always was (the :core project builds it once
+// more without Minecraft: core/build.gradle.kts)
+sourceSets.main {
+    java.srcDir(root.resolve("core/src/main/java"))
+}
+
+// the tests see what the mod compiles against, the Minecraft client included; and core's contract tests
+// (core/src/testFixtures: what every version's ports must do), which 26.2's tests extend with its own ports
 sourceSets.test {
+    java.srcDir(root.resolve("core/src/testFixtures/java"))
     compileClasspath += sourceSets.main.get().compileClasspath
     runtimeClasspath += sourceSets.main.get().compileClasspath
 }

@@ -701,7 +701,7 @@ public final class BalanceCheck {
 
     /** a pass planned, its start marked in the test log (-PbalanceTestLog: which pass a shot's spread is of) */
     private static void pass(String name, Runnable plan) {
-        if (Boolean.getBoolean(PROPERTY + ".testLog")) STEPS.add(() -> TestLog.at(level, "pass", "name", name));
+        if (Boolean.getBoolean(PROPERTY + ".testLog")) STEPS.add(() -> WorldLog.at(level, "pass", "name", name));
         plan.run();
     }
 

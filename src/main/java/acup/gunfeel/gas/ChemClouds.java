@@ -13,6 +13,8 @@ import com.hbm.inventory.fluid.NTMFluidProperties;
 import com.hbm.inventory.fluid.NTMFluidProperty;
 import com.hbm.inventory.fluid.trait.FT_VentRadiation;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import acup.gunfeel.compat.Feature;
 import acup.gunfeel.mixin.MistAccess;
 import acup.gunfeel.smoke.SmokeClouds;
@@ -133,6 +135,7 @@ public final class ChemClouds {
     }
 
     /** Once a level tick: the gathered blobs go out, and the NTM gases' clouds do their work. */
+    @Hook(HookPoint.GAS_SERVER_TICK)
     public static void tick(ServerLevel level) {
         Map<Key, Stream> streams = STREAMS.get(level);
         long now = level.getGameTime();

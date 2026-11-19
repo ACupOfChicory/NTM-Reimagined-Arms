@@ -33,7 +33,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
  */
 public final class SmokeMask implements SmokeGrid.Mask {
     /** A cloud reads a twentieth of its cells again each step: all of them once a second. */
-    public static final int PARTS = 20;
+    public static final int PARTS = SmokeCloudSet.PARTS;
     public static final TagKey<Block> BLOCKS_SMOKE = TagKey.create(Registries.BLOCK, Identifier.fromNamespaceAndPath("ntmgunfeel", "blocks_smoke"));
 
     private final Level level;

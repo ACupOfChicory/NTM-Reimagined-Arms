@@ -1,5 +1,7 @@
 package acup.gunfeel.smoke;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import acup.gunfeel.ReaimTimes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -22,6 +24,7 @@ public final class SmokeSight {
     }
 
     /** {@code eyeHeight}: the y of the target's eyes, as {@code hasLineOfSight} gets it. The cheap checks come first. */
+    @Hook(HookPoint.SMOKE_SIGHT)
     public static boolean hides(LivingEntity looker, Entity target, double eyeHeight) {
         if (!(looker instanceof Mob) || !(looker.level() instanceof ServerLevel level)) return false;
         SmokeClouds all = SmokeClouds.get(level);

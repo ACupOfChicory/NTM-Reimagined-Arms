@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import acup.gunfeel.smoke.SmokeClouds;
 import acup.gunfeel.smoke.SmokeGrid;
 import acup.gunfeel.smoke.SmokeKind;
@@ -74,6 +76,7 @@ public final class SmokeClient {
      * loaded, replaces it and is caught up from the cloud's birth. So a cloud born at the edge of the loaded area is
      * not lost, only late.
      */
+    @Hook(HookPoint.SMOKE_PACKETS)
     public static void spawn(SmokePayloads.Spawn p) {
         SmokeClouds all = clouds();
         if (all == null) return;
@@ -85,12 +88,14 @@ public final class SmokeClient {
         TRACKS.put(p.id(), new Track());
     }
 
+    @Hook(HookPoint.SMOKE_PACKETS)
     public static void end(SmokePayloads.End p) {
         SmokeClouds all = clouds();
         if (all != null) all.remove(p.id());
         TRACKS.remove(p.id());
     }
 
+    @Hook(HookPoint.SMOKE_PACKETS)
     public static void check(SmokePayloads.Check p) {
         Track t = TRACKS.get(p.id());
         SmokeClouds all = current();
@@ -102,6 +107,7 @@ public final class SmokeClient {
     }
 
     /** A bullet or a blast stirred a cloud: the copy takes it at the age the server did (a broken one is dropped). */
+    @Hook(HookPoint.SMOKE_PACKETS)
     public static void stirred(SmokePayloads.Stirred p) {
         SmokeClouds all = clouds();
         SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());
@@ -111,6 +117,7 @@ public final class SmokeClient {
     }
 
     /** A grenade of a cloud's kind burst in it: the copy takes it at the age the server did. */
+    @Hook(HookPoint.SMOKE_PACKETS)
     public static void fed(SmokePayloads.Fed p) {
         SmokeClouds all = clouds();
         SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());
@@ -118,6 +125,7 @@ public final class SmokeClient {
         c.stir(p.feed());
     }
 
+    @Hook(HookPoint.SMOKE_PACKETS)
     public static void grid(SmokePayloads.Grid p) {
         SmokeClouds all = clouds();
         SmokeClouds.Cloud c = all == null ? null : all.cloud(p.id());
@@ -184,6 +192,7 @@ public final class SmokeClient {
     }
 
     /** Every client tick. */
+    @Hook(HookPoint.SMOKE_CLIENT_TICK)
     public static void tick() {
         SmokeClouds all = clouds();
         if (all == null || all.isEmpty()) return;
@@ -201,6 +210,7 @@ public final class SmokeClient {
         SmokeStats.tick(System.nanoTime() - t0);
     }
 
+    @Hook(HookPoint.SMOKE_CLIENT_LEFT)
     public static void leave() {
         if (level != null) SmokeClouds.forget(level);
         level = null;

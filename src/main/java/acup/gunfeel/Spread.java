@@ -84,10 +84,10 @@ public final class Spread {
         float air = inAir(e) ? get(gun, "spreadAir", 0F) * armor : 0F;
         float bloom = bloom(e, gun) * armor;
         float total = SpreadModel.total(spread, mult, get(gun, "spreadSpeed", 0F), live, air, bloom, stance);
-        if (acup.gunfeel.TestLog.on(e.level()) && !QUERY.get()) {
+        if (acup.gunfeel.WorldLog.on(e.level()) && !QUERY.get()) {
             Long last = LOGGED.put(e, e.level().getGameTime());
             if (last == null || last != e.level().getGameTime())
-                acup.gunfeel.TestLog.at(e.level(), -1, "spread", "who", e.getPlainTextName(), "gun", gun, "aim", aim, "crawl", crawl, "sneak", sneak,
+                acup.gunfeel.WorldLog.at(e.level(), -1, "spread", "who", e.getPlainTextName(), "gun", gun, "aim", aim, "crawl", crawl, "sneak", sneak,
                         "sprint", e.isSprinting(), "air", inAir(e), "pace", pace, "armor", armor, "base", spread, "mult", mult, "bloom", bloom, "total", total);
         }
         return total;
