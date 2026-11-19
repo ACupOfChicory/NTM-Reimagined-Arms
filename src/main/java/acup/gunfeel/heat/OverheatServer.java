@@ -28,14 +28,6 @@ public final class OverheatServer {
     private OverheatServer() {
     }
 
-    static final String KEY_JAM = "gunfeel_heat_jam", KEY_COOK = "gunfeel_heat_cook", KEY_ROLLED = "gunfeel_heat_rolled";
-    /** the tick of the gun's last shot, low 31 bits (the heat's own tick moves on as water cools it too) */
-    static final String KEY_SHOT = "gunfeel_heat_shot";
-    /** water and rain: cooled faster this often, ticks */
-    static final int WET_EVERY = 10;
-    /** the hiss of a hot gun in hand, ticks between */
-    static final int HISS_EVERY = 20;
-
     /** a shot has been fired (server): its heat added, a stoppage maybe set for the next */
     public static void shot(ItemStack stack, ItemGunBaseNT.LambdaContext ctx) {
         LivingEntity shooter = ctx == null ? null : ctx.entity();
@@ -49,8 +41,8 @@ public final class OverheatServer {
         int delay = recs == null || recs.length == 0 ? gun.delay : recs[0].getDelayAfterFire(stack);
         float h = Overheat.afterShot(Overheat.heat(stack, now), gun, scale, delay);
         Overheat.set(stack, h, now);
-        ItemGunBaseNT.setValueInt(stack, KEY_SHOT, low(now));
-        if (shooter.getRandom().nextFloat() < Overheat.jamChance(gun, h)) ItemGunBaseNT.setValueInt(stack, KEY_JAM, 1);
+        ItemGunBaseNT.setValueInt(stack, Overheat.KEY_SHOT, Overheat.low(now));
+        if (shooter.getRandom().nextFloat() < Overheat.jamChance(gun, h)) ItemGunBaseNT.setValueInt(stack, Overheat.KEY_JAM, 1);
     }
 
     /** a shot's wear (NTM's: the gun's worn so far plus the round's) as the heat has it: the part the shot adds, times */
@@ -73,8 +65,8 @@ public final class OverheatServer {
      * animation, its time, then ready for a new pull). True: the decider is not to go on.
      */
     public static boolean jam(ItemStack stack, ItemGunBaseNT.LambdaContext ctx, int recIndex, int gunIndex) {
-        if (ItemGunBaseNT.getValueInt(stack, KEY_JAM) == 0) return false;
-        ItemGunBaseNT.setValueInt(stack, KEY_JAM, 0);
+        if (ItemGunBaseNT.getValueInt(stack, Overheat.KEY_JAM) == 0) return false;
+        ItemGunBaseNT.setValueInt(stack, Overheat.KEY_JAM, 0);
         if (ctx == null || ctx.entity() == null || !Overheat.on() || Overheat.gun(stack) == null) return false;
         Receiver rec = ctx.config().getReceivers(stack)[recIndex];
         int time = rec.getJamDuration(stack);
@@ -93,27 +85,25 @@ public final class OverheatServer {
         boolean held = slot == EquipmentSlot.MAINHAND;
         if (!held) {
             // out of the hand nothing waits: a stoppage or a cook-off set goes (a gun picked up later is not fired by an old one)
-            if (ItemGunBaseNT.getValueInt(stack, KEY_JAM) != 0) ItemGunBaseNT.setValueInt(stack, KEY_JAM, 0);
-            if (ItemGunBaseNT.getValueInt(stack, KEY_COOK) != 0) ItemGunBaseNT.setValueInt(stack, KEY_COOK, 0);
+            if (ItemGunBaseNT.getValueInt(stack, Overheat.KEY_JAM) != 0) ItemGunBaseNT.setValueInt(stack, Overheat.KEY_JAM, 0);
+            if (ItemGunBaseNT.getValueInt(stack, Overheat.KEY_COOK) != 0) ItemGunBaseNT.setValueInt(stack, Overheat.KEY_COOK, 0);
         }
         if (ItemGunBaseNT.getValueFloat(stack, Overheat.KEY_HEAT) <= 0F) return;
         long now = level.getGameTime();
         float h = Overheat.heat(stack, now);
-        if (living.isInWaterOrRain() && now % WET_EVERY == 0) {
+        if (living.isInWaterOrRain() && Overheat.wetNow(now)) {
             // the faster cooling: the air's and the water's on top, 1/TAU_WET in all
-            float extra = 1F / (1F / Overheat.TAU_WET - 1F / Overheat.TAU);
-            float wet = Overheat.cooled(h, WET_EVERY, extra);
-            if (held && h > 0.3F) {
+            float wet = Overheat.wetCooled(h);
+            if (held && Overheat.wetHisses(h)) {
                 Vec3 m = muzzle(living);
-                level.playSound(null, m.x, m.y, m.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.15F + 0.35F * h, 1.6F);
-                level.sendParticles(ParticleTypes.WHITE_SMOKE, m.x, m.y, m.z, 1 + (int) (3 * h), 0.08, 0.04, 0.08, 0.01);
+                level.playSound(null, m.x, m.y, m.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, Overheat.wetHissVolume(h), 1.6F);
+                level.sendParticles(ParticleTypes.WHITE_SMOKE, m.x, m.y, m.z, Overheat.steamPuffs(h), 0.08, 0.04, 0.08, 0.01);
             }
             Overheat.set(stack, wet, now);
             h = wet;
-        } else if (held && h > Overheat.HISS_FROM && now % HISS_EVERY == living.getId() % HISS_EVERY) {
+        } else if (held && h > Overheat.HISS_FROM && Overheat.hissNow(now, living.getId())) {
             Vec3 m = muzzle(living);
-            level.playSound(null, m.x, m.y, m.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS,
-                    0.06F + 0.12F * Overheat.ramp(h, Overheat.HISS_FROM, 1F), 1.9F);
+            level.playSound(null, m.x, m.y, m.z, SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, Overheat.hissVolume(h), 1.9F);
         }
         if (held && gun == Overheat.Gun.M2) cookOff(stack, level, living, h, now);
     }
@@ -124,27 +114,26 @@ public final class OverheatServer {
      */
     private static void cookOff(ItemStack stack, ServerLevel level, LivingEntity living, float h, long now) {
         ItemGunBaseNT.GunState state = ItemGunBaseNT.getState(stack, 0);
-        int cook = ItemGunBaseNT.getValueInt(stack, KEY_COOK);
+        int cook = ItemGunBaseNT.getValueInt(stack, Overheat.KEY_COOK);
         boolean idle = state == ItemGunBaseNT.GunState.IDLE && !ItemGunBaseNT.getPrimary(stack, 0);
         if (!idle) {
-            if (cook != 0) ItemGunBaseNT.setValueInt(stack, KEY_COOK, 0);
+            if (cook != 0) ItemGunBaseNT.setValueInt(stack, Overheat.KEY_COOK, 0);
             return;
         }
-        long last = Overheat.unwrap(ItemGunBaseNT.getValueInt(stack, KEY_SHOT), now);
-        int lastLow = low(last);
+        long last = Overheat.unwrap(ItemGunBaseNT.getValueInt(stack, Overheat.KEY_SHOT), now);
+        int lastLow = Overheat.low(last);
         if (cook == 0) {
-            if (ItemGunBaseNT.getValueInt(stack, KEY_ROLLED) == lastLow || now - last > 5) return;
-            ItemGunBaseNT.setValueInt(stack, KEY_ROLLED, lastLow);
+            if (!Overheat.cookRolls(ItemGunBaseNT.getValueInt(stack, Overheat.KEY_ROLLED), lastLow, last, now)) return;
+            ItemGunBaseNT.setValueInt(stack, Overheat.KEY_ROLLED, lastLow);
             if (living.getRandom().nextFloat() >= Overheat.cookChance(Overheat.Gun.M2, h)) return;
             int delay = Overheat.COOK_DELAY_MIN + living.getRandom().nextInt(Overheat.COOK_DELAY_MAX - Overheat.COOK_DELAY_MIN + 1);
             // 0 is none: the tick it goes, never 0
-            ItemGunBaseNT.setValueInt(stack, KEY_COOK, Math.max(1, low(now + delay)));
+            ItemGunBaseNT.setValueInt(stack, Overheat.KEY_COOK, Overheat.cookAt(now, delay));
             return;
         }
         // not yet: its tick ahead of now (by under a quarter of the 31 bits; the bits wrap round)
-        int ahead = (cook - low(now)) & 0x7FFFFFFF;
-        if (ahead != 0 && ahead < 0x20000000) return;
-        ItemGunBaseNT.setValueInt(stack, KEY_COOK, 0);
+        if (!Overheat.cookDue(cook, now)) return;
+        ItemGunBaseNT.setValueInt(stack, Overheat.KEY_COOK, 0);
         if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return;
         GunConfig cfg = gun.getConfig(stack, 0);
         Receiver rec = cfg.getReceivers(stack)[0];
@@ -157,16 +146,12 @@ public final class OverheatServer {
         ItemGunBaseNT.setState(stack, 0, ItemGunBaseNT.GunState.COOLDOWN);
         ItemGunBaseNT.setTimer(stack, 0, rec.getDelayAfterFire(stack));
         // this shot is its stop's own: no second roll for it
-        ItemGunBaseNT.setValueInt(stack, KEY_ROLLED, ItemGunBaseNT.getValueInt(stack, KEY_SHOT));
+        ItemGunBaseNT.setValueInt(stack, Overheat.KEY_ROLLED, ItemGunBaseNT.getValueInt(stack, Overheat.KEY_SHOT));
     }
 
     /** the stands: the gun's last shot at this tick (a trigger just let go) */
     public static void lastShot(ItemStack stack, long tick) {
-        ItemGunBaseNT.setValueInt(stack, KEY_SHOT, low(tick));
-    }
-
-    static int low(long tick) {
-        return (int) (tick & 0x7FFFFFFFL);
+        ItemGunBaseNT.setValueInt(stack, Overheat.KEY_SHOT, Overheat.low(tick));
     }
 
     /** about where the muzzle is: along the look from the eyes, a little down and to the right */
