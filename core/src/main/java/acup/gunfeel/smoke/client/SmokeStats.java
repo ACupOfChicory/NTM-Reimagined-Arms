@@ -2,7 +2,7 @@ package acup.gunfeel.smoke.client;
 
 import java.util.Locale;
 
-import acup.gunfeel.GunFeel;
+import acup.gunfeel.ModLog;
 
 /**
  * Client: where the smoke's time goes, to the debug log every 5 s while there are clouds ("Smoke cost"): the client tick
@@ -25,7 +25,7 @@ public final class SmokeStats {
      * Whether the card's own time is polled and the stats built: only for the stand and with debug logging on. Without
      * either nobody reads them, and polling the timestamps of every frame is a cost for nothing.
      */
-    public static final boolean MEASURING = !System.getProperty("ntmgunfeel.smokeStand", "").isBlank() || GunFeel.LOGGER.isDebugEnabled();
+    public static final boolean MEASURING = !System.getProperty("ntmgunfeel.smokeStand", "").isBlank() || ModLog.LOGGER.isDebugEnabled();
 
     private SmokeStats() {
     }
@@ -91,7 +91,7 @@ public final class SmokeStats {
             }
             last = String.format(Locale.ROOT, "%sclouds %d, drawn %d, at the camera %.2f, %d frames (%d fps)", b, clouds, drawn, inside, frames,
                     Math.round(frames / ((now - since) / 1e9)));
-            GunFeel.LOGGER.debug("Smoke cost: {}", last);
+            ModLog.LOGGER.debug("Smoke cost: {}", last);
         }
         java.util.Arrays.fill(NANOS, 0L);
         java.util.Arrays.fill(CALLS, 0);
