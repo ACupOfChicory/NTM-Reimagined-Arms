@@ -7,7 +7,7 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
-import acup.gunfeel.shock.ShockServer;
+import acup.gunfeel.shock.ShockServerBase;
 
 // The shock's edges (ShockArcs): the vignette and the discharges follow the glitch's strength down to nothing as the
 // shock wears off, and a discharge starts at an edge and stays on the screen.
@@ -17,8 +17,8 @@ class ShockArcsTest {
         int full = 40;
         float lastV = Float.MAX_VALUE;
         int lastN = Integer.MAX_VALUE;
-        for (int t = 0; t <= full + ShockServer.FADE_TICKS + 5; t++) {
-            float k = ShockServer.envelope(t, full);
+        for (int t = 0; t <= full + ShockServerBase.FADE_TICKS + 5; t++) {
+            float k = ShockServerBase.envelope(t, full);
             float v = ShockArcs.vignette(k);
             int n = ShockArcs.arcs(k);
             assertTrue(v <= lastV + 1e-6F && n <= lastN, "only less at " + t);
