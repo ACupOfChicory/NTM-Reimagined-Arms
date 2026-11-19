@@ -2,6 +2,8 @@ package acup.gunfeel.water;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -36,6 +38,7 @@ public record WaterBlastPayload(Vec3 at, float size, boolean incendiary, boolean
         return new WaterBlastPayload(at, size, incendiary, inWater, surface, b.readEnum(WaterEvents.Liquid.class));
     }
 
+    @Hook(HookPoint.WATER_PACKETS)
     public void handle(Level level) {
         WaterEvents.blast(level, new WaterEvents.Blast(at, size, incendiary, inWater, surface, liquid));
     }

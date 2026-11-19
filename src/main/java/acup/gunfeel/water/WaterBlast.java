@@ -7,6 +7,8 @@ import org.jspecify.annotations.Nullable;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.explosion.vanillant.ExplosionVNT;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import acup.gunfeel.water.LiquidEvents.Liquid;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
@@ -94,6 +96,7 @@ public final class WaterBlast {
     private static final Object DRY = new Object();
 
     // EntityProcessorCross.process starts (HEAD)
+    @Hook(HookPoint.WATER_BLAST)
     public static void begin(ExplosionVNT e, Level world, double x, double y, double z) {
         Object state = DRY;
         if (!world.isClientSide() && WaterSettings.ballistics()) {
@@ -104,6 +107,7 @@ public final class WaterBlast {
     }
 
     // ... and ends (RETURN)
+    @Hook(HookPoint.WATER_BLAST)
     public static void end() {
         ArrayDeque<Object> s = PROCESS.get();
         if (!s.isEmpty()) s.pop();
@@ -115,6 +119,7 @@ public final class WaterBlast {
     }
 
     // the range the processor gathers mobs in and counts the falloff by
+    @Hook(HookPoint.WATER_BLAST)
     public static float size(float size) {
         Wet w = wet();
         return w == null ? size : size * w.mult;
@@ -125,12 +130,14 @@ public final class WaterBlast {
     }
 
     // a mob's distance / range: one out of the water goes by the blast's own range
+    @Hook(HookPoint.WATER_BLAST)
     public static double distance(double scaled, Entity e) {
         Wet w = wet();
         return w == null || inWater(e) ? scaled : scaled * w.mult;
     }
 
     // its push: one out of the water half
+    @Hook(HookPoint.WATER_BLAST)
     public static double knockback(double knockback, Entity e) {
         Wet w = wet();
         return w == null || inWater(e) ? knockback : knockback * ABOVE;
@@ -142,6 +149,7 @@ public final class WaterBlast {
 
     // its damage, with the processor's size and the push as counted: one out of the water by the blast's own size and
     // push, half of it
+    @Hook(HookPoint.WATER_BLAST)
     public static float damage(float size, double knockback, Entity e, Damage calc) {
         Wet w = wet();
         if (w == null || inWater(e)) return calc.of(size, knockback);
@@ -155,6 +163,7 @@ public final class WaterBlast {
     public static volatile java.util.function.@Nullable Consumer<ExplosionVNT> watch;
 
     // ExplosionVNT.explode (HEAD), the server: tell the players near when it is at water
+    @Hook(HookPoint.WATER_BLAST)
     public static void announce(ExplosionVNT e) {
         var w = watch;
         if (w != null) w.accept(e);

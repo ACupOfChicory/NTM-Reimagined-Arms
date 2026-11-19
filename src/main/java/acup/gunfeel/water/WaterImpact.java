@@ -8,6 +8,8 @@ import com.hbm.explosion.vanillant.standard.PlayerProcessorStandard;
 import com.hbm.items.weapon.sedna.BulletConfig;
 
 import acup.gunfeel.TestLog;
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
@@ -36,6 +38,7 @@ public final class WaterImpact {
     static final double TOUCH = 0.1;
 
     // NTM's onImpact (MixinWaterImpact): `original` runs it as it is; what water changes is its onImpact lambda (lambda)
+    @Hook(HookPoint.WATER_IMPACT)
     public static void impact(EntityBulletBaseMK4 bullet, HitResult hit, Runnable original) {
         if (bullet.level().isClientSide() || bullet.config == null || !WaterSettings.ballistics()) {
             original.run();
@@ -56,6 +59,7 @@ public final class WaterImpact {
     // blast, and what sets alight does not (the rest of NTM's impact, onRicochet and onEntityHit, goes on as for a
     // plain bullet). The lambda to call instead, or null for NTM's own. Inside NTM's onImpact, so the mod's own steps
     // around it (the damage × f² where the creature is, the piercing, the block rules) count these too.
+    @Hook(HookPoint.WATER_IMPACT)
     public static java.util.function.@org.jspecify.annotations.Nullable BiConsumer<Object, Object> lambda(EntityBulletBaseMK4 bullet, HitResult hit) {
         if (bullet.level().isClientSide() || bullet.config == null || !WaterSettings.ballistics()) return null;
         BulletConfig c = bullet.config;
@@ -111,6 +115,7 @@ public final class WaterImpact {
     // after the bullet's tick (MixinThrowableHit), the server: did its path from `from` touch another bullet, and was
     // either an explosive. Only bullets that have met water touch: in the air NTM's bullets pass each other, and the
     // search is not made
+    @Hook(HookPoint.WATER_IMPACT)
     public static void touch(EntityBulletBaseMK4 b, Vec3 from) {
         // a bullet gone this tick (water stopped it, it hit a block) still met what lay on its path
         if (b.level().isClientSide() || b.config == null || !WaterSettings.ballistics() || !WaterSettings.fuze() || !WaterBullet.met(b)) return;

@@ -8,6 +8,8 @@ import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
 
 import acup.gunfeel.Config;
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -45,6 +47,7 @@ public final class WaterFx {
         WaterEvents.ntmBubbles = !Config.waterSplash;
     }
 
+    @Hook(HookPoint.WATER_MUZZLE)
     public static boolean on() {
         return Config.waterSplash;
     }
@@ -489,6 +492,7 @@ public final class WaterFx {
     }
 
     // the client tick: delayed effects, the bodies on the bottom
+    @Hook(HookPoint.WATER_CLIENT_TICK)
     public static void clientTick() {
         WaterEvents.ntmBubbles = !Config.waterSplash;
         Minecraft mc = Minecraft.getInstance();
@@ -508,6 +512,7 @@ public final class WaterFx {
         }
     }
 
+    @Hook(HookPoint.WATER_CLIENT_LEFT)
     public static void clear() {
         LATER.clear();
         WaterRings.clear();
@@ -524,6 +529,7 @@ public final class WaterFx {
     private static Vec3 gasAt = Vec3.ZERO;
 
     // a point in water for the effects (any liquid but lava)
+    @Hook(HookPoint.WATER_MUZZLE)
     public static boolean wetAt(Level level, Vec3 p) {
         BlockPos pos = BlockPos.containing(p);
         net.minecraft.world.level.material.FluidState fs = level.getFluidState(pos);
@@ -553,6 +559,7 @@ public final class WaterFx {
     // with a motion of length 1 (its speed is NTM's motionMult); one that comes into sight sinking or lying on the
     // bottom has next to none (WaterTick.sink; the server sends NTM's bullets' motion as it changes) and is no shot.
     // Its config follows the entity, so the bubble waits for the next tick.
+    @Hook(HookPoint.WATER_JOINED)
     public static void joined(Level level, Entity e) {
         if (!on() || !(e instanceof EntityBulletBaseMK4 b) || !(level instanceof ClientLevel)) return;
         Vec3 at = e.position(), dir = e.getDeltaMovement();

@@ -5,6 +5,8 @@ import org.jspecify.annotations.Nullable;
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 
 import acup.gunfeel.TestLog;
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
@@ -20,6 +22,7 @@ public final class WaterTick {
     }
 
     // the tick's path: the point to test blocks up to (the stop or the skip, else `to`)
+    @Hook(HookPoint.WATER_BULLET_TICK)
     public static Vec3 path(EntityBulletBaseMK4 bullet, Level level, Vec3 from, Vec3 to) {
         WaterBullet w = (WaterBullet) bullet;
         w.gunfeel$waterTick(null);
@@ -71,6 +74,7 @@ public final class WaterTick {
 
     // the block NTM's path test found (or a miss): a hit under the liquid's surface is the bottom of shallow water. An
     // impact fuze coming from the air goes off on the surface (waterFuze): the hit NTM gets is the surface's
+    @Hook(HookPoint.WATER_BULLET_TICK)
     public static BlockHitResult blocks(EntityBulletBaseMK4 bullet, BlockHitResult hit) {
         WaterPath.Result r = ((WaterBullet) bullet).gunfeel$waterTick();
         if (r == null) return hit;
@@ -118,6 +122,7 @@ public final class WaterTick {
     }
 
     // NTM's test of a mob's hitbox: not past where water stopped or turned the bullet
+    @Hook(HookPoint.WATER_BULLET_TICK)
     public static Vec3 mobsTo(Entity bullet, Vec3 to) {
         if (!(bullet instanceof WaterBullet w)) return to;
         WaterPath.Result r = w.gunfeel$waterTick();
@@ -136,6 +141,7 @@ public final class WaterTick {
     }
 
     // the end of the tick (after NTM moved the bullet and hit what it hit)
+    @Hook(HookPoint.WATER_BULLET_TICK)
     public static void end(EntityBulletBaseMK4 bullet) {
         WaterBullet w = (WaterBullet) bullet;
         // the level way it goes while it flies (its motion is of length 1, NTM's speed is motionMult): kept for its

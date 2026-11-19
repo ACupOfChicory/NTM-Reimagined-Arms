@@ -13,6 +13,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import acup.gunfeel.Config;
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -240,6 +242,7 @@ public final class SunkBullets {
     private static final BlockPos.MutableBlockPos CELL = new BlockPos.MutableBlockPos();
     private static final double[] EMPTY = new double[0];
 
+    @Hook(HookPoint.WATER_DRAW)
     public static void submit(SubmitCustomGeometryEvent event, Level level, Vec3 cam) {
         if (broken) return;
         try {
