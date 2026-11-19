@@ -398,6 +398,8 @@ public final class BulletCheck {
         modelHits();
         richterBulletSpeed();
         worldNumbers(server);
+        selectorsAsBefore();
+        tagsAnew(server);
         lines.add(ok ? "ALL OK" : "SOME FAILED");
         return ok;
     }
@@ -430,6 +432,132 @@ public final class BulletCheck {
         check("world: air is the game's: plain and cave, not stone or a fence", "true true false false",
                 w.air(acup.gunfeel.host.BlockTable.AIR) + " " + w.air(cave) + " " + w.air(s) + " " + w.air(f));
         check("world: stone's destroy speed there", stoneState.getDestroySpeed(level, stone), w.destroySpeed(stone.getX(), stone.getY(), stone.getZ()));
+    }
+
+    // ---- the rules' selectors on the blocks' facts (core: BlockSelectors) against b11fa9b's BulletRules.blockMatches
+    // on the game's blocks live, word for word below: every state of every block, each selector of the rules read
+    // (the jar's and this stand's) and of a set of every kind, alone and as the rules' lists
+    private static final class OldMatch {
+        private static final java.util.Map<String, net.minecraft.world.level.block.SoundType> SOUND_TYPES = soundTypes();
+
+        private static java.util.Map<String, net.minecraft.world.level.block.SoundType> soundTypes() {
+            java.util.Map<String, net.minecraft.world.level.block.SoundType> out = new java.util.HashMap<>();
+            for (java.lang.reflect.Field f : net.minecraft.world.level.block.SoundType.class.getFields()) {
+                if (!java.lang.reflect.Modifier.isStatic(f.getModifiers()) || f.getType() != net.minecraft.world.level.block.SoundType.class) continue;
+                try {
+                    out.put(f.getName().toLowerCase(java.util.Locale.ROOT), (net.minecraft.world.level.block.SoundType) f.get(null));
+                } catch (IllegalAccessException e) {
+                    // skip
+                }
+            }
+            return out;
+        }
+
+        private static final java.util.Map<String, java.util.regex.Pattern> PATTERNS = new java.util.HashMap<>();
+
+        private static boolean idMatches(String sel, net.minecraft.resources.Identifier id) {
+            if (sel.startsWith("~")) {
+                java.util.regex.Pattern p = PATTERNS.computeIfAbsent(sel, s -> {
+                    try {
+                        return java.util.regex.Pattern.compile(s.substring(1));
+                    } catch (RuntimeException e) {
+                        return java.util.regex.Pattern.compile("(?!)");
+                    }
+                });
+                return p.matcher(id.toString()).matches();
+            }
+            net.minecraft.resources.Identifier want = net.minecraft.resources.Identifier.tryParse(sel);
+            return want != null && want.equals(id);
+        }
+
+        static boolean blockMatches(List<String> sel, BlockState state) {
+            net.minecraft.resources.Identifier id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock());
+            for (String s : sel) {
+                if (s.equals("*")) return true;
+                if (s.startsWith("#")) {
+                    net.minecraft.resources.Identifier t = net.minecraft.resources.Identifier.tryParse(s.substring(1));
+                    if (t != null && state.is(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK, t))) return true;
+                } else if (s.startsWith("@")) {
+                    net.minecraft.world.level.block.SoundType st = SOUND_TYPES.get(s.substring(1).toLowerCase(java.util.Locale.ROOT));
+                    if (st != null && state.getSoundType() == st) return true;
+                } else if (s.startsWith("%")) {
+                    if (id.getNamespace().equals(s.substring(1)) && machineOrPartial(state)) return true;
+                } else if (s.startsWith("$")) {
+                    if (BulletRules.material(state).material().name().equalsIgnoreCase(s.substring(1))) return true;
+                } else if (idMatches(s, id)) return true;
+            }
+            return false;
+        }
+
+        static boolean machineOrPartial(BlockState st) {
+            if (st.hasBlockEntity() || st.getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL) return true;
+            try {
+                return !Block.isShapeFullBlock(st.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO));
+            } catch (RuntimeException e) {
+                return true;
+            }
+        }
+    }
+
+    private static void selectorsAsBefore() {
+        java.util.Set<String> one = new java.util.TreeSet<>(List.of("*", "stone", ":stone", "Stone", "..:stone", "hbm:", "#logs", "#minecraft:logs",
+                "#c:glass_blocks", "#minecraft:mineable/pickaxe", "#", "#Bad Tag", "@stone", "@STONE", "@metal", "@netherite_block", "@?", "@",
+                "@metal/netherite_block", "%hbm", "%minecraft", "%", "$machine", "$MACHINE", "$glass", "$none", "$", "~hbm:.*", "~.*fence.*", "~[",
+                "~"));
+        List<List<String>> lists = new ArrayList<>();
+        for (BulletRuleText.Rule r : BulletRuleText.load()) {
+            lists.add(r.selectors());
+            one.addAll(r.selectors());
+        }
+        for (String s : one) lists.add(List.of(s));
+        int states = 0, asked = 0, yes = 0, wrong = 0, facts = 0, threw = 0;
+        String first = null, thrown = null;
+        java.util.Set<String> mods = new java.util.TreeSet<>();
+        for (Block b : net.minecraft.core.registries.BuiltInRegistries.BLOCK) {
+            mods.add(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).getNamespace());
+            for (BlockState st : b.getStateDefinition().getPossibleStates()) {
+                states++;
+                try {
+                    // the facts made here as the selectors make them: one that throws would be a bullet's
+                    if (BlockStates.factsOf(BlockStates.number(st)).machineOrPartial() != OldMatch.machineOrPartial(st)) facts++;
+                } catch (RuntimeException e) {
+                    threw++;
+                    if (thrown == null) thrown = st + ": " + e;
+                    continue;
+                }
+                for (List<String> sel : lists) {
+                    boolean was = OldMatch.blockMatches(sel, st), now = BulletRules.blockMatches(sel, st);
+                    asked++;
+                    if (was) yes++;
+                    if (was != now) {
+                        wrong++;
+                        if (first == null) first = sel + " on " + st + ": was " + was;
+                    }
+                }
+            }
+        }
+        lines.add("     selectors: " + states + " states of " + mods.size() + " namespaces " + mods + ", " + lists.size() + " selector lists, "
+                + asked + " asked, " + yes + " taken");
+        check("selectors: every state's facts made" + (thrown == null ? "" : " (first: " + thrown + ")"), 0, threw);
+        lines.add("     selectors: the facts' machine-or-partial unlike the game's own (%mod asks the game's) on " + facts + " states");
+        check("selectors: every state, every selector, as before" + (first == null ? "" : " (first: " + first + ")"), 0, wrong);
+        check("selectors: enough of them taken and not", true, yes > 1000 && asked - yes > 1000);
+    }
+
+    // ---- the game's tags applied anew (/reload): the blocks' facts are made anew (TagsUpdatedEvent: BlockStates.forgetFacts)
+    private static void tagsAnew(MinecraftServer server) {
+        BlockState stoneState = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+        int s = BlockStates.number(stoneState);
+        BlockFacts before = BlockStates.factsOf(s);
+        var reload = server.reloadResources(server.getPackRepository().getSelectedIds());
+        long until = System.nanoTime() + 60_000_000_000L;
+        server.managedBlock(() -> reload.isDone() || System.nanoTime() > until);
+        check("tags: /reload done", true, reload.isDone() && !reload.isCompletedExceptionally());
+        BlockFacts after = BlockStates.factsOf(s);
+        check("tags: stone's facts made anew after /reload, its number kept", "true " + s, (after != before) + " " + BlockStates.number(stoneState));
+        check("tags: stone's facts as before by value", before, after);
+        check("tags: #minecraft:base_stone_overworld still takes stone", true,
+                BulletRules.blockMatches(List.of("#minecraft:base_stone_overworld"), stoneState));
     }
 
     private static void richterBulletSpeed() {
