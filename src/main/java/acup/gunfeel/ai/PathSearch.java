@@ -18,6 +18,13 @@ import net.minecraft.core.SectionPos;
  * listed, so the map can build them.
  */
 public final class PathSearch {
+    /**
+     * Whether a path may go through a shut door or gate: AI mobs open them on their way (the server setting aiDoors,
+     * AiDoors.KEY; off for the stands' "before"). Set by AiDoors.tick every server tick, the only one that writes it
+     * (AiRoomsTest besides); read by the path search on its own threads, by AiDoors (opening one ahead) and by AiHatch
+     * (a hatch on the way up).
+     */
+    static volatile boolean doors = true;
     /** the most a mob drops in one step */
     static final int MAX_DROP = 3;
     /**
@@ -381,7 +388,7 @@ public final class PathSearch {
 
     /** a shut hatch a hand opens (a trapdoor: AiDoors lifts it) on the way down */
     private static boolean hatch(Reader r, int x, int y, int z) {
-        return AiDoors.pass && Voxel.shutDoor(r.src.voxel(x, y, z));
+        return doors && Voxel.shutDoor(r.src.voxel(x, y, z));
     }
 
     /** the cell one step in direction d from a cell, or NONE */
@@ -393,7 +400,7 @@ public final class PathSearch {
             if (!r.open(tx, y, z) || !r.open(tx, y + 1, z) || !r.open(x, y, tz) || !r.open(x, y + 1, tz)) return NONE;
             return r.has(tx, y, tz) ? BlockPos.asLong(tx, y, tz) : NONE;
         }
-        if (r.has(tx, y, tz)) return !AiDoors.pass && Voxel.shutDoor(r.src.voxel(tx, y, tz)) ? NONE : BlockPos.asLong(tx, y, tz);
+        if (r.has(tx, y, tz)) return !doors && Voxel.shutDoor(r.src.voxel(tx, y, tz)) ? NONE : BlockPos.asLong(tx, y, tz);
         // up a block: room to jump over the head, or a slab that is stepped onto
         if (r.has(tx, y + 1, tz) && (r.open(x, y + 2, z) || Voxel.move(r.src.voxel(tx, y, tz)) == Voxel.LOW))
             return BlockPos.asLong(tx, y + 1, tz);

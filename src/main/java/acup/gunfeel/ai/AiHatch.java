@@ -409,7 +409,7 @@ final class AiHatch {
             if (level.getBlockState(p).getBlock() instanceof TrapDoorBlock) hatch = p;
         }
         // none down a hatch a hand cannot lift (an iron one), nor any while the AI opens no doors
-        if (hatch != null && (!AiDoors.pass || !AiDoors.byHand(level.getBlockState(hatch)))) return null;
+        if (hatch != null && (!PathSearch.doors || !AiDoors.byHand(level.getBlockState(hatch)))) return null;
         long foot = r[2], out = r[3];
         // the way ending in the column (to a foe beside its foot): its foot the floor under it, its way out a cell beside
         // that (its foot a rung or two up, they hung over it short of it; and the one holding the way out stood in the
