@@ -6,14 +6,16 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.LevelMap;
+
 /**
  * A side's squads' reports to its staff (stage 7 C5): contact, losses, pinned down, out of rounds, at its place, cannot
  * get through; and a river in the way (AiCrossing's, read from there, not kept twice). The last of each kind a squad
  * made, fresh for FRESH ticks. A new one has its staff look at its tasks again soon (AiCommander.reported). Server
  * thread.
  *
- * <p>One level's reports, by side, are a map the version keeps per level (26.2's AiReports: a weak map by ServerLevel,
- * with the staff told and the rivers' reports added); the game time comes from it.
+ * <p>One level's reports, by side, are kept by the version's level object ({@link LevelMap}); the version (26.2's
+ * AiReports) tells the staff, adds the rivers' reports and gives the game time.
  */
 class AiReportsBase {
     enum Kind {
@@ -32,7 +34,25 @@ class AiReportsBase {
     /** reports made of each kind (the stands' count) */
     static final long[] made = new long[Kind.values().length];
 
+    /** each level's sides (the version's level object: 26.2's ServerLevel) */
+    private static final LevelMap<Map<String, Map<Long, Report>>> LEVELS = new LevelMap<>();
+
     AiReportsBase() {
+    }
+
+    /** a level's sides, made the first time */
+    static Map<String, Map<Long, Report>> sides(Object level) {
+        return LEVELS.computeIfAbsent(level, l -> new HashMap<>());
+    }
+
+    /** a level's sides, null if none kept */
+    static @Nullable Map<String, Map<Long, Report>> keptSides(Object level) {
+        return LEVELS.get(level);
+    }
+
+    /** a level's reports gone */
+    static void forgetSides(Object level) {
+        LEVELS.remove(level);
     }
 
     /** a squad reports, into its level's sides: kept as its last of the kind */
