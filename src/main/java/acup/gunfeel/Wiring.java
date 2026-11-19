@@ -9,9 +9,11 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.compat.CompatVersions;
+import acup.gunfeel.host.BlockTable;
 import acup.gunfeel.host.HostVersions;
 import acup.gunfeel.host.NtmFeature;
 import acup.gunfeel.host.Ports;
+import acup.gunfeel.host.WorldView;
 import acup.gunfeel.smoke.SmokeClouds;
 import acup.gunfeel.smoke.SmokeGrid;
 import acup.gunfeel.smoke.SmokeMask;
@@ -40,7 +42,8 @@ public final class Wiring implements Ports {
         // ---- arms and recoil
         put(MainHand.class, new GameMainHand());
         put(GunAnimState.class, new NtmAnimState());
-        // ---- ballistics and balance
+        // ---- ballistics and balance (the world comes per level: world below)
+        put(BlockTable.class, new BlockStates());
         // ---- water (its world comes per level: liquids below)
         // ---- other: hitboxes, GL-54, HUD
     }
@@ -68,6 +71,12 @@ public final class Wiring implements Ports {
     /** The smoke's walls in a level: which cells of a cloud are closed to smoke ({@link SmokeMask}). */
     public static Function<SmokeClouds.Cloud, SmokeGrid.Mask> smokeWalls(Level level) {
         return c -> SmokeMask.of(level, c);
+    }
+
+    // ballistics and balance
+    /** The blocks of a level (or of any blocks) for core, by the game's one table ({@link BlockStates}). */
+    public static WorldView world(BlockGetter level) {
+        return new LevelWorld(level);
     }
 
     // water

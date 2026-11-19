@@ -397,8 +397,43 @@ public final class BulletCheck {
 
         modelHits();
         richterBulletSpeed();
+        // last: it renumbers one of the game's states (and puts it back)
+        worldNumbers(server);
         lines.add(ok ? "ALL OK" : "SOME FAILED");
         return ok;
+    }
+
+    // ---- the world's numbers for core (WorldView, BlockTable: core's WorldViewContract, here on the game's own
+    // blocks): ours, by the state, one for every level; the game renumbering its own changes nothing. The game's
+    // renumbering is done as NeoForge's registry sync does it, to one state (stone): another of the game's numbers,
+    // then its own back; the stand server stops after it.
+    private static void worldNumbers(MinecraftServer server) {
+        acup.gunfeel.host.WorldView w = Wiring.world(level);
+        BlockPos air = new BlockPos(1, 200, 1), stone = air.above(), fence = stone.above();
+        BlockState stoneState = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+        level.setBlock(air, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2 | 16);
+        level.setBlock(stone, stoneState, 2 | 16);
+        level.setBlock(fence, state("minecraft:oak_fence[east=true]"), 2 | 16);
+        check("world: plain air is 0", acup.gunfeel.host.BlockTable.AIR, w.state(1, 200, 1));
+        check("world: 0's facts are plain air's", "minecraft:air", w.facts(acup.gunfeel.host.BlockTable.AIR).id());
+        check("world: cave air is not 0", true, BlockStates.number(net.minecraft.world.level.block.Blocks.CAVE_AIR.defaultBlockState()) != 0);
+        int s = w.state(stone.getX(), stone.getY(), stone.getZ()), f = w.state(fence.getX(), fence.getY(), fence.getZ());
+        check("world: stone keeps its number", s, w.state(stone.getX(), stone.getY(), stone.getZ()));
+        // one table for the game: the Nether's world and the table itself give stone the same number
+        net.minecraft.server.level.ServerLevel nether = server.getLevel(net.minecraft.world.level.Level.NETHER);
+        nether.setBlock(new BlockPos(0, 100, 0), stoneState, 2 | 16);
+        check("world: one number in every level", s + " " + s, Wiring.world(nether).state(0, 100, 0) + " " + BlockStates.number(stoneState));
+        check("world: stone's facts and key", "minecraft:stone minecraft:stone", w.facts(s).id() + " " + w.key(s));
+        check("world: a fence's key, its properties by name", "minecraft:oak_fence[east=true,north=false,south=false,waterlogged=false,west=false]", w.key(f));
+        check("world: the fence's facts", "minecraft:oak_fence", w.facts(f).id());
+        var ids = Block.BLOCK_STATE_REGISTRY;
+        int was = ids.getId(stoneState), moved = ids.size() + 7;
+        ids.addMapping(stoneState, moved);
+        check("world: the game renumbered stone", moved, ids.getId(stoneState));
+        check("world: our number for stone stays", s, w.state(stone.getX(), stone.getY(), stone.getZ()));
+        check("world: and its facts and key", "minecraft:stone minecraft:stone", w.facts(s).id() + " " + w.key(s));
+        ids.addMapping(stoneState, was);
+        check("world: the game's number for stone back", was, ids.getId(stoneState));
     }
 
     private static void richterBulletSpeed() {
