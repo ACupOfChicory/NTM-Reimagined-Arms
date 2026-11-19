@@ -380,8 +380,7 @@ public final class BulletServer {
         if (!(target instanceof LivingEntity living) || at == null || bullet.config == null || !(bullet.config.headshotMult > 1F)) return false;
         var precise=HeadDamage.last(bullet,target,at);
         if(precise.applied()) return precise.head();
-        double head = living.getBbHeight() - living.getEyeHeight();
-        return at.y > living.getY() + living.getBbHeight() - head * 2.0;
+        return HeadHeight.byHeight(at.y, living.getY(), living.getBbHeight(), living.getEyeHeight());
     }
 
     // the test log: how worn the shooter's gun is (worn / durability) and NTM's factor on its damage by that
