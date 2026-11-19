@@ -18,6 +18,11 @@ public final class GameRandoms {
             public boolean nextBoolean() {
                 return r.nextBoolean();
             }
+
+            @Override
+            public float nextFloat() {
+                return r.nextFloat();
+            }
         };
     }
 }

@@ -158,6 +158,13 @@ final class AiCheckEntityView {
         eq(w + "yHeadRot", b.yHeadRot(), e.getYHeadRot());
         eq(w + "xRot", b.xRot(), e.getXRot());
         eq(w + "onGround", b.onGround(), e.onGround());
+        eq(w + "inWater", b.inWater(), e.isInWater());
+        eq(w + "passenger", b.passenger(), e.isPassenger());
+        // the same generator: from one seed, one number through the Body, the same straight from the entity
+        e.getRandom().setSeed(20261120L);
+        float r = b.random().nextFloat();
+        e.getRandom().setSeed(20261120L);
+        eq(w + "random", r, e.getRandom().nextFloat());
         eq(w + "crouching", b.crouching(), e.getPose() == Pose.CROUCHING);
         eq(w + "poseName", b.poseName(), String.valueOf(e.getPose()));
         eq(w + "sprinting", b.sprinting(), e.isSprinting());

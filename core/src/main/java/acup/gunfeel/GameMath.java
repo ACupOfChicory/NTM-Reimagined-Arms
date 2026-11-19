@@ -10,6 +10,26 @@ public final class GameMath {
     private GameMath() {
     }
 
+    /** Mth.DEG_TO_RAD */
+    public static final float DEG_TO_RAD = 0.017453292F;
+
+    /** Mth's sine table: 65536 steps round the circle, each Math.sin of its angle as a float */
+    private static final float[] SIN = new float[65536];
+
+    static {
+        for (int i = 0; i < SIN.length; i++) SIN[i] = (float) Math.sin(i / 10430.378350470453);
+    }
+
+    /** Mth.sin: the table's step at or below v (not Math.sin) */
+    public static float sin(double v) {
+        return SIN[(int) ((long) (v * 10430.378350470453) & 65535L)];
+    }
+
+    /** Mth.cos: the table's step a quarter round on */
+    public static float cos(double v) {
+        return SIN[(int) ((long) (v * 10430.378350470453 + 16384.0) & 65535L)];
+    }
+
     public static float clamp(float v, float lo, float hi) {
         return v < lo ? lo : Math.min(v, hi);
     }
