@@ -14,28 +14,6 @@ import acup.gunfeel.ai.CoverQuery;
  * Server thread.
  */
 public final class AiChoice {
-    /** the places it asks at */
-    public enum Ask {
-        /** in high cover in a fight, ready: out to its peek now? (formula: its hide is over) */
-        PEEK_FIGHT,
-        /** in cover from a target lost from sight: look out where they were now? */
-        LOOK_LOST,
-        /** in high cover from a noise: look out the way it came from now? */
-        LOOK_NOISE,
-        /** out at its peek: back into cover now? (formula: its burst is over) */
-        BACK_IN,
-        /** back from a peek: other cover? */
-        SHIFT_AFTER_PEEK,
-        /** shot at in cover with the shooter in sight: other cover? */
-        SHIFT_ON_HIT,
-        /** hit in cover from out of sight: other cover? */
-        HIT_MOVE,
-        /** in cover a while: look for a better place now? */
-        BETTER_COVER,
-        /** a target lost and looked for: go for them now? */
-        PUSH_NOW
-    }
-
     @FunctionalInterface
     public interface Chooser {
         boolean choose(AiBot bot, Ask ask, boolean formula, long tick);

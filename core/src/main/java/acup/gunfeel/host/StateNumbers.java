@@ -63,6 +63,17 @@ public final class StateNumbers<S> implements BlockTable {
         return k;
     }
 
+    /**
+     * every state's facts, keys and air worked out anew when next asked (the version's: the game's tags changed); the
+     * numbers stay. A reader holding the old arrays may get an old answer once, as with the lazy filling.
+     */
+    public synchronized void forgetFacts() {
+        int cap = states.length;
+        facts = new BlockFacts[cap];
+        keys = new String[cap];
+        airs = new byte[cap];
+    }
+
     /** the state with that number */
     @SuppressWarnings("unchecked")
     public S state(int number) {

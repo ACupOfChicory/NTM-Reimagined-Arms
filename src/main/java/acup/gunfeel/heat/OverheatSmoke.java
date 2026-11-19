@@ -12,7 +12,7 @@ public final class OverheatSmoke {
     static final int EXTRA = 8000;
 
     public static int extraMillis(ItemStack stack, LivingEntity entity) {
-        if (entity == null || Overheat.Gun.of(stack) == null) return 0;
+        if (entity == null || Overheat.gun(stack) == null) return 0;
         float h = Overheat.heat(stack, entity.level().getGameTime());
         return Math.round(EXTRA * Overheat.ramp(h, Overheat.SMOKE_FROM, 1F));
     }

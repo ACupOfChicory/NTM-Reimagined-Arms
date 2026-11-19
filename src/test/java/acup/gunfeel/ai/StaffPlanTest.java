@@ -25,7 +25,7 @@ class StaffPlanTest {
     }
 
     static Task[] plan(List<Squad> squads, List<Group> groups) {
-        return StaffPlan.plan(squads, groups, OPEN, 0, 0, 160, AiCommander.PER, NOW, 0);
+        return StaffPlan.plan(squads, groups, OPEN, 0, 0, 160, AiCommander.PER, NOW, 0, AiCommander.mapped());
     }
 
     /** the staff's map: open ground all known about (0, 0), none of it seen (no map: no squad sent round) */
@@ -40,7 +40,7 @@ class StaffPlanTest {
 
     @Test
     void noMapNoGoingRound() {
-        Task[] t = StaffPlan.plan(List.of(squad(0, 0, 3), squad(30, 0, 3)), List.of(group(0, 100, 3)), null, 0, 0, 160, AiCommander.PER, NOW, 0);
+        Task[] t = StaffPlan.plan(List.of(squad(0, 0, 3), squad(30, 0, 3)), List.of(group(0, 100, 3)), null, 0, 0, 160, AiCommander.PER, NOW, 0, AiCommander.mapped());
         assertEquals(Kind.PIN, t[0].kind());
         assertEquals(Kind.HOLD, t[1].kind());
     }
@@ -99,7 +99,7 @@ class StaffPlanTest {
 
     @Test
     void withNoGroupKnownTheSquadsScoutTheRingInTurn() {
-        Task[] t = StaffPlan.plan(List.of(squad(0, 0, 3), squad(5, 0, 3)), List.of(), null, 0, 0, 160, AiCommander.PER, NOW, 2);
+        Task[] t = StaffPlan.plan(List.of(squad(0, 0, 3), squad(5, 0, 3)), List.of(), null, 0, 0, 160, AiCommander.PER, NOW, 2, AiCommander.mapped());
         for (Task x : t) {
             assertEquals(Kind.SCOUT, x.kind());
             assertEquals(StaffPlan.RING, Math.hypot(x.x(), x.z()), 1e-6);
@@ -133,7 +133,7 @@ class StaffPlanTest {
         assertEquals(Kind.ADVANCE, plan(List.of(asleep), List.of(group(0, 220, 1)))[0].kind());
         assertEquals(Kind.RESERVE, plan(List.of(asleep), List.of(group(0, StaffPlan.FAR + 10, 1)))[0].kind());
         // with no group known it waits where it is, not scouting
-        assertEquals(Kind.RESERVE, StaffPlan.plan(List.of(asleep), List.of(), null, 0, 0, 160, AiCommander.PER, NOW, 0)[0].kind());
+        assertEquals(Kind.RESERVE, StaffPlan.plan(List.of(asleep), List.of(), null, 0, 0, 160, AiCommander.PER, NOW, 0, AiCommander.mapped())[0].kind());
     }
 
     @Test
@@ -162,14 +162,14 @@ class StaffPlanTest {
         // round to its place while it is still good, not an advance instead; its place gone (the group moved): advances
         HqGrid none = new HqGrid(-HqGrid.N * HqGrid.CELL / 2, -HqGrid.N * HqGrid.CELL / 2);
         Squad round = kept(40, 60, 3, Kind.FLANK, 100, true, false);
-        Task t = StaffPlan.plan(List.of(round), List.of(group(0, 100, 3)), none, 0, 0, 160, AiCommander.PER, NOW, 0)[0];
+        Task t = StaffPlan.plan(List.of(round), List.of(group(0, 100, 3)), none, 0, 0, 160, AiCommander.PER, NOW, 0, AiCommander.mapped())[0];
         assertEquals(Kind.FLANK, t.kind());
         assertEquals(0, t.group());
         // its place as it has it (AiCommander keeps it): here only where it is, not the group's middle
         assertEquals(40, t.x(), 1e-9);
         assertEquals(60, t.z(), 1e-9);
         Squad gone = kept(40, 60, 3, Kind.FLANK, 100, false, false);
-        assertEquals(Kind.ADVANCE, StaffPlan.plan(List.of(gone), List.of(group(0, 100, 3)), none, 0, 0, 160, AiCommander.PER, NOW, 0)[0].kind());
+        assertEquals(Kind.ADVANCE, StaffPlan.plan(List.of(gone), List.of(group(0, 100, 3)), none, 0, 0, 160, AiCommander.PER, NOW, 0, AiCommander.mapped())[0].kind());
     }
 
     @Test
@@ -217,22 +217,22 @@ class StaffPlanTest {
         Group grp = new Group(gx, gz, 16, 3, 0, AiCommander.PER);
         // the south squad the nearer: pinning, it would walk up the strip
         Squad south = squad(HqGridTest.mid(26), HqGridTest.mid(26), 3), east = squad(HqGridTest.mid(34), HqGridTest.mid(27), 3);
-        Task[] t = StaffPlan.plan(List.of(south, east), List.of(grp), g, gx, HqGridTest.mid(20), 200, AiCommander.PER, NOW, 0);
+        Task[] t = StaffPlan.plan(List.of(south, east), List.of(grp), g, gx, HqGridTest.mid(20), 200, AiCommander.PER, NOW, 0, AiCommander.mapped());
         assertEquals(Kind.FLANK, t[0].kind());
         assertEquals(Kind.PIN, t[1].kind());
         Task own = StaffPlan.pin(g, grp, 0, south.x(), south.z());
         assertTrue(StaffPlan.exposed(g, east, t[1]) + StaffPlan.exposed(g, south, t[0]) < StaffPlan.exposed(g, south, own),
                 "less in sight than the south one pinning");
         // with no map: the nearer pins
-        Task[] u = StaffPlan.plan(List.of(south, east), List.of(grp), null, gx, HqGridTest.mid(20), 200, AiCommander.PER, NOW, 0);
+        Task[] u = StaffPlan.plan(List.of(south, east), List.of(grp), null, gx, HqGridTest.mid(20), 200, AiCommander.PER, NOW, 0, AiCommander.mapped());
         assertEquals(Kind.PIN, u[0].kind());
     }
 
     @Test
     void strengthWeighsRoles() {
-        assertEquals(1, StaffPlan.weight(AiRole.RIFLE.ordinal()));
-        assertEquals(1.5, StaffPlan.weight(AiRole.BASE.ordinal()));
-        assertEquals(3, StaffPlan.weight(AiRole.values().length));
+        assertEquals(1, AiCommander.weight(AiRole.RIFLE.ordinal()));
+        assertEquals(1.5, AiCommander.weight(AiRole.BASE.ordinal()));
+        assertEquals(3, AiCommander.weight(AiRole.values().length));
     }
 
     @Test
@@ -249,7 +249,7 @@ class StaffPlanTest {
     void aNewScoutTakesTheNextSectorNotOneKept() {
         // the first keeps its sector (the commander has its place); the new one takes the side's next one
         Squad keeping = new Squad(0, 0, 3, 3, 3, false, Kind.SCOUT, NOW - 100, -1, false);
-        Task[] t = StaffPlan.plan(List.of(keeping, squad(5, 0, 3)), List.of(), null, 0, 0, 160, AiCommander.PER, NOW, 2);
+        Task[] t = StaffPlan.plan(List.of(keeping, squad(5, 0, 3)), List.of(), null, 0, 0, 160, AiCommander.PER, NOW, 2, AiCommander.mapped());
         double a = Math.atan2(t[1].z(), t[1].x());
         assertEquals(Math.floorMod(2, StaffPlan.SECTORS), Math.floorMod(Math.round(a / (2 * Math.PI / StaffPlan.SECTORS)), StaffPlan.SECTORS));
     }
@@ -310,7 +310,7 @@ class StaffPlanTest {
         double gx = HqGridTest.mid(16), gz = HqGridTest.mid(22);
         Group grp = new Group(gx, gz, 16, 3, 0, AiCommander.PER);
         assertEquals(null, StaffPlan.flank(g, grp, 0, gx, HqGridTest.mid(12), gx - 8, HqGridTest.mid(4)));
-        Task[] t = StaffPlan.plan(List.of(squad(gx - 8, HqGridTest.mid(4), 2), squad(gx + 8, HqGridTest.mid(4), 2)), List.of(grp), g, gx, HqGridTest.mid(4), 400, AiCommander.PER, NOW, 0);
+        Task[] t = StaffPlan.plan(List.of(squad(gx - 8, HqGridTest.mid(4), 2), squad(gx + 8, HqGridTest.mid(4), 2)), List.of(grp), g, gx, HqGridTest.mid(4), 400, AiCommander.PER, NOW, 0, AiCommander.mapped());
         assertEquals(Kind.PIN, t[0].kind());
         assertEquals(Kind.HOLD, t[1].kind());
     }

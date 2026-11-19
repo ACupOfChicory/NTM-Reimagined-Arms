@@ -52,11 +52,13 @@ final class StaffPlan {
     static final int PIN_TURNS = 2;
     /** going round: a side this many blocks farther to go by the map weighs as one wholly in the enemy's sight */
     static final double FAR_SIDE = 100;
+    /** a pair's time at most, ticks (AiCommander.PAIR_MOST, its pairs: the way round and PAIR_MORE more, this at most) */
+    static final int PAIR_MOST = 1800;
     /**
-     * going round: a side farther than this to go by the map is not got round in a pair's time (AiCommander.PAIR_MOST
+     * going round: a side farther than this to go by the map is not got round in a pair's time (PAIR_MOST
      * by bounds, half the squad going at a time: some 0.085 blocks a tick on the war's stand): not gone round to
      */
-    static final double FAR_MOST = AiCommander.PAIR_MOST * 0.085;
+    static final double FAR_MOST = PAIR_MOST * 0.085;
     /** a squad holding looks for its place this far round it at most, blocks */
     static final double HOLD_NEAR = 24;
     /** a squad falling back with no squad of its own to fall back on goes this far from the group, blocks */
@@ -66,8 +68,8 @@ final class StaffPlan {
     static final int SECTORS = 6;
     /** a task kept this long at least, ticks */
     static final long KEEP = 400;
-    /** a squad asleep is sent to a group this far off at most: as far as the staff knows (AiIntel.KNOW), blocks */
-    static final double FAR = AiIntel.KNOW;
+    /** a squad asleep is sent to a group this far off at most: as far as the staff knows (IntelBook.KNOW), blocks */
+    static final double FAR = IntelBook.KNOW;
     /** the place of a task to hold, pin, go round to or fall back to: reached this near, blocks */
     static final double PLACE = 6;
 
@@ -140,7 +142,8 @@ final class StaffPlan {
      * off). sideX, sideZ: the side's middle; reach: how far off a group a squad is sent at most; per: squads to a
      * group at most; sector: the side's sector to scout next (with no group known).
      */
-    static Task[] plan(List<Squad> squads, List<Group> groups, @Nullable HqGrid grid, double sideX, double sideZ, double reach, int per, long now, int sector) {
+    static Task[] plan(List<Squad> squads, List<Group> groups, @Nullable HqGrid grid, double sideX, double sideZ, double reach, int per, long now, int sector,
+            boolean mapped) {
         Task[] out = new Task[squads.size()];
         int[] sent = new int[groups.size()];
         // falling back first
@@ -232,7 +235,7 @@ final class StaffPlan {
                     // or go up in the open to pin beside the other
                     // (asleep, C2b: no pair for it, moved on to the fight as before)
                     Squad sq = squads.get(b);
-                    boolean blind = grid == null && AiCommander.mapped() && !sq.far;
+                    boolean blind = grid == null && mapped && !sq.far;
                     out[b] = sq.far ? f != null ? f : area(g, k) : f != null && !blind ? f : grid == null && !blind ? pin(grid, g, k, sq.x, sq.z) : hold(grid, g, k, sq);
                     sent[k] += 2;
                     continue;
@@ -564,19 +567,6 @@ final class StaffPlan {
         if (g == null) return new Task(Kind.RESERVE, -1, s.x, s.z, PLACE, s.x, s.z);
         double dx = s.x - g.x, dz = s.z - g.z, d = Math.max(1e-6, Math.hypot(dx, dz));
         return new Task(Kind.BACK, -1, s.x + dx / d * BACK, s.z + dz / d * BACK, PLACE * 2, g.x, g.z);
-    }
-
-    /** the strength of a kind of soldier (a role's ordinal; PLAYER or any other: a player) */
-    static double weight(int kind) {
-        AiRole[] roles = AiRole.values();
-        if (kind < 0 || kind >= roles.length) return 3;
-        return switch (roles[kind]) {
-            case RIFLE -> 1;
-            case BASE -> 1.5;
-            case MARKSMAN, GRENADIER -> 1.2;
-            case MEDIC -> 0.7;
-            case SUPPLIER -> 0.8;
-        };
     }
 
     /** the tasks as words, for /armsai and the stands */
