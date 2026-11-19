@@ -11,35 +11,21 @@ import com.mojang.math.Axis;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 
-/** Отставание от поворота камеры по расчёту Superb Warfare, без второго фильтра. */
+/** Отставание от поворота камеры по расчёту Superb Warfare, без второго фильтра; расчёт в core (WeaponSwayMath). */
 public final class WeaponSway {
-    public record Turn(float pitch,float yaw,float roll,float x) {}
     private WeaponSway() {}
-    static Turn fromAngles(float pitch,float yaw,float armPitch,float armYaw,float aiming) {
-        // Это непрерывные углы LocalPlayer, а не два независимых направления.
-        // wrapDegrees менял +220° отставания на -140° и перебрасывал пушку.
-        return sample(pitch-armPitch,yaw-armYaw,aiming);
-    }
-    static Turn sample(float pitchDifference,float yawDifference,float aiming) {
-        float zoom=Math.clamp(aiming,0F,1F);
-        float pitch=Math.clamp(.05F*pitchDifference,-20F,20F)*(1-.05F*zoom);
-        float yaw=Math.clamp(.025F*yawDifference,-20F,20F)*(1-.05F*zoom);
-        float roll=Math.clamp(.05F*yawDifference,-20F,20F)*(1-.5F*zoom);
-        float x=.5F*yaw*(1-.5F*zoom)/16F;
-        return new Turn(pitch,yaw,roll,x);
-    }
     public static void apply(PoseStack pose,LocalPlayer player) {
         float partial=ItemRenderWeaponBase.interp;
         float armPitch=Mth.lerp(partial,player.xBobO,player.xBob);
         float armYaw=Mth.lerp(partial,player.yBobO,player.yBob);
         float aiming=Mth.lerp(partial,ItemGunBaseNT.prevAimingProgress,ItemGunBaseNT.aimingProgress);
-        var turn=fromAngles(player.getViewXRot(partial),player.getViewYRot(partial),armPitch,armYaw,aiming);
+        var turn=WeaponSwayMath.fromAngles(player.getViewXRot(partial),player.getViewYRot(partial),armPitch,armYaw,aiming);
         if(TestLog.frames()) TestLog.c(-1,"sway","view",new org.joml.Vector3f(player.getViewXRot(partial),player.getViewYRot(partial),0F),
                 "arm",new org.joml.Vector3f(armPitch,armYaw,0F),"aiming",aiming,"pitch",turn.pitch(),"yaw",turn.yaw(),"roll",turn.roll(),"x",turn.x());
         apply(pose,turn);
         ClientSmoke.weaponSway(turn,aiming);
     }
-    static void apply(PoseStack pose,Turn turn) {
+    static void apply(PoseStack pose,WeaponSwayMath.Turn turn) {
         pose.translate(turn.x(),0,0);
         pose.mulPose(Axis.XP.rotationDegrees(turn.pitch()));
         pose.mulPose(Axis.YP.rotationDegrees(turn.yaw()));

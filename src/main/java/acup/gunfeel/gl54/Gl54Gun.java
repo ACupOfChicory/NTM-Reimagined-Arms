@@ -5,9 +5,11 @@ import java.util.function.BiConsumer;
 import com.hbm.items.weapon.sedna.Crosshair;
 import com.hbm.items.weapon.sedna.GunConfig;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
+import com.hbm.items.weapon.sedna.ItemGunBaseNT.GunState;
 import com.hbm.items.weapon.sedna.Receiver;
 import com.hbm.items.weapon.sedna.factory.Lego;
 import com.hbm.items.weapon.sedna.factory.XFactory40mm;
+import com.hbm.render.anim.AnimationEnums.GunAnimation;
 import com.hbm.sound.ModSounds;
 
 import net.minecraft.sounds.SoundEvent;
@@ -60,4 +62,16 @@ public final class Gl54Gun {
     static final BiConsumer<ItemStack, ItemGunBaseNT.LambdaContext> RECOIL = (stack, ctx) -> ItemGunBaseNT.setupRecoil(
             KICK_UP + (float) ctx.getPlayer().getRandom().nextGaussian() * KICK_UP_SPREAD,
             (float) ctx.getPlayer().getRandom().nextGaussian() * KICK_SIDE_SPREAD);
+
+    // how far a reload is, 0..1, from the animation the server last started (HbmAnimations cue and its age in ticks) and the
+    // gun's state; -1 for none. A reload is begin + end (+ post when the gun was empty); the cue RELOAD runs begin, RELOAD_END
+    // the end and the post.
+    public static float reloadFrac(GunAnimation cue, int ticks, GunState state, boolean wasEmpty) {
+        int total = RELOAD_BEGIN + RELOAD_END + (wasEmpty ? RELOAD_EMPTY_POST : 0);
+        float t;
+        if (cue == GunAnimation.RELOAD && state == GunState.RELOADING) t = ticks;
+        else if (cue == GunAnimation.RELOAD_END && state == GunState.DRAWING) t = RELOAD_BEGIN + ticks;
+        else return -1F;
+        return Math.min(Math.max(t / total, 0F), 1F) >= 1F ? -1F : Math.max(t / total, 0F);
+    }
 }

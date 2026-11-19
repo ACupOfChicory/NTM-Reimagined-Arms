@@ -56,4 +56,24 @@ class ShapeCellsTest {
         assertNull(ShapeCells.unpack(ShapeCells.pack(model)));
         assertEquals(65, ShapeCells.unpack(ShapeCells.pack(new long[65])).length);
     }
+
+    @Test
+    void walkThroughTheCells() {
+        // one set cell at (2, 0, 2): met from the east side going west, its side EAST; going east it is left behind
+        long[] bits = new long[65];
+        int k = 2 + 16 * (0 + 16 * 2);
+        bits[k >> 6] |= 1L << (k & 63);
+        double[] t = new double[1];
+        assertEquals(ShapeCells.EAST, ShapeCells.march(bits, 5.5, 0.5, 2.5, -1, 0, 0, 64, t));
+        assertEquals(2.5, t[0]);
+        assertEquals(-1, ShapeCells.march(bits, 5.5, 0.5, 2.5, 1, 0, 0, 64, t));
+        // in the cell itself: met where it came in, by the side it came in by
+        assertEquals(ShapeCells.KEPT, ShapeCells.march(bits, 2.5, 0.5, 2.5, -1, 0, 0, 1, t));
+        assertEquals(0.0, t[0]);
+        // leaving it westwards: by its west side, half a cell on
+        assertEquals(ShapeCells.WEST, ShapeCells.leave(bits, 2.5, 0.5, 2.5, -1, 0, 0, t));
+        assertEquals(0.5, t[0]);
+        // from an empty cell: no step, the side it came in by turned round
+        assertEquals(ShapeCells.KEPT, ShapeCells.leave(bits, 7.5, 0.5, 2.5, -1, 0, 0, t));
+    }
 }

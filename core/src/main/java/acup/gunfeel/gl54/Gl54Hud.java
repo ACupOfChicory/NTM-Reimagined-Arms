@@ -1,10 +1,8 @@
 package acup.gunfeel.gl54;
 
-import com.hbm.items.weapon.sedna.ItemGunBaseNT.GunState;
-import com.hbm.render.anim.AnimationEnums.GunAnimation;
-
 // What the corner HUD shows for the GL-54 (Hud draws it in its own layout, the same block as the other guns'), worked out
-// from the gun's data, without drawing: the numbers, the colour of the number, the order dots, LOW AMMO, the reload bar.
+// from the gun's data, without drawing: the numbers, the colour of the number, the order dots, LOW AMMO, the reload bar
+// (how far the reload is comes from the game: Gl54Gun.reloadFrac).
 // Decided by the owner (2026-11-07, hud-live): the number is the barrel's grenade plus the magazine (009), in the colour of
 // the tip of the grenade that fires next; the icon is the magazine in the gun; the reserve is the grenades of the kind R
 // would load (0021); a mixed magazine has a strip of coloured dots of its order; reloading shows as a bar instead of the
@@ -40,18 +38,6 @@ public final class Gl54Hud {
         int[] out = new int[gun.mag().size()];
         for (int i = 0; i < out.length; i++) out[i] = GrenadeKind.argbOf(gun.mag().get(i));
         return out;
-    }
-
-    // how far a reload is, 0..1, from the animation the server last started (HbmAnimations cue and its age in ticks) and the
-    // gun's state; -1 for none. A reload is begin + end (+ post when the gun was empty); the cue RELOAD runs begin, RELOAD_END
-    // the end and the post.
-    public static float reloadFrac(GunAnimation cue, int ticks, GunState state, boolean wasEmpty) {
-        int total = Gl54Gun.RELOAD_BEGIN + Gl54Gun.RELOAD_END + (wasEmpty ? Gl54Gun.RELOAD_EMPTY_POST : 0);
-        float t;
-        if (cue == GunAnimation.RELOAD && state == GunState.RELOADING) t = ticks;
-        else if (cue == GunAnimation.RELOAD_END && state == GunState.DRAWING) t = Gl54Gun.RELOAD_BEGIN + ticks;
-        else return -1F;
-        return Math.min(Math.max(t / total, 0F), 1F) >= 1F ? -1F : Math.max(t / total, 0F);
     }
 
     // is the blinking LOW AMMO in its shown half at that time

@@ -13,7 +13,7 @@ import com.hbm.render.loader.HFRWavefrontObject;
 // Some renderers turn the model before drawing it (its barrel along X, or pointing back); the
 // geometry is kept in the gun's own frame ("aligned": +Z toward the muzzle, +Y up, +X to the gun's left),
 // found from how NTM places the model while no animation plays (see align).
-public final class GunGeometry {
+public final class GunGeometry implements ArmPoses.Shape {
     public final HFRWavefrontObject model;
     // the parts NTM draws for this variant of the gun (a sawn-off draws fewer than the full gun)
     public final BitSet parts;
@@ -146,6 +146,7 @@ public final class GunGeometry {
         return out;
     }
 
+    @Override
     public float fraction(float z) {
         return length() > 0F ? (z - minZ) / length() : 0.5F;
     }
@@ -197,6 +198,7 @@ public final class GunGeometry {
     }
 
     // cross-section of the gun around z: {minX, maxX, minY, maxY}, or null where there is none
+    @Override
     public float[] sectionAt(float z) {
         return section(z, Math.max(length() * 0.04F, 1e-3F));
     }

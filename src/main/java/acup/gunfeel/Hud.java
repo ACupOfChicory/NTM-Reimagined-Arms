@@ -117,8 +117,8 @@ public final class Hud {
         int color = gl != null ? gl.color() : low ? LOW : WHITE;
         int dim = DIM;
         if (gl != null && gl.dim()) { // a reload is on: the number is faint
-            color = faint(color);
-            dim = faint(dim);
+            color = HudColors.faint(color);
+            dim = HudColors.faint(dim);
         }
         if (!zeros.isEmpty()) g.text(font, zeros, 0, 0, dim, true);
         g.text(font, big.substring(lead), font.width(zeros), 0, color, true);
@@ -131,7 +131,7 @@ public final class Hud {
             g.fill(barL, barY, barL + Math.round((barR - barL) * gl.bar()), barY + 2, acup.gunfeel.gl54.Gl54Hud.BAR_COLOR);
         } else {
             int fillR = barL + Math.round((barR - barL) * health);
-            g.fill(barL, barY, fillR, barY + 2, durabilityColor(health));
+            g.fill(barL, barY, fillR, barY + 2, HudColors.durabilityColor(health));
         }
         // the barrel's heat (acup.gunfeel.heat.Overheat, the M2 and the AM-180) just under it while warm: yellow, to red as
         // its effects come on
@@ -171,16 +171,11 @@ public final class Hud {
         return lowClockFixed >= 0 ? lowClockFixed : net.minecraft.util.Util.getMillis();
     }
 
-    // an ARGB colour at 0.4 of its alpha
-    private static int faint(int argb) {
-        return ((int) ((argb >>> 24) * 0.4F) << 24) | (argb & 0xFFFFFF);
-    }
-
     // the GL-54's numbers from the gun in the hand and the inventory
     private static acup.gunfeel.gl54.Gl54Hud.Model glModel(acup.gunfeel.gl54.GrenadeMagazine mag, ItemStack stack, LocalPlayer player, Inventory inv) {
         var gun = acup.gunfeel.gl54.GrenadeMagazine.gun(stack);
         int reserve = acup.gunfeel.gl54.MagLogic.reserve(acup.gunfeel.gl54.GrenadeType.magazines(inv), acup.gunfeel.gl54.GrenadeType.counts(inv), mag.wanted(stack, inv));
-        float frac = acup.gunfeel.gl54.Gl54Hud.reloadFrac(com.hbm.render.anim.HbmAnimations.getGunAnimation(0),
+        float frac = acup.gunfeel.gl54.Gl54Gun.reloadFrac(com.hbm.render.anim.HbmAnimations.getGunAnimation(0),
                 com.hbm.render.anim.HbmAnimations.getGunAnimationTimer(0), ItemGunBaseNT.getState(stack, 0), mag.getAmountBeforeReload(stack) <= 0);
         return acup.gunfeel.gl54.Gl54Hud.model(gun, reserve, frac);
     }
@@ -215,11 +210,5 @@ public final class Hud {
         float t = acup.gunfeel.heat.Overheat.ramp(heat, acup.gunfeel.heat.Overheat.SPREAD_FROM, 1F);
         int gr = (int) (208 - 176 * t), b = (int) (64 - 32 * t);
         return 0xFF000000 | 0xFF << 16 | gr << 8 | b;
-    }
-
-    private static int durabilityColor(float health) {
-        int r = (int) (255 * Mth.clamp(2F - 2F * health, 0F, 1F));
-        int gr = (int) (255 * Mth.clamp(2F * health, 0F, 1F));
-        return 0xFF000000 | r << 16 | gr << 8 | 0x40;
     }
 }
