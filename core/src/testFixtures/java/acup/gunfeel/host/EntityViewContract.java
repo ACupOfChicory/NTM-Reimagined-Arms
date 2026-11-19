@@ -78,6 +78,24 @@ public abstract class EntityViewContract {
         }
     }
 
+    // a walk along three cells from the mob's: under way, at its first node; stopped, done; a mob standing, never stuck
+    @Test
+    void aWalkAndItsStop() {
+        Body a = view().byId(mob());
+        int x = a.blockX(), y = a.blockY(), z = a.blockZ();
+        long[] cells = {acup.gunfeel.PosLong.block(x, y, z), acup.gunfeel.PosLong.block(x + 1, y, z), acup.gunfeel.PosLong.block(x + 2, y, z)};
+        assertTrue(control().walk(a, cells, true, 1.0));
+        assertFalse(control().done(a));
+        assertEquals(0, control().pathNext(a));
+        control().speed(a, 0.5);
+        assertFalse(control().done(a));
+        control().stop(a);
+        assertTrue(control().done(a));
+        assertEquals(0, control().pathNext(a));
+        assertFalse(control().stuck(a));
+        control().want(a, x + 0.5, y, z + 0.5, 1.0);
+    }
+
     @Test
     void noneByAnotherNumber() {
         assertNull(view().byId(Integer.MIN_VALUE));

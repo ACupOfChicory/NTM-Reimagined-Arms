@@ -69,4 +69,14 @@ public final class PosLong {
     public static int sectionZ(long packed) {
         return (int) (packed << 22 >> 42);
     }
+
+    /** SectionPos.sectionToBlockCoord(section, offset): the block {@code offset} into the section */
+    public static int sectionToBlock(int section, int offset) {
+        return (section << 4) + offset;
+    }
+
+    /** BlockPos.of(packed).toShortString(): "x, y, z" */
+    public static String shortString(long packed) {
+        return blockX(packed) + ", " + blockY(packed) + ", " + blockZ(packed);
+    }
 }

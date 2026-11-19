@@ -27,9 +27,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
  * key comes from the version ({@code proneOn}: 26.2's Prone.enabled), asked where it was. 26.2's AiProne passes its own.
  */
 public class AiProneBase {
-    private static final BodyControl CONTROL = CoreServices.load(BodyControl.class, (b, s) -> {
-        throw new UnsupportedOperationException("no BodyControl here");
-    });
+    private static final BodyControl CONTROL = CoreServices.load(BodyControl.class, BodyControl.MISSING);
 
     /** ticks from getting up to a shot standing */
     static final int RISE = 6;
