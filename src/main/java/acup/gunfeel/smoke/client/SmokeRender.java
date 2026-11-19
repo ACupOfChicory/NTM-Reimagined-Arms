@@ -655,12 +655,20 @@ public final class SmokeRender {
     // this frame's depth with glass: the target's own, or the copy (standOld)
     private static GpuTextureView postDepthView;
 
-    // a texture into one of the same size: the part in rect, or all of it
+    // a texture into one of the same size: from the bottom left corner up to the far corner of rect (all of it without one)
     private static void copyPart(GpuTexture from, GpuTexture to, int width, int height) {
-        int[] r = rect;
-        var encoder = RenderSystem.getDevice().createCommandEncoder();
-        if (r == null) encoder.copyTextureToTexture(from, to, 0, 0, 0, 0, 0, width, height);
-        else encoder.copyTextureToTexture(from, to, 0, r[0], r[1], r[0], r[1], r[2], r[3]);
+        int[] c = copyCorner(rect, width, height);
+        RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(from, to, 0, 0, 0, 0, 0, c[0], c[1]);
+    }
+
+    /**
+     * How far a copy of rect reaches from the bottom left corner. Always from 0, 0: the OpenGL backend (GlCommandEncoder)
+     * hands copyTextureToTexture's width and height to glBlitNamedFramebuffer as the far corner, not the size, so a copy
+     * from x, y took the part between (x, y) and (width, height) there and left rect itself as an earlier frame had it
+     * (Vulkan copies the size). From 0 both read the same.
+     */
+    static int[] copyCorner(int[] rect, int width, int height) {
+        return rect == null ? new int[] {width, height} : new int[] {Math.min(width, rect[0] + rect[2]), Math.min(height, rect[1] + rect[3])};
     }
 
     private static void scissor(RenderPass pass) {
