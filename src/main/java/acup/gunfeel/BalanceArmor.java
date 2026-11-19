@@ -269,15 +269,7 @@ public final class BalanceArmor {
     /** a weapon's blast's damage times its power into the formula on a set of {@code tier}, rating {@code s} */
     static float blastInto(int tier, float amount, float pk, float s) {
         float y = amount * pk;
-        return pk > 1F && tier <= 4 ? Math.max(y, lowFloorPower(blastLowFloor(), s, amount)) : y;
-    }
-
-    /** a weak blast's power floor reaches c·S at this raw damage; a blast's tail below it gets a share as small */
-    static final float BLAST_LOW_REF = 7F;
-
-    /** the power floor of balanceBlastLowFloor {@code c}: c·S, less for a blast weaker than {@link #BLAST_LOW_REF} */
-    static float lowFloorPower(float c, float s, float raw) {
-        return c * s * Math.min(1F, Math.max(0F, raw) / BLAST_LOW_REF);
+        return pk > 1F && tier <= 4 ? Math.max(y, BalanceArmorRule.lowFloorPower(blastLowFloor(), s, amount)) : y;
     }
 
     private static float clampPower(String key, float def, float power) {

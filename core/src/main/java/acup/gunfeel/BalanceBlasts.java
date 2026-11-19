@@ -47,7 +47,7 @@ final class BalanceBlasts {
     static float hit(float x, float neg, float pen, String set, float s, float tau, float k, float floor) {
         if (!(x > 0F)) return 0F;
         float kx = x <= RAW_LIMIT ? x * k : x, into = kx;
-        if (x <= RAW_LIMIT && k > 1F && floor > 0F) into = Math.max(kx, BalanceArmor.lowFloorPower(floor, s, x));
+        if (x <= RAW_LIMIT && k > 1F && floor > 0F) into = Math.max(kx, BalanceArmorRule.lowFloorPower(floor, s, x));
         // the floor lifts rho only (X875: its flesh too)
         float out = set == null ? x
                 : Math.min(x, BalanceArmorRule.full(new BalanceArmorRule.Hit(kx, neg, pen, x <= RAW_LIMIT), s, tau, BalanceArmorRule.Tune.DEFAULT, 1.0, into));
