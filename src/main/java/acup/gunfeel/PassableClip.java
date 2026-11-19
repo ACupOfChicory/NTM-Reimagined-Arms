@@ -152,27 +152,48 @@ public final class PassableClip extends ClipContext {
         return pierced(level, in, out, damage, round, new Materials.Penetration());
     }
 
+    // the sum is core's (Pierce.left); here the round's numbers, the path's length and what the bullet rules and NTM's
+    // machines say of the block, asked as core needs them
     public static float pierced(Level level, BlockHitResult in, BlockHitResult out, float damage,
             @Nullable BulletConfig round, Materials.Penetration penetration) {
-        BlockState state = level.getBlockState(in.getBlockPos());
-        if (state.isAir() || !(damage >= 1F)) return -1F;
-        float negation = round == null ? 0F : round.armorThresholdNegation;
-        float piercing = round == null ? 0F : round.armorPiercingPercent;
-        // a machine's window is glass, not the machine's casing: bulletPierceMachines is not asked
-        if (in instanceof ModelSurface.GlassHit) {
-            float left = penetration.left(MachineGlass.VERDICT, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
-            return left >= 1F ? left : -1F;
+        BlockPos pos = in.getBlockPos();
+        return Pierce.left(Wiring.world(level), pos.getX(), pos.getY(), pos.getZ(), damage, RoundSpecs.fill(round),
+                in instanceof ModelSurface.GlassHit, in.getLocation().distanceTo(out.getLocation()), penetration, new PierceBlock(level, pos));
+    }
+
+    // what pierced asks of the block beyond the world: its rules' material (a machine's cell: its machine's), NTM's
+    // machines, its break rule; the state read once and the machine's once
+    private static final class PierceBlock implements Pierce.Block {
+        private final Level level;
+        private final BlockPos pos;
+        private final BlockState state;
+        private @Nullable BlockState ruleState;
+
+        PierceBlock(Level level, BlockPos pos) {
+            this.level = level;
+            this.pos = pos;
+            this.state = level.getBlockState(pos);
         }
-        BlockState ruleState = Cells.ruleState(level, in.getBlockPos(), state);
-        Materials.Verdict v = BulletRules.material(ruleState);
-        // Запрет относится к машине, даже если её часть определилась как none/stone.
-        // Проверяем до правил пробития, чтобы они тоже не обходили общий выключатель.
-        if ((Cells.machine(state) || Cells.machine(ruleState) || v.material() == Materials.Material.MACHINE)
-                && !ReaimTimes.flag(BulletRules.MACHINES_KEY, false)) return -1F;
-        BulletRuleText.Break rule = BulletRules.breakRule(state);
-        if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, state.getDestroySpeed(level, in.getBlockPos()), in.getLocation().distanceTo(out.getLocation()));
-        float left = penetration.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
-        return left >= 1F ? left : -1F;
+
+        private BlockState ruleState() {
+            if (ruleState == null) ruleState = Cells.ruleState(level, pos, state);
+            return ruleState;
+        }
+
+        @Override
+        public Materials.Verdict material() {
+            return BulletRules.material(ruleState());
+        }
+
+        @Override
+        public boolean machine() {
+            return Cells.machine(state) || Cells.machine(ruleState());
+        }
+
+        @Override
+        public BulletRuleText.@Nullable Break breakRule() {
+            return BulletRules.breakRule(state);
+        }
     }
 
     private static String side(Level level) {

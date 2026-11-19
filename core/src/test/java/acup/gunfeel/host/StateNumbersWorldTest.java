@@ -24,4 +24,14 @@ class StateNumbersWorldTest extends WorldViewContract {
     protected int[] withProperties() {
         return new int[] {2, 0, 0};
     }
+
+    @Override
+    protected int[] caveAir() {
+        return new int[] {3, 0, 0};
+    }
+
+    @Override
+    protected float stoneDestroySpeed() {
+        return 1.5F;
+    }
 }

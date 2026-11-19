@@ -24,4 +24,7 @@ public interface BlockTable {
 
     /** the state as text: its block's id, then its properties sorted by name, {@code "id[p=v,q=w]"}; the shapes' key */
     String key(int state);
+
+    /** the state is air as the game tells it (its block's: plain, cave and void air, a mod's own), not only {@link #AIR} */
+    boolean air(int state);
 }

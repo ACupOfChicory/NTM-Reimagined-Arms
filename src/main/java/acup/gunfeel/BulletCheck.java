@@ -425,6 +425,11 @@ public final class BulletCheck {
         check("world: stone's facts and key", "minecraft:stone minecraft:stone", w.facts(s).id() + " " + w.key(s));
         check("world: a fence's key, its properties by name", "minecraft:oak_fence[east=true,north=false,south=false,waterlogged=false,west=false]", w.key(f));
         check("world: the fence's facts", "minecraft:oak_fence", w.facts(f).id());
+        // air as the game tells it (cave air too), the destroy speed there as the game's
+        int cave = BlockStates.number(net.minecraft.world.level.block.Blocks.CAVE_AIR.defaultBlockState());
+        check("world: air is the game's: plain and cave, not stone or a fence", "true true false false",
+                w.air(acup.gunfeel.host.BlockTable.AIR) + " " + w.air(cave) + " " + w.air(s) + " " + w.air(f));
+        check("world: stone's destroy speed there", stoneState.getDestroySpeed(level, stone), w.destroySpeed(stone.getX(), stone.getY(), stone.getZ()));
     }
 
     private static void richterBulletSpeed() {
