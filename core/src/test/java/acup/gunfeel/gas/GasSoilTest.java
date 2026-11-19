@@ -14,10 +14,10 @@ import org.junit.jupiter.api.Test;
 import acup.gunfeel.smoke.SmokeGrid;
 
 /**
- * How long each gas has to lie for the ground to turn (GasPoison.THRESHOLD): the server's sum of one grenade's cloud and
+ * How long each gas has to lie for the ground to turn (GasSoil.THRESHOLD): the server's sum of one grenade's cloud and
  * of grenades fired one after another at one place, worked out the way the server does it.
  */
-class GasPoisonTest {
+class GasSoilTest {
     // ground under the burst cell (a heavy gas's is higher in its box)
     private static SmokeGrid.Mask field(GasKind kind) {
         int below = kind.smoke().below();
@@ -39,12 +39,12 @@ class GasPoisonTest {
                 live.add(g);
             }
             for (SmokeGrid g : live) g.step();
-            if (t % GasPoison.EVERY != 0) continue;
-            for (SmokeGrid g : live) for (int i : g.floorCells(GasPoison.LEAST)) {
+            if (t % GasSoil.EVERY != 0) continue;
+            for (SmokeGrid g : live) for (int i : g.floorCells(GasSoil.LEAST)) {
                 int x = i % SX, z = i / SX % SZ;
-                long k = GasPoison.key(x >> 2, z >> 2);
-                float before = GasPoison.decayed(sums.getOrDefault(k, 0F), t - at.getOrDefault(k, (long) t));
-                float now = before + Math.min(1F, g.density(i)) * GasPoison.weight(kind) * GasPoison.EVERY / 16F;
+                long k = GasSoil.key(x >> 2, z >> 2);
+                float before = GasSoil.decayed(sums.getOrDefault(k, 0F), t - at.getOrDefault(k, (long) t));
+                float now = before + Math.min(1F, g.density(i)) * GasSoil.weight(kind) * GasSoil.EVERY / 16F;
                 sums.put(k, now);
                 at.put(k, (long) t);
                 best = Math.max(best, now);
@@ -62,15 +62,15 @@ class GasPoisonTest {
     void oneGrenadeIsFarFromIt() {
         for (GasKind k : GasKind.values()) {
             float one = most(k, 1, 1);
-            System.out.println(k.key + ": one grenade's most " + one + " of " + GasPoison.THRESHOLD);
-            assertTrue(one < GasPoison.THRESHOLD * 0.2F, k.key + ", one grenade: " + one);
+            System.out.println(k.key + ": one grenade's most " + one + " of " + GasSoil.THRESHOLD);
+            assertTrue(one < GasSoil.THRESHOLD * 0.2F, k.key + ", one grenade: " + one);
         }
     }
 
     @Test
     void mustardTurnsItWithAMagazine() {
-        assertTrue(most(GasKind.MUSTARD, 4, 20) < GasPoison.THRESHOLD, "half a magazine");
-        assertTrue(magazines(GasKind.MUSTARD, 1) >= GasPoison.THRESHOLD);
+        assertTrue(most(GasKind.MUSTARD, 4, 20) < GasSoil.THRESHOLD, "half a magazine");
+        assertTrue(magazines(GasKind.MUSTARD, 1) >= GasSoil.THRESHOLD);
     }
 
     @Test
@@ -78,8 +78,8 @@ class GasPoisonTest {
         for (GasKind k : new GasKind[] {GasKind.CHLORINE, GasKind.ACID}) {
             float one = magazines(k, 1), two = magazines(k, 2);
             System.out.println(k.key + ": one magazine " + one + ", two " + two);
-            assertTrue(one < GasPoison.THRESHOLD, k.key + ", one: " + one);
-            assertTrue(two >= GasPoison.THRESHOLD, k.key + ", two: " + two);
+            assertTrue(one < GasSoil.THRESHOLD, k.key + ", one: " + one);
+            assertTrue(two >= GasSoil.THRESHOLD, k.key + ", two: " + two);
         }
     }
 
@@ -87,8 +87,8 @@ class GasPoisonTest {
     void phosgeneWithThree() {
         float two = magazines(GasKind.PHOSGENE, 2), three = magazines(GasKind.PHOSGENE, 3);
         System.out.println("phosgene: two magazines " + two + ", three " + three);
-        assertTrue(two < GasPoison.THRESHOLD, "two: " + two);
-        assertTrue(three >= GasPoison.THRESHOLD, "three: " + three);
+        assertTrue(two < GasSoil.THRESHOLD, "two: " + two);
+        assertTrue(three >= GasSoil.THRESHOLD, "three: " + three);
     }
 
     @Test
@@ -97,7 +97,7 @@ class GasPoisonTest {
         for (GasKind k : GasKind.values()) {
             float slow = most(k, 12, 6000);
             System.out.println(k.key + ": one every 5 min " + slow);
-            assertTrue(slow < GasPoison.THRESHOLD * 0.6F, k.key + ", slow: " + slow);
+            assertTrue(slow < GasSoil.THRESHOLD * 0.6F, k.key + ", slow: " + slow);
         }
     }
 }
