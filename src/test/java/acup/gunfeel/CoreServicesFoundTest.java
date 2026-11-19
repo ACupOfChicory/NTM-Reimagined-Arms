@@ -30,6 +30,13 @@ class CoreServicesFoundTest {
                 java.util.ServiceLoader.load(ReaimTimes.Reload.class).stream().map(p -> p.type()).toList());
     }
 
+    @Test
+    void theMainHandIsTheClientsOptions() {
+        assertInstanceOf(GameMainHand.class, MainHand.get());
+        // no client in the tests: the right hand, as PistolHold.on() had it with no Minecraft
+        assertEquals(false, MainHand.get().left());
+    }
+
     // every interface core loads (CoreServices.load(X.class, ...) in core/src/main/java) has one provider here: a new
     // one without a service file would run on its fallback in the game, with every test still green
     @Test
@@ -65,7 +72,7 @@ class CoreServicesFoundTest {
             }
         }
         assertEquals(java.util.List.of(), missing, "META-INF/services/<interface> on 26.2, one class each");
-        assertEquals(5, n, "the services core loads; a new one: add its 26.2 class and count it here");
+        assertEquals(6, n, "the services core loads; a new one: add its 26.2 class and count it here");
     }
 
     @Test

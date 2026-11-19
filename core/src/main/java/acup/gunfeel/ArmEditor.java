@@ -854,7 +854,7 @@ final class ArmEditor {
     // Arms.pistolTarget): the weight the hold gives it, 0 = not at all
     private float pistolDepth() {
         Config.select(gun);
-        return Config.armPistolScale && PistolHold.on() && !clips.scoped() ? Math.min(1F, Config.pistolHold) : 0F;
+        return Config.armPistolScale && PistolPlace.on() && !clips.scoped() ? Math.min(1F, Config.pistolHold) : 0F;
     }
 
     // the arm runs from the hand back toward the eye, so how far back it goes is read (Arms.restArm)
@@ -1031,7 +1031,7 @@ final class ArmEditor {
     }
 
     private String switchWhy(String key) {
-        if (key.equals("armPistolScale") && !PistolHold.on()) return "действует только у пистолета, когда включён «пистолет у бедра»";
+        if (key.equals("armPistolScale") && !PistolPlace.on()) return "действует только у пистолета, когда включён «пистолет у бедра»";
         if (key.equals("armPistolScale") && clips.scoped()) return "не действует у оружия с оптическим прицелом";
         return key.equals("armSlideNearest") && !switchOn("armSlide") ? "действует, только когда включено «Скольжение рук»" : null;
     }
@@ -2077,7 +2077,26 @@ final class ArmEditor {
 
     private Grips.Grip gripNow() {
         String v = clips.variant();
-        return Grips.get(net.minecraft.resources.Identifier.parse(gunBase()).toString(), v == null ? "" : v);
+        return Grips.get(gameId(gunBase()), v == null ? "" : v);
+    }
+
+    // a gun's id as the game writes it (26.2: Identifier.parse(id).toString()): "minecraft:" where it names no
+    // namespace or an empty one; a character an id may not hold is an error
+    static String gameId(String id) {
+        int colon = id.indexOf(':');
+        String namespace = colon > 0 ? id.substring(0, colon) : "minecraft";
+        String path = colon >= 0 ? id.substring(colon + 1) : id;
+        for (int i = 0; i < namespace.length(); i++)
+            if (!idChar(namespace.charAt(i), false))
+                throw new IllegalArgumentException("Non [a-z0-9_.-] character in namespace of location: " + namespace + ":" + path);
+        for (int i = 0; i < path.length(); i++)
+            if (!idChar(path.charAt(i), true))
+                throw new IllegalArgumentException("Non [a-z0-9/._-] character in path of location: " + namespace + ":" + path);
+        return namespace + ":" + path;
+    }
+
+    private static boolean idChar(char c, boolean path) {
+        return c == '_' || c == '-' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '.' || path && c == '/';
     }
 
     private boolean gripPoint() {
