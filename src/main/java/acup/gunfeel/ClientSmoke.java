@@ -37,9 +37,9 @@ public final class ClientSmoke {
     private static int serverTick;
     private static boolean passed = true, finished;
     private static final boolean WEAPON_SWAY=Boolean.getBoolean("ntmgunfeel.weaponSwaySelfTest");
-    private static WeaponSway.Turn observedTurn;
+    private static WeaponSwayMath.Turn observedTurn;
     private static int suppressedLag;
-    public static void weaponSway(WeaponSway.Turn turn,float aiming) {
+    public static void weaponSway(WeaponSwayMath.Turn turn,float aiming) {
         if(ENABLED && WEAPON_SWAY)observedTurn=turn;
     }
     public static void weaponLag(float value) {
@@ -218,7 +218,7 @@ public final class ClientSmoke {
                 finish();
             }
             if(WEAPON_SWAY && phase>=30 && phase<=36 && elapsed()>1) {
-                var expected=WeaponSway.sample(phase==36?0:10,phase==36?0:phase==32||phase==34?-220:phase==33||phase==35?220:20,phase==31||phase==34||phase==35?1:0);
+                var expected=WeaponSwayMath.sample(phase==36?0:10,phase==36?0:phase==32||phase==34?-220:phase==33||phase==35?220:20,phase==31||phase==34||phase==35?1:0);
                 check(observedTurn!=null && Math.abs(observedTurn.pitch()-expected.pitch())<1e-5
                         && Math.abs(observedTurn.yaw()-expected.yaw())<1e-5
                         && Math.abs(observedTurn.roll()-expected.roll())<1e-5

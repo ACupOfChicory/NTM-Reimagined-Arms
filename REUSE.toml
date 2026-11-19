@@ -41,7 +41,7 @@ SPDX-License-Identifier = "Apache-2.0"
 
 # Code adapted from Superb Warfare (third-party/superb-warfare.txt).
 [[annotations]]
-path = "src/main/java/acup/gunfeel/WeaponSway.java"
+path = ["src/main/java/acup/gunfeel/WeaponSway.java", "core/src/main/java/acup/gunfeel/WeaponSwayMath.java"]
 precedence = "override"
 SPDX-FileCopyrightText = [
     "Mercurows and contributors to Superb Warfare",
