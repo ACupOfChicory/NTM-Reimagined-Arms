@@ -163,7 +163,7 @@ public final class WaterBlast {
         Place p = place(level, at);
         if (p == null) return;
         EntityBulletBaseMK4 b = BULLET.get();
-        boolean incendiary = b != null && WaterClass.incendiary(b.config);
+        boolean incendiary = b != null && WaterClasses.incendiary(b.config);
         var packet = new WaterBlastPayload(at, e.size, incendiary, p.inWater(), p.surface(), p.liquid());
         PacketDistributor.sendToPlayersNear(level, null, at.x, at.y, at.z, 128 + e.size * 2, packet);
     }

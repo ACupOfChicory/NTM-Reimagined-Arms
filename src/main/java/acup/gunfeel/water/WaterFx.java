@@ -202,7 +202,7 @@ public final class WaterFx {
     // ---- the events ----
     private static void on(Level level, WaterEvents.Event e) {
         if (tracedBullet(e.bullet())) return;
-        if (e.type() == WaterEvents.Type.ENTER && e.bullet() instanceof EntityBulletBaseMK4 b && WaterClass.Fuze.of(b.config).any()
+        if (e.type() == WaterEvents.Type.ENTER && e.bullet() instanceof EntityBulletBaseMK4 b && WaterClasses.fuze(b.config).any()
                 && WaterSettings.fuze()) return;
         handle(level, e);
     }
@@ -561,9 +561,9 @@ public final class WaterFx {
         boolean own = mc.player != null && b.getOwner() == mc.player;
         later(0.05, () -> {
             BulletConfig config = b.getBulletConfig();
-            if (config == null || acup.gunfeel.Tracers.traced(config) || !WaterClass.Fuze.of(config).any()) return;
+            if (config == null || acup.gunfeel.Tracers.traced(config) || !WaterClasses.fuze(config).any()) return;
             // a gun's round only: not the NPCs' bolts and rockets, a cluster's bomblets, a pile's debris, a flame
-            if (config.ammoItem == null || WaterClass.Fuze.field(config) != null) return;
+            if (config.ammoItem == null || WaterClasses.fuzeField(config) != null) return;
             // the player's own shot: at the muzzle drawn in their hands, as a tracer's
             Vec3 muzzle = own ? acup.gunfeel.Tracers.drawnMuzzle() : null;
             fired(level, muzzle != null && muzzle.distanceToSqr(at) < 9 ? muzzle : at, dir, config);

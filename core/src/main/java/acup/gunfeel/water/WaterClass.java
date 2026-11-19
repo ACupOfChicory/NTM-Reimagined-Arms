@@ -4,15 +4,12 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
-import com.hbm.items.weapon.sedna.BulletConfig;
-
-import net.minecraft.core.registries.BuiltInRegistries;
-
 // How a bullet slows in water. Water drag is quadratic in speed, dv/dx = -v/L with L = 2m / (rho·Cd·A), so the speed
 // falls off exponentially with the path in water: f <- f·exp(-rho·s / L). L is the class's stopping length in blocks
 // (one block = 1 m); the bullet stops (f = 0.15) after L·ln(1/0.15) ≈ L·1.9 blocks of water. The numbers follow the
 // MythBusters measurements ("Bulletproof Water", 2005): supersonic rounds up to .50 broke up or stopped within ~0.9 m,
 // slow pistol rounds stayed dangerous to ~2.4 m, slugs went deeper; buckshot by the formula (00 pellet 3.5 g, Cd 0.45).
+// By the ammo's name and numbers only: the version's adapter reads them off NTM's bullet config (26.2: WaterClasses).
 public enum WaterClass {
     PISTOL(1.25, false),
     RIFLE(0.65, false),
@@ -61,10 +58,6 @@ public enum WaterClass {
             if (ammo.endsWith("_sp")) return SP;
             return null;
         }
-
-        public static @Nullable Expansion of(@Nullable BulletConfig c) {
-            return of(ammoName(c));
-        }
     }
 
     // how a bullet goes off (NTM's onImpact lambdas, notes/water/README.md): IMPACT blows up where it touches
@@ -91,22 +84,6 @@ public enum WaterClass {
             return NONE;
         }
 
-        private static final java.util.Map<BulletConfig, Fuze> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
-
-        // asked every tick of a bullet: kept per config
-        public static Fuze of(@Nullable BulletConfig c) {
-            if (c == null) return NONE;
-            return CACHE.computeIfAbsent(c, Fuze::find);
-        }
-
-        private static Fuze find(BulletConfig c) {
-            // a cluster grenade's bomblets blow up where they land (ItemGrenadeFilling.pellets)
-            if (c.ammoItem == null && (c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets
-                    || c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets_heavy)) return IMPACT;
-            if (field(c) != null) return IMPACT;
-            return of(ammoName(c));
-        }
-
         // NTM's configs that blow up where they hit but whose ammo does not say so: no ammo of their own (the masked
         // man's bolts, meteors, rockets and orbs, the UFO's rockets, the fat man's cluster bomblets, a pile's debris) or
         // a plain flame's (the Daybreaker's). Not the equestrian rounds (they drop a boxcar, a boat, a building from
@@ -117,27 +94,11 @@ public enum WaterClass {
                 {"XFactoryCatapult", "cluster_submunition"},
                 {"XFactoryNPC", "maskman_bolt", "maskman_meteor", "maskman_rocket", "maskman_orb", "ufo_rocket"},
                 {"XFactoryPile", "debris"}};
-        private static volatile @Nullable Map<BulletConfig, String> fields;
-
-        // the IMPACT_FIELDS name of this config, or null
-        public static @Nullable String field(BulletConfig c) {
-            Map<BulletConfig, String> f = fields;
-            if (f == null) {
-                f = NtmFields.configs(IMPACT_FIELDS);
-                // none found: asked before NTM made its configs, try again later
-                if (!f.isEmpty()) fields = f;
-            }
-            return f.get(c);
-        }
     }
 
     // sets a target alight where it hits (phosphorus, fire): under water it does not
     public static boolean incendiary(String ammo) {
         return ammo.endsWith("_inc") || ammo.endsWith("_phosphorus") || ammo.startsWith("ammo_standard_g26_flare");
-    }
-
-    public static boolean incendiary(@Nullable BulletConfig c) {
-        return c != null && (incendiary(ammoName(c)) || c.onImpact != null && c.onImpact == NtmFields.R556_INCENDIARY.get());
     }
 
     // ammo whose class the numbers do not tell: by the ammo item's path (hbm:<path>)
@@ -158,33 +119,6 @@ public enum WaterClass {
             Map.entry("ammo_fireext_foam", NONE),
             Map.entry("ammo_fireext_sand", NONE),
             Map.entry("ammo_debug", NONE));
-
-    // the class of a bullet NTM fires
-    public static WaterClass of(@Nullable BulletConfig c) {
-        if (c == null) return PISTOL;
-        // a grenade's fragments and bomblets: no ammo of their own, they slow like buckshot
-        if (c.ammoItem == null && (c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.fragmentation
-                || c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets
-                || c == com.hbm.items.weapon.grenade.ItemGrenadeFilling.pellets_heavy)) return SHOT;
-        return of(ammoName(c), c.pType == BulletConfig.ProjectileType.BEAM, c.projectilesMax, c.armorThresholdNegation,
-                c.armorPiercingPercent, c.velocity, c.onImpact != null);
-    }
-
-    // the ammo item's path (hbm:<path>), "" when it has none
-    static String ammoName(@Nullable BulletConfig c) {
-        if (c == null) return "";
-        // a round of the mod's: as the NTM round it is made after (a Duplex round its SP, the rubber slug the slug)
-        c = acup.gunfeel.ammo.NewAmmo.waterLike(c);
-        try {
-            if (c.ammoItem != null) {
-                var key = BuiltInRegistries.ITEM.getKey(c.ammoItem.get());
-                if (key.getNamespace().equals("hbm")) return key.getPath();
-            }
-        } catch (RuntimeException e) {
-            // no item: by the numbers alone
-        }
-        return "";
-    }
 
     // the same on plain numbers (the tests run it on NTM's dump): ammo = the item's path without "hbm:", beam = NTM's
     // BEAM projectile type, projectiles = projectilesMax, thresholdNegation and piercing = the armour piercing,

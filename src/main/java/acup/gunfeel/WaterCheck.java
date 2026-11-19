@@ -9,6 +9,7 @@ import com.hbm.items.weapon.sedna.BulletConfig;
 
 import acup.gunfeel.water.WaterBullet;
 import acup.gunfeel.water.WaterClass;
+import acup.gunfeel.water.WaterClasses;
 import acup.gunfeel.water.WaterPath;
 import acup.gunfeel.water.WaterSettings;
 import net.minecraft.core.BlockPos;
@@ -105,7 +106,7 @@ public final class WaterCheck {
                 lines.add("FAIL\tno config " + name);
                 continue;
             }
-            WaterClass wc = WaterClass.of(c);
+            WaterClass wc = WaterClasses.of(c);
             lines.add("#\t" + wc + "\t" + name + "\texpansion " + WaterClass.Expansion.of(name));
             downStop(wc, c, name);
             twoTicks(wc, c, name, !name.startsWith("ammo_standard_r556"));
@@ -154,7 +155,7 @@ public final class WaterCheck {
     private static List<BulletConfig> candidates(WaterClass wc) {
         List<BulletConfig> all = new ArrayList<>();
         for (BulletConfig c : BulletConfig.configs)
-            if (c != null && c.velocity >= 5F && c.onImpact == null && WaterClass.of(c) == wc) all.add(c);
+            if (c != null && c.velocity >= 5F && c.onImpact == null && WaterClasses.of(c) == wc) all.add(c);
         List<BulletConfig> sorted = new ArrayList<>();
         for (String w : WANT.get(wc)) for (BulletConfig c : all) if (ammoName(c).contains(w) && !sorted.contains(c)) sorted.add(c);
         for (BulletConfig c : all) if (!sorted.contains(c)) sorted.add(c);

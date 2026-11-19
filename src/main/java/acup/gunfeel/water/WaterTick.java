@@ -29,7 +29,7 @@ public final class WaterTick {
         long seed = seed(bullet.getId(), w.gunfeel$waterSkips());
         WaterClass cls = w.gunfeel$waterClass();
         // an impact fuze skips by the fuze's angle (waterFuzeSkipAngle), an explosive bullet of a rifle too
-        if (WaterClass.Fuze.of(bullet.config).any()) s = s.fuzed();
+        if (WaterClasses.fuze(bullet.config).any()) s = s.fuzed();
         WaterPath.Result r = WaterPath.trace(level, from, to, w.gunfeel$waterF(), cls, w.gunfeel$waterExpansion(), w.gunfeel$waterOpened(),
                 w.gunfeel$waterSkips(), seed, s, bullet);
         if (r.events.isEmpty() && r.water <= 0) return to;
@@ -39,7 +39,7 @@ public final class WaterTick {
 
     // a stopped bullet that sinks rather than goes: one with an impact fuze
     public static boolean sinks(EntityBulletBaseMK4 bullet) {
-        return WaterClass.Fuze.of(bullet.config).any();
+        return WaterClasses.fuze(bullet.config).any();
     }
 
     // sinking: straight down by NTM's gravity (at least MIN_G a tick), no faster than SINK (1 block a second); its
@@ -88,7 +88,7 @@ public final class WaterTick {
     // the surface an impact fuze meets before the block NTM found: the first entry from the air into liquid (where
     // lava, or water for the Daybreaker's flame, stops it at once, the stop there)
     static @Nullable BlockHitResult fuze(EntityBulletBaseMK4 bullet, WaterPath.Result r, BlockHitResult hit) {
-        if (!WaterSettings.fuze() || !WaterClass.Fuze.of(bullet.config).any()) return null;
+        if (!WaterSettings.fuze() || !WaterClasses.fuze(bullet.config).any()) return null;
         double block = hit.getType() == HitResult.Type.MISS ? Double.POSITIVE_INFINITY : r.t(hit.getLocation());
         for (WaterEvents.Event e : r.events) {
             boolean entry = e.type() == WaterEvents.Type.ENTER || e.type() == WaterEvents.Type.STOP

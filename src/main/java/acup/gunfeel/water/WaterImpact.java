@@ -59,13 +59,13 @@ public final class WaterImpact {
     public static java.util.function.@org.jspecify.annotations.Nullable BiConsumer<Object, Object> lambda(EntityBulletBaseMK4 bullet, HitResult hit) {
         if (bullet.level().isClientSide() || bullet.config == null || !WaterSettings.ballistics()) return null;
         BulletConfig c = bullet.config;
-        WaterClass.Fuze fuze = WaterClass.Fuze.of(c);
+        WaterClass.Fuze fuze = WaterClasses.fuze(c);
         if (fuze == WaterClass.Fuze.WEAK && wet(bullet, hit)) return (x, h) -> {
             if (TestLog.server) TestLog.s(bullet.getId(), "water", "weak", "at", hit.getLocation());
             weakBlast(bullet, hit);
             bullet.discard();
         };
-        if (fuze == WaterClass.Fuze.NONE && WaterClass.incendiary(c) && wet(bullet, hit)) return (x, h) -> {
+        if (fuze == WaterClass.Fuze.NONE && WaterClasses.incendiary(c) && wet(bullet, hit)) return (x, h) -> {
             if (TestLog.server) TestLog.s(bullet.getId(), "water", "doused", "at", hit.getLocation());
         };
         return null;
@@ -94,7 +94,7 @@ public final class WaterImpact {
 
     // does this bullet go off at a touch where it is now: an explosive one always, b75_inc in water
     static boolean goesOff(EntityBulletBaseMK4 b) {
-        WaterClass.Fuze f = WaterClass.Fuze.of(b.config);
+        WaterClass.Fuze f = WaterClasses.fuze(b.config);
         return f == WaterClass.Fuze.IMPACT || f == WaterClass.Fuze.WEAK && wet(b, b.position());
     }
 

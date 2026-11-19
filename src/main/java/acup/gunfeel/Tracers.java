@@ -978,11 +978,11 @@ public final class Tracers {
         s.waterPath = null;
         var settings = acup.gunfeel.water.WaterPath.Settings.current();
         if (!settings.on() || k >= s.lifeTicks) return;
-        var cls = acup.gunfeel.water.WaterClass.of(s.config);
-        boolean fuze = acup.gunfeel.water.WaterClass.Fuze.of(s.config).any();
+        var cls = acup.gunfeel.water.WaterClasses.of(s.config);
+        boolean fuze = acup.gunfeel.water.WaterClasses.fuze(s.config).any();
         if (fuze) settings = settings.fuzed();
         Vec3 a = tested(s, k), b = tested(s, k + 1);
-        var r = acup.gunfeel.water.WaterPath.trace(level, a, b, s.waterF, cls, acup.gunfeel.water.WaterClass.Expansion.of(s.config),
+        var r = acup.gunfeel.water.WaterPath.trace(level, a, b, s.waterF, cls, acup.gunfeel.water.WaterClasses.expansion(s.config),
                 s.waterOpened, s.waterSkips, acup.gunfeel.water.WaterTick.seed(s.id, s.waterSkips), settings, null);
         if (r.events.isEmpty() && r.water <= 0) return;
         s.waterPath = r;
