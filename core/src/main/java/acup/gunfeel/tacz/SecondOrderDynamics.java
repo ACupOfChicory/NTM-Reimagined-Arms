@@ -3,10 +3,9 @@
 // https://github.com/MCModderAnchor/TACZ, revision 19f14c8, src/main/java/com/tacz/guns/util/math/SecondOrderDynamics.java.
 // Changes: the package; GunTime is acup.gunfeel.tacz.GunTime; the pool's threads are daemons (TaCZ's inherit the
 // render thread's flag and keep the game from closing); target, py and pyd are volatile (written and read by both the
-// frame and the filter's thread); stop() and its flag are dropped (never called).
+// frame and the filter's thread); stop() and its flag are dropped (never called); the filter's step asks GunTime alone
+// whether to go on (GunTime's clock reads the game's pause through a port, true where there is no game).
 package acup.gunfeel.tacz;
-
-import net.minecraft.client.Minecraft;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -75,7 +74,7 @@ public class SecondOrderDynamics {
 
     private void update() {
         while (true) {
-            if (Minecraft.getInstance() == null || GunTime.shouldTick()) {
+            if (GunTime.shouldTick()) {
                 // 修正罕见的 NAN 错误
                 if (Float.isNaN(py)) {
                     py = 0;
