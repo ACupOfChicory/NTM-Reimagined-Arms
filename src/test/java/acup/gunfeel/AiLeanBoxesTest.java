@@ -55,11 +55,11 @@ class AiLeanBoxesTest {
                 var leaned = acup.gunfeel.ai.AiPoseGeometry.leanPoint(0, 1.751, 0, AiPose.STAND, frac, yaw);
                 var upright = acup.gunfeel.ai.AiPoseGeometry.leanPoint(0, 1.751, 0, AiPose.STAND, 0F, yaw);
                 String at = "lean " + frac + " yaw " + yaw;
-                assertTrue(HeadZone.contains(head.zones(), leaned), at);
-                assertTrue(!HeadZone.contains(head.zones(), upright), at);
+                assertTrue(HeadZoneTests.contains(head.zones(), leaned), at);
+                assertTrue(!HeadZoneTests.contains(head.zones(), upright), at);
                 // the body's middle is in no head zone, and the body leans: its box moved off upright
                 var chest = acup.gunfeel.ai.AiPoseGeometry.leanPoint(0, 1.13, 0, AiPose.STAND, frac, yaw);
-                assertTrue(!HeadZone.contains(head.zones(), chest), at);
+                assertTrue(!HeadZoneTests.contains(head.zones(), chest), at);
             }
     }
 }
