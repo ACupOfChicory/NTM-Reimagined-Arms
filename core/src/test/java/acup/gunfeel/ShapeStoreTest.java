@@ -44,8 +44,8 @@ class ShapeStoreTest {
         var calls=new AtomicInteger();
         var packing=new ShapePacking(shape->{calls.incrementAndGet();return ShapeCells.pack(shape);});
         long[] cells=new long[65];cells[0]=5;
-        var face=new ModelSurface.Face(new double[]{0,0,0,1,0,0,0,1,0},new double[6],1,1,new long[]{1});
-        long[] exact=ModelSurface.attach(cells,List.of(face));
+        var face=new ModelSurfaceBase.Face(new double[]{0,0,0,1,0,0,0,1,0},new double[6],1,1,new long[]{1});
+        long[] exact=ModelSurfaceBase.attach(cells,List.of(face));
         var shapes=new TreeMap<String,long[]>();shapes.put("hbm:door[open=false]",exact);shapes.put("hbm:door[open=true]",exact);
         var first=new StringWriter();ShapeStore.encode(first,shapes,packing);
         assertEquals(1,calls.get());
