@@ -57,8 +57,8 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * depth, and the smoke goes as above. With the vanilla chain glass, water, items, particles, rain and the sky's clouds
  * are in targets of their own, laid over the main one after this: where the smoke may be they are laid first by the
  * smoke as the chain would and cleared in their targets ({@link #fold}), and the smoke goes as above too. A chain whose
- * post effect or shader a resource pack (or a mod's resources) replaced keeps the way before: the smoke behind the glass into the main target, the smoke in front of
- * it into the translucent one.</li>
+ * post effect or shader a resource pack (or a mod's resources) replaced keeps the way before: the smoke behind the
+ * glass into the main target, the smoke in front of it into the translucent one.</li>
  * </ol>
  * The hand and the gun are drawn after the level and stay in front of the smoke. 26.2 draws with the depth reversed
  * (near 1, far and the sky 0) and either depth range: the shader finds where along its ray the copied depth lies by
@@ -217,7 +217,7 @@ public final class SmokeRender {
     // the matrix, four vec4 and the inverse of the projection times the view, then per cloud (SmokeAtlas.SLOTS of them) four vec4: origin, box min, box max, colour;
     // then per group (as many at most) two: its box's min and max. Clouds[] in smoke_info.glsl must be SLOTS * 4 long,
     // Groups[] SLOTS * 2 (SmokeShaderLinkTest checks)
-    static final int UBO_SIZE = 64 + 16 * 5 + 64 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16;
+    static final int UBO_SIZE = 64 + 16 * 4 + 64 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16;
     /** The noise is laid from a world point on a lattice this many blocks apart (the shader's PERIOD is 0.9 of it). */
     static final int ANCHOR = 1000;
     private static MappableRingBuffer ubo;
@@ -250,12 +250,6 @@ public final class SmokeRender {
     public static final int OLD_RECT = 1, OLD_DEPTH = 2, OLD_FRONT = 4, OLD_THROUGH = 8, OLD = 15;
     /** The stands only: the noise's time (seconds) and the partial tick held, so that two frames are the same; NaN: live. */
     public static float standSeconds = Float.NaN;
-    /**
-     * Temporary, the looks for the owner to choose from (SmokeLooks in the game, SmokeCompare on the stands): 1 while
-     * the camera is in a cloud's box the march at a part of the screen one coarser (high: a third, ultra: a half), laid
-     * over with an upscale by depth; 2 the step grows beyond 8 blocks, twice as long from 16; 4 one octave of noise.
-     */
-    public static int look;
     /** A ray stops when this much light is let through (1% before 2026-11-18). */
     static final float THROUGH_MIN = 0.03F;
 
@@ -413,8 +407,8 @@ public final class SmokeRender {
     /**
      * The vanilla transparency chain's layers as its post effect takes them (translucent, item entity, particles,
      * weather, clouds), or null: when the chain is not the game's own (a resource pack or a mod's resources gave it
-     * another post effect or shader; a mod changing it in code is not seen) or a layer is not as the main target is. Then the smoke is split between the main and the
-     * translucent target as before 2026-11-19 (COMPOSITE_CHAIN_*). A layer nothing has drawn into yet this frame is
+     * another post effect or shader; a mod changing it in code is not seen) or a layer is not as the main target is.
+     * Then the smoke is split between the main and the translucent target as before 2026-11-19 (COMPOSITE_CHAIN_*). A layer nothing has drawn into yet this frame is
      * null in it (the frame graph makes it first for the chain, empty: the sky's clouds with the clouds off).
      */
     private static RenderTarget[] foldLayers(RenderTarget main) {
@@ -483,8 +477,10 @@ public final class SmokeRender {
     /**
      * With the vanilla chain: its layers laid over the main target where the smoke may be (rect), as the chain would lay
      * them, the main target's alpha left as their cover, and cleared there in their own targets, colour and alpha (the
-     * chain then has nothing to lay there; with only the alpha cleared it still added their colour on the stand, GL). So the smoke goes over a frame with everything in it, as without the chain, and the
-     * particles, the rain and the sky's clouds behind it are under it (the chain laid them over it). The frame before is
+     * chain then has nothing to lay there; with only their alpha cleared the stand still found their colour added
+     * once more, on GL, though the chain's shader leaves a layer of alpha 0 out: the cause was not found).
+     * So the smoke goes over a frame with everything in it, as without the chain, and the particles, the rain and the
+     * sky's clouds behind it are under it (the chain laid them over it). The frame before is
      * kept in OPAQUE_COLOR, the nearest layer's depth (over the whole screen) in NEAR_DEPTH.
      */
     private static void fold(RenderTarget main, RenderTarget[] layers) {
@@ -514,7 +510,17 @@ public final class SmokeRender {
             bindLayers(pass, main, layers, nearest);
             pass.draw(3, 1, 0, 0);
         }
-        for (RenderTarget l : layers) if (l != null) alphaPass(l, LAYER_CLEAR);
+        // each layer cleared even if one fails: one left is laid twice, by this and by the chain
+        RuntimeException failed = null;
+        for (RenderTarget l : layers) {
+            if (l == null) continue;
+            try {
+                alphaPass(l, LAYER_CLEAR);
+            } catch (RuntimeException ex) {
+                failed = ex;
+            }
+        }
+        if (failed != null) throw failed;
     }
 
     private static void bindLayers(RenderPass pass, RenderTarget main, RenderTarget[] layers, com.mojang.blaze3d.textures.GpuSampler nearest) {
@@ -632,7 +638,9 @@ public final class SmokeRender {
             int q = quality();
             RenderTarget main = Minecraft.getInstance().gameRenderer.mainRenderTarget();
             int div = divisor(q);
-            boolean lowInside = (look & 1) != 0 && div <= 2 && cameraInBox(slots, e.getLevelRenderState().cameraRenderState.pos);
+            // with the camera in a cloud's box the smoke fills the screen and is soft all over: marched a step coarser
+            // (high: at a third of the screen, ultra: a half) and laid over the frame upscaled by depth
+            boolean lowInside = div <= 2 && cameraInBox(slots, e.getLevelRenderState().cameraRenderState.pos);
             if (lowInside) div++;
             int w = Math.max(1, main.width / div), h = Math.max(1, main.height / div);
             if (target == null || targetW != w || targetH != h) {
@@ -692,10 +700,9 @@ public final class SmokeRender {
                 b.putMat4f(new Matrix4f(e.getModelViewMatrix()));
                 b.putVec4((float) depthW / w, zeroToOne ? 1F : 0F, seconds, maxSteps(q));
                 b.putVec4(1F / SmokeAtlas.WIDTH, 1F / SmokeAtlas.HEIGHT, partial, stepLength(q));
-                b.putVec4(groups.length, q >= 3 && (look & 4) == 0 ? 1F : 0F, (float) depthH / h, (standOld & OLD_FRONT) != 0 || projView == null ? 0F : 1F);
+                b.putVec4(groups.length, lowInside ? 1F : 0F, (float) depthH / h, (standOld & OLD_FRONT) != 0 || projView == null ? 0F : 1F);
                 b.putVec4((float) (Math.floor(cam.x / ANCHOR) * ANCHOR - cam.x), (float) (Math.floor(cam.y / ANCHOR) * ANCHOR - cam.y),
                         (float) (Math.floor(cam.z / ANCHOR) * ANCHOR - cam.z), (standOld & OLD_THROUGH) != 0 ? 0.01F : THROUGH_MIN);
-                b.putVec4(lowInside ? 1F : 0F, (look & 2) != 0 ? 1F : 0F, 0F, 0F);
                 b.putMat4f(projView != null ? new Matrix4f(projView).invert() : new Matrix4f());
                 for (int i = 0; i < SmokeAtlas.SLOTS; i++) {
                     if (i >= order.size()) {
@@ -909,7 +916,7 @@ public final class SmokeRender {
     // a frame's first mark; the slot's last frame read back first
     private static void timerBegin(com.mojang.blaze3d.systems.GpuDevice device) {
         timerSlot = -1;
-        if (timerOff || !SmokeStats.MEASURING && !SmokeLooks.measuring()) return;
+        if (timerOff || !SmokeStats.MEASURING) return;
         try {
             if (timer == null) timer = device.createTimestampQueryPool(TIMER_FRAMES * MARKS);
             int f = timerFrame++ % TIMER_FRAMES;

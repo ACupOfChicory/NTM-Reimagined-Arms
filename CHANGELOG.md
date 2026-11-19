@@ -6,11 +6,53 @@
   gas clouds now cover what is behind them. Until now the sky's clouds, rain,
   particles and items lying on the ground were drawn over the smoke even when
   they were behind it, so that the sky's clouds showed through smoke seen
-  against the sky. Glass and water lie in front of the smoke or
-  behind it as before. With Flywheel's translucent terrain on (the default with
-  NTM), and with the other graphics settings, smoke looks as before. If a
-  resource pack or another mod's resources replace the shader "Fabulous!" lays
-  the translucent things with, smoke is drawn the old way.
+  against the sky. Glass and water lie in front of the smoke or behind it as
+  before. With Flywheel's translucent terrain on (the default with NTM), and
+  with the other graphics settings, smoke looks as before. If a resource pack or
+  another mod's resources replace the shader "Fabulous!" lays the translucent
+  things with, smoke is drawn the old way.
+
+## X1727
+
+- Mister Topaz and the Fritz turret: the flame now falls, with the same gravity
+  as the hand flamer's, instead of flying in a straight line (60 blocks for
+  Topaz, 100 for the Fritz). The jet is a little faster than the hand flamer's,
+  so it reaches further: about 17 blocks shot level from the shoulder, 48 at
+  15° up and 87 at 45° (the hand flamer: 13, 31 and 52). The Fritz lifts its
+  barrel to drop the flame on its target. Topaz's gas, the hand flamer and the
+  Daybreaker are as before.
+
+## X1725
+
+- The white phosphorus haze is a little thicker: looking across the whole of it
+  now hides about three quarters of what is behind (it was about half). Players
+  and mobs still see through it.
+
+## X1723
+
+- White phosphorus now lets out a low, thin white haze instead of a dense
+  smoke screen: about 17 blocks across and 3 high (it was 21 and 8), lying on
+  the ground as the heavy gases do and running down slopes and into trenches.
+  Players and mobs see through it: looking across the whole of it hides about
+  half of what is behind. It no longer stands against an invisible box at its
+  sides or top, next to walls, in streets or in the wind. A second grenade's
+  haze lies in the first one's and makes it thicker, where it used to push the
+  first one out wider; a third burst where two hazes already lie adds nothing,
+  so a grenade launcher's magazine or a cluster shell at one spot no longer
+  makes a wall. This holds for every white phosphorus munition: the hand
+  grenade, the 40 mm round (a smaller haze), the rocket, the artillery shell
+  and the HIMARS rocket. It still stays while the phosphorus burns.
+- Smoke and gas clouds in the wind no longer have their upwind end cut off flat
+  for a few seconds as they drift, and the wind takes less of them away.
+
+## X1716
+
+- Smoke and gas clouds cost less to draw. At the high and ultra smoke quality,
+  with the camera inside a cloud the smoke is drawn coarser and laid over the
+  walls by their depth. Smoke far off is sampled in longer steps, and its grain
+  has one layer of noise instead of two, so it looks a little softer. The F7
+  key that switched between these looks is gone, as is the look's name in the
+  top left corner.
 
 ## X1713
 

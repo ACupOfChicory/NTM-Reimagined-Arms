@@ -35,12 +35,18 @@ class SmokeShaderLinkTest {
         if (!g.find()) throw new AssertionError("no Groups[] in smoke_info.glsl");
         assertEquals(SmokeAtlas.SLOTS * 2, Integer.parseInt(g.group(1)));
         // the matrix, four vectors, the inverse matrix, the clouds, the groups
-        assertEquals(64 + 5 * 16 + 64 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16, SmokeRender.UBO_SIZE);
+        assertEquals(64 + 4 * 16 + 64 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16, SmokeRender.UBO_SIZE);
         // the noise's lattice repeats where the anchor steps
         assertEquals(SmokeRender.ANCHOR * 0.9F, constant(resource("core/smoke_march.fsh"), "PERIOD"), 1e-3F);
-        // and every octave's scale is a whole number, so its jump is a whole number of periods
-        Matcher o = Pattern.compile("valueNoise\\(q \\* ([0-9.]+)").matcher(resource("core/smoke_march.fsh"));
-        while (o.find()) assertEquals(Math.rint(Double.parseDouble(o.group(1))), Double.parseDouble(o.group(1)), 0.0, "octave scale " + o.group(1));
+        // one octave, at the lattice's own scale (another's scale must be a whole number, so its jump is a whole
+        // number of periods)
+        Matcher o = Pattern.compile("valueNoise\\(q( \\* ([0-9.]+))?").matcher(resource("core/smoke_march.fsh"));
+        int octaves = 0;
+        while (o.find()) {
+            octaves++;
+            if (o.group(2) != null) assertEquals(Math.rint(Double.parseDouble(o.group(2))), Double.parseDouble(o.group(2)), 0.0, "octave scale " + o.group(2));
+        }
+        assertEquals(1, octaves, "octaves of noise");
     }
 
     @Test
@@ -105,6 +111,20 @@ class SmokeShaderLinkTest {
                 "texelAccum = blend(texelAccum, color_layers[ii]);"}) {
             org.junit.jupiter.api.Assertions.assertTrue(fsh.contains(line), "the game's chain: " + line);
             org.junit.jupiter.api.Assertions.assertTrue(fold.contains(line), "smoke_fold.fsh: " + line);
+        }
+        // the fold's layouts (SmokeRender.foldLayout) are made from LAYERS: each variant of the shader declares just
+        // those samplers, else Vulkan does not load it
+        var layout = new java.util.TreeSet<String>(java.util.List.of("MainDepthSampler"));
+        for (String l : SmokeRender.LAYERS) {
+            layout.add(l + "Sampler");
+            layout.add(l + "DepthSampler");
+        }
+        for (boolean depth : new boolean[]{false, true}) {
+            var declared = new java.util.TreeSet<String>(Pattern.compile("uniform sampler2D (\\w+);")
+                    .matcher(variant(fold, depth ? java.util.Set.of("FOLD_DEPTH") : java.util.Set.of())).results().map(r -> r.group(1)).toList());
+            var expect = new java.util.TreeSet<>(layout);
+            if (!depth) expect.add("MainSampler");
+            org.junit.jupiter.api.Assertions.assertEquals(expect, declared, depth ? "FOLD_DEPTH" : "FOLD");
         }
     }
 
