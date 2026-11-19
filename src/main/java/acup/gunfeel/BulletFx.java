@@ -63,7 +63,7 @@ public final class BulletFx {
         // a cell of an NTM multiblock (the shared multiblock_cell_* blocks): the rules of its machine
         BlockState ruleState = window ? state : Cells.ruleState(level, hit.getBlockPos(), state);
         BulletRules.Effect fx = BulletRules.hit(ruleState);
-        if (TestLog.client) TestLog.c(TestLog.shot(), "fx", "block", ruleState, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit),
+        if (TestLog.client) TestLog.c(TestLog.shot(), "fx", "block", ruleState, "pos", hit.getBlockPos(), "material", WorldLog.material(level, hit),
                 "sound", fx.sound() == null ? "none" : fx.sound().id(), "particles", fx.particles().size(),
                 "full", state.isCollisionShapeFullBlock(level, hit.getBlockPos()), "explosive", explosive, "fxOn", Config.bulletFx);
         if (fx.empty()) return;
