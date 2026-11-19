@@ -370,7 +370,7 @@ class ArmDeadSliderTest {
                 var s = setting(editor, "armReleaseMove." + (n % 3));
                 assertNotNull(s.why());
                 put(editor, s, s.min() + (s.max() - s.min()) * n / 8F);
-                float progress = Arms.release("", new double[] {0D, 0D, 180D});
+                float progress = ArmTimeline.release("", new double[] {0D, 0D, 180D});
                 assertEquals(0F, progress, 0F);
                 // as Arms.draw: the moved pose only while the turn is on, else the arm at rest
                 Matrix4f matrix = progress > 0F ? ArmMath.releasePose(rest, false, progress) : new Matrix4f(rest.local);
@@ -387,7 +387,7 @@ class ArmDeadSliderTest {
                 boolean changed = false;
                 for (int n = 0; n < 9; n++) {
                     put(editor, s, s.min() + (s.max() - s.min()) * n / 8F);
-                    float progress = Arms.release("ROLL", new double[] {0D, 0D, 180D});
+                    float progress = ArmTimeline.release("ROLL", new double[] {0D, 0D, 180D});
                     assertEquals(0.5F, progress, 1e-6F);
                     float[] now = new float[16];
                     ArmMath.releasePose(rest, false, progress).get(now);
