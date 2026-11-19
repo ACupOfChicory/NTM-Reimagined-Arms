@@ -2,7 +2,6 @@ package acup.gunfeel.ai;
 
 import org.jspecify.annotations.Nullable;
 
-import acup.gunfeel.ReaimTimes;
 import acup.gunfeel.SuppressionScale;
 import acup.gunfeel.SuppressionServer;
 import net.minecraft.server.level.ServerLevel;
@@ -20,19 +19,13 @@ import net.minecraft.world.phys.Vec3;
  * them, a blast near: each adds to its scale as it would to a player's. Not its own shots and blasts nor its own
  * side's, not a creative or spectating player's, not a laser, not a grenade in flight (its blast counts). Server thread.
  */
-public final class AiUnderFire {
-    /** the server setting: AI mobs are suppressed by the players' scale; off: three shots close past pin one, as before */
-    public static final String KEY = "aiSuppression";
+public final class AiUnderFire extends AiUnderFireBase {
     /** the last blast counted: the same one told twice (vanilla's within NTM's) counts once */
     private static @Nullable Vec3 lastBlast;
     private static long lastBlastTick = Long.MIN_VALUE / 2;
     private static float lastBlastSize;
 
     private AiUnderFire() {
-    }
-
-    public static boolean on() {
-        return ReaimTimes.flag(KEY, true);
     }
 
     public static void init() {

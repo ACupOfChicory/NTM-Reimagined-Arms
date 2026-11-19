@@ -19,7 +19,7 @@ import net.minecraft.world.level.pathfinder.PathType;
  * apply), and asks again when the path ends short of the goal, the mob is stuck, or blocks along the path changed.
  * Server thread, from the mob's goal.
  */
-public final class AiMover {
+public final class AiMover implements Stride {
     /** nodes a search may expand */
     static final int MAX_NODES = 3000;
     /** how often the path's sections are checked against the map, ticks */
@@ -120,7 +120,7 @@ public final class AiMover {
     }
 
     /** walks at this share of its speed from now (lying down, getting up) */
-    void slow(double share) {
+    public void slow(double share) {
         if (share == slow) return;
         slow = share;
         if (walking != null) mob.getNavigation().setSpeedModifier(modifier());
