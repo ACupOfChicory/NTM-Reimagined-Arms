@@ -76,39 +76,14 @@ public final class PassableClip extends ClipContext {
         BlockHitResult r = clip(level, from, to);
         if (!BulletRules.anyThrough()) return r;
         Vec3 end = r.getType() == HitResult.Type.MISS ? to : r.getLocation();
-        Vec3 d = end.subtract(from);
-        double len = d.length();
-        if (len < 1e-6) return r;
-        BlockPos start = BlockPos.containing(from);
-        // the cells the segment crosses, in order (a grid walk)
-        int x = start.getX(), y = start.getY(), z = start.getZ();
-        int sx = d.x > 0 ? 1 : -1, sy = d.y > 0 ? 1 : -1, sz = d.z > 0 ? 1 : -1;
-        double tx = d.x == 0 ? Double.MAX_VALUE : ((sx > 0 ? x + 1 - from.x : from.x - x) / Math.abs(d.x));
-        double ty = d.y == 0 ? Double.MAX_VALUE : ((sy > 0 ? y + 1 - from.y : from.y - y) / Math.abs(d.y));
-        double tz = d.z == 0 ? Double.MAX_VALUE : ((sz > 0 ? z + 1 - from.z : from.z - z) / Math.abs(d.z));
-        double dx = d.x == 0 ? Double.MAX_VALUE : 1 / Math.abs(d.x), dy = d.y == 0 ? Double.MAX_VALUE : 1 / Math.abs(d.y),
-                dz = d.z == 0 ? Double.MAX_VALUE : 1 / Math.abs(d.z);
         BlockPos.MutableBlockPos at = new BlockPos.MutableBlockPos();
-        for (int i = 0; i < 512; i++) {
-            if (tx <= ty && tx <= tz) {
-                if (tx > 1) break;
-                x += sx;
-                tx += dx;
-            } else if (ty <= tz) {
-                if (ty > 1) break;
-                y += sy;
-                ty += dy;
-            } else {
-                if (tz > 1) break;
-                z += sz;
-                tz += dz;
-            }
-            at.set(x, y, z);
-            BlockState state = level.getBlockState(at);
-            if (state.isAir() || !BulletRules.through(state)) continue;
-            BlockHitResult in = state.getShape(level, at).clip(from, end, at);
+        ThroughWalk.walk(from.x, from.y, from.z, end.x, end.y, end.z, at, (pos, x, y, z) -> {
+            pos.set(x, y, z);
+            BlockState state = level.getBlockState(pos);
+            if (state.isAir() || !BulletRules.through(state)) return;
+            BlockHitResult in = state.getShape(level, pos).clip(from, end, pos);
             if (in != null) passed.accept(in);
-        }
+        });
         return r;
     }
 
@@ -203,10 +178,9 @@ public final class PassableClip extends ClipContext {
     private static BlockHitResult owner(BlockHitResult hit) {
         Direction f = hit.getDirection();
         BlockPos pos = hit.getBlockPos();
-        double at = hit.getLocation().get(f.getAxis()), lo = pos.get(f.getAxis());
-        boolean onFar = f.getAxisDirection() == Direction.AxisDirection.POSITIVE ? at == lo : at == lo + 1;
-        if (!onFar || hit.isInside()) return hit;
-        return new BlockHitResult(hit.getLocation(), f, pos.relative(f.getOpposite()), false);
+        Vec3 at = hit.getLocation();
+        if (!HitOwner.moves(f.ordinal(), at.x, at.y, at.z, pos.getX(), pos.getY(), pos.getZ(), hit.isInside())) return hit;
+        return new BlockHitResult(at, f, pos.relative(f.getOpposite()), false);
     }
 
     // level.clip (BlockGetter.clip) as 26.2 has it: its walk of the blocks in core (BlockWalk, the same blocks in the

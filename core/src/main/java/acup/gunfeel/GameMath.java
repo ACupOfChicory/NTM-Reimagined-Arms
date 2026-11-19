@@ -30,6 +30,20 @@ public final class GameMath {
         return SIN[(int) ((long) (v * 10430.378350470453 + 16384.0) & 65535L)];
     }
 
+    /**
+     * Vec3.directionFromRotation(xRot, yRot): the way a body looks at these rotations (degrees), by the same float
+     * operations on the same table; out x, y, z
+     */
+    public static void direction(float xRot, float yRot, double[] out) {
+        float f = cos(-yRot * 0.017453292F - 3.1415927F);
+        float f1 = sin(-yRot * 0.017453292F - 3.1415927F);
+        float f2 = -cos(-xRot * 0.017453292F);
+        float f3 = sin(-xRot * 0.017453292F);
+        out[0] = f1 * f2;
+        out[1] = f3;
+        out[2] = f * f2;
+    }
+
     public static float clamp(float v, float lo, float hi) {
         return v < lo ? lo : Math.min(v, hi);
     }

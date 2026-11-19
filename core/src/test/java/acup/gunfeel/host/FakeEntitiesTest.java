@@ -19,6 +19,7 @@ class FakeEntitiesTest extends EntityViewContract {
         double x, y, z;
         boolean removed;
         byte stance = Stance.STAND;
+        float yRot, yHeadRot, yBodyRot, xRot;
 
         Fake(int id, int kind, boolean living, boolean player, boolean spectator, double x, double y, double z) {
             this.id = id;
@@ -54,9 +55,9 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public void motion(double[] out) { out[0] = 0; out[1] = -0.08; out[2] = 0; }
         @Override public void lastSpeed(double[] out) { out[0] = 0; out[1] = 0; out[2] = 0; }
         @Override public void box(double[] out) { out[0] = x - 0.3; out[1] = y; out[2] = z - 0.3; out[3] = x + 0.3; out[4] = y + bbHeight(); out[5] = z + 0.3; }
-        @Override public float yRot() { return 0; }
-        @Override public float yHeadRot() { return 0; }
-        @Override public float xRot() { return 0; }
+        @Override public float yRot() { return yRot; }
+        @Override public float yHeadRot() { return yHeadRot; }
+        @Override public float xRot() { return xRot; }
         @Override public boolean onGround() { return true; }
         @Override public boolean inWater() { return false; }
         @Override public boolean passenger() { return false; }
@@ -66,6 +67,7 @@ class FakeEntitiesTest extends EntityViewContract {
                 @Override public double nextDouble() { return r.nextDouble(); }
                 @Override public boolean nextBoolean() { return r.nextBoolean(); }
                 @Override public float nextFloat() { return r.nextFloat(); }
+                @Override public double nextGaussian() { return r.nextGaussian(); }
             };
         }
         @Override public boolean climbing() { livingOnly(); return false; }
@@ -164,6 +166,13 @@ class FakeEntitiesTest extends EntityViewContract {
         }
 
         @Override public boolean stuck(Body b) { return false; }
+        @Override public void yRot(Body b, float v) { ((Fake) b).yRot = v; }
+        @Override public void yHeadRot(Body b, float v) { ((Fake) b).yHeadRot = v; }
+        @Override public void yBodyRot(Body b, float v) { ((Fake) b).yBodyRot = v; }
+        @Override public void xRot(Body b, float v) { ((Fake) b).xRot = v; }
+        @Override public void face(Body b, float yaw) { }
+        @Override public boolean turned(Body b) { return false; }
+        @Override public void lookAt(Body b, double x, double y, double z, float yMax, float xMax) { }
     }
 
     private final FakeControl control = new FakeControl();

@@ -33,20 +33,8 @@ public final class AiGunner extends AiGunnerBase {
     static boolean checkLine = true;
 
     private final Mob mob;
+    /** where it aims, the object (AiGunnerBase keeps its numbers, set with it) */
     private @Nullable Vec3 aim;
-    /** how far up and down from the aim the part it aims at reaches (the trigger's gate), blocks */
-    private double halfHeight = AiAim.HALF_HEIGHT;
-    /** it runs this tick (AiMover.runs): its body faces its path, it does not shoot */
-    boolean runs;
-    /** the eye and the hand; whether it follows a target (and which) or looks at a place */
-    final AiAim sight = new AiAim();
-    private boolean tracking;
-    private int tracked = Integer.MIN_VALUE;
-    /** for the stands: a perfect hand, at once exactly here, always on target */
-    @Nullable
-    Vec3 exact;
-    /** the exact turn (a grenadier's lob) is let go after this tick */
-    private long exactUntil = Long.MAX_VALUE;
     /**
      * this tick it fires blind, the gun held up over its cover with no look along it (its mind sets it each tick): its
      * bullets spread three times the gun's (MixinAiLeanShot)
@@ -111,8 +99,14 @@ public final class AiGunner extends AiGunnerBase {
             tracking = false;
             sight.retarget();
         }
-        aim = at;
+        setAim(at);
         halfHeight = AiAim.HALF_HEIGHT;
+    }
+
+    private void setAim(@Nullable Vec3 at) {
+        aim = at;
+        if (at == null) aimAt(false, 0, 0, 0);
+        else aimAt(true, at.x, at.y, at.z);
     }
 
     /**
@@ -135,7 +129,7 @@ public final class AiGunner extends AiGunnerBase {
         tracked = id;
         sight.see(id, chest.x, chest.y, chest.z, tick, skill, mob.getX(), mob.getZ());
         double flight = LEAVES + chest.distanceTo(AiLean.eye(mob)) / bulletSpeed();
-        aim = (sight.lead(tick, skill, flight) ? new Vec3(sight.spotX, sight.spotY, sight.spotZ) : chest).add(0, up, 0);
+        setAim((sight.lead(tick, skill, flight) ? new Vec3(sight.spotX, sight.spotY, sight.spotZ) : chest).add(0, up, 0));
         this.halfHeight = halfHeight;
     }
 
@@ -148,8 +142,8 @@ public final class AiGunner extends AiGunnerBase {
      * tick until; null lets go of it.
      */
     void lob(@Nullable Vec3 along, long until) {
-        exact = along;
-        exactUntil = along == null ? Long.MAX_VALUE : until;
+        if (along == null) lob(false, 0, 0, 0, until);
+        else lob(true, along.x, along.y, along.z, until);
     }
 
     /** whether its mind wants the trigger down now (the debug view) */
@@ -203,7 +197,7 @@ public final class AiGunner extends AiGunnerBase {
         boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !turned && !acup.gunfeel.ProneFire.blocks(mob, stack)
                 && !AiWater.swims(mob);
         // a grenadier's shells go only as lobs worked out to burst clear of its own (AiGrenadier), never straight
-        if (shoot && exact == null && AiGrenadier.lobsOnly(mob, stack)) shoot = false;
+        if (shoot && !hasExact && AiGrenadier.lobsOnly(mob, stack)) shoot = false;
         // a hot barrel (acup.gunfeel.heat.Overheat): shorter bursts with longer pauses, and near the top it waits for it to cool
         if (shoot && heatHolds(stack, time)) shoot = false;
         // the line to the aim, the line it looks along now (a burst's kick, a turn not done) and the one its body faces
@@ -255,7 +249,7 @@ public final class AiGunner extends AiGunnerBase {
         if (n > 0 && acup.gunfeel.Prone.lying(mob)) shotsLying += n;
         if (n > 0 && low && mob.getPose() == net.minecraft.world.entity.Pose.CROUCHING) shotsLow += n;
         if (n > 0 && covered) coverShots += n;
-        if (n > 0 && exact == null) recoil(n, level.getGameTime(), stack);
+        if (n > 0 && !hasExact) recoil(n, level.getGameTime(), stack);
     }
 
     /**
@@ -390,57 +384,17 @@ public final class AiGunner extends AiGunnerBase {
         return false;
     }
 
-    // the head, body and look control to this view; the look control turns the head after the goals, so it is given a
-    // place along the view and the hand's error and the kick stay
-    private void face(float y, float p, AiSkill skill) {
-        mob.setYHeadRot(y);
-        mob.setXRot(p);
-        // NTM fires a mob's bullet the way its body faces: the body faces the aim, but while running (the body
-        // follows the path then, the head turns within its neck)
-        if (!runs && !(mob.getMoveControl() instanceof AiMoveControl legs && legs.turned())) {
-            mob.setYRot(y);
-            mob.yBodyRot = y;
-            if (mob.getMoveControl() instanceof AiMoveControl legs) legs.face(y);
-        }
-        // from the upright eye: the look control turns the head from the mob's own place, not a leaned eye's
-        Vec3 eye = mob.getEyePosition();
-        double far = aim == null ? 16 : Math.max(1, eye.distanceTo(aim));
-        Vec3 look = eye.add(Vec3.directionFromRotation(p, y).scale(far));
-        mob.getLookControl().setLookAt(look.x, look.y, look.z, skill.turn(), skill.turn());
+    @Override
+    void leanEye(double[] out) {
+        Vec3 e = AiLean.eye(mob);
+        out[0] = e.x;
+        out[1] = e.y;
+        out[2] = e.z;
     }
 
-    /**
-     * Turns the mob towards the aim with its hand (AiAim.turn); whether the spot it expects the target at is on the
-     * barrel now (the trigger may be down).
-     */
-    private boolean turn(long tick) {
-        if (exact != null && tick > exactUntil) lob(null, tick);
-        if (aim == null) return false;
-        Vec3 eye = AiLean.eye(mob);
-        AiSkill skill = AiSkill.current();
-        float y, p;
-        boolean on;
-        if (exact != null) {
-            y = AiAim.yawTo(eye.x, eye.z, exact.x, exact.z);
-            p = AiAim.pitchTo(eye.x, eye.y, eye.z, exact.x, exact.y, exact.z);
-            on = true;
-        } else {
-            double mx = tracking ? sight.moveX : 0, my = tracking ? sight.moveY : 0, mz = tracking ? sight.moveZ : 0;
-            sight.turn(tick, skill, eye.x, eye.y, eye.z, mob.getYHeadRot(), mob.getXRot(), aim.x, aim.y, aim.z, mx, my, mz,
-                    mob.getRandom()::nextGaussian);
-            y = sight.yaw;
-            p = sight.pitch;
-            // on target as far as it knows: a kick it has not noticed yet left out
-            on = AiAim.onTarget(skill, eye.x, eye.y, eye.z, sight.seenYaw, sight.seenPitch, aim.x, aim.y, aim.z, halfHeight);
-        }
-        // a rubber slug's confusion swings the aim off (it fires all the same, as it believes it is on)
-        if (acup.gunfeel.compat.Feature.RUBBER_SLUG.on()) {
-            float[] off = acup.gunfeel.ammo.RubberServer.drift(mob);
-            y += off[0];
-            p = Math.clamp(p + off[1], -90F, 90F);
-        }
-        face(y, p, skill);
-        return on;
+    @Override
+    float @Nullable [] rubberDrift() {
+        return acup.gunfeel.compat.Feature.RUBBER_SLUG.on() ? acup.gunfeel.ammo.RubberServer.drift(mob) : null;
     }
 
     @Override

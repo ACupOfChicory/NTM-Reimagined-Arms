@@ -22,6 +22,13 @@ public interface BodyControl {
         @Override public int pathNext(Body b) { throw none(); }
         @Override public void want(Body b, double x, double y, double z, double modifier) { throw none(); }
         @Override public boolean stuck(Body b) { throw none(); }
+        @Override public void yRot(Body b, float v) { throw none(); }
+        @Override public void yHeadRot(Body b, float v) { throw none(); }
+        @Override public void yBodyRot(Body b, float v) { throw none(); }
+        @Override public void xRot(Body b, float v) { throw none(); }
+        @Override public void face(Body b, float yaw) { throw none(); }
+        @Override public boolean turned(Body b) { throw none(); }
+        @Override public void lookAt(Body b, double x, double y, double z, float yMax, float xMax) { throw none(); }
     };
 
     /**
@@ -57,4 +64,30 @@ public interface BodyControl {
      * that clears what it reads, so asked once a tick where the game's code asked it.
      */
     boolean stuck(Body b);
+
+    // its turn: each the game's setter of what Body reads by the same name, in the caller's order
+
+    /** setYRot: the way its body is turned as the game moves and fires it ({@link Body#yRot}) */
+    void yRot(Body b, float v);
+
+    /** setYHeadRot ({@link Body#yHeadRot}) */
+    void yHeadRot(Body b, float v);
+
+    /** the living body's yBodyRot, the way its body is drawn turned */
+    void yBodyRot(Body b, float v);
+
+    /** setXRot ({@link Body#xRot}) */
+    void xRot(Body b, float v);
+
+    /** the mod's own MoveControl (AiMoveControl) to face this way this tick; nothing for another */
+    void face(Body b, float yaw);
+
+    /**
+     * Stuck jumping a while ago, it faces its path now (AiMoveControl.turned: the gunner does not turn its body to the
+     * aim); false for another MoveControl
+     */
+    boolean turned(Body b);
+
+    /** its LookControl to turn its head to this point, at most yMax and xMax degrees a tick (setLookAt) */
+    void lookAt(Body b, double x, double y, double z, float yMax, float xMax);
 }
