@@ -211,7 +211,7 @@ class HeadProfilesTest {
             var point=ModelContours.point(b,i/10.,j/10.,k/10.);
             boolean in=HeadZone.contains(expected.zones(),point);if(in) head++;
             // без Flywheel зона — сами кубы, а не коробка вокруг них
-            assertEquals(in && neck.stream().anyMatch(x->x.containsPoint(point)),HeadZone.contains(resolved.zones(),point),point.toString());
+            assertEquals(in && neck.stream().anyMatch(x->x.containsPoint(point.x,point.y,point.z)),HeadZone.contains(resolved.zones(),point),point.toString());
         }
         assertTrue(head>100,"в голове есть точки зоны: "+head);
         // коза без рогов: голова без Flywheel — только уши (бородка плоская): голова — уши и нос, как под Flywheel
@@ -280,7 +280,7 @@ class HeadProfilesTest {
         var united=without.zones().stream().filter(z->z.box().part().equals("root/head")).findFirst().orElseThrow();
         assertEquals(2,united.pieces().size());
         var back=new Vec3(0,1.501-px/2,-.1875);var chest=new Vec3(.2,1.501-px/2,.1875);
-        assertTrue(united.box().containsPoint(back) && united.box().containsPoint(chest),"коробка вокруг кубов берёт спину и грудь");
+        assertTrue(united.box().containsPoint(back.x,back.y,back.z) && united.box().containsPoint(chest.x,chest.y,chest.z),"коробка вокруг кубов берёт спину и грудь");
         for(var body:List.of(back,chest)) {
             assertFalse(HeadZone.contains(without.zones(),body),"без Flywheel: "+body);
             assertFalse(HeadZone.contains(with.zones(),body),"с Flywheel: "+body);
@@ -304,7 +304,7 @@ class HeadProfilesTest {
         for(int i=0;i<13;i++) for(int j=0;j<13;j++) for(int k=0;k<13;k++) {
             var p=ModelContours.point(around,(i+.5)/13,(j+.5)/13,(k+.5)/13);
             boolean head1=HeadZone.contains(without.zones(),p);if(head1) in++; else out++;
-            assertEquals(skull.containsPoint(p) || nose.containsPoint(p),head1,p.toString());
+            assertEquals(skull.containsPoint(p.x,p.y,p.z) || nose.containsPoint(p.x,p.y,p.z),head1,p.toString());
             assertEquals(head1,HeadZone.contains(world,new Vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z).add(position)),"в мире: "+p);
         }
         assertTrue(in>1000 && out>100,"в коробке и голова, и нет: "+in+"/"+out);
@@ -665,7 +665,7 @@ class HeadProfilesTest {
         int under=0;
         for(var leg:shell) if(leg.part().startsWith("root/leg")) for(double a:new double[]{.1,.5,.9}) for(double b:new double[]{.1,.5,.9}) for(double c:new double[]{.1,.5,.9}) {
             var point=new Vec3(leg.x()+a*leg.ux()+b*leg.vx()+c*leg.wx(),leg.y()+a*leg.uy()+b*leg.vy()+c*leg.wy(),leg.z()+a*leg.uz()+b*leg.vz()+c*leg.wz());
-            if(!crabZones.getFirst().box().containsPoint(point) || shellCubes.stream().anyMatch(cube->cube.containsPoint(point))) continue;
+            if(!crabZones.getFirst().box().containsPoint(point.x,point.y,point.z) || shellCubes.stream().anyMatch(cube->cube.containsPoint(point.x,point.y,point.z))) continue;
             under++;assertFalse(HeadZone.contains(crabZones,point),leg.part()+" "+point);
         }
         assertTrue(under>0,"нога в коробке панциря вне его кубов");
