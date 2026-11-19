@@ -244,23 +244,23 @@ public final class BulletServer {
             return false;
         }
         // too weak to harm it
-        if (rule.min() > 0F && !(damage > rule.min())) {
+        if (rule.tooWeak(damage)) {
             worn(bullet, pos, state, "too_weak", "min", rule.min());
             return false;
         }
         long now = level.getGameTime();
         forget(level, now);
-        if (rule.mode() == 2 || rule.mode() == 3 || rule.mode() == 4) {
+        if (rule.worn()) {
             Spot spot = new Spot(level, pos);
             Wear w = WEAR.get(spot);
             if (w != null && w.state().getBlock() != state.getBlock()) w = null;
-            float add = rule.mode() == 2 ? 1F : Math.max(0F, damage - rule.min());
-            float need = rule.mode() == 3 ? rule.amount() * hardness : rule.amount();
+            float add = rule.wear(damage);
+            float need = rule.need(hardness);
             float done = (w == null ? 0F : w.done()) + add;
             if (need > 0F && done < need) {
                 WEAR.put(spot, new Wear(done, now, state));
                 worn(bullet, pos, state, "wear", "done", done, "need", need, "min", rule.min());
-                level.destroyBlockProgress(crackId(pos), pos, Math.min(9, (int) (done / need * 10F)));
+                level.destroyBlockProgress(crackId(pos), pos, BulletRuleText.Break.cracks(done, need));
                 return false;
             }
             WEAR.remove(spot);

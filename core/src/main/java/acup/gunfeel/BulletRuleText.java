@@ -32,6 +32,31 @@ public final class BulletRuleText {
             float left = (float) (damage * Math.pow(keep, len) - pierce * hardness * len);
             return left >= 1F ? left : -1F;
         }
+
+        // a bullet of this damage does the block no harm (min=)
+        public boolean tooWeak(float damage) {
+            return min > 0F && !(damage > min);
+        }
+
+        // the block gives way after some wear (hits, damage, hp), not at the first hit
+        public boolean worn() {
+            return mode == 2 || mode == 3 || mode == 4;
+        }
+
+        // the wear one hit of this damage adds: a hit, or the damage above min=
+        public float wear(float damage) {
+            return mode == 2 ? 1F : Math.max(0F, damage - min);
+        }
+
+        // the wear the block of this hardness takes before it breaks
+        public float need(float hardness) {
+            return mode == 3 ? amount * hardness : amount;
+        }
+
+        // the cracks shown for {@code done} of {@code need} (0..9)
+        public static int cracks(float done, float need) {
+            return Math.min(9, (int) (done / need * 10F));
+        }
     }
 
     // a particle: "block" (the hit block's crack), "block:<id>" (that block's crack) or a plain particle id

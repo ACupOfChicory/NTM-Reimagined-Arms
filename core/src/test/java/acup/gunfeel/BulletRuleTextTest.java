@@ -45,6 +45,24 @@ class BulletRuleTextTest {
     }
 
     @Test
+    void wearOfOneHit() {
+        var concrete = BulletRuleText.breakOf(BulletRuleText.parse(List.of("break x damage 550 min=20")).get(0));
+        assertTrue(concrete.worn());
+        assertTrue(concrete.tooWeak(20F));
+        assertFalse(concrete.tooWeak(21F));
+        // only the damage above min counts, against the amount times the hardness
+        assertEquals(5F, concrete.wear(25F));
+        assertEquals(990F, concrete.need(1.8F), 1e-3F);
+        var hits = BulletRuleText.breakOf(BulletRuleText.parse(List.of("break x hits 4")).get(0));
+        assertEquals(1F, hits.wear(100F));
+        assertEquals(4F, hits.need(50F));
+        assertFalse(hits.tooWeak(0.1F));
+        assertFalse(BulletRuleText.breakOf(BulletRuleText.parse(List.of("break x instant")).get(0)).worn());
+        assertEquals(5, BulletRuleText.Break.cracks(2F, 4F));
+        assertEquals(9, BulletRuleText.Break.cracks(3.99F, 4F));
+    }
+
+    @Test
     void theLastMatchingLineCounts() {
         var all = BulletRuleText.parse(List.of("hole a glass hitbox", "hole b plain", "hole a pixels", "ricochet a no", "path a through"));
         assertArrayEquals(new String[] {"glass", "pixels"}, BulletRuleText.hole(all, r -> r.selectors().contains("a")));
