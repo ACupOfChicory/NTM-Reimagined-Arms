@@ -8,7 +8,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import net.minecraft.world.phys.Vec3;
+import acup.gunfeel.Vec3d;
 
 // Height in the choice of cover: a head against the sky (Skyline) on hand-made land, and the cover query's weights for
 // height over the threat and the skyline.
@@ -41,7 +41,7 @@ class HeightTest {
     void coverHigherOverTheThreatCountsForMoreAndAHeadAgainstTheSkyCosts() {
         PathSearchTest.Grid g = CoverQueryTest.yard();
         // the threat three blocks under the yard
-        Vec3 low = new Vec3(12.3, -1.4, 2.5);
+        Vec3d low = new Vec3d(12.3, -1.4, 2.5);
         CoverQuery.Params flat = new CoverQuery.Params(), up = new CoverQuery.Params();
         up.up = CoverQuery.UP;
         List<CoverQuery.Spot> a = CoverQuery.find(g, CoverQueryTest.rays(g), CoverQueryTest.SELF, List.of(low), flat, k -> false, 6);

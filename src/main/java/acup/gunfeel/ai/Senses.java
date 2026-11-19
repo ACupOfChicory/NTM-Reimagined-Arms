@@ -35,8 +35,8 @@ public final class Senses {
      * through about 8 blocks of leaves, no more). Behind a veil it takes longer to notice, as the share let through.
      */
     static final double VEIL = 9, MAX_VEIL = 8.5;
-    /** grass, block for block, as a share of leaves: it hides little (the owner's word) */
-    static final double GRASS = 0.15;
+    /** grass, block for block, as a share of leaves (Sight, core) */
+    static final double GRASS = Sight.GRASS;
     /**
      * One this close, blocks between its box and the mob's, is noticed wherever the mob looks (a rustle, a shadow at its
      * back): the stands had a squad stand 1.1 blocks before two silent foes, its back to them, 1600 ticks
@@ -54,15 +54,12 @@ public final class Senses {
     static final double LYING = 1.75, CROUCHING = 1.3, RUNNING = 0.75;
     /** faster than this (blocks over its last tick) a mob runs: a player walks at 0.216 */
     static final double RUN_PACE = 0.25;
-    /**
-     * A veil this thin or thinner is no hiding (noticed in under twice the time): one behind it is in plain sight, to its
-     * cover's choice and its keeping (CoverQuery, AiSoldier) and to a peek round a corner ({@link #clearLine})
-     */
-    static final double PLAIN = 4;
+    /** a veil this thin or thinner is no hiding (Sight, core) */
+    static final double PLAIN = Sight.PLAIN;
 
-    /** in plain sight along the line: no block that hides, and a veil of leaves and grass no thicker than {@link #PLAIN} */
+    /** in plain sight along the line (Sight.plain) */
     public static boolean plain(VoxelRay.Source voxels, double x0, double y0, double z0, double x1, double y1, double z1) {
-        return VoxelRay.veil(voxels, x0, y0, z0, x1, y1, z1, GRASS, PLAIN) >= 0;
+        return Sight.plain(voxels, x0, y0, z0, x1, y1, z1);
     }
 
     /** how its bearing moves the time to notice it: lying or crouching longer, running shorter */

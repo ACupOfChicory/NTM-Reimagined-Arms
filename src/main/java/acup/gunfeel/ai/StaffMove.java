@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.Vec3d;
+import acup.gunfeel.Vecs;
 import acup.gunfeel.ReaimTimes;
 
 import net.minecraft.core.BlockPos;
@@ -489,7 +491,7 @@ final class StaffMove {
             for (AiBot b : of) if (b != bot && b.order != null && b.order.coverCell == c) return true;
             return false;
         };
-        List<CoverQuery.Spot> found = CoverQuery.find(TacticalMap.of(level), AiBots.voxels(level), new Vec3(x, y, z), eyes, p, taken, 1);
+        List<CoverQuery.Spot> found = CoverQuery.find(TacticalMap.of(level), AiBots.voxels(level), new Vec3d(x, y, z), Vecs.of(eyes), p, taken, 1);
         if (found.isEmpty()) return;
         long c = found.get(0).cell();
         o.coverCell = c;

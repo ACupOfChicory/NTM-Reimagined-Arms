@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 
 import acup.gunfeel.GameRandoms;
+import acup.gunfeel.Vec3d;
 import acup.gunfeel.Vecs;
 import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
@@ -628,9 +629,11 @@ public final class AiCheck {
         var voxels = AiBots.voxels(level);
         List<CoverQuery.Spot> spots = List.of();
         long best = Long.MAX_VALUE;
+        Vec3d from = Vecs.of(self);
+        List<Vec3d> threats = List.of(Vecs.of(threat));
         for (int i = 0; i < 20; i++) {
             long t0 = System.nanoTime();
-            spots = CoverQuery.find(map, voxels, self, List.of(threat), new CoverQuery.Params(), k -> false, 4);
+            spots = CoverQuery.find(map, voxels, from, threats, new CoverQuery.Params(), k -> false, 4);
             best = Math.min(best, System.nanoTime() - t0);
         }
         out.add(String.format(Locale.ROOT, "     cover from a threat across the wall: %d spots, best %s (peek %s), %.0f us a query",

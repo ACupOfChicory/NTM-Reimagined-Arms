@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
+import acup.gunfeel.Vec3d;
+import acup.gunfeel.Vecs;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -269,7 +271,7 @@ final class AiCheckHill {
                     p.land = land;
                     p.reach = AiSoldier.SLOPE_REACH;
                 }
-                List<CoverQuery.Spot> found = CoverQuery.find(map, voxels, new Vec3(X0 + x + 0.5, y + height(z), Z0 + z + 0.5), List.of(eye), p, k -> false, 1);
+                List<CoverQuery.Spot> found = CoverQuery.find(map, voxels, new Vec3d(X0 + x + 0.5, y + height(z), Z0 + z + 0.5), List.of(Vecs.of(eye)), p, k -> false, 1);
                 if (found.isEmpty()) continue;
                 CoverQuery.Spot s = found.get(0);
                 out[1]++;
