@@ -42,7 +42,7 @@ public final class Gl54Items {
         MAG_CONTENTS = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_mag",
                 DataComponentType.<MagContents>builder().persistent(MagContents.CODEC).networkSynchronized(MagContents.STREAM_CODEC).build());
         GUN_MAG = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_gun",
-                DataComponentType.<GunMag>builder().persistent(GunMag.CODEC).networkSynchronized(GunMag.STREAM_CODEC).ignoreSwapAnimation().build());
+                DataComponentType.<GunMag>builder().persistent(GunMagCodecs.CODEC).networkSynchronized(GunMagCodecs.STREAM_CODEC).ignoreSwapAnimation().build());
         RANGE = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_range",
                 DataComponentType.<Float>builder().persistent(com.mojang.serialization.Codec.FLOAT).networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.FLOAT).ignoreSwapAnimation().build());
         OFFSET = NeoForgeRegistrar.registerDataComponent(NAMESPACE + ":gl54_offset",
