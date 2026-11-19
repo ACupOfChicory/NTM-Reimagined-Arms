@@ -61,6 +61,13 @@ public class OverheatBase {
     public static final float AI_SHORT = 0.6F, AI_WAIT = 0.85F, AI_RESUME = 0.5F;
 
     static final String KEY_HEAT = "gunfeel_heat", KEY_TICK = "gunfeel_heat_t";
+    static final String KEY_JAM = "gunfeel_heat_jam", KEY_COOK = "gunfeel_heat_cook", KEY_ROLLED = "gunfeel_heat_rolled";
+    /** the tick of the gun's last shot, low 31 bits (the heat's own tick moves on as water cools it too) */
+    static final String KEY_SHOT = "gunfeel_heat_shot";
+    /** water and rain: cooled faster this often, ticks */
+    static final int WET_EVERY = 10;
+    /** the hiss of a hot gun in hand, ticks between */
+    static final int HISS_EVERY = 20;
 
     /** 0 below from, 1 at to and over, a line between */
     public static float ramp(float h, float from, float to) {
@@ -105,6 +112,69 @@ public class OverheatBase {
     /** the server's gunOverheat: heat a shot times this (0 off) */
     public static float scale() {
         return Math.max(0F, ReaimTimes.number("gunOverheat", 1F));
+    }
+
+    // the server's heat as NTM ticks the gun (heat.OverheatServer): its decisions, by numbers; what it reads and writes
+    // on the gun, its random rolls and their conditions stay with the caller
+
+    /** a tick as the gun keeps it: its low 31 bits */
+    static int low(long tick) {
+        return (int) (tick & 0x7FFFFFFFL);
+    }
+
+    /** water or rain cools it faster at this tick (every WET_EVERY) */
+    static boolean wetNow(long now) {
+        return now % WET_EVERY == 0;
+    }
+
+    /** heat h cooled WET_EVERY ticks in water or rain: the air's and the water's on top, 1/TAU_WET in all */
+    static float wetCooled(float h) {
+        float extra = 1F / (1F / TAU_WET - 1F / TAU);
+        return cooled(h, WET_EVERY, extra);
+    }
+
+    /** cooled wet, a gun in hand this hot hisses and steams */
+    static boolean wetHisses(float h) {
+        return h > 0.3F;
+    }
+
+    /** the hiss of a gun in hand cooled wet, its volume */
+    static float wetHissVolume(float h) {
+        return 0.15F + 0.35F * h;
+    }
+
+    /** the steam of a gun in hand cooled wet, its puffs */
+    static int steamPuffs(float h) {
+        return 1 + (int) (3 * h);
+    }
+
+    /** a hot gun in hand (over HISS_FROM) hisses at this tick: every HISS_EVERY, at its holder's own turn (its id) */
+    static boolean hissNow(long now, int id) {
+        return now % HISS_EVERY == id % HISS_EVERY;
+    }
+
+    /** the hiss of a hot gun in hand, its volume */
+    static float hissVolume(float h) {
+        return 0.06F + 0.12F * ramp(h, HISS_FROM, 1F);
+    }
+
+    /**
+     * The M2's stop with no cook-off set rolls for one now: not rolled for this stop yet (the last shot's low bits) and
+     * no more than 5 ticks after the shot.
+     */
+    static boolean cookRolls(int rolled, int lastLow, long last, long now) {
+        return !(rolled == lastLow || now - last > 5);
+    }
+
+    /** a cook-off delay ticks after now, kept as its low 31 bits; 0 is none, so never 0 */
+    static int cookAt(long now, int delay) {
+        return Math.max(1, low(now + delay));
+    }
+
+    /** a cook-off set for tick cook (low 31 bits) goes now: not ahead of now by under a quarter of the bits (they wrap) */
+    static boolean cookDue(int cook, long now) {
+        int ahead = (cook - low(now)) & 0x7FFFFFFF;
+        return !(ahead != 0 && ahead < 0x20000000);
     }
 
     /** a tick kept as its low 31 bits, put back next to now (never after it) */
