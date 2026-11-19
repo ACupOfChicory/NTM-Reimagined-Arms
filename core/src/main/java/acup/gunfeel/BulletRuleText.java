@@ -28,6 +28,9 @@ public class BulletRuleText {
 
     private static long stamp = Long.MIN_VALUE, lastPoll;
 
+    // the file is looked at, at the next use: set by tick a second after the last look, by reloadNow, at the start
+    private static volatile boolean pollDue = true;
+
     // the server's settings the rules were last read with (null: none, this game's own file alone)
     private static ServerSettings.@Nullable Snapshot rulesOf;
 
@@ -44,16 +47,31 @@ public class BulletRuleText {
 
     /** the file and the concrete key looked at again at the next use, whatever the clock (ReaimTimes.reloadNow) */
     static synchronized void reloadNow() {
-        lastPoll = 0;
+        pollDue = true;
+    }
+
+    /**
+     * The game ticked ({@code nowMillis}: the wall clock): a second after the last look, the file and the concrete
+     * key are looked at again at the next use. The clock is read here, once a tick, not by each question to the
+     * rules (two of them a pierced block, each a clock read dearer than the rest of the question). 26.2's caller:
+     * BulletRules' own listener on every level's tick, both sides (no other one is needed, not in GunFeelMod either).
+     * The listener is set up by BulletRules' class initialisation, and load() is called only from BulletRules.rules():
+     * another way to load() must touch BulletRules first, or the file is never looked at again.
+     */
+    public static synchronized void tick(long nowMillis) {
+        if (nowMillis - lastPoll > 1000L) {
+            lastPoll = nowMillis;
+            pollDue = true;
+        }
     }
 
     // goes up each time the rules are read anew: what a version worked out of the old ones starts over
     static int readings;
 
     // the rules as they are now: the jar's, then config/'s (the server's lines of its kinds on another game's
-    // server), the file looked at every second
+    // server), the file looked at again at the first use after a tick a second on (tick), at once when the server's
+    // settings change
     static synchronized List<Rule> load() {
-        long now = System.currentTimeMillis();
         if (!builtinRead) {
             builtinRead = true;
             // the block review's materials first: the mod's bullet rules, then the config's, come after and win
@@ -67,11 +85,11 @@ public class BulletRuleText {
             }
             builtin = mine;
             stamp = Long.MIN_VALUE + 1;
-            lastPoll = 0;
+            pollDue = true;
         }
         ServerSettings.Snapshot remote = ServerSettings.remote();
-        if (now - lastPoll > 1000L || remote != rulesOf) {
-            lastPoll = now;
+        if (pollDue || remote != rulesOf) {
+            pollDue = false;
             Path f = GameDirs.get().config().resolve(FILE);
             try {
                 if (!Files.exists(f)) Files.writeString(f, HELP);
