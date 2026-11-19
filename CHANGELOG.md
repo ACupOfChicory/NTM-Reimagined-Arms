@@ -1,5 +1,14 @@
 # Changelog
 
+## X1716
+
+- Smoke and gas clouds cost less to draw. At the high and ultra smoke quality,
+  with the camera inside a cloud the smoke is drawn coarser and laid over the
+  walls by their depth. Smoke far off is sampled in longer steps, and its grain
+  has one layer of noise instead of two, so it looks a little softer. The F7
+  key that switched between these looks is gone, as is the look's name in the
+  top left corner.
+
 ## X1713
 
 - With the OpenGL renderer a smoke or gas cloud no longer shows a picture of the

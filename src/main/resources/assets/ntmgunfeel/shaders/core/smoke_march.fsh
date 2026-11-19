@@ -45,8 +45,8 @@ vec2 smokeAt(vec3 g, float slot) {
 }
 
 // the noise's lattice repeats every PERIOD cells: 0.9 a block, so every 1000 blocks, the step of the Anchor's lattice,
-// and the noise does not jump when the camera takes the Anchor to its next point (the second octave's scale is a whole
-// number for the same reason: its jump is then a whole number of periods too)
+// and the noise does not jump when the camera takes the Anchor to its next point (one octave; a finer one would need
+// a whole-number scale for the same reason)
 const float PERIOD = 900.0;
 
 float hash(vec3 p) {
@@ -113,20 +113,19 @@ void main() {
     float len = t1 - t0;
     int steps = int(clamp(ceil(len / Atlas.w), 2.0, Screen.w));
     float dt = len / float(steps);
-    // with the step growing the ray needs fewer of them: the ray's end stops it
-    if (Look.y > 0.5) steps = 128;
+    // the step only grows from dt, so the ray's end comes within these; it stops there
     // interleaved gradient noise: the first step's offset, so the steps leave no bands
     float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-    // look b: t is where a step starts and the point is the jitter into it, so the last step, cut at the ray's end,
-    // still covers the whole ray
-    float t = Look.y > 0.5 ? t0 : t0 + dt * jitter;
+    // t is where a step starts and the point is the jitter into it, so the last step, cut at the ray's end, still
+    // covers the whole ray
+    float t = t0;
     float through = 1.0;
     vec3 light = vec3(0.0);
     for (int i = 0; i < 128; i++) {
-        if (i >= steps || through < Anchor.w || Look.y > 0.5 && t >= t1 - 1e-3) break;
-        // a look to choose from (Look.y): the step grows beyond 8 blocks, twice as long from 16
-        float dti = Look.y > 0.5 ? min(dt * clamp(1.0 + max(0.0, t - 8.0) / 8.0, 1.0, 2.0), max(t1 - t, 0.0)) : dt;
-        vec3 p = dir * (Look.y > 0.5 ? t + dti * jitter : t);
+        if (i >= steps || through < Anchor.w || t >= t1 - 1e-3) break;
+        // the step grows beyond 8 blocks, twice as long from 16: far off a step's worth of detail is under a pixel
+        float dti = min(dt * clamp(1.0 + max(0.0, t - 8.0) / 8.0, 1.0, 2.0), max(t1 - t, 0.0));
+        vec3 p = dir * (t + dti * jitter);
         // every cloud of the group at this point: their smoke is one smoke, its extinctions add up and its colour is
         // theirs by how much each puts in
         float sigma = 0.0;
@@ -143,8 +142,8 @@ void main() {
             if (dl.x <= 0.004) continue;
             if (noise < 0.0) {
                 vec3 q = (p - Anchor.xyz) * 0.9 + vec3(0.0, Screen.z * 0.12, -Screen.z * 0.05);
+                // one octave: a second (twice as fine) was not to be seen in the game, at a sixth of the march's cost
                 noise = valueNoise(q);
-                if (Extra.y > 0.5) noise = noise * 0.65 + valueNoise(q * 2.0 + 17.0) * 0.35;
             }
             float d = max(0.0, dl.x * (0.45 + 1.1 * noise) - 0.04);
             float e = lo.w * d;
