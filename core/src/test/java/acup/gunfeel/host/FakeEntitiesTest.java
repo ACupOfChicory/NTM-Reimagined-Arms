@@ -57,6 +57,16 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public float yHeadRot() { return 0; }
         @Override public float xRot() { return 0; }
         @Override public boolean onGround() { return true; }
+        @Override public boolean inWater() { return false; }
+        @Override public boolean passenger() { return false; }
+        @Override public acup.gunfeel.GameRandom random() {
+            java.util.Random r = new java.util.Random(id);
+            return new acup.gunfeel.GameRandom() {
+                @Override public double nextDouble() { return r.nextDouble(); }
+                @Override public boolean nextBoolean() { return r.nextBoolean(); }
+                @Override public float nextFloat() { return r.nextFloat(); }
+            };
+        }
         @Override public boolean climbing() { livingOnly(); return false; }
         @Override public boolean crouching() { return false; }
         @Override public String poseName() { return "standing"; }

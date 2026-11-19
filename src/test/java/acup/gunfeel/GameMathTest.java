@@ -56,6 +56,27 @@ class GameMathTest {
         }
     }
 
+    // sin and cos by Mth's table: every step of it, numbers round it and far off, and the angle AiDash asks for
+    @Test
+    void theSineTable() {
+        assertEquals(Mth.DEG_TO_RAD, GameMath.DEG_TO_RAD);
+        for (int i = 0; i < 65536; i++) {
+            double v = i / 10430.378350470453;
+            same("sin " + i, Mth.sin(v), GameMath.sin(v));
+            same("cos " + i, Mth.cos(v), GameMath.cos(v));
+        }
+        SplittableRandom r = new SplittableRandom(20261120);
+        for (int i = 0; i < 200_000; i++) {
+            double v = pick(r);
+            same("sin " + v, Mth.sin(v), GameMath.sin(v));
+            same("cos " + v, Mth.cos(v), GameMath.cos(v));
+            float f = (float) v;
+            same("sinF " + f, Mth.sin(f), GameMath.sin(f));
+            same("cosF " + f, Mth.cos(f), GameMath.cos(f));
+        }
+        same("cos 30°", Mth.cos(30F * Mth.DEG_TO_RAD), GameMath.cos(30F * GameMath.DEG_TO_RAD));
+    }
+
     // the ends of a clamp the random numbers miss: a value on an end, ±0 against ±0, an empty range (lo > hi)
     @Test
     void theClampsEnds() {

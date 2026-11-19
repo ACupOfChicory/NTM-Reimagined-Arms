@@ -11,4 +11,7 @@ public interface GameRandom {
 
     /** RandomSource.nextBoolean */
     boolean nextBoolean();
+
+    /** RandomSource.nextFloat */
+    float nextFloat();
 }
