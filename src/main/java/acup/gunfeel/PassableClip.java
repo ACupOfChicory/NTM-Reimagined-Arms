@@ -616,39 +616,21 @@ public final class PassableClip extends ClipContext {
     private static boolean hiddenFace(BlockGetter level, BlockHitResult hit, BlockState state) {
         Direction face = hit.getDirection();
         BlockPos pos = hit.getBlockPos();
-        double at = switch (face.getAxis()) {
-            case X -> hit.getLocation().x - pos.getX();
-            case Y -> hit.getLocation().y - pos.getY();
-            case Z -> hit.getLocation().z - pos.getZ();
-        };
-        double edge = face.getAxisDirection() == Direction.AxisDirection.POSITIVE ? 1.0 : 0.0;
-        if (Math.abs(at - edge) > 1e-5) return false;
+        Vec3 at = hit.getLocation();
+        if (!MaskPixels.onFace(face.ordinal(), at.x - pos.getX(), at.y - pos.getY(), at.z - pos.getZ())) return false;
         return !net.minecraft.world.level.block.Block.shouldRenderFace(state, level.getBlockState(pos.relative(face)), face);
     }
 
-    // true unless the block has a mask and the hit lands on one of its clear pixels
+    // true unless the block has a mask and the hit lands on one of its clear pixels (MaskPixels)
     private static boolean solid(BlockState state, BlockHitResult hit) {
         long[][] m = maskOf(state);
         if (m == null) return true;
         Direction face = hit.getDirection();
-        int axis = face.getAxis().ordinal();
-        long[] bits = m[axis] != null ? m[axis] : m[3];
+        long[] bits = MaskPixels.side(m, face.ordinal());
         if (bits == null) return true;
-        Vec3 local = hit.getLocation().subtract(hit.getBlockPos().getX(), hit.getBlockPos().getY(), hit.getBlockPos().getZ());
-        // the texture across the face: u along it, v up it (top and bottom faces: x and z)
-        double u = axis == 0 ? local.z : local.x;
-        double v = axis == 1 ? local.z : 1.0 - local.y;
-        // a full cube (copper grate) shows the texture upright and unmirrored on each of its six faces
-        if (state.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
-            switch (face) {
-                case EAST -> u = 1.0 - local.z;
-                case NORTH -> u = 1.0 - local.x;
-                case DOWN -> v = 1.0 - local.z;
-                default -> { }
-            }
-        }
-        int col = Math.clamp((int) Math.floor(u * 16.0), 0, 15), row = Math.clamp((int) Math.floor(v * 16.0), 0, 15);
-        int bit = row * 16 + col;
-        return (bits[bit >> 6] >>> (63 - (bit & 63)) & 1L) != 0L;
+        Vec3 at = hit.getLocation();
+        BlockPos pos = hit.getBlockPos();
+        return MaskPixels.shown(bits, face.ordinal(), at.x - pos.getX(), at.y - pos.getY(), at.z - pos.getZ(),
+                state.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO));
     }
 }
