@@ -14,7 +14,7 @@ import net.minecraft.world.entity.ai.control.MoveControl;
  * every tick could never walk away from it, and stood turning on the spot. Running (faster than a walk: a player
  * sprints only ahead) it faces its path, as the game has it; so does a mob with nothing to face this tick.
  */
-final class AiMoveControl extends MoveControl<Mob> {
+public final class AiMoveControl extends MoveControl<Mob> {
     private float faceYaw;
     private boolean facing;
     /** jumps started from about the same place (within STUCK_ROOM), where the first was, and till when it faces its path */
@@ -50,7 +50,7 @@ final class AiMoveControl extends MoveControl<Mob> {
     }
 
     /** stuck since asked last (the mover looks for another way), and clears it */
-    boolean stuck() {
+    public boolean stuck() {
         boolean s = stuck;
         stuck = false;
         return s;

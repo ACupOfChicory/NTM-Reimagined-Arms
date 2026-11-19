@@ -39,6 +39,9 @@ class PosLongTest {
         assertEquals(SectionPos.x(l), PosLong.sectionX(l), () -> "sectionX " + what);
         assertEquals(SectionPos.y(l), PosLong.sectionY(l), () -> "sectionY " + what);
         assertEquals(SectionPos.z(l), PosLong.sectionZ(l), () -> "sectionZ " + what);
+        assertEquals(BlockPos.of(l).toShortString(), PosLong.shortString(l), () -> "shortString " + what);
+        for (int off : new int[] {0, 8, 15, -1, 16})
+            assertEquals(SectionPos.sectionToBlockCoord(SectionPos.x(l), off), PosLong.sectionToBlock(PosLong.sectionX(l), off), () -> "sectionToBlock " + what);
     }
 
     @Test
