@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- With "Fabulous!" graphics and Flywheel's translucent terrain off, smoke and
+  gas clouds now cover what is behind them. Until now the sky's clouds, rain,
+  particles and items lying on the ground were drawn over the smoke even when
+  they were behind it, so that the sky's clouds showed through smoke seen
+  against the sky. Glass and water lie in front of the smoke or
+  behind it as before. With Flywheel's translucent terrain on (the default with
+  NTM), and with the other graphics settings, smoke looks as before. If a
+  resource pack or another mod's resources replace the shader "Fabulous!" lays
+  the translucent things with, smoke is drawn the old way.
+
 ## X1713
 
 - With the OpenGL renderer a smoke or gas cloud no longer shows a picture of the

@@ -5,7 +5,8 @@ import java.util.List;
 /**
  * The stands only (SmokeCloudStand, -PsmokePoses=compare): the ways the same frame of smoke can be drawn, to set them
  * side by side. "old": as before 2026-11-18 (SmokeRender.standOld); "new": as it is drawn now; "a", "b", "c" and
- * "abc": the looks for the owner to choose from (SmokeRender.look).
+ * "abc": the looks for the owner to choose from (SmokeRender.look). The stand adds "none" last (no smoke, its quality
+ * off there): the frame to set the others against.
  */
 public final class SmokeCompare {
     public static final List<String> VARIANTS = List.of("old", "new", "a", "b", "c", "abc");

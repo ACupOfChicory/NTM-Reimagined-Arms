@@ -69,6 +69,45 @@ class SmokeShaderLinkTest {
         org.junit.jupiter.api.Assertions.assertTrue(march.contains("#ifdef FRONT"));
     }
 
+    /**
+     * smoke_fold.fsh lays the vanilla transparency chain's layers itself (SmokeRender.fold): its layers must be the
+     * chain's, in the chain's order, and laid the way post/transparency.fsh lays them, else the frame where smoke may be
+     * is not the one the chain makes elsewhere.
+     */
+    @Test
+    void theFoldIsTheVanillaChain() throws Exception {
+        String json;
+        String fsh;
+        try (var in = SmokeShaderLinkTest.class.getResourceAsStream("/assets/minecraft/post_effect/transparency.json");
+                var in2 = SmokeShaderLinkTest.class.getResourceAsStream("/assets/minecraft/shaders/post/transparency.fsh")) {
+            org.junit.jupiter.api.Assertions.assertNotNull(in, "the game's transparency post effect");
+            org.junit.jupiter.api.Assertions.assertNotNull(in2, "the game's transparency shader");
+            json = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            fsh = new String(in2.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        var names = new java.util.ArrayList<String>();
+        Matcher m = Pattern.compile("\"sampler_name\"\\s*:\\s*\"(\\w+)\"").matcher(json);
+        while (m.find()) names.add(m.group(1));
+        var want = new java.util.ArrayList<>(java.util.List.of("Main", "MainDepth"));
+        for (String l : SmokeRender.LAYERS) {
+            want.add(l);
+            want.add(l + "Depth");
+        }
+        // the first pass's inputs (bound by name, their order there does not matter), then the blit's
+        org.junit.jupiter.api.Assertions.assertEquals(new java.util.TreeSet<>(want), new java.util.TreeSet<>(names.subList(0, want.size())));
+        String fold = resource("core/smoke_fold.fsh");
+        // the chain inserts the layers in the order of its inputs (Weather before Clouds here as there)
+        String order = String.join(",", Pattern.compile("try_insert\\(texture\\((\\w+)Sampler").matcher(fsh).results().map(r -> r.group(1)).toList());
+        String ours = String.join(",", Pattern.compile("try_insert\\(texture\\((\\w+)Sampler").matcher(fold).results().map(r -> r.group(1)).toList());
+        org.junit.jupiter.api.Assertions.assertEquals(order, ours);
+        for (String line : new String[]{"return (dst * (1.0 - src.a)) + src.rgb;", "while (jj > 0 && depth_layers[jj] < depth_layers[ii]) {",
+                "if (color.a == 0.0) {", "color_layers[0] = vec4(texture(MainSampler, texCoord).rgb, 1.0);",
+                "texelAccum = blend(texelAccum, color_layers[ii]);"}) {
+            org.junit.jupiter.api.Assertions.assertTrue(fsh.contains(line), "the game's chain: " + line);
+            org.junit.jupiter.api.Assertions.assertTrue(fold.contains(line), "smoke_fold.fsh: " + line);
+        }
+    }
+
     // the source as a variant with these flags sees it: #ifdef, #ifndef, #if / #elif with (!)defined(X) joined by
     // && or ||, #else, #endif
     private static String variant(String src, java.util.Set<String> flags) {

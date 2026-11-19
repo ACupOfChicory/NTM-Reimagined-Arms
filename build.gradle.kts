@@ -211,8 +211,9 @@ neoForge {
             systemProperty("ntmgunfeel.scopeOldFov",providers.gradleProperty("scopeOldFov").isPresent.toString())
             // -PsmokePoses=sky,wall: only the poses whose names start with one of these
             systemProperty("ntmgunfeel.smokePoses",providers.gradleProperty("smokePoses").orElse("").get())
-            // -PsmokeFabulous: the stand runs with improved transparency (the transparency chain) on
-            systemProperty("ntmgunfeel.smokeFabulous",providers.gradleProperty("smokeFabulous").isPresent.toString())
+            // -PsmokeFabulous: the stand runs with improved transparency on (with NTM's Flywheel its OIT lays the translucent
+            // things); -PsmokeFabulous=chain: and Flywheel's translucent terrain off for the run, so the vanilla transparency chain does
+            systemProperty("ntmgunfeel.smokeFabulous",providers.gradleProperty("smokeFabulous").map { it.ifBlank { "true" } }.orElse("false").get())
             // the shapes stand keeps every machine's shapes it takes (with their faces, over a gigabyte)
             jvmArgument(if(providers.gradleProperty("shapesStand").isPresent) "-Xmx6G" else if(providers.gradleProperty("smokeStand").isPresent || providers.gradleProperty("chemStand").isPresent || providers.gradleProperty("wpStand").isPresent || providers.gradleProperty("particleStand").isPresent || providers.gradleProperty("miniNukeStand").isPresent || providers.gradleProperty("gasStand").isPresent || providers.gradleProperty("gl54Stand").isPresent || providers.gradleProperty("fragStand").isPresent || providers.gradleProperty("gl54ReflexStand").isPresent || providers.gradleProperty("waterFx").isPresent || providers.gradleProperty("hudShots").isPresent) "-Xmx3G" else "-Xmx2500M")
             // -PgcLog=<file>: the collector's pauses with their times, to set against a long frame

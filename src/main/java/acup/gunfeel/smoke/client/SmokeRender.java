@@ -51,9 +51,14 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
  * <li>that target is blended over the frame. Where glass or water is in front of the world, the frame is taken apart
  * first: its alpha was cleared before they were drawn (so it ends as their cover), the smoke is marched once to the world
  * and once to the nearest of them, and the smoke behind the glass goes under it (dimmed and tinted by it), the smoke in
- * front of the glass over it ({@code smoke_composite.fsh}). With the transparency chain (improved transparency) glass
- * and water are drawn into a target of their own, laid over the main one after this: there the smoke behind them goes
- * into the main target and the smoke in front of them into theirs, so the chain lays each where it is.</li>
+ * front of the glass over it ({@code smoke_composite.fsh}). Improved transparency ("fabulous"): with NTM's Flywheel
+ * (crankshaft, its translucent terrain OIT on, the default) there is no vanilla transparency chain, Flywheel lays the
+ * translucent things over the main target in the main pass, their cover in its alpha and the nearest of them in its
+ * depth, and the smoke goes as above. With the vanilla chain glass, water, items, particles, rain and the sky's clouds
+ * are in targets of their own, laid over the main one after this: where the smoke may be they are laid first by the
+ * smoke as the chain would and cleared in their targets ({@link #fold}), and the smoke goes as above too. A chain whose
+ * post effect or shader a resource pack (or a mod's resources) replaced keeps the way before: the smoke behind the glass into the main target, the smoke in front of
+ * it into the translucent one.</li>
  * </ol>
  * The hand and the gun are drawn after the level and stay in front of the smoke. 26.2 draws with the depth reversed
  * (near 1, far and the sky 0) and either depth range: the shader finds where along its ray the copied depth lies by
@@ -100,14 +105,16 @@ public final class SmokeRender {
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build();
     // the frame's alpha channel alone: cleared before the translucent things are drawn, so that it ends as their cover
-    public static final RenderPipeline ALPHA_ZERO = alphaPipeline("smoke_alpha_zero", false);
-    public static final RenderPipeline ALPHA_ONE = alphaPipeline("smoke_alpha_one", true);
+    public static final RenderPipeline ALPHA_ZERO = alphaPipeline("smoke_alpha_zero", false, ColorTargetState.WRITE_ALPHA);
+    public static final RenderPipeline ALPHA_ONE = alphaPipeline("smoke_alpha_one", true, ColorTargetState.WRITE_ALPHA);
+    // a layer of the vanilla chain laid by the fold, emptied where it was laid (colour too: see fold)
+    public static final RenderPipeline LAYER_CLEAR = alphaPipeline("smoke_layer_clear", false, ColorTargetState.WRITE_ALL);
 
-    private static RenderPipeline alphaPipeline(String name, boolean one) {
+    private static RenderPipeline alphaPipeline(String name, boolean one, int write) {
         RenderPipeline.Builder b = RenderPipeline.builder().withLocation(id("pipeline/" + name))
                 .withVertexShader("core/screenquad")
                 .withFragmentShader(id("core/smoke_alpha"))
-                .withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, ColorTargetState.WRITE_ALPHA))
+                .withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, write))
                 .withPrimitiveTopology(PrimitiveTopology.TRIANGLES);
         if (one) b.withShaderDefine("ALPHA_ONE");
         return b.build();
@@ -164,6 +171,37 @@ public final class SmokeRender {
                 .withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, ColorTargetState.WRITE_ALL))
                 .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
                 .build();
+    }
+
+    // the vanilla transparency chain's layers laid over the main target by the smoke itself (see fold): the frame and
+    // the cover (smoke_fold.fsh), and the nearest layer's depth (FOLD_DEPTH)
+    static final String[] LAYERS = {"Translucent", "ItemEntity", "Particles", "Weather", "Clouds"};
+    static final BindGroupLayout FOLD_LAYOUT = foldLayout(true);
+    static final BindGroupLayout FOLD_DEPTH_LAYOUT = foldLayout(false);
+    public static final RenderPipeline FOLD = RenderPipeline.builder()
+            .withLocation(id("pipeline/smoke_fold"))
+            .withVertexShader("core/screenquad")
+            .withFragmentShader(id("core/smoke_fold"))
+            .withBindGroupLayout(FOLD_LAYOUT)
+            .withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.RGBA8_UNORM, ColorTargetState.WRITE_ALL))
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+            .build();
+    public static final RenderPipeline FOLD_DEPTH = RenderPipeline.builder()
+            .withLocation(id("pipeline/smoke_fold_depth"))
+            .withVertexShader("core/screenquad")
+            .withFragmentShader(id("core/smoke_fold"))
+            .withShaderDefine("FOLD_DEPTH")
+            .withBindGroupLayout(FOLD_DEPTH_LAYOUT)
+            .withColorTargetState(new ColorTargetState(Optional.empty(), GpuFormat.R32_FLOAT, ColorTargetState.WRITE_ALL))
+            .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+            .build();
+
+    private static BindGroupLayout foldLayout(boolean color) {
+        BindGroupLayout.Builder b = BindGroupLayout.builder();
+        if (color) b.withSampler("MainSampler");
+        b.withSampler("MainDepthSampler");
+        for (String l : LAYERS) b.withSampler(l + "Sampler").withSampler(l + "DepthSampler");
+        return b.build();
     }
 
     public static final RenderPipeline COMPOSITE = RenderPipeline.builder()
@@ -272,9 +310,12 @@ public final class SmokeRender {
             e.registerPipeline(MARCH_FRONT);
             e.registerPipeline(ALPHA_ZERO);
             e.registerPipeline(ALPHA_ONE);
+            e.registerPipeline(LAYER_CLEAR);
             e.registerPipeline(COMPOSITE_GLASS);
             e.registerPipeline(COMPOSITE_CHAIN_MAIN);
             e.registerPipeline(COMPOSITE_CHAIN_GLASS);
+            e.registerPipeline(FOLD);
+            e.registerPipeline(FOLD_DEPTH);
             e.registerPipeline(COMPOSITE);
         });
     }
@@ -369,8 +410,125 @@ public final class SmokeRender {
         return Minecraft.getInstance().levelRenderer.translucentTarget();
     }
 
+    /**
+     * The vanilla transparency chain's layers as its post effect takes them (translucent, item entity, particles,
+     * weather, clouds), or null: when the chain is not the game's own (a resource pack or a mod's resources gave it
+     * another post effect or shader; a mod changing it in code is not seen) or a layer is not as the main target is. Then the smoke is split between the main and the
+     * translucent target as before 2026-11-19 (COMPOSITE_CHAIN_*). A layer nothing has drawn into yet this frame is
+     * null in it (the frame graph makes it first for the chain, empty: the sky's clouds with the clouds off).
+     */
+    private static RenderTarget[] foldLayers(RenderTarget main) {
+        if (!vanillaChain()) return null;
+        var lr = Minecraft.getInstance().levelRenderer;
+        RenderTarget[] t = new RenderTarget[LAYERS.length];
+        for (int i = 0; i < t.length; i++) {
+            RenderTarget r = layer(lr, i);
+            if (r == null) {
+                // the chain's own target is there whenever the chain is
+                if (i == 0) return null;
+                continue;
+            }
+            if (r.width != main.width || r.height != main.height || r.getColorTexture() == null || r.getDepthTexture() == null
+                    || r.getColorTexture().getFormat() != GpuFormat.RGBA8_UNORM) return null;
+            t[i] = r;
+        }
+        return t;
+    }
+
+    // a layer's target, or null: none, or not made yet this frame (the frame graph's get() throws then)
+    private static RenderTarget layer(net.minecraft.client.renderer.LevelRenderer lr, int i) {
+        try {
+            return switch (i) {
+                case 0 -> lr.translucentTarget();
+                case 1 -> lr.itemEntityTarget();
+                case 2 -> lr.particlesTarget();
+                case 3 -> lr.weatherTarget();
+                default -> lr.cloudsTarget();
+            };
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    // a texture of one transparent texel: stands in for a layer not made yet (alpha 0, so the fold leaves it out)
+    private static final Copy NO_LAYER = new Copy("Smoke no layer", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST);
+
+    private static long chainChecked;
+    private static boolean chainVanilla;
+
+    // whether the transparency chain's post effect and its shader come from the game's own resources (checked once a second)
+    static boolean vanillaChain() {
+        long now = System.currentTimeMillis();
+        if (now - chainChecked < 1000) return chainVanilla;
+        chainChecked = now;
+        boolean was = chainVanilla;
+        var rm = Minecraft.getInstance().getResourceManager();
+        chainVanilla = fromVanilla(rm, "post_effect/transparency.json") && fromVanilla(rm, "shaders/post/transparency.fsh");
+        if (was != chainVanilla) GunFeel.LOGGER.debug("Smoke: the transparency chain is {}", chainVanilla ? "the game's own" : "changed by a pack or a mod");
+        return chainVanilla;
+    }
+
+    private static boolean fromVanilla(net.minecraft.server.packs.resources.ResourceManager rm, String path) {
+        try {
+            var r = rm.getResource(Identifier.withDefaultNamespace(path));
+            return r.isPresent() && "vanilla".equals(r.get().sourcePackId());
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    // the depth of the nearest of the chain's layers (FOLD_DEPTH), the frame's size
+    private static final Copy NEAR_DEPTH = new Copy("Smoke nearest layer depth", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING);
+
+    /**
+     * With the vanilla chain: its layers laid over the main target where the smoke may be (rect), as the chain would lay
+     * them, the main target's alpha left as their cover, and cleared there in their own targets, colour and alpha (the
+     * chain then has nothing to lay there; with only the alpha cleared it still added their colour on the stand, GL). So the smoke goes over a frame with everything in it, as without the chain, and the
+     * particles, the rain and the sky's clouds behind it are under it (the chain laid them over it). The frame before is
+     * kept in OPAQUE_COLOR, the nearest layer's depth (over the whole screen) in NEAR_DEPTH.
+     */
+    private static void fold(RenderTarget main, RenderTarget[] layers) {
+        var device = RenderSystem.getDevice();
+        var nearest = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
+        GpuTexture color = main.getColorTexture();
+        OPAQUE_COLOR.ensure(color.getFormat(), main.width, main.height);
+        copyPart(color, OPAQUE_COLOR.tex, main.width, main.height);
+        NEAR_DEPTH.ensure(GpuFormat.R32_FLOAT, main.width, main.height);
+        if (NO_LAYER.tex == null) {
+            NO_LAYER.ensure(GpuFormat.RGBA8_UNORM, 1, 1);
+            device.createCommandEncoder().clearColorTexture(NO_LAYER.tex, new Vector4f(0F, 0F, 0F, 0F));
+        }
+        // the depth first: it reads the layers before they are cleared; then the main target and the clearing one after
+        // the other, so that little can fail between them (a layer left would be laid twice)
+        try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Smoke nearest layer", NEAR_DEPTH.view, Optional.empty())) {
+            pass.setPipeline(FOLD_DEPTH);
+            RenderSystem.bindDefaultUniforms(pass);
+            bindLayers(pass, main, layers, nearest);
+            pass.draw(3, 1, 0, 0);
+        }
+        try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Smoke chain layers", main.getColorTextureView(), Optional.empty())) {
+            scissor(pass);
+            pass.setPipeline(FOLD);
+            RenderSystem.bindDefaultUniforms(pass);
+            pass.bindTexture("MainSampler", OPAQUE_COLOR.view, nearest);
+            bindLayers(pass, main, layers, nearest);
+            pass.draw(3, 1, 0, 0);
+        }
+        for (RenderTarget l : layers) if (l != null) alphaPass(l, LAYER_CLEAR);
+    }
+
+    private static void bindLayers(RenderPass pass, RenderTarget main, RenderTarget[] layers, com.mojang.blaze3d.textures.GpuSampler nearest) {
+        pass.bindTexture("MainDepthSampler", main.getDepthTextureView(), nearest);
+        for (int i = 0; i < layers.length; i++) {
+            RenderTarget l = layers[i];
+            pass.bindTexture(LAYERS[i] + "Sampler", l != null ? l.getColorTextureView() : NO_LAYER.view, nearest);
+            pass.bindTexture(LAYERS[i] + "DepthSampler", l != null ? l.getDepthTextureView() : NO_LAYER.view, nearest);
+        }
+    }
+
     // how glass was told from the rest in the last frame that marched: "none" (nothing marched), "alpha" (the frame's
-    // alpha) or "chain" (the transparency chain's target); for the stand
+    // alpha), "fold" (the vanilla chain's layers laid first, see fold) or "chain" (the transparency chain's target, a
+    // chain changed by a pack or a mod); for the stand
     private static String glassMode = "none";
 
     public static String glassMode() {
@@ -440,8 +598,9 @@ public final class SmokeRender {
      * after the whole main pass (its "clouds" pass, then "weather"): they test against the world's depth, which smoke
      * does not write, so smoke laid down before them would have them drawn over it wherever the sky is behind it, and
      * show them through its edges. After them the smoke covers them as it covers the sky. The price: rain in front of
-     * a cloud is covered by it too (with the transparency chain, "fabulous", the sky's clouds and the rain are laid over
-     * the frame after this and still lie over the smoke; glass and water are told from the rest, see the class).
+     * a cloud is covered by it too (with the vanilla transparency chain, "fabulous", the sky's clouds, the rain and the
+     * rest of its layers are laid first where the smoke may be, see fold; a chain a pack changed lays them after this,
+     * over the smoke).
      */
     public static void afterWeather(RenderLevelStageEvent.AfterWeather e) {
         try {
@@ -489,12 +648,20 @@ public final class SmokeRender {
             // over the opaque world in the main one
             RenderTarget chain = alphaCleared ? null : chainTarget();
             boolean glass = alphaCleared || chain != null;
+            // the vanilla chain: its layers laid first (fold), then as without it
+            RenderTarget[] layers = chain != null ? foldLayers(main) : null;
+            glassMode = layers != null ? "fold" : chain != null ? "chain" : glass ? "alpha" : "none";
             mark(2);
             postDepthView = null;
+            if (layers != null) {
+                fold(main, layers);
+                chain = null;
+            }
             if (glass) {
                 RenderTarget with = chain != null ? chain : main;
                 // the depth with glass is read where it is: nothing draws into it while the smoke is marched and laid
-                if ((standOld & OLD_DEPTH) != 0) {
+                if (layers != null) postDepthView = NEAR_DEPTH.view;
+                else if ((standOld & OLD_DEPTH) != 0) {
                     POST_DEPTH.ensure(depthFormat, depthW, depthH);
                     RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(with.getDepthTexture(), POST_DEPTH.tex, 0, 0, 0, 0, 0, depthW, depthH);
                     postDepthView = POST_DEPTH.view;
@@ -507,7 +674,6 @@ public final class SmokeRender {
                 }
                 FRONT.ensure(GpuFormat.RGBA8_UNORM, w, h);
             }
-            glassMode = chain != null ? "chain" : glass ? "alpha" : "none";
             if (ubo == null) ubo = new MappableRingBuffer(() -> "Smoke info", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_MAP_WRITE, UBO_SIZE);
             Vec3 cam = e.getLevelRenderState().cameraRenderState.pos;
             // the clouds whose boxes meet go in one group, marched as one smoke; the groups far to near, each over the
@@ -888,6 +1054,8 @@ public final class SmokeRender {
         OPAQUE_COLOR.close();
         POST_COLOR.close();
         POST_DEPTH.close();
+        NEAR_DEPTH.close();
+        NO_LAYER.close();
         FRONT.close();
         if (ubo != null) ubo.close();
         ubo = null;
