@@ -109,13 +109,13 @@ class AiRoomsTest {
         assertTrue(east >= 0);
         assertTrue(p.waysOf(east).get(0).door);
         // with doors off a shut door is a wall: the east room is no part of the building read from the west one
-        AiDoors.pass = false;
+        PathSearch.doors = false;
         try {
             AiRooms.Plan q = AiRooms.of(g, BlockPos.asLong(6, 0, 7));
             assertEquals(1, q.rooms());
             assertEquals(AiRooms.OUTSIDE, q.room(BlockPos.asLong(12, 0, 7)));
         } finally {
-            AiDoors.pass = true;
+            PathSearch.doors = true;
         }
     }
 
@@ -209,11 +209,11 @@ class AiRoomsTest {
         for (int x = 5; x <= 8; x++) cave.own.put(BlockPos.asLong(x, -1, 7), AiBlockKinds.BUILT);
         assertNull(AiRooms.of(cave, BlockPos.asLong(6, 0, 7)));
         // with the setting off any roof makes one, as before
-        AiBlockKinds.shell = false;
+        AiRooms.shell = false;
         try {
             assertNotNull(AiRooms.of(cave, BlockPos.asLong(6, 0, 7)));
         } finally {
-            AiBlockKinds.shell = true;
+            AiRooms.shell = true;
         }
     }
 

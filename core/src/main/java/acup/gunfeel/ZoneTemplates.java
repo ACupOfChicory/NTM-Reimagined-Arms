@@ -1,7 +1,6 @@
 package acup.gunfeel;
 
 import java.util.*;
-import net.minecraft.world.phys.Vec3;
 
 /** Перенос только целой проверенной формы. Имена и анатомические догадки не используются. */
 final class ZoneTemplates {
@@ -21,9 +20,9 @@ final class ZoneTemplates {
     static HeadProfiles.Binding bind(HeadProfiles.Profile profile,List<ModelBox> boxes,float yaw) {
         int count=boxes.size();if(count==0 || profile.parts().size()!=count) return null;
         double oldSize=0,newSize=0;
-        var oldCenter=Vec3.ZERO;var newCenter=Vec3.ZERO;
+        var oldCenter=Vec3d.ZERO;var newCenter=Vec3d.ZERO;
         for(var ref:profile.parts()) { oldCenter=oldCenter.add(ref.center());for(double d:ref.size()) oldSize=Math.max(oldSize,d); }
-        for(var box:boxes) { newCenter=newCenter.add(canonical(ModelContours.point(box,.5,.5,.5),yaw));for(double d:HeadProfiles.size(box)) newSize=Math.max(newSize,d); }
+        for(var box:boxes) { newCenter=newCenter.add(canonical(box.point(.5,.5,.5),yaw));for(double d:HeadProfiles.size(box)) newSize=Math.max(newSize,d); }
         if(oldSize<=0 || newSize<=0) return null;
         double scale=newSize/oldSize;oldCenter=oldCenter.scale(1.0/count);newCenter=newCenter.scale(1.0/count);
         var candidates=new ArrayList<List<Integer>>();
@@ -33,7 +32,7 @@ final class ZoneTemplates {
                 var box=boxes.get(j);if(ref.shape()!=HeadProfiles.shape(box)) continue;
                 var size=HeadProfiles.size(box);boolean same=true;
                 for(int axis=0;axis<3;axis++) if(Math.abs(Math.log(size[axis]/(ref.size()[axis]*scale)))>.04) same=false;
-                var center=canonical(ModelContours.point(box,.5,.5,.5),yaw).subtract(newCenter).scale(1/scale);
+                var center=canonical(box.point(.5,.5,.5),yaw).subtract(newCenter).scale(1/scale);
                 if(same && center.distanceTo(ref.center().subtract(oldCenter))<=oldSize*.35) choices.add(j);
             }
             if(choices.isEmpty()) return null;candidates.add(choices);
@@ -53,8 +52,8 @@ final class ZoneTemplates {
         }
         return false;
     }
-    private static Vec3 canonical(Vec3 p,float yaw) {
+    private static Vec3d canonical(Vec3d p,float yaw) {
         double a=Math.toRadians(yaw),c=Math.cos(a),s=Math.sin(a);
-        return new Vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z);
+        return new Vec3d(c*p.x()+s*p.z(),p.y(),-s*p.x()+c*p.z());
     }
 }

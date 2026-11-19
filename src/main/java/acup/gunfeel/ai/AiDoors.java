@@ -21,8 +21,6 @@ public final class AiDoors {
     public static final String KEY = "aiDoors";
     /** off only for the stands' "before" */
     static boolean on = true;
-    /** whether a path may go through a shut door: the setting, for the path search on its own threads */
-    static volatile boolean pass = true;
     /** within this of a shut door on its path, blocks, it opens it */
     static final double REACH = 2.0;
     /** its hand goes to the door and back in this many ticks (AiPose.DOOR) */
@@ -35,7 +33,7 @@ public final class AiDoors {
 
     /** every server tick (AiBots.tick) */
     static void tick() {
-        pass = on && ReaimTimes.flag(KEY, true);
+        PathSearch.doors = on && ReaimTimes.flag(KEY, true);
     }
 
     /** a door or a gate a hand opens, shut or open */
@@ -46,7 +44,7 @@ public final class AiDoors {
 
     /** a shut door in the next steps of its path, near enough: opened */
     static void ahead(ServerLevel level, Mob mob) {
-        if (!pass) return;
+        if (!PathSearch.doors) return;
         Path p = mob.getNavigation().getPath();
         if (p == null || p.isDone()) return;
         int from = p.getNextNodeIndex();
@@ -81,7 +79,7 @@ public final class AiDoors {
 
     /** the shut door or gate a hand opens here: opened by the mob; whether there was one */
     static boolean open(ServerLevel level, Mob mob, BlockPos at) {
-        if (!pass) return false;
+        if (!PathSearch.doors) return false;
         BlockState state = level.getBlockState(at);
         if (!byHand(state)) return false;
         if (state.getBlock() instanceof DoorBlock d) {

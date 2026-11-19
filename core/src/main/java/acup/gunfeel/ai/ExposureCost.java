@@ -1,7 +1,8 @@
 package acup.gunfeel.ai;
 
+import acup.gunfeel.PosLong;
+
 import it.unimi.dsi.fastutil.longs.Long2FloatOpenHashMap;
-import net.minecraft.core.BlockPos;
 
 /**
  * A path's step costs more where a known threat sees the mob's head: a mob that moves keeps to cover where it can.
@@ -39,7 +40,7 @@ public final class ExposureCost implements PathSearch.Cost {
 
     @Override
     public float extra(int x, int y, int z) {
-        long key = BlockPos.asLong(x, y, z);
+        long key = PosLong.block(x, y, z);
         if (seen != null) {
             float c = seen.get(key);
             if (c >= 0F) return c;

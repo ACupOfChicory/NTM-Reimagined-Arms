@@ -1,10 +1,10 @@
 package acup.gunfeel.ai;
 
+import acup.gunfeel.GameRandom;
+import acup.gunfeel.PosLong;
+import acup.gunfeel.Vec3d;
+
 import it.unimi.dsi.fastutil.longs.LongSet;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Where to look for a target that went out of sight: cells of the tactical map within the search radius of where it was
@@ -22,9 +22,9 @@ public final class SearchSpots {
     private SearchSpots() {
     }
 
-    /** cells as BlockPos longs, best first; at most n, at most rayBudget rays spent; (vx, vz) its motion when lost */
-    public static long[] pick(CellSource map, VoxelRay.Source voxels, Vec3 eye, double cx, double cy, double cz, double vx, double vz,
-            double radius, int n, LongSet cleared, RandomSource rng, int rayBudget) {
+    /** cells as block keys (PosLong.block, as BlockPos.asLong), best first; at most n, at most rayBudget rays spent; (vx, vz) its motion when lost */
+    public static long[] pick(CellSource map, VoxelRay.Source voxels, Vec3d eye, double cx, double cy, double cz, double vx, double vz,
+            double radius, int n, LongSet cleared, GameRandom rng, int rayBudget) {
         double speed = Math.sqrt(vx * vx + vz * vz);
         double ux = speed >= ExitSpots.MOVING ? vx / speed : 0, uz = speed >= ExitSpots.MOVING ? vz / speed : 0;
         int keep = Math.max(n * 4, rayBudget);
@@ -38,17 +38,17 @@ public final class SearchSpots {
         for (int sx = x0 >> 4; sx <= x1 >> 4; sx++)
             for (int sz = z0 >> 4; sz <= z1 >> 4; sz++)
                 for (int sy = y0 >> 4; sy <= y1 >> 4; sy++) {
-                    SectionCells c = map.cells(SectionPos.asLong(sx, sy, sz));
+                    SectionCells c = map.cells(PosLong.section(sx, sy, sz));
                     if (c == null) continue;
                     for (int i = 0; i < c.count(); i++) {
                         int x = (sx << 4) + c.x(i), y = (sy << 4) + c.y(i), z = (sz << 4) + c.z(i);
                         if (y < y0 || y > y1) continue;
                         double dx = x + 0.5 - cx, dz = z + 0.5 - cz, d2 = dx * dx + dz * dz;
                         if (d2 > r2) continue;
-                        long key = BlockPos.asLong(x, y, z);
+                        long key = PosLong.block(x, y, z);
                         if (cleared.contains(key)) continue;
                         double s = Math.sqrt(d2) + Math.abs(y - cy) + rng.nextDouble() * 3;
-                        if (SectionCells.height(c.cover(i), Dirs.of(eye.x - x - 0.5, eye.z - z - 0.5)) > 0) s -= COVER_BONUS;
+                        if (SectionCells.height(c.cover(i), Dirs.of(eye.x() - x - 0.5, eye.z() - z - 0.5)) > 0) s -= COVER_BONUS;
                         double d = Math.sqrt(d2);
                         if (speed >= ExitSpots.MOVING && d > 1e-6) s += (1 - (dx * ux + dz * uz) / d) * AGAINST;
                         if (count < keep) {
@@ -71,10 +71,10 @@ public final class SearchSpots {
         int found = 0;
         for (int k = 0; k < count && found < n && rayBudget > 0; k++) {
             long key = cand[order[k]];
-            int x = BlockPos.getX(key), y = BlockPos.getY(key), z = BlockPos.getZ(key);
+            int x = PosLong.blockX(key), y = PosLong.blockY(key), z = PosLong.blockZ(key);
             rayBudget--;
             // a target standing in the cell: its chest
-            if (VoxelRay.clear(voxels, eye.x, eye.y, eye.z, x + 0.5, y + 1.0, z + 0.5, Voxel.SIGHT)) {
+            if (VoxelRay.clear(voxels, eye.x(), eye.y(), eye.z(), x + 0.5, y + 1.0, z + 0.5, Voxel.SIGHT)) {
                 cleared.add(key);
                 continue;
             }

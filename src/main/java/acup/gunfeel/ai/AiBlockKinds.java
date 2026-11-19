@@ -37,8 +37,6 @@ public final class AiBlockKinds {
     static final String WILD_DEFAULT = "minecraft:spawner minecraft:trial_spawner minecraft:vault #minecraft:beehives ~minecraft:(.*_)?sculk(_.*)? minecraft:suspicious_sand"
             + " minecraft:suspicious_gravel ~hbm:glyphid.*";
 
-    /** the setting, for AiRooms on any thread */
-    static volatile boolean shell = true;
     private static byte[] values = new byte[0];
     private static boolean[] known = new boolean[0];
     private static String naturalOf = "", dwellingOf = "", wildOf = "";
@@ -46,7 +44,7 @@ public final class AiBlockKinds {
 
     /** every server tick (AiBots.tick) */
     static void tick() {
-        shell = ReaimTimes.flag(KEY, true);
+        AiRooms.shell = ReaimTimes.flag(KEY, true);
         refresh();
     }
 
