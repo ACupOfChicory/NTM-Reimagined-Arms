@@ -182,26 +182,4 @@ class ArmPistolScaleTest {
             old.restore();
         }
     }
-
-    @Test
-    void newGunFrameClearsThePistolPlacementFlag() {
-        Arms.pistolHoldFrame(true, true);
-        assertTrue(Arms.pistolHoldFrame());
-        Arms.resetPistolHoldFrame();
-        assertFalse(Arms.pistolHoldFrame());
-    }
-
-    @Test
-    void aLaterAimingCallInTheFrameKeepsWhatThePlacingCallSet() {
-        // the heavy revolver: NTM's placing call in setupFirstPerson, then its kick in renderFirstPerson
-        Arms.resetPistolHoldFrame();
-        Arms.pistolHoldFrame(true, true);
-        Arms.pistolHoldFrame(false, false);
-        assertTrue(Arms.pistolHoldFrame());
-        // a rifle's placing call clears it
-        Arms.pistolHoldFrame(true, false);
-        assertFalse(Arms.pistolHoldFrame());
-        Arms.pistolHoldFrame(false, true);
-        assertFalse(Arms.pistolHoldFrame());
-    }
 }

@@ -27,6 +27,22 @@ final class NtmAnimState implements GunAnimState {
     }
 
     @Override
+    public long startMillis() {
+        HbmAnimations.Animation anim = HbmAnimations.getRelevantAnim(0);
+        return anim == null ? 0L : anim.startMillis;
+    }
+
+    @Override
+    public long now() {
+        return com.hbm.util.GameTime.now();
+    }
+
+    @Override
+    public boolean previewing() {
+        return ArmAnimationPreview.active();
+    }
+
+    @Override
     public boolean hasBus(String bus) {
         return seq(bus) != null;
     }

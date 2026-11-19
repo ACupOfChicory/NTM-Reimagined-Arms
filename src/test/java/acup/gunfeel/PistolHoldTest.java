@@ -276,7 +276,7 @@ class PistolHoldTest {
         // a quick turn right and down, then NTM's transform up to setupFirstPerson: its half turn about y, its bob
         PoseStack pose = new PoseStack();
         WalkSprint.base(pose);
-        WeaponSway.apply(pose, WeaponSway.sample(10F, 200F, 0F));
+        WeaponSway.apply(pose, WeaponSwayMath.sample(10F, 200F, 0F));
         WalkSprint.applied(pose, item);
         pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180F));
         pose.translate(0.02F, -0.03F, 0F);

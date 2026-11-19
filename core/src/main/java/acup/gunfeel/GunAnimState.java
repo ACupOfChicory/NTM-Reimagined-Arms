@@ -21,6 +21,15 @@ public interface GunAnimState {
     /** Milliseconds since it started, or the arm editor's preview time while it previews; 0 = none. */
     float millis();
 
+    /** When it started, on NTM's clock ({@link #now}); meaningful only while {@link #playing}. */
+    long startMillis();
+
+    /** NTM's clock, milliseconds (not GunClock): what the animations' times are on. */
+    long now();
+
+    /** The arm editor previews an animation (its time is the preview's, not the clock's). */
+    boolean previewing();
+
     /** The playing animation has this bus. */
     boolean hasBus(String bus);
 
@@ -48,6 +57,21 @@ public interface GunAnimState {
         @Override
         public float millis() {
             return 0F;
+        }
+
+        @Override
+        public long startMillis() {
+            return 0L;
+        }
+
+        @Override
+        public long now() {
+            return 0L;
+        }
+
+        @Override
+        public boolean previewing() {
+            return false;
         }
 
         @Override

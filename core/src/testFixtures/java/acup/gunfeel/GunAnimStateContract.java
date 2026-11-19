@@ -20,6 +20,7 @@ public abstract class GunAnimStateContract {
         assertFalse(a.playing());
         assertNull(a.type());
         assertEquals(0F, a.millis());
+        assertFalse(a.previewing());
         assertFalse(a.hasBus("MAG"));
         assertEquals(0, a.busTime("MAG"));
         assertNull(a.busAt("MAG", 100));

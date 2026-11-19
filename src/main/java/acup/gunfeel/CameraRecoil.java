@@ -3,6 +3,9 @@ package acup.gunfeel;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
+
 // Camera recoil per shot along the gun's recoil preset (RecoilPresets: cameraPitch, cameraYaw, cameraRoll): a snap up,
 // a return, a damped roll shake. The amount comes from NTM's recoil numbers (lever shotgun: 10 up -> 5.5 deg with
 // cameraScale 0.55). The camera comes back, all but the gun's cameraClimb share of the up movement, its
@@ -29,6 +32,7 @@ public final class CameraRecoil {
     }
 
     // vertical/horizontal: what NTM's recoil lambdas asked for since the last tick
+    @Hook(HookPoint.RECOIL_SHOT)
     public static void addImpulse(float vertical, float horizontal) {
         LocalPlayer holder = Minecraft.getInstance().player;
         if (holder != null && !GunEditor.replaying) LAST.put(holder.getMainHandItem().getItem(), new float[] {vertical, horizontal});
@@ -96,6 +100,7 @@ public final class CameraRecoil {
         appliedPitch = appliedYaw = roll = 0F;
     }
 
+    @Hook(HookPoint.RECOIL_FRAME)
     public static void frame() {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;

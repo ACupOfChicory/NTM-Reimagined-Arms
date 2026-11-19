@@ -90,9 +90,6 @@ ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE Lcom/hbm/render
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE_DRY Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation CYCLE_EMPTY Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation INSPECT Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
-ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
-ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD_CYCLE Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
-ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation RELOAD_END Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation SPINDOWN Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/AnimationEnums$GunAnimation SPINUP Lcom/hbm/render/anim/AnimationEnums$GunAnimation;
 ARMS field com/hbm/render/anim/BusAnimationKeyframe$IType SIN_DOWN Lcom/hbm/render/anim/BusAnimationKeyframe$IType;

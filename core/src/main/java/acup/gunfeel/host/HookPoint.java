@@ -54,4 +54,16 @@ public enum HookPoint {
     WATER_MUZZLE,
     /** A gun's sound is played from its shooter: dull with the shooter's eyes in water. */
     WATER_MUFFLE,
+
+    // ---- arms and recoil
+    /** NTM drew the gun in first person (its frames and parts read meanwhile): the arms are placed (ArmPoses) and drawn. */
+    ARMS_DRAW,
+    /** NTM's pistol is placed at the hip or aimed in first person: the hold's place (PistolPlace). */
+    PISTOL_PLACE,
+    /** A gun fired on the client (NTM set its recoil): the camera's and the gun model's kicks start (CameraKick, ModelKick). */
+    RECOIL_SHOT,
+    /** A frame begins: the camera turns by the kicks in flight (CameraKick). */
+    RECOIL_FRAME,
+    /** The gun model is drawn: its kick moves it (ModelKick). */
+    RECOIL_MODEL,
 }
