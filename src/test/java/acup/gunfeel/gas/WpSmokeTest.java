@@ -61,7 +61,7 @@ class WpSmokeTest {
         assertEquals(WP.look(), WP.extinction());
         assertTrue(WP.extinction() * WP.fill() * 17 < 1F, "seen through: " + WP.extinction());
         assertTrue(WP.lift() < 0F && WP.rise() < 0F, "lies low");
-        // the shells' is the same smoke under an id of its own (no sparks), and not one the grenade's feeds
+        // the shells' is the same haze under an id of its own (no sparks)
         SmokeKind shell = SmokeKind.WP_SHELL;
         assertSame(shell, SmokeKind.byId(shell.id()));
         assertTrue(shell.id() != WP.id());

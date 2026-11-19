@@ -114,6 +114,7 @@ final class WpStand {
     private static final List<String> ROWS = new ArrayList<>(), FRAMES = new ArrayList<>();
     private static final List<String> FAILS = new ArrayList<>();
     private static String savedQuality;
+    private static int savedMax;
     private static volatile boolean counting;
     private static final Map<String, LongAdder> PACKETS = new ConcurrentHashMap<>();
 
@@ -128,6 +129,9 @@ final class WpStand {
         if (!mc.gui.hud.isHidden()) mc.gui.hud.toggle();
         savedQuality = Config.smokeQuality;
         Config.smokeQuality = "high";
+        // every cloud of a cluster drawn (the default draws the nearest 8)
+        savedMax = Config.smokeMaxClouds;
+        Config.smokeMaxClouds = 16;
         for (int r = 0; r < ROUNDS; r++) for (Scene s : SCENES) {
             RUNS.add(new Run(s, false, r));
             RUNS.add(new Run(s, true, r));
@@ -423,6 +427,7 @@ final class WpStand {
 
     private static void done() {
         Config.smokeQuality = savedQuality;
+        Config.smokeMaxClouds = savedMax;
         ROWS.add("# checks: matched " + SmokeClient.matched + ", apart " + SmokeClient.apart + ", grids " + SmokeClient.grids);
         try {
             Files.write(Path.of(DIR, "wp.tsv"), ROWS);

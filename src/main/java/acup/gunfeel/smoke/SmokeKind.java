@@ -19,7 +19,7 @@ import java.util.List;
  * @param spread     share of the difference above {@code fill} a cell gives a neighbour a tick (stable below 1/12)
  * @param rise       spreading up is {@code 1 + rise} times as fast and down {@code 1 - rise} (smoke: the same)
  * @param lift       share of a dense cell (above half of fill) carried up a tick whatever its neighbours (below 0: down;
- *                   a heavy gas pools)
+ *                   a heavy gas pools, white phosphorus's haze lies low)
  * @param hold       ticks after the release before it starts to thin
  * @param fade       share kept a tick while it thins
  * @param rgb        colour, 0xRRGGBB
@@ -72,7 +72,10 @@ public record SmokeKind(int id, String name, float volume, int release, int bomb
         return null;
     }
 
-    /** Cells of the grid below the burst cell: a heavy gas ({@code lift} below 0) gets twice smoke's, to run down into a cellar. */
+    /**
+     * Cells of the grid below the burst cell: a kind that sinks ({@code lift} below 0: a heavy gas, white phosphorus's
+     * haze) gets twice smoke's, to run down into a cellar.
+     */
     public int below() {
         return lift < 0F ? SmokeGrid.OY_HEAVY : SmokeGrid.OY;
     }

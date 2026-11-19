@@ -24,7 +24,7 @@ import java.io.IOException;
  * and the cloud loses nothing; what is held thins as the rest does.
  *
  * <p>A smoke grenade that bursts inside a cloud of its kind feeds it ({@link #feed}) instead of making a cloud of its
- * own (a gas does not: {@link SmokeClouds#feeds}): its smoke comes out of its cells over the release as the first one's did and spreads in what is there, so the
+ * own (a gas and white phosphorus's haze do not: {@link SmokeClouds#feeds}): its smoke comes out of its cells over the release as the first one's did and spreads in what is there, so the
  * cloud grows outward at its {@code fill} and does not stack a second cloud on the first, twice as dense. The cloud
  * thins {@code hold} ticks after the last feed's release. At most {@link #FEEDS_MAX} feeds.
  *

@@ -223,11 +223,47 @@ public final class SmokeClouds {
      * Whether a grenade of this kind feeds a cloud of its kind it bursts in: smoke does, it fills the air up to its
      * {@code fill} and a second grenade's smoke goes on outward. A gas does not: a second grenade is twice the gas in
      * the same air, the clouds' densities add up (as what they do to the living and the ground counts them,
-     * {@code GasPoison}); they are drawn as one smoke all the same. White phosphorus's haze neither: fed, it went on
-     * outward to the sides of its grid and stood there as a wall; two hazes one in the other are a thicker haze.
+     * {@code GasPoison}); they are drawn as one smoke all the same. White phosphorus's haze ({@link #haze}) neither:
+     * fed, it went on outward to the sides of its grid and stood there as a wall; two hazes one in the other are a
+     * thicker haze, up to {@link #HAZES_MAX}.
      */
     public static boolean feeds(SmokeKind kind) {
-        return !acup.gunfeel.gas.GasKind.gas(kind) && kind != SmokeKind.WP && kind != SmokeKind.WP_SHELL;
+        return !acup.gunfeel.gas.GasKind.gas(kind) && !haze(kind);
+    }
+
+    /** White phosphorus's haze, the grenade's or the rounds' and shells'. */
+    public static boolean haze(SmokeKind kind) {
+        return kind == SmokeKind.WP || kind == SmokeKind.WP_SHELL;
+    }
+
+    /**
+     * Hazes that lie one in another at most: a burst where this many lie lets out nothing more there (a grenade
+     * launcher's magazine or a cluster shell's ten at one spot stacked six or ten deep, as dense as a smoke screen).
+     */
+    public static final int HAZES_MAX = 2;
+
+    /**
+     * The densest of the hazes ({@link #haze}) at this block or next to it when {@link #HAZES_MAX} of them lie there,
+     * or null: a burst there adds nothing.
+     */
+    public Cloud thickHaze(BlockPos at) {
+        Cloud best = null;
+        float most = 0F;
+        int n = 0;
+        for (Cloud c : clouds()) {
+            if (!haze(c.kind()) || c.grid.age() + STIR_AHEAD > c.grid.maxAge()) continue;
+            int x = at.getX() - c.baseX(), y = at.getY() - c.baseY(), z = at.getZ() - c.baseZ();
+            float there = 0F;
+            for (int dy = -1; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++)
+                there = Math.max(there, c.grid.density(x + dx, y + dy, z + dz));
+            if (there < SmokeGrid.GONE) continue;
+            n++;
+            if (there > most) {
+                best = c;
+                most = there;
+            }
+        }
+        return n >= HAZES_MAX ? best : null;
     }
 
     /**
@@ -323,8 +359,9 @@ public final class SmokeClouds {
 
     /**
      * Lets a cloud out at a point (the cell it is in, or the nearest open one), its bomblets fanned along the
-     * direction the grenade flew. What the GL-54 smoke grenade calls on impact. Returns the cloud's id, or -1 when
-     * nothing came out (smoke off on this server, or the point is shut in).
+     * direction the grenade flew. What the GL-54 smoke grenade calls on impact. Returns the cloud's id (the one it fed,
+     * or for a haze where hazes lie as thick as they stack the densest of them: {@link #thickHaze}), or -1 when nothing
+     * came out (smoke off on this server, or the point is shut in).
      *
      * @param scale share of the kind's volume (1 = one grenade)
      */
@@ -336,6 +373,11 @@ public final class SmokeClouds {
         float dx = len > 1e-4F ? (float) direction.x / len : 0F, dz = len > 1e-4F ? (float) direction.z / len : 0F;
         // the bomblets ring round a shot straight down or up
         if (len < 0.2F * (float) direction.length()) dx = dz = 0F;
+        // where hazes lie as thick as they stack: nothing more (the burst's haze is there)
+        if (haze(kind)) {
+            Cloud thick = all.thickHaze(origin);
+            if (thick != null) return thick.id;
+        }
         // in a cloud of its kind: it feeds that one
         Cloud host = all.host(origin, kind);
         if (host != null) {
