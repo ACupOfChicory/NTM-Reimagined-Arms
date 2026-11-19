@@ -154,7 +154,7 @@ public final class AiCommander {
     static boolean pairs = true;
     /** a pair's time: the way round at this pace (blocks a tick, its bounds and all) half as long again, and PAIR_MORE more, PAIR_MOST at most; ticks */
     static final double PAIR_PACE = 0.15;
-    static final int PAIR_MORE = 600, PAIR_MOST = 1800;
+    static final int PAIR_MORE = 600, PAIR_MOST = StaffPlan.PAIR_MOST;
     /**
      * a pair made again (its other gone before it was ready) keeps the time it had; its other dead and the new one not
      * at its place yet: this long more at least, ticks (the new one is not late the moment it comes)
@@ -554,7 +554,7 @@ public final class AiCommander {
             double strength = 0;
             for (int kind = 0; kind < k.kinds.length; kind++) {
                 n += k.kinds[kind];
-                strength += k.kinds[kind] * StaffPlan.weight(kind);
+                strength += k.kinds[kind] * weight(kind);
             }
             if (n > 0) strength *= Math.min(1, k.health / n);
             foes.add(new StaffPlan.Group(g.x(), g.z(), g.r(), strength, k.seen == Long.MIN_VALUE ? Long.MAX_VALUE : now - k.seen, room(g, now)));
@@ -583,7 +583,7 @@ public final class AiCommander {
                 }
                 // its strength: one with no round besides its gun's at a third (red, a magazine left, still fights)
                 boolean empty = supply && !b.gunner.ammo.infinite() && b.gunner.ammo.reserve() <= 0 && b.gunner.capacity() > 0;
-                strength += StaffPlan.weight(AiRole.of(b).ordinal()) * Math.min(1, b.mob.getHealth() / b.mob.getMaxHealth()) * (empty ? 0.3 : 1);
+                strength += weight(AiRole.of(b).ordinal()) * Math.min(1, b.mob.getHealth() / b.mob.getMaxHealth()) * (empty ? 0.3 : 1);
                 sideX += b.mob.getX();
                 sideZ += b.mob.getZ();
                 all++;
@@ -613,7 +613,7 @@ public final class AiCommander {
         if (all == 0) return;
         sideX /= all;
         sideZ /= all;
-        StaffPlan.Task[] plan = StaffPlan.plan(own, foes, grid, sideX, sideZ, Math.min(REACH, AiBots.radius() * 2), PER, now, side.sector);
+        StaffPlan.Task[] plan = StaffPlan.plan(own, foes, grid, sideX, sideZ, Math.min(REACH, AiBots.radius() * 2), PER, now, side.sector, mapped());
         side.blind = grid == null && mapped();
         for (int i = 0; i < squads.size(); i++) {
             // a squad crossing a river now keeps its task till it is over (the drill is not broken off half way)
@@ -1423,6 +1423,19 @@ public final class AiCommander {
      * that a squad running dry one soldier after another is not sent on just before it falls back (the short war's
      * flaps, 2026-11-17). Its supplier fills one so as well (AiSupply.need)
      */
+    /** the strength of a kind of soldier (a role's ordinal; PLAYER or any other: a player), for the staff's plan (StaffPlan) */
+    static double weight(int kind) {
+        AiRole[] roles = AiRole.values();
+        if (kind < 0 || kind >= roles.length) return 3;
+        return switch (roles[kind]) {
+            case RIFLE -> 1;
+            case BASE -> 1.5;
+            case MARKSMAN, GRENADIER -> 1.2;
+            case MEDIC -> 0.7;
+            case SUPPLIER -> 0.8;
+        };
+    }
+
     static boolean red(AiBot b) {
         return !b.gunner.ammo.infinite() && b.gunner.capacity() > 0 && b.gunner.ammo.reserve() <= b.gunner.capacity();
     }

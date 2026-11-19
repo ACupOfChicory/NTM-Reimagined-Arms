@@ -1,7 +1,6 @@
 package acup.gunfeel;
 
-// The corner HUD's colours worked out from its numbers (Hud draws them). The heat bar's stays in Hud for now: it is
-// counted on Overheat's ramp, which is the game's.
+// The corner HUD's colours worked out from its numbers (Hud draws them).
 public final class HudColors {
     private HudColors() {
     }
@@ -16,5 +15,12 @@ public final class HudColors {
         int r = (int) (255 * GameMath.clamp(2F - 2F * health, 0F, 1F));
         int gr = (int) (255 * GameMath.clamp(2F * health, 0F, 1F));
         return 0xFF000000 | r << 16 | gr << 8 | 0x40;
+    }
+
+    // the heat bar: yellow up to where the shot starts to spread, to red at the top
+    public static int heatColor(float heat) {
+        float t = acup.gunfeel.heat.OverheatBase.ramp(heat, acup.gunfeel.heat.OverheatBase.SPREAD_FROM, 1F);
+        int gr = (int) (208 - 176 * t), b = (int) (64 - 32 * t);
+        return 0xFF000000 | 0xFF << 16 | gr << 8 | b;
     }
 }

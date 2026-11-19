@@ -40,7 +40,7 @@ public final class OverheatServer {
     public static void shot(ItemStack stack, ItemGunBaseNT.LambdaContext ctx) {
         LivingEntity shooter = ctx == null ? null : ctx.entity();
         if (shooter == null || ctx.config() == null || !(shooter.level() instanceof ServerLevel level) || !Overheat.on()) return;
-        Overheat.Gun gun = Overheat.Gun.of(stack);
+        Overheat.Gun gun = Overheat.gun(stack);
         if (gun == null) return;
         float scale = Overheat.scale();
         if (scale <= 0F) return;
@@ -55,7 +55,7 @@ public final class OverheatServer {
 
     /** a shot's wear (NTM's: the gun's worn so far plus the round's) as the heat has it: the part the shot adds, times */
     public static float wear(ItemStack stack, int index, float wear, LivingEntity shooter) {
-        if (shooter == null || shooter.level().isClientSide() || Overheat.Gun.of(stack) == null) return wear;
+        if (shooter == null || shooter.level().isClientSide() || Overheat.gun(stack) == null) return wear;
         float before = ItemGunBaseNT.getWear(stack, index);
         float mult = Overheat.wearMult(Overheat.heat(stack, shooter.level().getGameTime()));
         if (mult <= 1F || wear <= before) return wear;
@@ -64,7 +64,7 @@ public final class OverheatServer {
 
     /** the spread a shot gets on top of the rest from the heat */
     public static float spread(ItemStack stack, Receiver primary, LivingEntity shooter) {
-        if (shooter == null || primary == null || Overheat.Gun.of(stack) == null) return 0F;
+        if (shooter == null || primary == null || Overheat.gun(stack) == null) return 0F;
         return Overheat.spreadAdd(Overheat.heat(stack, shooter.level().getGameTime()), primary.getInnateSpread(stack));
     }
 
@@ -75,7 +75,7 @@ public final class OverheatServer {
     public static boolean jam(ItemStack stack, ItemGunBaseNT.LambdaContext ctx, int recIndex, int gunIndex) {
         if (ItemGunBaseNT.getValueInt(stack, KEY_JAM) == 0) return false;
         ItemGunBaseNT.setValueInt(stack, KEY_JAM, 0);
-        if (ctx == null || ctx.entity() == null || !Overheat.on() || Overheat.Gun.of(stack) == null) return false;
+        if (ctx == null || ctx.entity() == null || !Overheat.on() || Overheat.gun(stack) == null) return false;
         Receiver rec = ctx.config().getReceivers(stack)[recIndex];
         int time = rec.getJamDuration(stack);
         if (time <= 0) return false;
@@ -88,7 +88,7 @@ public final class OverheatServer {
     /** NTM ticks the gun (server; slot null: in an inventory, not worn) */
     public static void tick(ItemStack stack, ServerLevel level, Entity entity, EquipmentSlot slot) {
         if (!Overheat.on()) return;
-        Overheat.Gun gun = Overheat.Gun.of(stack);
+        Overheat.Gun gun = Overheat.gun(stack);
         if (gun == null || !(entity instanceof LivingEntity living)) return;
         boolean held = slot == EquipmentSlot.MAINHAND;
         if (!held) {

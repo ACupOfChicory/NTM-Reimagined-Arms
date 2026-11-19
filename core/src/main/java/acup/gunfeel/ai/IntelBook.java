@@ -27,6 +27,8 @@ public final class IntelBook {
     public static final int WIDEN = 40, SHIFT = 600;
     /** a report this often, ticks */
     public static final int REPORT = 100;
+    /** the staff knows of enemies this near one of its side, blocks (the owner: 256) */
+    public static final double KNOW = 256;
     /** the part of the way to where the middle should be that it goes at each report */
     public static final double DRIFT = 0.5;
     /** sightings and losses kept this long, ticks */
