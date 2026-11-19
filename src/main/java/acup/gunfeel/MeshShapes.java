@@ -366,7 +366,7 @@ public final class MeshShapes {
                 long[] north=new long[65];
                 for(int x=0;x<16;x++)for(int z=0;z<16;z++) {
                     int[] n=Structures.turn(x,z,rotation);
-                    for(int y=0;y<16;y++)if(PassableClip.cell(world,x,y,z)) {
+                    for(int y=0;y<16;y++)if(ShapeCells.cell(world,x,y,z)) {
                         int at=n[0]+16*(y+16*n[1]);north[at>>6]|=1L<<(at&63);
                     }
                 }
@@ -564,7 +564,7 @@ public final class MeshShapes {
                         (wa, wb, wc) -> opaque(sprite, (float) (wa * u[0] + wb * u[1] + wc * u[2]), (float) (wa * v[0] + wb * v[1] + wc * v[2])));
             }
         }
-        return PassableClip.shell(bits) ? bits : ModelSurface.attach(bits, faces);
+        return ShapeCells.shell(bits) ? bits : ModelSurface.attach(bits, faces);
     }
 
     // glass: the face of a machine's window, its clear pixels shown (MachineGlass)

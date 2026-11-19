@@ -43,7 +43,7 @@ class HiddenSideTest {
         String v = props.getProperty(key);
         assertNotNull(v, key);
         if (v.startsWith("@")) v = props.getProperty(v);
-        long[] shape = PassableClip.unpack(v);
+        long[] shape = ShapeCells.unpack(v);
         assertTrue(ModelSurface.present(shape), key);
         return shape;
     }

@@ -45,7 +45,7 @@ final class ModelSurface extends ModelSurfaceBase {
         out[64] = shape[64];
         for (int x = 0; x < 16; x++) for (int z = 0; z < 16; z++) {
             int[] n = Structures.turn(x, z, rotation);
-            for (int y = 0; y < 16; y++) if (PassableClip.cell(shape, x, y, z)) {
+            for (int y = 0; y < 16; y++) if (ShapeCells.cell(shape, x, y, z)) {
                 int k = n[0] + 16 * (y + 16 * n[1]);
                 out[k >> 6] |= 1L << (k & 63);
             }

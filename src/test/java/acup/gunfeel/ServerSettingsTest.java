@@ -92,8 +92,8 @@ class ServerSettingsTest {
         long[] bits = new long[65];
         Random r = new Random(2);
         for (int i = 0; i < 64; i++) bits[i] = r.nextLong();
-        assertArrayEquals(bits, PassableClip.unpack(PassableClip.pack(bits)));
+        assertArrayEquals(bits, ShapeCells.unpack(ShapeCells.pack(bits)));
         bits[64] = 1;
-        assertArrayEquals(bits, PassableClip.unpack(PassableClip.pack(bits)));
+        assertArrayEquals(bits, ShapeCells.unpack(ShapeCells.pack(bits)));
     }
 }
