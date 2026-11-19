@@ -1,6 +1,7 @@
 package acup.gunfeel.host;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -104,6 +105,38 @@ class StateNumbersTest {
         assertEquals(3, t.number(new FakeState("minecraft:stone", 5)));
         assertThrows(IllegalArgumentException.class, () -> t.state(4));
         assertThrows(IllegalArgumentException.class, () -> t.state(-1));
+    }
+
+    // the game's tags applied anew: facts, keys and air worked out again when next asked, by the version's functions as
+    // they answer now (a tag added); the numbers stay
+    @Test
+    void factsForgottenNumbersKept() {
+        int[] made = {0};
+        java.util.Set<String> tags = new java.util.TreeSet<>();
+        StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, st -> {
+            made[0]++;
+            return new BlockFacts(st.key, java.util.List.of(), "stone", 1F, 1F, false, true, 1, false, true, new java.util.TreeSet<>(tags));
+        }, st -> st.key, st -> st.key.endsWith("air"));
+        FakeState stone = new FakeState("minecraft:stone", 1);
+        int n = t.number(stone);
+        BlockFacts before = t.facts(n);
+        assertSame(before, t.facts(n));
+        assertEquals(1, made[0]);
+        tags.add("minecraft:base_stone_overworld");
+        assertSame(before, t.facts(n), "kept till forgotten");
+        t.forgetFacts();
+        assertEquals(n, t.number(stone));
+        assertSame(stone, t.state(n));
+        BlockFacts after = t.facts(n);
+        assertEquals(java.util.Set.of("minecraft:base_stone_overworld"), after.tags());
+        assertEquals(2, made[0]);
+        assertEquals("minecraft:stone", t.key(n));
+        assertEquals(false, t.air(n));
+        assertEquals(true, t.air(BlockTable.AIR));
+        // a state first met after it: as any other
+        FakeState fence = new FakeState("minecraft:oak_fence", 2);
+        assertEquals(n + 1, t.number(fence));
+        assertEquals("minecraft:oak_fence", t.facts(n + 1).id());
     }
 
     @Test

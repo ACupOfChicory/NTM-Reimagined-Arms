@@ -42,7 +42,7 @@ public final class OverheatClient {
         for (Entity e : level.entitiesForRendering()) {
             if (!(e instanceof LivingEntity living) || e.isInvisible() || e.distanceToSqr(eye) > NEAR * NEAR) continue;
             if (e == camera && firstPerson) continue;
-            if (Overheat.Gun.of(living.getMainHandItem()) == null) continue;
+            if (Overheat.gun(living.getMainHandItem()) == null) continue;
             float h = Overheat.heat(living.getMainHandItem(), now);
             float share = WISPS * Overheat.ramp(h, Overheat.SMOKE_FROM, 1F);
             if (share <= 0F || level.getRandom().nextFloat() >= share) continue;
