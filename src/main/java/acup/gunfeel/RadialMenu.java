@@ -17,24 +17,26 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.world.item.ItemStack;
 
+import static acup.gunfeel.RadialDial.MAX;
+import static acup.gunfeel.RadialDial.R_IN;
+import static acup.gunfeel.RadialDial.R_OUT;
+import static acup.gunfeel.RadialDial.TAU;
+import static acup.gunfeel.RadialDial.h;
+import static acup.gunfeel.RadialDial.sx;
+import static acup.gunfeel.RadialDial.sy;
+
 // Client: the radial ammo menu (ammo key held, AmmoLockKey). The ammo the held gun takes and the player has, one
 // sector each, clockwise from the top. The mouse turns an unseen pointer out of the centre instead of the camera
 // (MixinMouseTurn); the sector it points at slides out and is taken when the key is let go. Looks: Config.ammoMenu
 // (steel, petals, bubbles, ntm, glass, arc), colour Config.ammoMenuColor; drafts in notes/radial-site. Under the hovered
 // ammo's name: its damage from the gun in hand, a head hit and a hit on armour (AmmoStats), against the loaded one.
 public final class RadialMenu {
-    private static final int MAX = 16;
-    private static final float R_IN = 23, R_OUT = 62, DEAD = 10, REACH = 50, TAU = (float) (Math.PI * 2);
     private static final int WHITE = 0xFFFFFF;
 
     private static List<BulletConfig> types;
     private static AmmoStats[] stats;
     private static ItemStack gun = ItemStack.EMPTY;
     private static BulletConfig current;
-    private static double px, py;
-    private static long openedAt, lastFrame;
-    private static float[] h = new float[0];
-    private static float any;
 
     private RadialMenu() {
     }
@@ -84,10 +86,7 @@ public final class RadialMenu {
             t = acup.gunfeel.gl54.GrenadeType.entry(gm.mag().isEmpty() ? grenades.wanted(stack, Minecraft.getInstance().player.getInventory()) : gm.mag(), 0);
         }
         current = t instanceof BulletConfig b ? b : null;
-        px = py = 0;
-        h = new float[list.size()];
-        any = 0;
-        openedAt = lastFrame = GunClock.nanos();
+        RadialDial.open(list.size(), GunClock.nanos());
         return true;
     }
 
@@ -124,13 +123,7 @@ public final class RadialMenu {
 
     // MixinMouseTurn: mouse movement while open
     public static void move(double dx, double dy) {
-        px += dx * 0.4;
-        py += dy * 0.4;
-        double l = Math.sqrt(px * px + py * py);
-        if (l > REACH) {
-            px *= REACH / l;
-            py *= REACH / l;
-        }
+        RadialDial.move(dx, dy);
     }
 
     static BulletConfig hovered() {
@@ -139,24 +132,7 @@ public final class RadialMenu {
     }
 
     private static int hoveredIndex() {
-        if (types == null || px * px + py * py < DEAD * DEAD) return -1;
-        int n = types.size();
-        double a = Math.atan2(px, -py);
-        double step = Math.PI * 2 / n;
-        return Math.floorMod((int) Math.floor((a + step / 2) / step), n);
-    }
-
-    private static float ease(float t) {
-        t = Math.max(0, Math.min(1, t));
-        return 1 - (1 - t) * (1 - t) * (1 - t);
-    }
-
-    private static float sx(float r, float a) {
-        return (float) Math.sin(a) * r;
-    }
-
-    private static float sy(float r, float a) {
-        return (float) -Math.cos(a) * r;
+        return types == null ? -1 : RadialDial.hovered(types.size());
     }
 
     // ---- drawing state of one frame ----
@@ -178,8 +154,7 @@ public final class RadialMenu {
         var mc = Minecraft.getInstance();
         if (mc.player == null) return;
         long now = GunClock.nanos();
-        float dt = Math.min(50, (now - lastFrame) / 1e6F);
-        lastFrame = now;
+        float dt = RadialDial.frame(now);
         Frame f = new Frame();
         f.g = g;
         f.font = mc.font;
@@ -189,14 +164,11 @@ public final class RadialMenu {
         f.hover = hoveredIndex();
         f.cur = types.indexOf(current);
         f.acc = Config.ammoMenuColor;
-        f.ms = (now - openedAt) / 1e6F;
-        float k = 1 - (float) Math.exp(-dt / 50);
-        for (int i = 0; i < f.n; i++) h[i] += ((i == f.hover ? 1 : 0) - h[i]) * k;
-        any += ((f.hover >= 0 ? 1 : 0) - any) * k;
-        f.any = any;
-        f.in = new float[f.n];
-        for (int i = 0; i < f.n; i++) f.in[i] = ease((f.ms - i * 22) / 90); // the sectors come in clockwise
-        f.open = ease(f.ms / 110);
+        f.ms = RadialDial.since(now);
+        RadialDial.settle(f.n, f.hover, dt);
+        f.any = RadialDial.any;
+        f.in = RadialDial.in(f.n, f.ms); // the sectors come in clockwise
+        f.open = RadialDial.open(f.ms);
         String style = Config.ammoMenu;
 
         g.nextStratum();
@@ -210,7 +182,7 @@ public final class RadialMenu {
         Matrix3x2fStack pose = g.pose();
         pose.pushMatrix();
         pose.translate(g.guiWidth() / 2F, g.guiHeight() / 2F);
-        float sc = 0.88F + 0.12F * f.open;
+        float sc = RadialDial.scale(f.open);
         pose.scale(sc, sc);
         GuiShapes sh = new GuiShapes(g);
         switch (style) {
