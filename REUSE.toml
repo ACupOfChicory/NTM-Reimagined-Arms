@@ -62,7 +62,7 @@ SPDX-License-Identifier = "GPL-3.0-only"
 # Code adapted in part from Countered's Accurate Hitboxes (third-party/accurate-hitboxes.txt).
 [[annotations]]
 path = [
-    "src/main/java/acup/gunfeel/ModelBox.java",
+    "core/src/main/java/acup/gunfeel/ModelBox.java",
     "src/main/java/acup/gunfeel/ModelPoseCapture.java",
     "src/main/java/acup/gunfeel/ModelHitClient.java",
     "src/main/java/acup/gunfeel/mixin/mc/ModelPartAccess.java",
