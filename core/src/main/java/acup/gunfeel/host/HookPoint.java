@@ -31,4 +31,27 @@ public enum HookPoint {
     GAS_LIVING,
     /** A level unloads, a player leaves: what the gases kept for them goes. */
     GAS_FORGET,
+
+    // ---- water
+    /** A bullet's tick: its path through liquid before it moves, the block and the mobs it may hit cut where the water
+     * stopped or turned it, then its speed, its stop, skip or sinking at the end. */
+    WATER_BULLET_TICK,
+    /** A bullet hits or touches something: an impact fuze in water, a blast going off under water. */
+    WATER_IMPACT,
+    /** An explosion: in or over water it is told to the players near, its push and harm reach mobs in the same water. */
+    WATER_BLAST,
+    /** The server's word of a blast at water came to the client. */
+    WATER_PACKETS,
+    /** A client tick ended: the splashes, bubbles and rings step. */
+    WATER_CLIENT_TICK,
+    /** The client left the server: its splashes, rings and sunk rounds go. */
+    WATER_CLIENT_LEFT,
+    /** A thing came into the client's level: a grenade or rocket shot under water gets its gas bubble. */
+    WATER_JOINED,
+    /** The world's geometry is handed in: the rings on the surface and the rounds lying under water. */
+    WATER_DRAW,
+    /** A gun's muzzle flash is drawn: none under water. */
+    WATER_MUZZLE,
+    /** A gun's sound is played from its shooter: dull with the shooter's eyes in water. */
+    WATER_MUFFLE,
 }

@@ -28,6 +28,8 @@ import acup.gunfeel.host.HookPointContract;
 // classes: the @Hook marks are in the class files only
 class HookPoints26Test extends HookPointContract {
     private static final String HOOK = "Lacup/gunfeel/host/Hook;";
+    // @Mixin is kept in the class file (retention CLASS)
+    private static final String MIXIN = "Lorg/spongepowered/asm/mixin/Mixin;";
     private static List<ClassNode> classes;
 
     private static synchronized List<ClassNode> classes() throws IOException, URISyntaxException {
@@ -68,15 +70,21 @@ class HookPoints26Test extends HookPointContract {
     @Override
     protected Set<String> called() throws Exception {
         Set<String> out = new HashSet<>();
-        for (ClassNode c : classes()) for (MethodNode m : c.methods) {
-            String self = id(c.name, m.name, m.desc);
-            for (AbstractInsnNode i = m.instructions.getFirst(); i != null; i = i.getNext()) {
-                if (i instanceof MethodInsnNode mi) {
-                    String to = id(mi.owner, mi.name, mi.desc);
-                    if (!to.equals(self)) out.add(to);
-                } else if (i instanceof InvokeDynamicInsnNode indy) {
-                    // a method reference (SmokeRender::afterOpaque) is a handle among the bootstrap's arguments
-                    for (Object arg : indy.bsmArgs) if (arg instanceof Handle h) out.add(id(h.getOwner(), h.getName(), h.getDesc()));
+        for (ClassNode c : classes()) {
+            // a mixin's methods are called by the game, through what the mixin puts into its target: a handler that
+            // calls core itself (MixinWaterMuffle) carries the mark
+            boolean mixin = c.invisibleAnnotations != null && c.invisibleAnnotations.stream().anyMatch(a -> a.desc.equals(MIXIN));
+            for (MethodNode m : c.methods) {
+                String self = id(c.name, m.name, m.desc);
+                if (mixin) out.add(self);
+                for (AbstractInsnNode i = m.instructions.getFirst(); i != null; i = i.getNext()) {
+                    if (i instanceof MethodInsnNode mi) {
+                        String to = id(mi.owner, mi.name, mi.desc);
+                        if (!to.equals(self)) out.add(to);
+                    } else if (i instanceof InvokeDynamicInsnNode indy) {
+                        // a method reference (SmokeRender::afterOpaque) is a handle among the bootstrap's arguments
+                        for (Object arg : indy.bsmArgs) if (arg instanceof Handle h) out.add(id(h.getOwner(), h.getName(), h.getDesc()));
+                    }
                 }
             }
         }
