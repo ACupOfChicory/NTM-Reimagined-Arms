@@ -33,13 +33,18 @@ import net.minecraft.world.level.block.Blocks;
 // The silhouettes the mod draws are dumped as sil-<gun>.png (192 x 64, Silhouette.render); -PhudShotsGl54=<file> is
 // quads of another model in the aligned frame (15 floats each, little-endian), run through the same Silhouette code
 // into sil-gl54.png.
+// The menu is shot in each of its looks (Config.ammoMenu), and the mod's clock (GunClock) steps 1/60 s a frame from the
+// first frame on, so the menu's easing is the same in every run, whatever the frames cost.
 final class HudShots {
     static final boolean ENABLED = Boolean.getBoolean("ntmgunfeel.hudShots");
     private static final Path DIR = Path.of(System.getProperty("ntmgunfeel.hudShotsDir", "../notes/hud-shots"));
     private static final BlockPos O = new BlockPos(8, 100, 8);
 
-    // scale: GUI scale (0 = auto); menu: the ammo menu open, hovering sector `hover`
-    private record Shot(String name, String gun, int amount, int scale, boolean lock, boolean menu, int hover, int[] ammo) {
+    // scale: GUI scale (0 = auto); menu: the ammo menu open, hovering sector `hover`, in the look `look`
+    private record Shot(String name, String gun, int amount, int scale, boolean lock, boolean menu, int hover, int[] ammo, String look) {
+        Shot(String name, String gun, int amount, int scale, boolean lock, boolean menu, int hover, int[] ammo) {
+            this(name, gun, amount, scale, lock, menu, hover, ammo, "steel");
+        }
     }
 
     private static final List<Shot> SHOTS = List.of(
@@ -50,7 +55,17 @@ final class HudShots {
             new Shot("g3-lock", "hbm:gun_g3", -1, 3, true, false, -1, new int[] {120, 40, 25, 60}),
             new Shot("congolake-auto", "hbm:gun_congolake", -1, 0, false, false, -1, new int[] {12, 5, 8, 3, 6}),
             new Shot("menu-congolake", "hbm:gun_congolake", -1, 3, false, true, 1, new int[] {12, 5, 8, 3, 6}),
-            new Shot("menu-g3", "hbm:gun_g3", -1, 3, false, true, 1, new int[] {120, 40, 25, 60}));
+            new Shot("menu-g3", "hbm:gun_g3", -1, 3, false, true, 1, new int[] {120, 40, 25, 60}),
+            new Shot("menu-congolake-petals", "hbm:gun_congolake", -1, 3, false, true, 1, new int[] {12, 5, 8, 3, 6}, "petals"),
+            new Shot("menu-congolake-bubbles", "hbm:gun_congolake", -1, 3, false, true, 1, new int[] {12, 5, 8, 3, 6}, "bubbles"),
+            new Shot("menu-congolake-ntm", "hbm:gun_congolake", -1, 3, false, true, 1, new int[] {12, 5, 8, 3, 6}, "ntm"),
+            new Shot("menu-congolake-glass", "hbm:gun_congolake", -1, 3, false, true, 1, new int[] {12, 5, 8, 3, 6}, "glass"),
+            new Shot("menu-congolake-arc", "hbm:gun_congolake", -1, 3, false, true, 1, new int[] {12, 5, 8, 3, 6}, "arc"),
+            new Shot("menu-g3-petals", "hbm:gun_g3", -1, 3, false, true, 1, new int[] {120, 40, 25, 60}, "petals"),
+            new Shot("menu-g3-bubbles", "hbm:gun_g3", -1, 3, false, true, 1, new int[] {120, 40, 25, 60}, "bubbles"),
+            new Shot("menu-g3-ntm", "hbm:gun_g3", -1, 3, false, true, 1, new int[] {120, 40, 25, 60}, "ntm"),
+            new Shot("menu-g3-glass", "hbm:gun_g3", -1, 3, false, true, 1, new int[] {120, 40, 25, 60}, "glass"),
+            new Shot("menu-g3-arc", "hbm:gun_g3", -1, 3, false, true, 1, new int[] {120, 40, 25, 60}, "arc"));
 
     private static final Deque<BooleanSupplier> TODO = new ArrayDeque<>();
     private static final List<String> META = new ArrayList<>();
@@ -58,6 +73,8 @@ final class HudShots {
     static volatile int skip;
     private static boolean started;
     private static int wait;
+    // the mod's clock while shooting: one frame's time a frame
+    private static volatile long clock;
     private static volatile int pending;
 
     private HudShots() {
@@ -82,8 +99,12 @@ final class HudShots {
     }
 
     static void frame() {
+        clock += 16_666_667L;
         if (!started) {
             started = true;
+            // on from the real time now, so no wait started before goes back
+            clock = GunClock.nanos();
+            GunClock.use(() -> clock);
             // the sun and the light settle before the first shot
             TODO.add(() -> {
                 noon(Minecraft.getInstance());
@@ -126,6 +147,7 @@ final class HudShots {
         if (s.menu) {
             TODO.add(() -> {
                 ItemStack stack = mc.player.getMainHandItem();
+                Config.ammoMenu = s.look;
                 ClientSmoke.check(RadialMenu.open(stack), s.name + ": меню открылось");
                 int n = RadialMenu.choices(stack).size();
                 double a = Math.PI * 2 * s.hover / n;

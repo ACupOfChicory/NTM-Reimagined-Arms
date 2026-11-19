@@ -99,6 +99,33 @@ class PierceTest {
             public String key(int state) {
                 throw new AssertionError("not asked");
             }
+
+            @Override
+            public long gameTime() {
+                throw new AssertionError("not asked");
+            }
+
+            @Override
+            public boolean client() {
+                throw new AssertionError("not asked");
+            }
+
+            @Override
+            public boolean clip(double fx, double fy, double fz, double tx, double ty, double tz, int shape, int fluid,
+                    acup.gunfeel.host.@org.jspecify.annotations.Nullable Body by, acup.gunfeel.host.RayHit out) {
+                throw new AssertionError("not asked");
+            }
+
+            @Override
+            public int boxes(int x, int y, int z, int kind, acup.gunfeel.host.@org.jspecify.annotations.Nullable Body by, double[] out) {
+                throw new AssertionError("not asked");
+            }
+
+            @Override
+            public boolean free(acup.gunfeel.host.@org.jspecify.annotations.Nullable Body by, double x0, double y0, double z0, double x1,
+                    double y1, double z1) {
+                throw new AssertionError("not asked");
+            }
         };
     }
 
