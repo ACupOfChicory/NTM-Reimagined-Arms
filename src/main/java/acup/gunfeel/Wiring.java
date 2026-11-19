@@ -1,12 +1,14 @@
 package acup.gunfeel;
 
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.compat.CompatVersions;
 import acup.gunfeel.host.HostVersions;
 import acup.gunfeel.host.NtmFeature;
 import acup.gunfeel.host.Ports;
@@ -24,15 +26,29 @@ import net.minecraft.world.level.Level;
  * implementation loads none of the game's classes, so core may ask while its own classes are still being set up.
  */
 public final class Wiring implements Ports {
-    private final Map<Class<?>, Object> ports = Map.of(
-            GameDirs.class, new FmlGameDirs(),
-            TestLog.Printer.class, new TestLogPrint(),
-            Config.Reread.class, new PistolHoldReread(),
-            ReaimTimes.Reload.class, new ServerTablesReload(),
-            ServerSettings.Follow.class, new RemoteShapes(),
-            MainHand.class, new GameMainHand(),
-            GunAnimState.class, new NtmAnimState(),
-            HostVersions.class, new acup.gunfeel.compat.CompatVersions());
+    private final Map<Class<?>, Object> ports = new HashMap<>();
+
+    // Each system's ports in its own block: a new port is a line in its system's block (notes/ports-base/RULES.md).
+    public Wiring() {
+        // ---- core's nodes: folders, the test log, the settings' rereads, the versions
+        put(GameDirs.class, new FmlGameDirs());
+        put(TestLog.Printer.class, new TestLogPrint());
+        put(Config.Reread.class, new PistolHoldReread());
+        put(ReaimTimes.Reload.class, new ServerTablesReload());
+        put(ServerSettings.Follow.class, new RemoteShapes());
+        put(HostVersions.class, new CompatVersions());
+        // ---- arms and recoil
+        put(MainHand.class, new GameMainHand());
+        put(GunAnimState.class, new NtmAnimState());
+        // ---- ballistics and balance
+        // ---- water (its world comes per level: liquids below)
+        // ---- other: hitboxes, GL-54, HUD
+    }
+
+    // one implementation each: a second for the same port is a mistake of this file
+    private <T> void put(Class<T> type, T implementation) {
+        if (ports.put(type, implementation) != null) throw new IllegalStateException("two implementations of " + type.getName());
+    }
 
     @Override
     public <T> @Nullable T port(Class<T> type) {
@@ -46,13 +62,15 @@ public final class Wiring implements Ports {
         return EnumSet.allOf(NtmFeature.class);
     }
 
-    // ---- the systems' ports
+    // ---- the systems' ports per level or per player, given into their constructors
 
+    // smoke
     /** The smoke's walls in a level: which cells of a cloud are closed to smoke ({@link SmokeMask}). */
     public static Function<SmokeClouds.Cloud, SmokeGrid.Mask> smokeWalls(Level level) {
         return c -> SmokeMask.of(level, c);
     }
 
+    // water
     /** The liquids of a level (or of any blocks) for the water's path ({@link LiquidPath#trace}). */
     public static LiquidPath.Fluids liquids(BlockGetter level) {
         return acup.gunfeel.water.LevelFluids.of(level);
