@@ -136,9 +136,41 @@ class FakeEntitiesTest extends EntityViewContract {
         return level;
     }
 
+    /** the fakes' control: a walk is the cells given, done once stopped; the point wanted kept; never stuck */
+    static final class FakeControl implements BodyControl {
+        long @Nullable [] walking;
+        double modifier, wantX, wantY, wantZ;
+
+        @Override public void stance(Body b, byte s) { ((Fake) b).stance = s; }
+        @Override public void speed(Body b, double m) { modifier = m; }
+        @Override public void stop(Body b) { walking = null; }
+        @Override public boolean done(Body b) { return walking == null; }
+
+        @Override
+        public boolean walk(Body b, long[] cells, boolean reached, double m) {
+            walking = cells.clone();
+            modifier = m;
+            return true;
+        }
+
+        @Override public int pathNext(Body b) { return 0; }
+
+        @Override
+        public void want(Body b, double x, double y, double z, double m) {
+            wantX = x;
+            wantY = y;
+            wantZ = z;
+            modifier = m;
+        }
+
+        @Override public boolean stuck(Body b) { return false; }
+    }
+
+    private final FakeControl control = new FakeControl();
+
     @Override
     protected BodyControl control() {
-        return (b, s) -> ((Fake) b).stance = s;
+        return control;
     }
 
     @Override

@@ -101,9 +101,7 @@ final class AiCheckEntityView {
         same("moved, turned, crouched and pushed the same tick: dummy", dummy);
         check.check("entityview: the dummy crouching is crouching to its Body", EntityBody.of(dummy).crouching());
         // BodyControl.stance: the game's pose it sets is the stance its Body reads back (lying: the swimming pose)
-        BodyControl control = CoreServices.load(BodyControl.class, (b, s) -> {
-            throw new IllegalStateException("no BodyControl");
-        });
+        BodyControl control = CoreServices.load(BodyControl.class, BodyControl.MISSING);
         Body db = EntityBody.of(dummy);
         boolean set = true;
         for (byte s : new byte[] {Stance.PRONE, Stance.STAND, Stance.CROUCH, Stance.PRONE}) {
@@ -113,6 +111,24 @@ final class AiCheckEntityView {
         same("lying by BodyControl: dummy", dummy);
         check.check("entityview: BodyControl.stance sets the game's pose, the Body's stance() reads it back", set);
         control.stance(db, Stance.CROUCH);
+        // BodyControl's walk: the game's navigation takes the cells as one path (a node a cell, its end the last), a stop
+        // ends it; want sets the MoveControl's point; the dummy's MoveControl is the game's, never stuck
+        int cx = dummy.getBlockX(), cy = dummy.getBlockY(), cz = dummy.getBlockZ();
+        long[] cells = {BlockPos.asLong(cx, cy, cz), BlockPos.asLong(cx + 1, cy, cz), BlockPos.asLong(cx + 2, cy, cz)};
+        boolean walked = control.walk(db, cells, true, 1.0) && !control.done(db) && !dummy.getNavigation().isDone();
+        net.minecraft.world.level.pathfinder.Path path = dummy.getNavigation().getPath();
+        walked &= path != null && path.getNodeCount() == 3 && path.getTarget().equals(BlockPos.of(cells[2])) && path.canReach()
+                && path.getEndNode() != null && path.getEndNode().asBlockPos().equals(BlockPos.of(cells[2]))
+                && control.pathNext(db) == path.getNextNodeIndex();
+        control.speed(db, 0.5);
+        walked &= !control.done(db);
+        control.stop(db);
+        walked &= control.done(db) && dummy.getNavigation().isDone() && control.pathNext(db) == 0;
+        control.want(db, cx + 0.5, cy, cz + 0.25, 0.7);
+        net.minecraft.world.entity.ai.control.MoveControl mc = dummy.getMoveControl();
+        walked &= mc.hasWanted() && mc.getWantedX() == cx + 0.5 && mc.getWantedY() == cy && mc.getWantedZ() == cz + 0.25 && mc.getSpeedModifier() == 0.7
+                && !control.stuck(db);
+        check.check("entityview: BodyControl walks the cells as the game's path, stops it, sets the MoveControl's point", walked);
         removed(view);
         dimension(view);
         check.out(String.format(Locale.ROOT, "     entityview: %d differences from the game's getters%s", wrong.size(),

@@ -28,7 +28,7 @@ import net.minecraft.world.level.chunk.LevelChunkSection;
  * chosen cover tell it was worked out on an older map ({@link #stamp}). Sections nobody wants for half a minute are
  * dropped.
  */
-public final class TacticalMap implements CellSource {
+public final class TacticalMap implements WalkMap {
     /** how long a want keeps a section, in ticks */
     static final int WANT_TICKS = 200;
     /** a section kept as a neighbour or unwanted goes after this many ticks */
@@ -109,6 +109,12 @@ public final class TacticalMap implements CellSource {
     }
 
     // ------------------------------------------------------------------ wants
+
+    /** the blocks changed so far (WalkMap) */
+    @Override
+    public long changes() {
+        return changes;
+    }
 
     /** keep the cells within radiusXZ blocks across and radiusY up and down of a point built for a while */
     public void want(int x, int y, int z, int radiusXZ, int radiusY) {
