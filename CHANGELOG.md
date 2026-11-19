@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- The sparks off burning white phosphorus no longer leave a trail of grey
+  smoke behind them. Each spark let out about fifteen little puffs of smoke as
+  it flew, nine in ten of all the particles a phosphorus grenade made, and
+  every one of them had to be moved and drawn. The sparks themselves fly, glow
+  and fade as before, and the white cloud and NTM's flames on the ground are
+  unchanged. Sparks off lava still smoke.
+
 ## X1707
 
 - F3+B no longer slows the game to a crawl near mobs in NTM's power armour and

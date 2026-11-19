@@ -17,6 +17,8 @@ import net.minecraft.world.level.block.state.BlockState;
  * {@link #TICKS} ticks, a lava spark on the ground within 7 blocks of a point a normal 4 blocks about its burst. The
  * ground is the first top under the burst (NTM took the column's top, a roof's too). NTM's flames off its fire on the
  * ground are NTM's own. The rounds' and shells' clouds ({@link SmokeKind#WP_SHELL}) throw none: NTM's had no hazes.
+ * A spark lets out no smoke as it flies (MixinLavaTrail): vanilla's lava spark leaves a trail of some 15 smokes, nine
+ * in ten of the phosphorus' particles; lava's own sparks keep theirs.
  */
 public final class WpSparks {
     /** Ticks a grenade's sparks go on: NTM's haze lives 600 to 700. */
@@ -26,6 +28,7 @@ public final class WpSparks {
     /** How far above and below the burst the ground is looked for. */
     private static final int UP = 2, DOWN = 8;
     private static final RandomSource RANDOM = RandomSource.create();
+    private static boolean making;
 
     private WpSparks() {
     }
@@ -43,6 +46,11 @@ public final class WpSparks {
             int n = burning(c.grid) * PER_TICK;
             for (int i = 0; i < n; i++) spark(level, c.origin);
         }
+    }
+
+    /** True while a spark is made: the lava particle made then is a spark and lets out no smoke (MixinLavaTrail). */
+    public static boolean making() {
+        return making;
     }
 
     /** The grenades of a cloud whose sparks still go: its own for {@link #TICKS} ticks, and each feed's from its start. */
@@ -64,7 +72,12 @@ public final class WpSparks {
             p.move(0, -1, 0);
             boolean below = blocks(level, p);
             if (open && below) {
-                level.addParticle(ParticleTypes.LAVA, x + RANDOM.nextDouble(), p.getY() + 1.1, z + RANDOM.nextDouble(), 0, 0, 0);
+                making = true;
+                try {
+                    level.addParticle(ParticleTypes.LAVA, x + RANDOM.nextDouble(), p.getY() + 1.1, z + RANDOM.nextDouble(), 0, 0, 0);
+                } finally {
+                    making = false;
+                }
                 return;
             }
             open = !below;
