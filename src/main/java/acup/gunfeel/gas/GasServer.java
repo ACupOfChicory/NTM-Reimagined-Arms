@@ -233,11 +233,19 @@ public final class GasServer {
                 boolean suit = ArmorUtil.checkForHazmat(e);
                 p[i] = GasModel.mustardProtection(helmet, suit, helmet ? filterLeft(head) : 1F);
                 if (helmet && c[i] > 0F) s.wear[i] += GasModel.filterWear(g, c[i]);
-            } else if (ArmorRegistry.hasProtection(e, EquipmentSlot.HEAD, g.protection)) {
+            } else if (ArmorRegistry.hasProtection(e, EquipmentSlot.HEAD, hazard(g.protection))) {
                 p[i] = GasModel.coefficient(filterLeft(head));
                 s.wear[i] += GasModel.filterWear(g, c[i]);
             }
         }
+    }
+
+    /** NTM's hazard class of a gas's protection. */
+    static HazardClass hazard(GasProtection p) {
+        return switch (p) {
+            case GAS_LUNG -> HazardClass.GAS_LUNG;
+            case GAS_BLISTERING -> HazardClass.GAS_BLISTERING;
+        };
     }
 
     /** The share of the mask's filter left; 1 for a helmet that has none to wear. */

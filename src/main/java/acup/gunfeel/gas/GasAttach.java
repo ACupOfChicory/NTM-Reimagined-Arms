@@ -12,7 +12,7 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
 public final class GasAttach {
     private static final DeferredRegister<AttachmentType<?>> TYPES = DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, "ntmgunfeel");
     public static final Supplier<AttachmentType<GasState>> STATE = TYPES.register("gas_state",
-            () -> AttachmentType.builder(GasState::new).serialize(GasState.CODEC, GasState::persists).build());
+            () -> AttachmentType.builder(GasState::new).serialize(GasStateCodec.CODEC, GasState::persists).build());
 
     private GasAttach() {
     }
