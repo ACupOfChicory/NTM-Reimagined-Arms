@@ -81,7 +81,7 @@ class ArmSettingsTest {
             Grips.put(GUN, "armBaseLeft", "0", false);
             assertNull(setting(e, "armMaxScale").why());
             assertTrue(e.press("set.armMaxScale.plus"));
-            // no sliding of the hands: how far to slide does nothing; the stretch still holds the arm's reach (Arms.pose)
+            // no sliding of the hands: how far to slide does nothing; the stretch still holds the arm's reach (ArmMath.pose)
             assertTrue(e.press("set.armSlide.toggle"));
             assertNotNull(setting(e, "armSlideTo").why());
             assertNull(setting(e, "armStretch").why());

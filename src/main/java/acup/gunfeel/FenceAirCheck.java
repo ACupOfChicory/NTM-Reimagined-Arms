@@ -259,7 +259,7 @@ final class FenceAirCheck {
                 exact = false;
             if (cells != null) {
                 for (int z = 0; z < 16; z++) for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++)
-                    if (PassableClip.cell(cells, x, y, z))
+                    if (ShapeCells.cell(cells, x, y, z))
                         boxes.add(new AABB(x / 16.0, y / 16.0, z / 16.0, (x + 1) / 16.0, (y + 1) / 16.0, (z + 1) / 16.0).move(pos));
             } else {
                 for (AABB b : st.getCollisionShape(level, pos).toAabbs()) boxes.add(b.move(pos));

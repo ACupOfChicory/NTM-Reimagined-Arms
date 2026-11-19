@@ -93,17 +93,17 @@ class ArmDeadSliderTest {
     private static Pose pose(boolean right, boolean loading, float w) {
         var down = new Vector3f(0F, -1F, 0F);
         var grip = new Vector3f(right ? -0.28F : 0.30F, -0.2F, 0.72F);
-        var rest = new Arms.ArmRest();
+        var rest = new ArmRest();
         float[] dir = right ? Config.armDirRight : Config.armDirLeft;
         float reach = right ? Config.armReachRight : Config.armReachLeft;
-        float holdScale = loading ? right ? Config.armLoadScaleRight : Config.armLoadScaleLeft : Arms.holdScale(right, w);
+        float holdScale = loading ? right ? Config.armLoadScaleRight : Config.armLoadScaleLeft : ArmMath.holdScale(right, w);
         float wp = pistolWeight();
-        Arms.restArm(rest, right, false, grip, down, grip, new Vector3f(0F, 0F, 0F), dir, reach, holdScale, wp > 0F, wp);
-        Arms.rollNow = loading ? (right ? Config.armLoadRollRight : Config.armLoadRollLeft) : Float.NaN;
-        Matrix4f local = Arms.local(rest.hand, new Quaternionf(), new Vector3f(dir).normalize(), right, false, rest.s, rest.length);
+        ArmMath.restArm(rest, right, false, grip, down, grip, new Vector3f(0F, 0F, 0F), dir, reach, holdScale, wp > 0F, wp);
+        ArmMath.rollNow = loading ? (right ? Config.armLoadRollRight : Config.armLoadRollLeft) : Float.NaN;
+        Matrix4f local = ArmMath.local(rest.hand, new Quaternionf(), new Vector3f(dir).normalize(), right, false, rest.s, rest.length);
         float[] matrix = new float[16];
         local.get(matrix);
-        Arms.rollNow = Float.NaN;
+        ArmMath.rollNow = Float.NaN;
         return new Pose(rest.length, rest.s, new Vector3f(rest.hand), new Vector3f(rest.shoulder), rest.crop, matrix);
     }
 
@@ -233,7 +233,7 @@ class ArmDeadSliderTest {
         } finally {
             Grips.restoreUnsaved(opened);
             Config.select(null);
-            Arms.rollNow = Float.NaN;
+            ArmMath.rollNow = Float.NaN;
         }
     }
 
@@ -362,7 +362,7 @@ class ArmDeadSliderTest {
             editor.track = ArmEditor.Track.RELEASE;
             editor.hand = 1;
             set(gun, "armReleaseLeft", "");
-            var rest = new Arms.ArmRest();
+            var rest = new ArmRest();
             rest.s = 1F;
             rest.local.identity();
             float[] off = null;
@@ -370,10 +370,10 @@ class ArmDeadSliderTest {
                 var s = setting(editor, "armReleaseMove." + (n % 3));
                 assertNotNull(s.why());
                 put(editor, s, s.min() + (s.max() - s.min()) * n / 8F);
-                float progress = Arms.release("", new double[] {0D, 0D, 180D});
+                float progress = ArmTimeline.release("", new double[] {0D, 0D, 180D});
                 assertEquals(0F, progress, 0F);
                 // as Arms.draw: the moved pose only while the turn is on, else the arm at rest
-                Matrix4f matrix = progress > 0F ? Arms.releasePose(rest, false, progress) : new Matrix4f(rest.local);
+                Matrix4f matrix = progress > 0F ? ArmMath.releasePose(rest, false, progress) : new Matrix4f(rest.local);
                 float[] now = new float[16];
                 matrix.get(now);
                 if (off == null) off = now;
@@ -387,10 +387,10 @@ class ArmDeadSliderTest {
                 boolean changed = false;
                 for (int n = 0; n < 9; n++) {
                     put(editor, s, s.min() + (s.max() - s.min()) * n / 8F);
-                    float progress = Arms.release("ROLL", new double[] {0D, 0D, 180D});
+                    float progress = ArmTimeline.release("ROLL", new double[] {0D, 0D, 180D});
                     assertEquals(0.5F, progress, 1e-6F);
                     float[] now = new float[16];
-                    Arms.releasePose(rest, false, progress).get(now);
+                    ArmMath.releasePose(rest, false, progress).get(now);
                     if (first == null) first = now;
                     else for (int i = 0; i < now.length; i++) changed |= Math.abs(first[i] - now[i]) > 1e-6F;
                 }
@@ -414,7 +414,7 @@ class ArmDeadSliderTest {
             editor.page = ArmEditor.Page.BOTH;
             var s = setting(editor, "armSlideTo");
             assertNull(s.why());
-            var rest = new Arms.ArmRest();
+            var rest = new ArmRest();
             rest.length = 0.1F;
             rest.s = 1F;
             rest.hand.set(0F, 0F, 0F);
@@ -424,7 +424,7 @@ class ArmDeadSliderTest {
             boolean changed = false;
             for (int n = 0; n < 9; n++) {
                 put(editor, s, s.min() + (s.max() - s.min()) * n / 8F);
-                Matrix4f matrix = Arms.pose(true, false, new Vector3f(), new float[][] {{0F, 0F, 0F}, {0F, 0F, 2F}}, 1F,
+                Matrix4f matrix = ArmMath.pose(true, false, new Vector3f(), new float[][] {{0F, 0F, 0F}, {0F, 0F, 2F}}, 1F,
                         new Matrix4f(), new Vector3f(0F, -1F, 0F), new Vector3f(), false, new Quaternionf(), 0F, rest);
                 float[] now = new float[16];
                 matrix.get(now);
@@ -439,7 +439,7 @@ class ArmDeadSliderTest {
             for (int n = 0; n < 9; n++) {
                 put(editor, s, s.min() + (s.max() - s.min()) * n / 8F);
                 float[] now = new float[16];
-                Arms.pose(true, false, new Vector3f(), new float[][] {{0F, 0F, 0F}, {0F, 0F, 2F}}, 1F, new Matrix4f(),
+                ArmMath.pose(true, false, new Vector3f(), new float[][] {{0F, 0F, 0F}, {0F, 0F, 2F}}, 1F, new Matrix4f(),
                         new Vector3f(0F, -1F, 0F), new Vector3f(), false, new Quaternionf(), 0F, rest).get(now);
                 if (first == null) first = now;
                 else assertArrayEquals(first, now, 1e-6F, "disabled sliding ignores its distance setting");
