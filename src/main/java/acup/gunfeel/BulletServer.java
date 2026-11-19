@@ -1,7 +1,6 @@
 package acup.gunfeel;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
@@ -38,16 +37,25 @@ public final class BulletServer {
     private BulletServer() {
     }
 
-    // what bullets did to a block not broken yet: hits or damage so far, and the game tick the last came in
-    // the block it was done to: once that block is broken or replaced (by hand, a piston, a command) the wear and its
-    // cracks go
-    private record Wear(float done, long at, BlockState state) {
-    }
+    // what bullets did to blocks not broken yet (core: BlockWear), by place (BlockPos.asLong) and block; the cracks
+    // and what is gone are the game's
+    private static final BlockWear<ServerLevel> WEAR = new BlockWear<>();
+    private static final BlockWear.Cracks<ServerLevel> CRACKS = (level, pos, stage) -> {
+        BlockPos at = BlockPos.of(pos);
+        level.destroyBlockProgress(crackId(at), at, stage);
+    };
+    private static final BlockWear.Gone<ServerLevel> GONE = new BlockWear.Gone<>() {
+        @Override
+        public boolean gone(ServerLevel level, long pos, Object block) {
+            BlockPos at = BlockPos.of(pos);
+            return !level.isLoaded(at) || level.getBlockState(at).getBlock() != block;
+        }
 
-    private record Spot(ServerLevel level, BlockPos pos) {
-    }
-
-    private static final Map<Spot, Wear> WEAR = new HashMap<>();
+        @Override
+        public long time(ServerLevel level) {
+            return level.getGameTime();
+        }
+    };
 
     // dev (NpcShotSmoke): every block as if no bullet had hit it yet
     static void forgetWear() {
@@ -56,16 +64,12 @@ public final class BulletServer {
 
     // dev (BulletCheck): the wear as it is now, and back to it (a beam fired on the same block as a bullet)
     static Object wearNow() {
-        return new HashMap<>(WEAR);
+        return WEAR.now();
     }
 
-    @SuppressWarnings("unchecked")
     static void wearBack(Object was) {
-        WEAR.clear();
-        WEAR.putAll((Map<Spot, Wear>) was);
+        WEAR.back(was);
     }
-    // 20 s at 20 TPS; game ticks, so a paused or slowed server does not forget it sooner
-    private static final long FORGET_TICKS = 400L;
 
     // NTM's old bullet (EntityBullet: the hunter chopper's, the cyber crab's) hit this block, as blockHit; it has no
     // BulletConfig and no water: its damage and who fired it are given (LegacyBullets)
@@ -248,23 +252,12 @@ public final class BulletServer {
             worn(bullet, pos, state, "too_weak", "min", rule.min());
             return false;
         }
-        long now = level.getGameTime();
-        forget(level, now);
-        if (rule.worn()) {
-            Spot spot = new Spot(level, pos);
-            Wear w = WEAR.get(spot);
-            if (w != null && w.state().getBlock() != state.getBlock()) w = null;
-            float add = rule.wear(damage);
-            float need = rule.need(hardness);
-            float done = (w == null ? 0F : w.done()) + add;
-            if (need > 0F && done < need) {
-                WEAR.put(spot, new Wear(done, now, state));
-                worn(bullet, pos, state, "wear", "done", done, "need", need, "min", rule.min());
-                level.destroyBlockProgress(crackId(pos), pos, BulletRuleText.Break.cracks(done, need));
-                return false;
-            }
-            WEAR.remove(spot);
-            level.destroyBlockProgress(crackId(pos), pos, -1);
+        float[] worn = new float[2];
+        int stage = WEAR.hit(level, pos.asLong(), state.getBlock(), damage, hardness, rule, level.getGameTime(), CRACKS, worn);
+        if (stage != BlockWear.BREAKS) {
+            worn(bullet, pos, state, "wear", "done", worn[0], "need", worn[1], "min", rule.min());
+            level.destroyBlockProgress(crackId(pos), pos, stage);
+            return false;
         }
         worn(bullet, pos, state, "broke", "min", rule.min());
         level.destroyBlock(pos, rule.drop(), owner);
@@ -275,31 +268,9 @@ public final class BulletServer {
         return true;
     }
 
-    private static void forget(ServerLevel level, long now) {
-        Iterator<Map.Entry<Spot, Wear>> it = WEAR.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<Spot, Wear> e = it.next();
-            if (now - e.getValue().at() < FORGET_TICKS) continue;
-            e.getKey().level().destroyBlockProgress(crackId(e.getKey().pos()), e.getKey().pos(), -1);
-            it.remove();
-        }
-    }
-
-    private static int ticks;
-
     // every few server ticks: wear on a block that is no longer there (broken, replaced, its chunk gone) goes with its cracks
     public static void tick() {
-        if (WEAR.isEmpty() || ++ticks % 5 != 0) return;
-        Iterator<Map.Entry<Spot, Wear>> it = WEAR.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<Spot, Wear> e = it.next();
-            ServerLevel level = e.getKey().level();
-            BlockPos pos = e.getKey().pos();
-            boolean gone = !level.isLoaded(pos) || level.getBlockState(pos).getBlock() != e.getValue().state().getBlock();
-            if (!gone && level.getGameTime() - e.getValue().at() < FORGET_TICKS) continue;
-            level.destroyBlockProgress(crackId(pos), pos, -1);
-            it.remove();
-        }
+        WEAR.tick(GONE, CRACKS);
     }
 
     // a breaker id per block for its cracks, apart from the entity ids players use
