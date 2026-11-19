@@ -8,8 +8,8 @@ import net.minecraft.world.phys.Vec3;
 
 import org.junit.jupiter.api.Test;
 
-// core's Vec3d does Vec3's arithmetic: on the same doubles each method gives the same bits (signed zeros, NaN, the
-// normalize floor and huge values among them)
+// core's Vec3d does Vec3's arithmetic: on the same doubles each method gives the same bits (signed zeros, the normalize
+// floor and huge values among them; a NaN where Vec3 gives a NaN)
 class Vec3dTest {
     private static final double[] ODD = {0.0, -0.0, 1e-5, 9.99999e-6, 1.0E-5F, -1e-300, 1e300, Double.MIN_VALUE, Double.NaN,
             Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, 0.1, -0.5, 3.0, 1e-7};
@@ -29,7 +29,10 @@ class Vec3dTest {
         same(what + ".z", want.z, got.z());
     }
 
+    // the same bits, ±0 apart; a NaN only as a NaN: its sign and payload are the CPU's (the JIT's SSE gives -NaN where
+    // the interpreter gives +NaN for the same sum), not Vec3's
     private static void same(String what, double want, double got) {
+        if (Double.isNaN(want) && Double.isNaN(got)) return;
         assertEquals(Double.doubleToRawLongBits(want), Double.doubleToRawLongBits(got), () -> what + ": " + want + " / " + got);
     }
 
