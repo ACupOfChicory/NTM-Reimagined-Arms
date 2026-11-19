@@ -4,23 +4,23 @@ import java.util.List;
 
 /**
  * The stands only (SmokeCloudStand, -PsmokePoses=compare): the ways the same frame of smoke can be drawn, to set them
- * side by side. "old": as before 2026-11-18 (SmokeRender.standOld); "new": as it is drawn now; "old-rect", "old-depth",
- * "old-front", "old-through": new with one part drawn the old way.
+ * side by side. "old": as before 2026-11-18 (SmokeRender.standOld); "new": as it is drawn now; "a", "b", "c" and
+ * "abc": the looks for the owner to choose from (SmokeRender.look).
  */
 public final class SmokeCompare {
-    public static final List<String> VARIANTS = List.of("old", "new", "old-rect", "old-depth", "old-front", "old-through");
+    public static final List<String> VARIANTS = List.of("old", "new", "a", "b", "c", "abc");
 
     private SmokeCompare() {
     }
 
     public static void set(String variant) {
         reset();
-        SmokeRender.standOld = switch (variant) {
-            case "old" -> SmokeRender.OLD;
-            case "old-rect" -> SmokeRender.OLD_RECT;
-            case "old-depth" -> SmokeRender.OLD_DEPTH;
-            case "old-front" -> SmokeRender.OLD_FRONT;
-            case "old-through" -> SmokeRender.OLD_THROUGH;
+        if ("old".equals(variant)) SmokeRender.standOld = SmokeRender.OLD;
+        SmokeRender.look = switch (variant) {
+            case "a" -> 1;
+            case "b" -> 2;
+            case "c" -> 4;
+            case "abc" -> 7;
             default -> 0;
         };
     }
@@ -28,5 +28,6 @@ public final class SmokeCompare {
     /** Back to the way it is drawn in the game. */
     public static void reset() {
         SmokeRender.standOld = 0;
+        SmokeRender.look = 0;
     }
 }

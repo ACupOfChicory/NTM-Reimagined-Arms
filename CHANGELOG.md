@@ -1,5 +1,17 @@
 # Changelog
 
+## X1709
+
+- For now, F7 (Controls, "Smoke look (temporary)") steps smoke and gas clouds
+  through three ways of drawing them for less, to try in the game before one is
+  kept, and all three together. In look a, inside a cloud the smoke is drawn
+  coarser and laid over the walls by their depth. In look b, the smoke far off
+  is gone through in longer steps. In look c, the smoke's grain has one layer of
+  noise instead of two. Looks a and c change nothing below the high smoke
+  quality. Once pressed, the top left corner shows the look and the GPU's time
+  on the smoke. Leaving the world goes back to the look as now. The key and the
+  looks not kept will go again.
+
 ## X1707
 
 - F3+B no longer slows the game to a crawl near mobs in NTM's power armour and

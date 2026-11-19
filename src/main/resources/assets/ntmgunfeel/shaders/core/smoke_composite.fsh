@@ -65,12 +65,37 @@ vec4 frontAt(vec2 uv) {
     return sum;
 }
 
+// a look to choose from (Look.x): SmokeFull upscaled by depth, a texel whose depth is far from this pixel's counts
+// for little, so the smoke does not bleed over the edge of a wall
+vec4 fullByDepth(vec2 uv, float here) {
+    ivec2 low = textureSize(SmokeFull, 0);
+    vec2 scale = vec2(textureSize(Depth0, 0)) / vec2(low);
+    vec2 c = uv * vec2(low) - 0.5;
+    ivec2 i0 = ivec2(floor(c));
+    vec2 f = c - vec2(i0);
+    float zh = 1.0 / max(here, 1e-7);
+    vec4 sum = vec4(0.0);
+    float wsum = 0.0;
+    for (int k = 0; k < 4; k++) {
+        ivec2 o = ivec2(k & 1, k >> 1);
+        ivec2 t = clamp(i0 + o, ivec2(0), low - 1);
+        float zt = 1.0 / max(texelFetch(Depth0, ivec2((vec2(t) + 0.5) * scale), 0).r, 1e-7);
+        vec2 w2 = mix(1.0 - f, f, vec2(o));
+        // a slope's next texel is a few % off in depth and still counts about fully, a wall's edge (tens of %) hardly
+        float rel = abs(zt - zh) / min(zt, zh);
+        float w = w2.x * w2.y / (1.0 + rel * rel * 400.0);
+        sum += texelFetch(SmokeFull, t, 0) * w;
+        wsum += w;
+    }
+    return wsum > 0.0 ? sum / wsum : texture(SmokeFull, uv);
+}
+
 void main() {
     ivec2 px = ivec2(gl_FragCoord.xy);
 #if !defined(CHAIN_MAIN)
     vec4 p = texelFetch(FramePost, px, 0);
 #endif
-    vec4 full = texture(SmokeFull, texCoord);
+    vec4 full = Look.x > 0.5 ? fullByDepth(texCoord, texelFetch(Depth0, px, 0).r) : texture(SmokeFull, texCoord);
     bool glass = nearer(texelFetch(Depth1, px, 0).r, texelFetch(Depth0, px, 0).r);
 #if defined(CHAIN_MAIN)
     vec3 world = texelFetch(FrameOpaque, px, 0).rgb;
