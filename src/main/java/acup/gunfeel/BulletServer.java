@@ -79,7 +79,7 @@ public final class BulletServer {
         BlockPos pos = hit.getBlockPos().immutable();
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) return 0;
-        BulletRules.Break rule = BulletRules.breakRule(state);
+        BulletRuleText.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return 0;
         if (!wear(level, new Shooter(id, owner, damage), pos, state, rule, 1F)) return 0;
         if (TestLog.server) TestLog.s(id, "end", "by", rule.pass() ? "broke_pass" : "broke", "block", state, "pos", pos, "at", hit.getLocation());
@@ -93,7 +93,7 @@ public final class BulletServer {
         BlockPos pos = hit.getBlockPos().immutable();
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) return 0;
-        BulletRules.Break rule = BulletRules.breakRule(state);
+        BulletRuleText.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return 0;
         if (!wear(level, bullet, pos, state, rule, acup.gunfeel.water.WaterTick.k(bullet, hit.getLocation()))) return 0;
         if (TestLog.server) TestLog.s(bullet.getId(), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", state, "pos", pos, "at", hit.getLocation());
@@ -110,7 +110,7 @@ public final class BulletServer {
         BlockState state = level.getBlockState(hit.getBlockPos());
         if (state.isAir()) return false;
         BlockState rule = Cells.ruleState(level, hit.getBlockPos(), state);
-        BulletRules.Sound s = BulletRules.hit(rule).sound();
+        BulletRuleText.Sound s = BulletRules.hit(rule).sound();
         boolean steel = s != null && (s.id().startsWith("ntmgunfeel:bullet.hit.steel") || s.id().startsWith("ntmgunfeel:bullet.hit.metal"));
         if (TestLog.server) TestLog.s(TestLog.shot(), "ricochet", "block", rule, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit.getBlockPos()),
                 "result", "bounced", "sound", steel ? "ours" : "ntm");
@@ -127,7 +127,7 @@ public final class BulletServer {
         BlockPos pos = hit.getBlockPos().immutable();
         BlockState state = level.getBlockState(pos);
         if (state.isAir()) return;
-        BulletRules.Break rule = BulletRules.breakRule(state);
+        BulletRuleText.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return;
         wear(level, new Shooter(id, owner, damage), pos, state, rule, 1F);
     }
@@ -138,7 +138,7 @@ public final class BulletServer {
         BlockPos pos = hit.getBlockPos().immutable();
         BlockState state = level.getBlockState(pos);
         if (TestLog.server) TestLog.s(bullet.getId(), "through", "block", state, "pos", pos, "at", hit.getLocation());
-        BulletRules.Break rule = BulletRules.breakRule(state);
+        BulletRuleText.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return;
         wear(level, bullet, pos, state, rule, acup.gunfeel.water.WaterTick.k(bullet, hit.getLocation()));
     }
@@ -180,7 +180,7 @@ public final class BulletServer {
                 if (once) paid.add(pos);
                 if (level instanceof ServerLevel server) {
                     BlockState state = level.getBlockState(pos);
-                    BulletRules.Break rule = BulletRules.breakRule(state);
+                    BulletRuleText.Break rule = BulletRules.breakRule(state);
                     if (rule != null && rule.mode() != 0) wear(server, bullet, pos, state, rule, k);
                 }
                 steps.pierced(hit, out, bullet.damage, spentBefore);
@@ -220,11 +220,11 @@ public final class BulletServer {
 
     // one hit on the block by its rule: true when it broke
     // k: the share of the bullet's damage left there (water, WaterTick.k)
-    private static boolean wear(ServerLevel level, EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, BulletRules.Break rule, float k) {
+    private static boolean wear(ServerLevel level, EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, BulletRuleText.Break rule, float k) {
         return wear(level, Shooter.of(bullet), pos, state, rule, k);
     }
 
-    private static boolean wear(ServerLevel level, Shooter bullet, BlockPos pos, BlockState state, BulletRules.Break rule, float k) {
+    private static boolean wear(ServerLevel level, Shooter bullet, BlockPos pos, BlockState state, BulletRuleText.Break rule, float k) {
         float damage = bullet.damage() * k;
         float hardness = state.getDestroySpeed(level, pos);
         if (hardness < 0F) { // bedrock and the like
@@ -355,14 +355,14 @@ public final class BulletServer {
         return String.format(java.util.Locale.ROOT, "%.0f/%.0f x%.2f", worn, dura, AmmoStats.wear(worn, dura));
     }
 
-    private static void play(ServerLevel level, EntityBulletBaseMK4 bullet, Entity target, Vec3 at, BulletRules.Effect fx) {
+    private static void play(ServerLevel level, EntityBulletBaseMK4 bullet, Entity target, Vec3 at, BulletRuleText.Effect fx) {
         if (fx.empty()) return;
         Vec3 p = at == null ? target.position().add(0, target.getBbHeight() / 2, 0) : at;
-        for (BulletRules.Particle part : fx.particles()) {
+        for (BulletRuleText.Particle part : fx.particles()) {
             ParticleOptions o = particle(part.id(), null);
             if (o != null) level.sendParticles(o, p.x, p.y, p.z, part.count(), 0.1, 0.1, 0.1, 0.05);
         }
-        BulletRules.Sound s = fx.sound();
+        BulletRuleText.Sound s = fx.sound();
         if (s == null) return;
         Identifier id = Identifier.tryParse(s.id());
         if (id == null) return;

@@ -167,7 +167,7 @@ public final class Gl54Grenade {
 
     // what counts as glass here: a block with a bullet break rule that is glass (a tag of any mod's, or glass in its id)
     static boolean glass(BlockState state) {
-        BulletRules.Break rule = BulletRules.breakRule(state);
+        acup.gunfeel.BulletRuleText.Break rule = BulletRules.breakRule(state);
         if (rule == null || rule.mode() == 0) return false;
         return state.is(net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK,
                 net.minecraft.resources.Identifier.fromNamespaceAndPath("c", "glass_blocks")))

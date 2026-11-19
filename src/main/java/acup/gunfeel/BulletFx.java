@@ -62,7 +62,7 @@ public final class BulletFx {
         if (state.isAir()) return;
         // a cell of an NTM multiblock (the shared multiblock_cell_* blocks): the rules of its machine
         BlockState ruleState = window ? state : Cells.ruleState(level, hit.getBlockPos(), state);
-        BulletRules.Effect fx = BulletRules.hit(ruleState);
+        BulletRuleText.Effect fx = BulletRules.hit(ruleState);
         if (TestLog.client) TestLog.c(TestLog.shot(), "fx", "block", ruleState, "pos", hit.getBlockPos(), "material", TestLog.material(level, hit),
                 "sound", fx.sound() == null ? "none" : fx.sound().id(), "particles", fx.particles().size(),
                 "full", state.isCollisionShapeFullBlock(level, hit.getBlockPos()), "explosive", explosive, "fxOn", Config.bulletFx);
@@ -102,7 +102,7 @@ public final class BulletFx {
         // model; the sound stays
         boolean full = window || state.isCollisionShapeFullBlock(level, hit.getBlockPos());
         int emitted = 0;
-        for (BulletRules.Particle part : full ? fx.particles() : java.util.List.<BulletRules.Particle>of()) {
+        for (BulletRuleText.Particle part : full ? fx.particles() : java.util.List.<BulletRuleText.Particle>of()) {
             int count = Config.scaledCount(part.count(), Config.particleScale, r.nextDouble());
             if (part.id().equalsIgnoreCase("block") && byRenderer) {
                 if (!looked) {
@@ -148,7 +148,7 @@ public final class BulletFx {
                 "texture", drawn != null ? RenderedMesh.texName(drawn.tri().tex())
                         : net.minecraft.client.Minecraft.getInstance().getModelManager().getBlockStateModelSet()
                                 .getParticleMaterial(state, level, hit.getBlockPos()).sprite().contents().name());
-        BulletRules.Sound s = fx.sound();
+        BulletRuleText.Sound s = fx.sound();
         if (s == null) return;
         String id = s.id().equalsIgnoreCase("block") ? "block" : familyOf(s.id(), r);
         SoundEvent e = id.equals("block") ? state.getSoundType().getHitSound() : event(id);
@@ -415,7 +415,7 @@ public final class BulletFx {
     // the bullet whizzes when it passed within the rule's radius of the player's eyes; true when it did, so it whizzes once
     public static boolean whizz(ClientLevel level, Pass p, double speed) {
         if (!Config.bulletFx) return false;
-        BulletRules.Whizz w = BulletRules.whizz();
+        BulletRuleText.Whizz w = BulletRules.whizz();
         if (w.sound() == null || w.radius() <= 0F) return false;
         Vec3 near = p.near();
         double d = p.d();
@@ -443,7 +443,7 @@ public final class BulletFx {
     // the in-flight sound of one bullet, following it until it stops
     public static void fly(Supplier<Vec3> where, BooleanSupplier flying) {
         if (!Config.bulletFx) return;
-        BulletRules.Sound s = BulletRules.fly();
+        BulletRuleText.Sound s = BulletRules.fly();
         if (s == null) return;
         SoundEvent e = event(s.id());
         if (e == null) return;
@@ -454,7 +454,7 @@ public final class BulletFx {
         private final Supplier<Vec3> where;
         private final BooleanSupplier flying;
 
-        Flying(SoundEvent e, BulletRules.Sound s, Supplier<Vec3> where, BooleanSupplier flying) {
+        Flying(SoundEvent e, BulletRuleText.Sound s, Supplier<Vec3> where, BooleanSupplier flying) {
             super(e, SoundSource.PLAYERS, RandomSource.create());
             this.where = where;
             this.flying = flying;
