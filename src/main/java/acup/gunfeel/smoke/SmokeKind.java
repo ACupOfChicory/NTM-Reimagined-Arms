@@ -41,10 +41,10 @@ public record SmokeKind(int id, String name, float volume, int release, int bomb
      * NTM's white phosphorus hand grenade ({@code acup.gunfeel.gas.WpSmoke}): a white haze, as NTM's own was, not a smoke
      * screen. Half a smoke grenade let out of seven points ringed up to 3.5 blocks round the burst lies low and flat as
      * the heavy gases do (it goes out to the sides five times as fast as up, runs down a slope and into a trench): some
-     * 17 blocks across and 3 high. One block of it stops about 5% of the light, the whole of it seen from the side about
-     * half, the player's and a mob's sight alike. It holds while NTM's fire on the ground burns (30 s) and thins after.
-     * A second grenade in it does not feed it: the two hazes lie one in the other, as a gas's two clouds do
-     * ({@link SmokeClouds#feeds}).
+     * 17 blocks across and 3 high. One block of it stops about 8% of the light, the whole of it seen from the side about
+     * three quarters (the owner picked it of about 3%, 5% and 8% a block), the player's and a mob's sight alike. It
+     * holds while NTM's fire on the ground burns (30 s) and thins after. A second grenade in it does not feed it: the
+     * two hazes lie one in the other, as a gas's two clouds do ({@link SmokeClouds#feeds}).
      */
     public static final SmokeKind WP = wp(5, "wp");
     /**
@@ -55,7 +55,7 @@ public record SmokeKind(int id, String name, float volume, int release, int bomb
     private static final List<SmokeKind> ALL = List.of(SMOKE, WP, WP_SHELL);
 
     private static SmokeKind wp(int id, String name) {
-        return new SmokeKind(id, name, 180F, 40, 7, 24F, 3.5F, 0.45F, 0.08F, -0.8F, -0.002F, 480, 0.968F, 0xF0F0EC, 0.10F);
+        return new SmokeKind(id, name, 180F, 40, 7, 24F, 3.5F, 0.45F, 0.08F, -0.8F, -0.002F, 480, 0.968F, 0xF0F0EC, 0.16F);
     }
 
     public static SmokeKind byId(int id) {

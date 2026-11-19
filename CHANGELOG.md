@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- The white phosphorus haze is a little thicker: looking across the whole of it
+  now hides about three quarters of what is behind (it was about half). Players
+  and mobs still see through it.
+
 ## X1723
 
 - White phosphorus now lets out a low, thin white haze instead of a dense
