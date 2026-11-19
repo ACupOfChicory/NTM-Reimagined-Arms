@@ -12,8 +12,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.TreeSet;
 
-import net.neoforged.fml.loading.FMLPaths;
-
 // Recoil presets: "<preset>.<channel> = <Spring>" in the jar's ntmgunfeel-recoil.properties, and the player's own in
 // config/ntm-gunfeel-recoil.properties (the editor's "save as preset"), which come on top. A gun picks one preset
 // for its model kick (kickPreset) and one for the camera (cameraPreset, empty = the same as kickPreset); a channel
@@ -38,7 +36,7 @@ public final class RecoilPresets {
         try (var in = RecoilPresets.class.getResourceAsStream("/ntmgunfeel-recoil.properties")) {
             if (in != null) p.load(new InputStreamReader(in, StandardCharsets.UTF_8));
         } catch (Exception e) {
-            DebugLog.LOGGER.warn("Could not read the recoil presets", e);
+            ModLog.LOGGER.warn("Could not read the recoil presets", e);
         }
         return p;
     }
@@ -49,7 +47,7 @@ public final class RecoilPresets {
         if (now < nextCheck) return;
         nextCheck = now + 1000;
         try {
-            if (file == null) file = FMLPaths.CONFIGDIR.get().resolve(FILE);
+            if (file == null) file = GameDirs.get().config().resolve(FILE);
             long m = Files.exists(file) ? Files.getLastModifiedTime(file).toMillis() : 0L;
             if (m == stamp) return;
             stamp = m;
@@ -58,7 +56,7 @@ public final class RecoilPresets {
                 MINE.load(r);
             }
         } catch (Exception e) {
-            DebugLog.LOGGER.warn("Could not read {}", file, e);
+            ModLog.LOGGER.warn("Could not read {}", file, e);
         }
     }
 
@@ -139,7 +137,7 @@ public final class RecoilPresets {
         p.putAll(MINE);
         channels.forEach((c, s) -> p.setProperty(name + "." + c, s.toString()));
         try {
-            if (file == null) file = FMLPaths.CONFIGDIR.get().resolve(FILE);
+            if (file == null) file = GameDirs.get().config().resolve(FILE);
             try (Writer w = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
                 w.write("# NTM Gun Feel recoil presets of your own, on top of the mod's: <preset>.<channel> = "
                         + "amount,attack,settle,bounce,delay,freq\n");
@@ -149,7 +147,7 @@ public final class RecoilPresets {
             }
             nextCheck = 0L;
         } catch (Exception e) {
-            DebugLog.LOGGER.warn("Could not write {}", file, e);
+            ModLog.LOGGER.warn("Could not write {}", file, e);
         }
     }
 }
