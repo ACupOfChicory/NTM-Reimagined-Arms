@@ -7,6 +7,7 @@ import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.host.HostVersions;
 import acup.gunfeel.host.NtmFeature;
 import acup.gunfeel.host.Ports;
 import acup.gunfeel.smoke.SmokeClouds;
@@ -30,7 +31,8 @@ public final class Wiring implements Ports {
             ReaimTimes.Reload.class, new ServerTablesReload(),
             ServerSettings.Follow.class, new RemoteShapes(),
             MainHand.class, new GameMainHand(),
-            GunAnimState.class, new NtmAnimState());
+            GunAnimState.class, new NtmAnimState(),
+            HostVersions.class, new acup.gunfeel.compat.CompatVersions());
 
     @Override
     public <T> @Nullable T port(Class<T> type) {

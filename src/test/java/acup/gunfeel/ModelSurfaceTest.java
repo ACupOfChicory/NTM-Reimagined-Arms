@@ -62,15 +62,15 @@ class ModelSurfaceTest {
     @Test
     void exactGeometrySurvivesPackingAndServerSettings() throws Exception {
         long[] model = shape(cutout());
-        String packed = PassableClip.pack(model);
-        assertArrayEquals(model, PassableClip.unpack(packed));
+        String packed = ShapeCells.pack(model);
+        assertArrayEquals(model, ShapeCells.unpack(packed));
         var sent = new ServerSettings.Snapshot("", java.util.Map.of(), java.util.Map.of("test:model", packed), "");
         var received = ServerSettings.decode(ServerSettings.encode(sent));
-        assertArrayEquals(model, PassableClip.unpack(received.shapes().get("test:model")));
+        assertArrayEquals(model, ShapeCells.unpack(received.shapes().get("test:model")));
         long[] legacy = new long[65];
         legacy[1] = 123;
         legacy[64] = 1;
-        assertArrayEquals(legacy, PassableClip.unpack(PassableClip.pack(legacy)));
+        assertArrayEquals(legacy, ShapeCells.unpack(ShapeCells.pack(legacy)));
         // Старый читатель получает прежние 512 байт сетки в начале сжатого потока.
         try (var in = new java.util.zip.InflaterInputStream(new java.io.ByteArrayInputStream(java.util.Base64.getDecoder().decode(packed.substring(1))))) {
             long[] old = new long[64];
@@ -88,7 +88,7 @@ class ModelSurfaceTest {
         for (var r : net.minecraft.world.level.block.Rotation.values()) {
             long[] model = ModelSurface.rotate(original, r);
             assertTrue(ModelSurface.valid(model));
-            assertArrayEquals(model, PassableClip.unpack(PassableClip.pack(model)));
+            assertArrayEquals(model, ShapeCells.unpack(ShapeCells.pack(model)));
         }
     }
 
@@ -121,7 +121,7 @@ class ModelSurfaceTest {
         assertTrue(ModelSurface.valid(model));
         assertFalse(ModelSurface.valid(java.util.Arrays.copyOf(model, model.length - 1)));
         model[65] = Long.MAX_VALUE;
-        assertNull(PassableClip.unpack(PassableClip.pack(model)));
+        assertNull(ShapeCells.unpack(ShapeCells.pack(model)));
     }
 
     // a big face of a machine cut down to each block it crosses (crop) is met by bullets within the block as the whole

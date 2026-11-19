@@ -52,7 +52,7 @@ public final class PassableClip extends ClipContext {
         // a model inside its hitbox: only the model's cells stop a bullet (march), whatever the collision box
         // (scaffolding has none unless you stand on it). A shell (door, trapdoor) keeps its hitbox: see clip().
         long[] vox = shape(state);
-        if (vox != null && !shell(vox)) return Shapes.block();
+        if (vox != null && !ShapeCells.shell(vox)) return Shapes.block();
         if (level instanceof Level l && Structures.cells(l, pos, state) != null) return Shapes.block();
         return super.getBlockShape(state, level, pos);
     }
@@ -123,7 +123,7 @@ public final class PassableClip extends ClipContext {
         // a model's cells (a scaffold's post, a board): out where its pixels end along the way, not through the
         // whole hitbox
         long[] vox = shape(state);
-        long[] cells = vox != null ? (shell(vox) ? null : vox) : Structures.cells(level, pos, state);
+        long[] cells = vox != null ? (ShapeCells.shell(vox) ? null : vox) : Structures.cells(level, pos, state);
         if (vox != null && ModelSurface.present(vox)) {
             BlockHitResult out = ModelSurface.hit(vox, pos, in.getLocation(), in.getLocation().add(dir.scale(2)), true);
             if (out != null) return out;
@@ -169,7 +169,7 @@ public final class PassableClip extends ClipContext {
         // Проверяем до правил пробития, чтобы они тоже не обходили общий выключатель.
         if ((Cells.machine(state) || Cells.machine(ruleState) || v.material() == Materials.Material.MACHINE)
                 && !ReaimTimes.flag(BulletRules.MACHINES_KEY, false)) return -1F;
-        BulletRules.Break rule = BulletRules.breakRule(state);
+        BulletRuleText.Break rule = BulletRules.breakRule(state);
         if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, state.getDestroySpeed(level, in.getBlockPos()), in.getLocation().distanceTo(out.getLocation()));
         float left = penetration.left(v, in.getLocation().distanceTo(out.getLocation()), damage, negation, piercing);
         return left >= 1F ? left : -1F;
@@ -221,7 +221,7 @@ public final class PassableClip extends ClipContext {
                 // the whole block (not onto its far inner face, seen through the window). Already inside it (came in
                 // through a see-through pixel the last tick): flies on.
                 BlockHitResult in = ModelSurface.present(vox) ? ModelSurface.hit(vox, hit.getBlockPos(), from, to, false, false, hiddenSides(level, hit.getBlockPos(), state))
-                        : !shell(vox) ? march(vox, hit, to.subtract(from), 64)
+                        : !ShapeCells.shell(vox) ? march(vox, hit, to.subtract(from), 64)
                         : hit.isInside() ? null : march(vox, hit, to.subtract(from), 1);
                 if (in != null) return in;
             } else if (hit.isInside() && maskOf(state) != null) {
@@ -235,7 +235,7 @@ public final class PassableClip extends ClipContext {
             }
             if (WorldLog.on(level) && TestLog.shot() >= 0)
                 WorldLog.at(level, "gap", "block", state, "pos", hit.getBlockPos(), "at", hit.getLocation(),
-                        "how", cells != null ? "cells" : vox != null ? (shell(vox) ? "shell" : "model") : maskOf(state) != null ? "mask" : "open");
+                        "how", cells != null ? "cells" : vox != null ? (ShapeCells.shell(vox) ? "shell" : "model") : maskOf(state) != null ? "mask" : "open");
             skip.add(hit.getBlockPos().immutable());
         }
         Vec3 d = to.subtract(from);
@@ -376,14 +376,9 @@ public final class PassableClip extends ClipContext {
         return k.append(']').toString();
     }
 
-    // bits[64] = 1: the model closes its hitbox all round (see MeshShapes.shell)
-    public static boolean shell(long[] bits) {
-        return bits.length > 64 && bits[64] != 0L;
-    }
-
     public static boolean shell(BlockState state) {
         long[] v = shape(state);
-        return v != null && shell(v);
+        return v != null && ShapeCells.shell(v);
     }
 
     // shapes made by this client: used at once (single player, the client's own tracers); on another game's server they
@@ -404,7 +399,7 @@ public final class PassableClip extends ClipContext {
         } else {
             Map<String, long[]> m = new HashMap<>(jar);
             for (Map.Entry<String, String> e : packed.entrySet()) {
-                long[] bits = unpack(e.getValue());
+                long[] bits = ShapeCells.unpack(e.getValue());
                 if (bits != null) m.put(e.getKey(), bits);
             }
             remote = m;
@@ -494,55 +489,9 @@ public final class PassableClip extends ClipContext {
             if (k.startsWith("@")) continue;
             String v = p.getProperty(k).trim();
             if (v.startsWith("@")) v = p.getProperty(v, "").trim();
-            long[] bits = unpack(v);
+            long[] bits = ShapeCells.unpack(v);
             if (bits != null) into.put(k, bits);
         }
-    }
-
-    static long[] unpack(String v) {
-        long[] bits = new long[65];
-        if (v.startsWith("!")) {
-            bits[64] = 1L;
-            v = v.substring(1);
-        }
-        try {
-            if (v.length() == 1024) {
-                for (int j = 0; j < 64; j++) bits[j] = Long.parseUnsignedLong(v.substring(j * 16, j * 16 + 16), 16);
-                return bits;
-            }
-            if (!v.startsWith("z")) return null;
-            byte[] compressed = java.util.Base64.getDecoder().decode(v.substring(1));
-            try (var in = new java.util.zip.InflaterInputStream(new java.io.ByteArrayInputStream(compressed))) {
-                byte[] data = in.readNBytes(1_048_577);
-                if (data.length < 512 || data.length > 1_048_576 || data.length % 8 != 0) return null;
-                bits = java.util.Arrays.copyOf(bits, 65 + (data.length - 512) / 8);
-                var longs = java.nio.ByteBuffer.wrap(data).asLongBuffer();
-                longs.get(bits, 0, 64);
-                if (longs.hasRemaining()) longs.get(bits, 65, longs.remaining());
-                return ModelSurface.valid(bits) ? bits : null;
-            }
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    public static String pack(long[] bits) {
-        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(512 + Math.max(0, bits.length - 65) * 8);
-        var longs = buf.asLongBuffer();
-        longs.put(bits, 0, 64);
-        if (bits.length > 65) longs.put(bits, 65, bits.length - 65);
-        var bytes = new java.io.ByteArrayOutputStream();
-        try (var out = new java.util.zip.DeflaterOutputStream(bytes)) {
-            out.write(buf.array());
-        } catch (java.io.IOException e) {
-            throw new java.io.UncheckedIOException(e);
-        }
-        return (shell(bits) ? "!z" : "z") + java.util.Base64.getEncoder().encodeToString(bytes.toByteArray());
-    }
-
-    public static boolean cell(long[] bits, int x, int y, int z) {
-        int i = x + 16 * (y + 16 * z);
-        return (bits[i >> 6] >>> (i & 63) & 1L) != 0L;
     }
 
     // From where the bullet enters the block's hitbox, along its way, to the first set cell: the hit there, or null
@@ -566,7 +515,7 @@ public final class PassableClip extends ClipContext {
         double t = 0;
         Direction face = hit.getDirection();
         for (int n = 0; n < cells; n++) {
-            if (cell(bits, x, y, z)) {
+            if (ShapeCells.cell(bits, x, y, z)) {
                 Vec3 at = new Vec3(pos.getX() + (px + dx * t) / 16, pos.getY() + (py + dy * t) / 16, pos.getZ() + (pz + dz * t) / 16);
                 return new BlockHitResult(at, face, pos, false);
             }
@@ -598,7 +547,7 @@ public final class PassableClip extends ClipContext {
         double ddx = Math.abs(1 / dx), ddy = Math.abs(1 / dy), ddz = Math.abs(1 / dz);
         double t = 0;
         Direction face = in.getDirection().getOpposite();
-        for (int n = 0; n < 64 && cell(bits, x, y, z); n++) {
+        for (int n = 0; n < 64 && ShapeCells.cell(bits, x, y, z); n++) {
             if (tx <= ty && tx <= tz) {
                 t = tx; tx += ddx; x += sx; face = sx > 0 ? Direction.EAST : Direction.WEST;
             } else if (ty <= tz) {

@@ -45,112 +45,31 @@ import net.neoforged.fml.loading.FMLPaths;
  * <p>A gun's own line changes its receivers (the pause after a shot, auto fire, the magazine, the base damage) on
  * both sides; the setting turns them back.
  */
-public final class BalanceGuns {
-    public static final String FILE = "ntm-gunfeel-balance-guns.tsv";
-    private static final String RESOURCE = "/ntmgunfeel-balance-guns.tsv";
+public final class BalanceGuns extends BalanceGunsBase {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("ntm-gunfeel");
 
     private BalanceGuns() {
     }
 
-    public static boolean on() {
-        return ReaimTimes.flag("balanceGuns", true);
-    }
-
     // ---------------------------------------------------------------- the table
 
-    private static BalanceGunsRule.Table table = null;
-    private static long tableStamp = Long.MIN_VALUE, lastPoll;
+    /** the table's reading SHOTS and FROM were worked out of */
+    private static int shotsOf;
+
+    static synchronized BalanceGunsRule.Table table() {
+        BalanceGunsRule.Table t = loadTable();
+        if (shotsOf != tableGeneration) {
+            shotsOf = tableGeneration;
+            SHOTS.clear();
+            FROM.clear();
+        }
+        return t;
+    }
+
     /** a gun's shots by ammo, worked out when the gun is first fired after the table was (re)read */
     private static final Map<Item, Map<BulletConfig, BalanceGunsRule.Shot>> SHOTS = new IdentityHashMap<>();
     /** where each ammo's numbers came from (the stand and the notes) */
     private static final Map<Item, Map<String, BalanceGunsRule.Resolved>> FROM = new IdentityHashMap<>();
-
-    /** the server's settings the table was last read from (null: the jar's, or this game's file on the stands) */
-    private static ServerSettings.Snapshot tableRemote;
-
-    /** the table read again at the next look, whatever the clock (ReaimTimes.reloadNow) */
-    static synchronized void reloadNow() {
-        lastPoll = Long.MIN_VALUE / 2;
-        tableStamp = Long.MIN_VALUE;
-    }
-
-    static synchronized BalanceGunsRule.Table table() {
-        ServerSettings.Snapshot remote = ServerSettings.remote();
-        if (remote != null) {
-            if (remote != tableRemote) {
-                tableRemote = remote;
-                // an empty one: the server had no table to send, the jar's counts
-                table = remote.guns().isBlank() ? read(null) : parse(remote.guns().lines().toList(), "the server's");
-                SHOTS.clear();
-                FROM.clear();
-            }
-            return table;
-        }
-        if (tableRemote != null) {
-            // left the server: this game's own table again
-            tableRemote = null;
-            table = null;
-        }
-        long now = System.currentTimeMillis();
-        if (table == null || now - lastPoll > 2000L) {
-            lastPoll = now;
-            Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
-            long stamp = -1L;
-            try {
-                // config/'s table only on the stands (BalanceKeys.dev): the balance is fixed in the mod
-                if (Files.exists(f)) {
-                    if (BalanceKeys.dev()) stamp = Files.getLastModifiedTime(f).toMillis();
-                    else if (!ignoredLogged) {
-                        ignoredLogged = true;
-                        LOGGER.info("{} is not read any more: the balance's gun table is the mod's", f);
-                    }
-                }
-            } catch (IOException e) {
-                stamp = -1L;
-            }
-            if (table == null || stamp != tableStamp) {
-                tableStamp = stamp;
-                table = read(stamp >= 0 ? f : null);
-                SHOTS.clear();
-                FROM.clear();
-            }
-        }
-        return table;
-    }
-
-    private static boolean ignoredLogged;
-
-    private static BalanceGunsRule.Table read(Path f) {
-        List<String> lines;
-        try {
-            if (f != null) lines = Files.readAllLines(f, StandardCharsets.UTF_8);
-            else try (InputStream in = BalanceGuns.class.getResourceAsStream(RESOURCE)) {
-                if (in == null) return BalanceGunsRule.Table.EMPTY;
-                lines = new String(in.readAllBytes(), StandardCharsets.UTF_8).lines().toList();
-            }
-        } catch (IOException e) {
-            LOGGER.warn("Could not read the balance's gun table {}", f, e);
-            return BalanceGunsRule.Table.EMPTY;
-        }
-        return parse(lines, f != null ? f.toString() : "the jar's");
-    }
-
-    private static BalanceGunsRule.Table parse(List<String> lines, String where) {
-        List<String> bad = new ArrayList<>();
-        BalanceGunsRule.Table t = BalanceGunsRule.parse(lines, bad);
-        for (String b : bad) LOGGER.warn("The balance's gun table ({}): a line not read: {}", where, b);
-        return t;
-    }
-
-    /** the table as this game's server has it (the jar's; its file on the stands), for the players */
-    static String text() throws IOException {
-        Path f = FMLPaths.CONFIGDIR.get().resolve(FILE);
-        if (BalanceKeys.dev() && Files.exists(f)) return Files.readString(f, StandardCharsets.UTF_8);
-        try (InputStream in = BalanceGuns.class.getResourceAsStream(RESOURCE)) {
-            return in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
-    }
 
     static String gunName(Item item) {
         Identifier id = BuiltInRegistries.ITEM.getKey(item);
@@ -227,12 +146,6 @@ public final class BalanceGuns {
         return share(from.damageMult, pair(gunItem, from), as.damageMult, pair(gunItem, as));
     }
 
-    /** an ammo of NTM's damage {@code fromMult} and the table's line {@code a} made as heavy as one of {@code asMult} and {@code b} */
-    static float share(float fromMult, BalanceGunsRule.Shot a, float asMult, BalanceGunsRule.Shot b) {
-        float own = fromMult * (a.none() ? 1F : a.mult());
-        return own > 0F ? asMult * (b.none() ? 1F : b.mult()) / own : 1F;
-    }
-
     /** where a gun's ammo got its numbers (BalanceGunsRule.Resolved.from), after a shot or pair() */
     static synchronized Map<String, BalanceGunsRule.Resolved> from(Item gunItem) {
         BulletConfig first = firstAmmo(gunItem);
@@ -306,24 +219,8 @@ public final class BalanceGuns {
      * table's least floor)
      */
     public static float floorOf(Entity direct, int tier) {
-        float[] e = extra(direct);
-        if (e == null || e.length < 4) return 1F;
-        float own = e[2] == 1F || tier < e[3] ? 1F : e[2];
-        float k = e.length > 4 ? BalanceGunsRule.tierFloor(tierFloorRules(), (int) e[4], tier) : 1F;
-        return k < 1F ? Math.max(BalanceGunsRule.LEAST_FLOOR, own * k) : own;
+        return floorOf(extra(direct), tier);
     }
-
-    /**
-     * balanceArmorTierFloor ("2:4:0.5 5:8:0.5"; "" or off: X884): a pair of tier 2 or below hits a set of tier 4 and
-     * up with half the formula's floor, a pair of tier 5 or below a set of tier 8 and up (DNS, FAU, euphemium, their
-     * pools too) the same (notes: the cheese review, item A)
-     */
-    static String tierFloorRules() {
-        String v = ReaimTimes.text("balanceArmorTierFloor", TIER_FLOOR).strip();
-        return v.equalsIgnoreCase("off") || v.equalsIgnoreCase("none") ? "" : v;
-    }
-
-    static final String TIER_FLOOR = "2:4:0.5 5:8:0.5";
 
     /** the tooltip's mult of an ammo in a gun (1 with the setting off) */
     public static float tooltipMult(Item gun, BulletConfig ammo) {

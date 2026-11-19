@@ -38,6 +38,8 @@ class Ports26Test extends PortsContract {
         assertInstanceOf(GameMainHand.class, p.port(MainHand.class));
         assertInstanceOf(NtmAnimState.class, p.port(GunAnimState.class));
         assertInstanceOf(NtmAnimState.class, ArmTimeline.ANIM);
+        assertInstanceOf(acup.gunfeel.compat.CompatVersions.class, p.port(acup.gunfeel.host.HostVersions.class));
+        assertInstanceOf(acup.gunfeel.compat.CompatVersions.class, acup.gunfeel.host.HostVersions.get());
         assertInstanceOf(FmlGameDirs.class, GameDirs.get());
     }
 

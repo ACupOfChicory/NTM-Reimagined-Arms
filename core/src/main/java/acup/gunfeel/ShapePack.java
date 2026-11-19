@@ -39,7 +39,7 @@ public final class ShapePack {
     private record Index(String ntm, Map<String, Group> groups) {
         // made with this game's NTM (known once NTM is loaded)
         boolean trusted() {
-            return !off && !groups.isEmpty() && ntm.equals(acup.gunfeel.compat.Compat.hbmVersion());
+            return !off && !groups.isEmpty() && ntm.equals(acup.gunfeel.host.HostVersions.get().ntm());
         }
     }
 
@@ -163,10 +163,10 @@ public final class ShapePack {
         long start = System.nanoTime();
         try {
             Map<String, long[]> out = readGroup(decompress(g.packed(), g.raw(), g.codec()));
-            DebugLog.LOGGER.debug("Bullet shapes of {} unpacked in {} ms", name, (System.nanoTime() - start) / 1_000_000);
+            ModLog.LOGGER.debug("Bullet shapes of {} unpacked in {} ms", name, (System.nanoTime() - start) / 1_000_000);
             return out;
         } catch (IOException | RuntimeException | LinkageError e) {
-            DebugLog.LOGGER.warn("Could not unpack the bullet shapes of {}", name, e);
+            ModLog.LOGGER.warn("Could not unpack the bullet shapes of {}", name, e);
             return Map.of();
         }
     }
@@ -177,11 +177,11 @@ public final class ShapePack {
         try (InputStream in = ShapePack.class.getResourceAsStream("/" + FILE)) {
             if (in != null) {
                 read = readIndex(in.readAllBytes());
-                DebugLog.LOGGER.info("Bullet shapes of {} NTM machines in the jar, made with NTM {}, read in {} ms", read.groups().size(), read.ntm(),
+                ModLog.LOGGER.info("Bullet shapes of {} NTM machines in the jar, made with NTM {}, read in {} ms", read.groups().size(), read.ntm(),
                         (System.nanoTime() - start) / 1_000_000);
             }
         } catch (IOException | RuntimeException | LinkageError e) {
-            DebugLog.LOGGER.warn("Could not read {}", FILE, e);
+            ModLog.LOGGER.warn("Could not read {}", FILE, e);
         } finally {
             // set whatever happens: unset, the machines would wait for the file for good (pending)
             index = read;
@@ -288,7 +288,7 @@ public final class ShapePack {
         java.util.List<long[]> cornerList = new java.util.ArrayList<>();
         java.util.List<int[]> faceCorners = new java.util.ArrayList<>();
         for (long[] v : unique)
-            for (var f : ModelSurface.faces(v)) {
+            for (var f : ModelSurfaceBase.faces(v)) {
                 int[] at = new int[3];
                 for (int q = 0; q < 3; q++) {
                     long[] c = {Math.round(f.p()[3 * q] * POS), Math.round(f.p()[3 * q + 1] * POS), Math.round(f.p()[3 * q + 2] * POS),
@@ -313,8 +313,8 @@ public final class ShapePack {
         int face = 0, lastFirst = 0;
         for (long[] v : unique) {
             for (int k = 0; k < 65; k++) out.writeLong(k < v.length ? v[k] : 0L);
-            var faces = ModelSurface.faces(v);
-            varint(out, ModelSurface.present(v) ? faces.size() + 1 : 0);
+            var faces = ModelSurfaceBase.faces(v);
+            varint(out, ModelSurfaceBase.present(v) ? faces.size() + 1 : 0);
             for (var f : faces) {
                 int[] at = faceCorners.get(face++);
                 varint(out, zigzag(at[0] - lastFirst));
@@ -378,7 +378,7 @@ public final class ShapePack {
                 unique[j] = cells;
                 continue;
             }
-            java.util.List<ModelSurface.Face> faces = new java.util.ArrayList<>(n - 1);
+            java.util.List<ModelSurfaceBase.Face> faces = new java.util.ArrayList<>(n - 1);
             for (int f = 0; f < n - 1; f++) {
                 double[] p = new double[9], uv = new double[6];
                 int first = lastFirst + (int) unzigzag(unvarint(in));
@@ -398,16 +398,16 @@ public final class ShapePack {
                     for (int k = 0; k < alpha.length; k++) alpha[k] = in.readLong();
                     masks.add(alpha);
                 }
-                faces.add(new ModelSurface.Face(p, uv, w, hg >>> 1, alpha, (hg & 1) != 0));
+                faces.add(new ModelSurfaceBase.Face(p, uv, w, hg >>> 1, alpha, (hg & 1) != 0));
             }
-            unique[j] = ModelSurface.attach(cells, faces);
+            unique[j] = ModelSurfaceBase.attach(cells, faces);
         }
         int n = (int) unvarint(in);
         Map<String, long[]> out = new HashMap<>(n * 4 / 3 + 1);
         for (int j = 0; j < n; j++) {
             String place = in.readUTF();
             long[] s = unique[(int) unvarint(in)];
-            if (ModelSurface.valid(s)) out.put(place, s);
+            if (ModelSurfaceBase.valid(s)) out.put(place, s);
         }
         return out;
     }
@@ -440,15 +440,15 @@ public final class ShapePack {
 
     // a shape as the file brings it back: its faces' numbers on the file's steps (for tests and the stand)
     static long[] quantized(long[] shape) {
-        if (!ModelSurface.present(shape)) return shape;
-        java.util.List<ModelSurface.Face> faces = new java.util.ArrayList<>();
-        for (var f : ModelSurface.faces(shape)) {
+        if (!ModelSurfaceBase.present(shape)) return shape;
+        java.util.List<ModelSurfaceBase.Face> faces = new java.util.ArrayList<>();
+        for (var f : ModelSurfaceBase.faces(shape)) {
             double[] p = f.p().clone(), uv = f.uv().clone();
             for (int k = 0; k < 9; k++) p[k] = Math.round(p[k] * POS) / POS;
             for (int k = 0; k < 6; k++) uv[k] = Math.round(uv[k] * UV) / UV;
-            faces.add(new ModelSurface.Face(p, uv, f.width(), f.height(), f.alpha(), f.glass()));
+            faces.add(new ModelSurfaceBase.Face(p, uv, f.width(), f.height(), f.alpha(), f.glass()));
         }
-        return ModelSurface.attach(java.util.Arrays.copyOf(shape, 65), faces);
+        return ModelSurfaceBase.attach(java.util.Arrays.copyOf(shape, 65), faces);
     }
 
     private static byte[] compress(byte[] raw, int codec) throws IOException {

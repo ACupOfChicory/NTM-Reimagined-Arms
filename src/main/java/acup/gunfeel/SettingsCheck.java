@@ -116,7 +116,7 @@ public final class SettingsCheck {
         check("payload: the rules file", SERVER_RULES, s.bullets());
         check("payload: bulletSpeed", "2.5", s.server().get("bulletSpeed"));
         check("payload: cameraScaleMin", "0.4", s.server().get("cameraScaleMin"));
-        check("payload: the made shape", PassableClip.pack(cells), s.shapes().get("minecraft:oak_planks"));
+        check("payload: the made shape", ShapeCells.pack(cells), s.shapes().get("minecraft:oak_planks"));
         check("payload: no shape the jar has", false, s.shapes().keySet().stream().anyMatch(k -> k.startsWith("~fence[")));
         check("payload: the gun table file", Files.readString(guns), s.guns());
 
@@ -131,7 +131,7 @@ public final class SettingsCheck {
         check("remote: through is the server's", true, BulletRules.through(fence));
         check("remote: break is the server's (instant)", 1, mode(shelf));
         check("remote: the server's model rule", "model", BulletRules.path(planks));
-        check("remote: the server's shape", PassableClip.pack(cells), packed(PassableClip.shape(planks)));
+        check("remote: the server's shape", ShapeCells.pack(cells), packed(PassableClip.shape(planks)));
         check("remote: hole is the player's", "glass", BulletRules.hole(bars)[0]);
         check("remote: material still the mod's", Materials.Material.GLASS, BulletRules.material(Blocks.GLASS.defaultBlockState()).material());
         check("remote: a fence's cells still the jar's", true, PassableClip.byKey(PassableClip.familyKey("fence", Map.of())) != null);
@@ -158,7 +158,7 @@ public final class SettingsCheck {
         check("left: bulletSpeed is the player's", 1.0F, ReaimTimes.number("bulletSpeed", 1.6F));
         check("left: cameraScaleMin from the jar", 0F, ReaimTimes.number("cameraScaleMin", 0F));
         check("left: FAU's recoil share from the jar", 0.4F, ReaimTimes.number("powerArmorRecoil.fau", 1F));
-        check("left: the shape made meanwhile is used", PassableClip.pack(cells), packed(PassableClip.shape(dirt)));
+        check("left: the shape made meanwhile is used", ShapeCells.pack(cells), packed(PassableClip.shape(dirt)));
         check("left: the player's gun table", 0.5F, BalanceGuns.pair(henry, express).mult());
         check("left: no Heretic line in the player's table", null, BalanceGuns.table().guns().get("autoshotgun_heretic"));
         Files.deleteIfExists(guns);
@@ -167,11 +167,11 @@ public final class SettingsCheck {
     }
 
     private static Object mode(BlockState state) {
-        BulletRules.Break b = BulletRules.breakRule(state);
+        BulletRuleText.Break b = BulletRules.breakRule(state);
         return b == null ? null : b.mode();
     }
 
     private static Object packed(long[] bits) {
-        return bits == null ? null : PassableClip.pack(bits);
+        return bits == null ? null : ShapeCells.pack(bits);
     }
 }

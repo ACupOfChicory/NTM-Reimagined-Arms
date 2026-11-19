@@ -167,7 +167,7 @@ public final class BulletCheck {
 
         // ---- materials: a plank is pierced with the rule's loss, concrete holds
         BlockState plank = state("minecraft:oak_planks");
-        BulletRules.Break rule = BulletRules.breakRule(plank);
+        BulletRuleText.Break rule = BulletRules.breakRule(plank);
         float left = rule == null ? -2F : rule.pierced(30F, plank.getDestroySpeed(level, BlockPos.ZERO), 1.0);
         Shot s = expect("plank: pierced", Want.PIERCE, single("minecraft:oak_planks"), .5, .5, 30F);
         check("plank: damage after it, by its rule", left, s.damage);
