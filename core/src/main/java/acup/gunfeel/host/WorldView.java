@@ -8,4 +8,7 @@ package acup.gunfeel.host;
 public interface WorldView extends BlockTable {
     /** the block state at the place, as {@link BlockTable}'s number */
     int state(int x, int y, int z);
+
+    /** how long the block at the place takes to break, there (as the game's BlockState.getDestroySpeed(level, pos)); not facts.hardness() */
+    float destroySpeed(int x, int y, int z);
 }

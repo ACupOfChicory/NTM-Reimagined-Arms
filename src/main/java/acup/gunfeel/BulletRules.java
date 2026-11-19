@@ -68,7 +68,7 @@ public final class BulletRules extends BulletRuleText {
     }
 
     // bullets pierce machines (material machine) only when the server says so (off by default)
-    public static final String MACHINES_KEY = "bulletPierceMachines";
+    public static final String MACHINES_KEY = Pierce.MACHINES_KEY;
 
     // ---- matching
 
