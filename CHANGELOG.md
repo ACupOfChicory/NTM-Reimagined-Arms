@@ -1,5 +1,22 @@
 # Changelog
 
+## X1723
+
+- White phosphorus now lets out a low, thin white haze instead of a dense
+  smoke screen: about 17 blocks across and 3 high (it was 21 and 8), lying on
+  the ground as the heavy gases do and running down slopes and into trenches.
+  Players and mobs see through it: looking across the whole of it hides about
+  half of what is behind. It no longer stands against an invisible box at its
+  sides or top, next to walls, in streets or in the wind. A second grenade's
+  haze lies in the first one's and makes it thicker, where it used to push the
+  first one out wider; a third burst where two hazes already lie adds nothing,
+  so a grenade launcher's magazine or a cluster shell at one spot no longer
+  makes a wall. This holds for every white phosphorus munition: the hand
+  grenade, the 40 mm round (a smaller haze), the rocket, the artillery shell
+  and the HIMARS rocket. It still stays while the phosphorus burns.
+- Smoke and gas clouds in the wind no longer have their upwind end cut off flat
+  for a few seconds as they drift, and the wind takes less of them away.
+
 ## X1716
 
 - Smoke and gas clouds cost less to draw. At the high and ultra smoke quality,

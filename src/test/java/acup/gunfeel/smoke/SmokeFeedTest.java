@@ -69,6 +69,32 @@ class SmokeFeedTest {
     }
 
     @Test
+    // white phosphorus's haze feeds no cloud: a second burst lets out its own haze in the first, up to two deep
+    void atMostTwoHazesOneInAnother() {
+        SmokeGrid.Mask field = (x, y, z) -> y < SmokeKind.WP.below();
+        SmokeClouds all = new SmokeClouds(c -> field);
+        BlockPos at = new BlockPos(0, 64, 0);
+        SmokeClouds.Cloud one = all.create(all.nextId(), at, SmokeKind.WP, 7L, 0F, 0F, 1F, 0L);
+        all.insert(one, null);
+        all.step(one, 60, Integer.MAX_VALUE, null);
+        // in one haze a second burst lets out its own
+        assertNull(all.thickHaze(at));
+        // a 40 mm round's 2 blocks off: two hazes lie there, a third burst adds nothing (the densest takes it)
+        SmokeClouds.Cloud two = all.create(all.nextId(), at.offset(2, 0, 1), SmokeKind.WP_SHELL, 8L, 0F, 0F, acup.gunfeel.gas.WpSmoke.G40, 60L);
+        all.insert(two, null);
+        all.step(two, 120, Integer.MAX_VALUE, null);
+        all.step(one, 120, Integer.MAX_VALUE, null);
+        SmokeClouds.Cloud thick = all.thickHaze(at);
+        assertTrue(thick == one || thick == two, "two hazes lie there: " + thick);
+        // out of them, and smoke of another kind does not count
+        assertNull(all.thickHaze(at.offset(40, 0, 0)));
+        SmokeClouds other = new SmokeClouds(c -> (x, y, z) -> y < SmokeKind.SMOKE.below());
+        for (int i = 0; i < 3; i++) other.insert(other.create(other.nextId(), at, SmokeKind.SMOKE, 9L + i, 0F, 0F, 1F, 0L), null);
+        for (SmokeClouds.Cloud c : other.clouds()) other.step(c, 60, Integer.MAX_VALUE, null);
+        assertNull(other.thickHaze(at));
+    }
+
+    @Test
     void aFedCloudThinsLaterAndLivesLonger() {
         SmokeClouds all = new SmokeClouds(c -> FIELD);
         SmokeClouds.Cloud c = cloud(all, ORIGIN, SMOKE);
