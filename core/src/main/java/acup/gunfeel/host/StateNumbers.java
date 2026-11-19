@@ -10,12 +10,13 @@ import acup.gunfeel.BlockFacts;
  * A {@link BlockTable} over a version's state objects {@code S}: a state's number is the order it was first met in
  * ({@link #number}), by the object itself (its own equals and hash: identity for the game's states), never the game's
  * own number, so the game renumbering its states changes nothing here. The first state given is {@link #AIR}. A
- * state's facts and key are worked out the first time they are asked for, by the version's functions.
+ * state's facts, key and air are worked out the first time they are asked for, by the version's functions.
  */
 public final class StateNumbers<S> implements BlockTable {
     private final ConcurrentHashMap<S, Integer> numbers = new ConcurrentHashMap<>();
     private final Function<S, BlockFacts> factsOf;
     private final Function<S, String> keyOf;
+    private final java.util.function.Predicate<S> airOf;
     // A new state is added under the lock: the arrays grow by a copy and are published through these volatiles (the
     // array before the number), so a reader holding an older, shorter array takes the slow way, never past its end.
     private volatile Object[] states = new Object[0];
@@ -23,12 +24,15 @@ public final class StateNumbers<S> implements BlockTable {
     // both work one out; they are immutable and alike, so the worst is doing it twice.
     private volatile BlockFacts[] facts = new BlockFacts[0];
     private volatile String[] keys = new String[0];
+    // air or not: 0 not known yet, 1 not air, 2 air
+    private volatile byte[] airs = new byte[0];
     private int size;
 
     /** the table with {@code air} as {@link #AIR} */
-    public StateNumbers(S air, Function<S, BlockFacts> factsOf, Function<S, String> keyOf) {
+    public StateNumbers(S air, Function<S, BlockFacts> factsOf, Function<S, String> keyOf, java.util.function.Predicate<S> airOf) {
         this.factsOf = factsOf;
         this.keyOf = keyOf;
+        this.airOf = airOf;
         number(air);
     }
 
@@ -48,6 +52,7 @@ public final class StateNumbers<S> implements BlockTable {
             s[k] = state;
             facts = Arrays.copyOf(facts, cap);
             keys = Arrays.copyOf(keys, cap);
+            airs = Arrays.copyOf(airs, cap);
             states = s;
         } else {
             states[k] = state;
@@ -80,6 +85,16 @@ public final class StateNumbers<S> implements BlockTable {
         BlockFacts made = factsOf.apply(state(state));
         f = facts;
         if (state < f.length) f[state] = made;
+        return made;
+    }
+
+    @Override
+    public boolean air(int state) {
+        byte[] a = airs;
+        if (state < a.length && a[state] != 0) return a[state] == 2;
+        boolean made = airOf.test(state(state));
+        a = airs;
+        if (state < a.length) a[state] = made ? (byte) 2 : (byte) 1;
         return made;
     }
 

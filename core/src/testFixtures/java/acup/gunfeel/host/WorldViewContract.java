@@ -12,7 +12,8 @@ import acup.gunfeel.BlockFacts;
  * What every version's world must say (WorldView, BlockTable): a place's number stays its state's, 0 is plain air,
  * one number has one facts and one key, the key is the block's id then its properties sorted by name. A version's
  * test extends this with a world of its own: plain air at {@link #air}, stone at {@link #stone}, a block with
- * properties at {@link #withProperties}.
+ * properties at {@link #withProperties}, cave air at {@link #caveAir}. Air is the game's: plain and cave air are, stone
+ * and a fence are not; the destroy speed at a place is the game's there.
  */
 public abstract class WorldViewContract {
     /** the version's world, with plain air, stone and a block with properties at the places below */
@@ -23,6 +24,12 @@ public abstract class WorldViewContract {
     protected abstract int[] stone();
 
     protected abstract int[] withProperties();
+
+    /** a place of cave air */
+    protected abstract int[] caveAir();
+
+    /** stone's destroy speed as the game gives it */
+    protected abstract float stoneDestroySpeed();
 
     private int at(int[] p) {
         return world().state(p[0], p[1], p[2]);
@@ -69,5 +76,21 @@ public abstract class WorldViewContract {
             assertTrue(nv[0].compareTo(last) > 0, key);
             last = nv[0];
         }
+    }
+
+    @Test
+    void airAsTheGameTellsIt() {
+        assertTrue(world().air(at(air())));
+        int cave = at(caveAir());
+        assertNotEquals(BlockTable.AIR, cave);
+        assertTrue(world().air(cave));
+        assertEquals(false, world().air(at(stone())));
+        assertEquals(false, world().air(at(withProperties())));
+    }
+
+    @Test
+    void destroySpeedThere() {
+        int[] s = stone();
+        assertEquals(stoneDestroySpeed(), world().destroySpeed(s[0], s[1], s[2]));
     }
 }

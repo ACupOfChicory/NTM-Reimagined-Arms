@@ -44,12 +44,23 @@ class StateNumbersTest {
 
     // the contract on a world of fake states: air at 0 0 0, stone at 1 0 0, a fence with properties at 2 0 0
     static final class FakeWorld implements WorldView {
-        final StateNumbers<FakeState> table = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key);
+        final StateNumbers<FakeState> table = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key, s -> s.key.endsWith("air"));
         final Map<Long, FakeState> blocks = new HashMap<>();
 
         FakeWorld() {
             blocks.put(key(1, 0, 0), new FakeState("minecraft:stone", 1));
             blocks.put(key(2, 0, 0), new FakeState("minecraft:oak_fence[east=true,north=false,south=false,waterlogged=false,west=true]", 7));
+            blocks.put(key(3, 0, 0), new FakeState("minecraft:cave_air", 2));
+        }
+
+        @Override
+        public float destroySpeed(int x, int y, int z) {
+            return blocks.getOrDefault(key(x, y, z), AIR_STATE).key.equals("minecraft:stone") ? 1.5F : 0F;
+        }
+
+        @Override
+        public boolean air(int state) {
+            return table.air(state);
         }
 
         static long key(int x, int y, int z) {
@@ -74,7 +85,7 @@ class StateNumbersTest {
 
     @Test
     void numbersByFirstSightNotTheGamesNumber() {
-        StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key);
+        StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key, s -> s.key.endsWith("air"));
         FakeState a = new FakeState("minecraft:stone", 5), b = new FakeState("minecraft:dirt", 3);
         assertEquals(BlockTable.AIR, t.number(AIR_STATE));
         assertEquals(1, t.number(a));
@@ -86,6 +97,8 @@ class StateNumbersTest {
         assertEquals(2, t.number(b));
         assertEquals("minecraft:stone", t.facts(1).id());
         assertEquals("minecraft:dirt", t.key(2));
+        assertTrue(t.air(BlockTable.AIR));
+        assertEquals(false, t.air(1));
         assertEquals(a, t.state(1));
         // a state alike but another object: a number of its own (the game's states are one object each)
         assertEquals(3, t.number(new FakeState("minecraft:stone", 5)));
@@ -96,7 +109,7 @@ class StateNumbersTest {
     @Test
     void manyThreadsOneNumberEach() throws Exception {
         for (int round = 0; round < 20; round++) {
-            StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key);
+            StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key, s -> s.key.endsWith("air"));
             int n = 5_000, threads = 8;
             List<FakeState> states = new ArrayList<>();
             for (int i = 0; i < n; i++) states.add(new FakeState("mod:block_" + i, i));
