@@ -38,20 +38,24 @@ public record SmokeKind(int id, String name, float volume, int release, int bomb
     public static final SmokeKind SMOKE = new SmokeKind(0, "smoke", 380F, 40, 5, 24F, 3.5F, 0.7F, 0.08F, 0F, 0.001F, 400, 0.968F,
             0xB4B6B8, 3.5F);
     /**
-     * NTM's white phosphorus hand grenade ({@code acup.gunfeel.gas.WpSmoke}): white, as dense as smoke, about three smoke
-     * grenades let out of seven points ringed up to 6 blocks round the burst (NTM's three hazes lie 4 blocks about it):
-     * some 20 blocks across. It holds while NTM's fire on the ground burns (30 s) and thins after.
+     * NTM's white phosphorus hand grenade ({@code acup.gunfeel.gas.WpSmoke}): a white haze, as NTM's own was, not a smoke
+     * screen. Half a smoke grenade let out of seven points ringed up to 3.5 blocks round the burst lies low and flat as
+     * the heavy gases do (it goes out to the sides five times as fast as up, runs down a slope and into a trench): some
+     * 17 blocks across and 3 high. One block of it stops about 5% of the light, the whole of it seen from the side about
+     * half, the player's and a mob's sight alike. It holds while NTM's fire on the ground burns (30 s) and thins after.
+     * A second grenade in it does not feed it: the two hazes lie one in the other, as a gas's two clouds do
+     * ({@link SmokeClouds#feeds}).
      */
     public static final SmokeKind WP = wp(5, "wp");
     /**
-     * The same smoke from NTM's white phosphorus rounds and shells (40 mm, rocket, artillery, HIMARS): a kind of its own
+     * The same haze from NTM's white phosphorus rounds and shells (40 mm, rocket, artillery, HIMARS): a kind of its own
      * only so that the sparks of the burning phosphorus ({@code WpSparks}) stay the grenade's, as NTM's hazes threw them.
      */
     public static final SmokeKind WP_SHELL = wp(6, "wp_shell");
     private static final List<SmokeKind> ALL = List.of(SMOKE, WP, WP_SHELL);
 
     private static SmokeKind wp(int id, String name) {
-        return new SmokeKind(id, name, 1100F, 40, 7, 24F, 6F, 0.7F, 0.08F, 0F, 0.001F, 480, 0.968F, 0xF0F0EC, 3.5F);
+        return new SmokeKind(id, name, 180F, 40, 7, 24F, 3.5F, 0.45F, 0.08F, -0.8F, -0.002F, 480, 0.968F, 0xF0F0EC, 0.10F);
     }
 
     public static SmokeKind byId(int id) {

@@ -15,7 +15,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * NTM's white phosphorus lets this mod's white smoke out ({@link SmokeKind#WP}, the rounds' and shells'
+ * NTM's white phosphorus lets this mod's white haze out ({@link SmokeKind#WP}, the rounds' and shells'
  * {@link SmokeKind#WP_SHELL}), on the server (system {@code ntm_wp}):
  *
  * <ul>
@@ -35,7 +35,7 @@ public final class WpSmoke {
     public static final float SCALE = 1F;
     /**
      * The 40 mm round's: its fire on the ground is 5 by 2 blocks for 20 s against the grenade's 6 by 2 for 30 s, and a
-     * grenade launcher fires a magazine of them (some 16 blocks across against 21).
+     * grenade launcher fires a magazine of them (some 15 blocks across against 17).
      */
     public static final float G40 = 0.6F;
     /** The rocket's (its fire as the grenade's), the artillery shell's and the HIMARS rocket's: a grenade's. */

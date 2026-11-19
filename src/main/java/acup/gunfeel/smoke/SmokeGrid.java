@@ -64,8 +64,12 @@ public final class SmokeGrid {
      * for smoke no one sees; with it a cloud in the clear loses some 2% more over its life.
      */
     public static final float TAIL = 0.002F;
-    /** The box moves this many cells downwind once the smoke comes within {@link #EDGE} cells of its side. */
-    public static final int SHIFT = 4, EDGE = 3;
+    /**
+     * The box moves this many cells downwind once the smoke comes within {@link #EDGE} cells of its side: one, so it
+     * keeps up with the smoke. Four at a time, a cloud the wind drew out to 18 cells or more had its upwind end cut off
+     * at the box's side as it moved, a flat wall that took a few seconds to blow off.
+     */
+    public static final int SHIFT = 1, EDGE = 3;
     /** Share of the cloud the box may leave behind upwind when it moves (the thin tail the wind smeared out). */
     public static final float DROP_MAX = 0.03F;
     /** How far a box can have moved, cells: farther than any cloud lives to drift, for a grid from the network. */

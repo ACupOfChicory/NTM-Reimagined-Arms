@@ -223,10 +223,11 @@ public final class SmokeClouds {
      * Whether a grenade of this kind feeds a cloud of its kind it bursts in: smoke does, it fills the air up to its
      * {@code fill} and a second grenade's smoke goes on outward. A gas does not: a second grenade is twice the gas in
      * the same air, the clouds' densities add up (as what they do to the living and the ground counts them,
-     * {@code GasPoison}); they are drawn as one smoke all the same.
+     * {@code GasPoison}); they are drawn as one smoke all the same. White phosphorus's haze neither: fed, it went on
+     * outward to the sides of its grid and stood there as a wall; two hazes one in the other are a thicker haze.
      */
     public static boolean feeds(SmokeKind kind) {
-        return !acup.gunfeel.gas.GasKind.gas(kind);
+        return !acup.gunfeel.gas.GasKind.gas(kind) && kind != SmokeKind.WP && kind != SmokeKind.WP_SHELL;
     }
 
     /**
