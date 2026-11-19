@@ -30,6 +30,44 @@ class CoreServicesFoundTest {
                 java.util.ServiceLoader.load(ReaimTimes.Reload.class).stream().map(p -> p.type()).toList());
     }
 
+    // every interface core loads (CoreServices.load(X.class, ...) in core/src/main/java) has one provider here: a new
+    // one without a service file would run on its fallback in the game, with every test still green
+    @Test
+    void everyServiceCoreLoadsHasOneProviderOn262() throws java.io.IOException, ClassNotFoundException {
+        var load = java.util.regex.Pattern.compile("CoreServices\\.load\\(([\\w.]+)\\.class");
+        var pkg = java.util.regex.Pattern.compile("(?m)^package ([\\w.]+);");
+        var missing = new java.util.ArrayList<String>();
+        int n = 0;
+        java.nio.file.Path core = java.nio.file.Path.of("core/src/main/java");
+        try (var files = java.nio.file.Files.walk(core)) {
+            for (var f : files.filter(x -> x.toString().endsWith(".java")).toList()) {
+                String src = java.nio.file.Files.readString(f);
+                var m = load.matcher(src);
+                while (m.find()) {
+                    if (f.getFileName().toString().equals("CoreServices.java")) continue;
+                    var pm = pkg.matcher(src);
+                    String p = pm.find() ? pm.group(1) + "." : "";
+                    String outer = f.getFileName().toString().replace(".java", ""), name = m.group(1);
+                    Class<?> type = null;
+                    for (String c : java.util.List.of(p + outer + "$" + name.replace('.', '$'), p + name.replace('.', '$'))) {
+                        try {
+                            type = Class.forName(c, false, getClass().getClassLoader());
+                            break;
+                        } catch (ClassNotFoundException e) {
+                            // the other reading of the name
+                        }
+                    }
+                    if (type == null) throw new ClassNotFoundException(name + " in " + f);
+                    n++;
+                    long providers = java.util.ServiceLoader.load(type).stream().count();
+                    if (providers != 1) missing.add(type.getName() + ": " + providers);
+                }
+            }
+        }
+        assertEquals(java.util.List.of(), missing, "META-INF/services/<interface> on 26.2, one class each");
+        assertEquals(5, n, "the services core loads; a new one: add its 26.2 class and count it here");
+    }
+
     @Test
     void theTestLogPrintsTheGamesValuesAsBefore() {
         assertEquals("1,2,3", TestLog.fmt(new BlockPos(1, 2, 3)));

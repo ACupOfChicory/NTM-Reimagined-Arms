@@ -48,13 +48,22 @@ afterEvaluate {
 
 sourceSets {
     main { java.setSrcDirs(listOf("src/main/java")); resources.setSrcDirs(emptyList<File>()) }
-    // the tests read the mod's data files as the mod does, from the class path
-    test { java.setSrcDirs(listOf("src/test/java")); resources.setSrcDirs(listOf(root.resolve("src/main/resources"))) }
+    // the tests read the mod's data files as the mod does, from the class path; not 26.2's service files, which name
+    // 26.2's classes: core's tests run with no version, on CoreServices' fallbacks
+    test {
+        java.setSrcDirs(listOf("src/test/java"))
+        resources.setSrcDirs(listOf(root.resolve("src/main/resources")))
+        resources.exclude("META-INF/services/**")
+    }
 }
 
-// the same flags as the mod's (versions' build.gradle.kts)
+// The lowest Java a port compiles core with as it is: 1.21.1 (DE) builds at release 21; 1.12.2 and 1.7.10 build at 25
+// and downgrade the jar (JvmDowngrader). So core's sources must compile at 21 too: no Java 22+ language or API.
+val PORT_RELEASE = 21
+
+// the same flags as the mod's (versions' build.gradle.kts); compileForPorts (below) at the ports' release
 tasks.withType<JavaCompile>().configureEach {
-    options.release = 25
+    options.release = if (name == "compileForPorts") PORT_RELEASE else 25
     options.encoding = "UTF-8"
     options.isDebug = true
     options.debugOptions.debugLevel = "source,lines"
@@ -63,6 +72,16 @@ tasks.withType<JavaCompile>().configureEach {
 
 // nothing uses a jar of core alone: the versions compile its sources
 tasks.jar { enabled = false }
+
+// core at PORT_RELEASE once more, for that check alone (the classes are thrown away), with every test run
+val compileForPorts = tasks.register<JavaCompile>("compileForPorts") {
+    group = "verification"
+    description = "Compiles core at release $PORT_RELEASE, the lowest a port compiles it with."
+    source = sourceSets.main.get().java
+    classpath = sourceSets.main.get().compileClasspath
+    destinationDirectory = layout.buildDirectory.dir("classes/forPorts")
+    javaCompiler = javaToolchains.compilerFor(java.toolchain)
+}
 
 // test: every test but the slow ones (@Tag("slow")); slowTest: the slow ones only. As in the versions' build.
 val slowTest = tasks.register<Test>("slowTest") {
@@ -75,6 +94,7 @@ val slowTest = tasks.register<Test>("slowTest") {
 }
 tasks.test {
     useJUnitPlatform { excludeTags("slow") }
+    dependsOn(compileForPorts)
 }
 tasks.withType<Test>().configureEach {
     // the tests read src/main/resources, src/test/pinned and core/ from the repository root; CoreBoundaryTest reads
