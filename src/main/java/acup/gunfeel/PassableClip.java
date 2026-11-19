@@ -521,71 +521,35 @@ public final class PassableClip extends ClipContext {
     }
 
     // From where the bullet enters the block's hitbox, along its way, to the first set cell: the hit there, or null
-    // when it leaves the block without meeting one.
+    // when it leaves the block without meeting one (the walk: ShapeCells.march).
     static BlockHitResult march(long[] bits, BlockHitResult hit, Vec3 way, int cells) {
         BlockPos pos = hit.getBlockPos();
         double len = way.length();
         if (len < 1e-9) return hit;
         double dx = way.x / len, dy = way.y / len, dz = way.z / len;
         double px = (hit.getLocation().x - pos.getX()) * 16, py = (hit.getLocation().y - pos.getY()) * 16, pz = (hit.getLocation().z - pos.getZ()) * 16;
-        // На границе клетки берём сторону, в которую летит пуля. Иначе отрицательное направление
-        // на x=3/16 проверяло пустую клетку 3 вместо металла в клетке 2 (верхняя половина двери).
-        int x = Math.clamp((int) Math.floor(px + dx * 1e-7), 0, 15);
-        int y = Math.clamp((int) Math.floor(py + dy * 1e-7), 0, 15);
-        int z = Math.clamp((int) Math.floor(pz + dz * 1e-7), 0, 15);
-        int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
-        double tx = Math.abs(dx) < 1e-12 ? Double.POSITIVE_INFINITY : ((sx > 0 ? x + 1 : x) - px) / dx;
-        double ty = Math.abs(dy) < 1e-12 ? Double.POSITIVE_INFINITY : ((sy > 0 ? y + 1 : y) - py) / dy;
-        double tz = Math.abs(dz) < 1e-12 ? Double.POSITIVE_INFINITY : ((sz > 0 ? z + 1 : z) - pz) / dz;
-        double ddx = Math.abs(1 / dx), ddy = Math.abs(1 / dy), ddz = Math.abs(1 / dz);
-        double t = 0;
-        Direction face = hit.getDirection();
-        for (int n = 0; n < cells; n++) {
-            if (ShapeCells.cell(bits, x, y, z)) {
-                Vec3 at = new Vec3(pos.getX() + (px + dx * t) / 16, pos.getY() + (py + dy * t) / 16, pos.getZ() + (pz + dz * t) / 16);
-                return new BlockHitResult(at, face, pos, false);
-            }
-            if (tx <= ty && tx <= tz) {
-                t = tx; tx += ddx; x += sx; face = sx > 0 ? Direction.WEST : Direction.EAST;
-            } else if (ty <= tz) {
-                t = ty; ty += ddy; y += sy; face = sy > 0 ? Direction.DOWN : Direction.UP;
-            } else {
-                t = tz; tz += ddz; z += sz; face = sz > 0 ? Direction.NORTH : Direction.SOUTH;
-            }
-            if (x < 0 || x > 15 || y < 0 || y > 15 || z < 0 || z > 15) return null;
-        }
-        return null;
+        double[] t = new double[1];
+        int face = ShapeCells.march(bits, px, py, pz, dx, dy, dz, cells, t);
+        if (face < 0) return null;
+        Vec3 at = new Vec3(pos.getX() + (px + dx * t[0]) / 16, pos.getY() + (py + dy * t[0]) / 16, pos.getZ() + (pz + dz * t[0]) / 16);
+        return new BlockHitResult(at, face == ShapeCells.KEPT ? hit.getDirection() : FACES[face], pos, false);
     }
 
     // From where the bullet meets a set cell, along `dir` (unit), to the first empty cell or the block's side: the
-    // hit there on that far face, as exit() gives it
+    // hit there on that far face, as exit() gives it (the walk: ShapeCells.leave)
     static BlockHitResult leave(long[] bits, BlockHitResult in, Vec3 dir) {
         BlockPos pos = in.getBlockPos();
         // a little into the cell it met: on its boundary the floor may name the empty one before it
         double px = (in.getLocation().x - pos.getX()) * 16 + dir.x * 1e-3, py = (in.getLocation().y - pos.getY()) * 16 + dir.y * 1e-3,
                 pz = (in.getLocation().z - pos.getZ()) * 16 + dir.z * 1e-3;
-        int x = Math.clamp((int) Math.floor(px), 0, 15), y = Math.clamp((int) Math.floor(py), 0, 15), z = Math.clamp((int) Math.floor(pz), 0, 15);
-        double dx = dir.x, dy = dir.y, dz = dir.z;
-        int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
-        double tx = Math.abs(dx) < 1e-12 ? Double.POSITIVE_INFINITY : ((sx > 0 ? x + 1 : x) - px) / dx;
-        double ty = Math.abs(dy) < 1e-12 ? Double.POSITIVE_INFINITY : ((sy > 0 ? y + 1 : y) - py) / dy;
-        double tz = Math.abs(dz) < 1e-12 ? Double.POSITIVE_INFINITY : ((sz > 0 ? z + 1 : z) - pz) / dz;
-        double ddx = Math.abs(1 / dx), ddy = Math.abs(1 / dy), ddz = Math.abs(1 / dz);
-        double t = 0;
-        Direction face = in.getDirection().getOpposite();
-        for (int n = 0; n < 64 && ShapeCells.cell(bits, x, y, z); n++) {
-            if (tx <= ty && tx <= tz) {
-                t = tx; tx += ddx; x += sx; face = sx > 0 ? Direction.EAST : Direction.WEST;
-            } else if (ty <= tz) {
-                t = ty; ty += ddy; y += sy; face = sy > 0 ? Direction.UP : Direction.DOWN;
-            } else {
-                t = tz; tz += ddz; z += sz; face = sz > 0 ? Direction.SOUTH : Direction.NORTH;
-            }
-            if (x < 0 || x > 15 || y < 0 || y > 15 || z < 0 || z > 15) break;
-        }
-        Vec3 at = new Vec3(pos.getX() + (px + dx * t) / 16, pos.getY() + (py + dy * t) / 16, pos.getZ() + (pz + dz * t) / 16);
-        return new BlockHitResult(at, face, pos, false);
+        double[] t = new double[1];
+        int face = ShapeCells.leave(bits, px, py, pz, dir.x, dir.y, dir.z, t);
+        Vec3 at = new Vec3(pos.getX() + (px + dir.x * t[0]) / 16, pos.getY() + (py + dir.y * t[0]) / 16, pos.getZ() + (pz + dir.z * t[0]) / 16);
+        return new BlockHitResult(at, face == ShapeCells.KEPT ? in.getDirection().getOpposite() : FACES[face], pos, false);
     }
+
+    // the sides by ShapeCells' numbers (Direction's own order)
+    private static final Direction[] FACES = Direction.values();
 
     // Masks per block: [axis 0 x, 1 y, 2 z, 3 any face] -> 256 bits, rows from the top
     private static Map<net.minecraft.world.level.block.Block, long[][]> masks;
