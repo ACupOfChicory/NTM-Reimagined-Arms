@@ -4,6 +4,9 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.GameRandoms;
+import acup.gunfeel.Vec3d;
+import acup.gunfeel.Vecs;
 import acup.gunfeel.ai.AiThoughts.Why;
 import acup.gunfeel.ai.imitation.AiChoice;
 import acup.gunfeel.ai.imitation.AiChoice.Ask;
@@ -1193,8 +1196,8 @@ public final class AiSoldier implements AiBrain {
         if (exitWanted && from != exitFrom && ExitSpots.mayPick(tick)) {
             exitFrom = from;
             ServerLevel level = (ServerLevel) bot.mob.level();
-            long cell = ExitSpots.pick(TacticalMap.of(level), AiBots.voxels(level), watchEye(bot), c.lostX, c.lostY, c.lostZ, c.vx, c.vz,
-                    bot.mob.getRandom(), squadExits(bot, c));
+            long cell = ExitSpots.pick(TacticalMap.of(level), AiBots.voxels(level), Vecs.of(watchEye(bot)), c.lostX, c.lostY, c.lostZ, c.vx, c.vz,
+                    GameRandoms.of(bot.mob.getRandom()), squadExits(bot, c));
             boolean had = exit != null;
             exit = cell == Long.MIN_VALUE ? null : new Vec3(BlockPos.getX(cell) + 0.5, BlockPos.getY(cell) + 1.1, BlockPos.getZ(cell) + 0.5);
             if (exit != null && !had) {
@@ -1232,12 +1235,12 @@ public final class AiSoldier implements AiBrain {
     }
 
     /** the ways out its squad mates watch for the same loss */
-    private static List<Vec3> squadExits(AiBot bot, TargetMemory.Contact c) {
+    private static List<Vec3d> squadExits(AiBot bot, TargetMemory.Contact c) {
         AiSquads.Squad s = AiSquads.of(bot);
         if (s == null) return List.of();
-        List<Vec3> out = new java.util.ArrayList<>(2);
+        List<Vec3d> out = new java.util.ArrayList<>(2);
         for (AiBot o : s.bots)
-            if (o != bot && o.brain instanceof AiSoldier os && os.exit != null && sameLoss(os, c)) out.add(os.exit);
+            if (o != bot && o.brain instanceof AiSoldier os && os.exit != null && sameLoss(os, c)) out.add(Vecs.of(os.exit));
         return out;
     }
 
@@ -2234,8 +2237,8 @@ public final class AiSoldier implements AiBrain {
         if (searchCell == Long.MIN_VALUE && tick >= nextSearchPick) {
             nextSearchPick = tick + 10;
             double r = bot.memory.searchRadius(c, tick);
-            long[] spots = SearchSpots.pick(TacticalMap.of(level), AiBots.voxels(level), bot.mob.getEyePosition(), c.lostX, c.lostY, c.lostZ, c.vx, c.vz, r, 1,
-                    cleared, bot.mob.getRandom(), 24);
+            long[] spots = SearchSpots.pick(TacticalMap.of(level), AiBots.voxels(level), Vecs.of(bot.mob.getEyePosition()), c.lostX, c.lostY, c.lostZ, c.vx, c.vz, r, 1,
+                    cleared, GameRandoms.of(bot.mob.getRandom()), 24);
             if (spots.length > 0) {
                 searchCell = spots[0];
                 searchSpots++;

@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import acup.gunfeel.GameRandoms;
+import acup.gunfeel.Vec3d;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.phys.Vec3;
 
 // Where a target gone behind a wall may come out: past the wall's end it was going to, where the watcher sees again.
 class ExitSpotsTest {
@@ -20,13 +22,13 @@ class ExitSpotsTest {
         return g.build();
     }
 
-    private static final Vec3 EYE = new Vec3(14.5, 1.62, 2.5);
+    private static final Vec3d EYE = new Vec3d(14.5, 1.62, 2.5);
 
     @Test
     void goingEastItWatchesPastTheEastEnd() {
         PathSearchTest.Grid g = wall();
         for (int seed = 0; seed < 10; seed++) {
-            long cell = ExitSpots.pick(g, g::voxel, EYE, 10.5, 0, 11.5, 0.15, 0, RandomSource.create(seed));
+            long cell = ExitSpots.pick(g, g::voxel, EYE, 10.5, 0, 11.5, 0.15, 0, GameRandoms.of(RandomSource.create(seed)));
             assertNotEquals(Long.MIN_VALUE, cell);
             int x = BlockPos.getX(cell), z = BlockPos.getZ(cell);
             assertTrue(x >= 19, "past the east end: " + BlockPos.of(cell));
@@ -38,7 +40,7 @@ class ExitSpotsTest {
     @Test
     void goingWestItWatchesPastTheWestEnd() {
         PathSearchTest.Grid g = wall();
-        long cell = ExitSpots.pick(g, g::voxel, EYE, 16.5, 0, 11.5, -0.15, 0, RandomSource.create(1));
+        long cell = ExitSpots.pick(g, g::voxel, EYE, 16.5, 0, 11.5, -0.15, 0, GameRandoms.of(RandomSource.create(1)));
         assertNotEquals(Long.MIN_VALUE, cell);
         assertTrue(BlockPos.getX(cell) <= 9, "past the west end: " + BlockPos.of(cell));
     }
@@ -63,8 +65,8 @@ class ExitSpotsTest {
         int found = 0;
         for (double sx : new double[] {15.5, 19.5, 23.5, 27.5})
             for (boolean east : new boolean[] {true, false}) {
-                Vec3 eye = new Vec3(sx, 1.62, 12.5);
-                long cell = ExitSpots.pick(g, g::voxel, eye, east ? 15.0 : 28.0, 0, 31.5, east ? 0.15 : -0.15, 0, RandomSource.create(3));
+                Vec3d eye = new Vec3d(sx, 1.62, 12.5);
+                long cell = ExitSpots.pick(g, g::voxel, eye, east ? 15.0 : 28.0, 0, 31.5, east ? 0.15 : -0.15, 0, GameRandoms.of(RandomSource.create(3)));
                 // none where the first step from the place is in sight: it would be seen going that way
                 if (cell == Long.MIN_VALUE) continue;
                 found++;
@@ -78,8 +80,8 @@ class ExitSpotsTest {
     void lostJustShortOfTheWallStillInSightFromThePeekItStillFindsTheFarEnd() {
         // the watcher out at its peek sees where the target was lost (it lost it from its cover) and a block or two on
         PathSearchTest.Grid g = wall();
-        assertTrue(VoxelRay.clear(g::voxel, EYE.x, EYE.y, EYE.z, 8.5, 1.0, 11.5, Voxel.SIGHT));
-        long cell = ExitSpots.pick(g, g::voxel, EYE, 8.5, 0, 11.5, 0.15, 0, RandomSource.create(2));
+        assertTrue(VoxelRay.clear(g::voxel, EYE.x(), EYE.y(), EYE.z(), 8.5, 1.0, 11.5, Voxel.SIGHT));
+        long cell = ExitSpots.pick(g, g::voxel, EYE, 8.5, 0, 11.5, 0.15, 0, GameRandoms.of(RandomSource.create(2)));
         assertNotEquals(Long.MIN_VALUE, cell);
         assertTrue(BlockPos.getX(cell) >= 19, "past the east end: " + BlockPos.of(cell));
     }
@@ -93,19 +95,19 @@ class ExitSpotsTest {
         for (int x = 12; x <= 36; x++)
             for (int h = 0; h < 3; h++) g.set(x, h, 17, PathSearchTest.STONE);
         g.build();
-        for (Vec3 eye : new Vec3[] {new Vec3(24.5, 1.62, 10.5), new Vec3(26.5, 1.62, 16.4)})
+        for (Vec3d eye : new Vec3d[] {new Vec3d(24.5, 1.62, 10.5), new Vec3d(26.5, 1.62, 16.4)})
             for (double lx : new double[] {20.5, 24.5, 28.5}) {
                 String what = "eye " + eye + " lost " + lx;
-                long first = ExitSpots.pick(g, g::voxel, eye, lx, 0, 24.5, 0, 0, RandomSource.create(5), java.util.List.of());
+                long first = ExitSpots.pick(g, g::voxel, eye, lx, 0, 24.5, 0, 0, GameRandoms.of(RandomSource.create(5)), java.util.List.of());
                 assertNotEquals(Long.MIN_VALUE, first, what);
                 // at an end: past it or just before its end column, where one coming round it shows
                 boolean west = BlockPos.getX(first) <= 12;
                 assertTrue(west || BlockPos.getX(first) >= 36, "at an end: " + BlockPos.of(first) + ", " + what);
-                Vec3 taken = new Vec3(BlockPos.getX(first) + 0.5, BlockPos.getY(first) + 1.1, BlockPos.getZ(first) + 0.5);
-                long next = ExitSpots.pick(g, g::voxel, eye, lx, 0, 24.5, 0, 0, RandomSource.create(6), java.util.List.of(taken));
+                Vec3d taken = new Vec3d(BlockPos.getX(first) + 0.5, BlockPos.getY(first) + 1.1, BlockPos.getZ(first) + 0.5);
+                long next = ExitSpots.pick(g, g::voxel, eye, lx, 0, 24.5, 0, 0, GameRandoms.of(RandomSource.create(6)), java.util.List.of(taken));
                 assertNotEquals(Long.MIN_VALUE, next, what);
                 assertTrue(west ? BlockPos.getX(next) >= 36 : BlockPos.getX(next) <= 12, "the other end: " + BlockPos.of(next) + ", " + what);
-                assertTrue(VoxelRay.clear(g::voxel, eye.x, eye.y, eye.z, BlockPos.getX(next) + 0.5, 1.0, BlockPos.getZ(next) + 0.5, Voxel.SIGHT));
+                assertTrue(VoxelRay.clear(g::voxel, eye.x(), eye.y(), eye.z(), BlockPos.getX(next) + 0.5, 1.0, BlockPos.getZ(next) + 0.5, Voxel.SIGHT));
             }
     }
 
