@@ -40,13 +40,4 @@ class BlockWalkTest {
         assertEquals(List.of("0,0,0", "miss"), walk(0.5, 0.5, 0.5, 0.99, 0.5, 0.5, Integer.MAX_VALUE));
         assertEquals(List.of("miss"), walk(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, Integer.MAX_VALUE));
     }
-
-    @Test
-    void mth() {
-        assertEquals(-1, BlockWalk.floor(-1e-9));
-        assertEquals(0.75, BlockWalk.frac(-0.25));
-        assertEquals(0, BlockWalk.sign(-0.0));
-        assertEquals(-1, BlockWalk.sign(Double.NaN));
-        assertEquals(3.0, BlockWalk.lerp(0.5, 2.0, 4.0));
-    }
 }

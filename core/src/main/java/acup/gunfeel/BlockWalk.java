@@ -1,5 +1,10 @@
 package acup.gunfeel;
 
+import static acup.gunfeel.GameMath.floor;
+import static acup.gunfeel.GameMath.frac;
+import static acup.gunfeel.GameMath.lerp;
+import static acup.gunfeel.GameMath.sign;
+
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -9,8 +14,8 @@ import org.jspecify.annotations.Nullable;
  * 26.2's, so each block and the order come out the same: both ends pushed out by 1e-7 of the line (an end on a face
  * reaches into the block beyond it), the start's block first, then a step across the nearest of the three block faces
  * each time (on a tie the face the game takes: z before x, y before x, z before y), till each face's next crossing is
- * past the end. The visitor's answer stops the walk; none, the miss's. BlockWalkVanillaTest on 26.2 holds it to the
- * game's walk.
+ * past the end; Mth's arithmetic is GameMath's. The visitor's answer stops the walk; none, the miss's.
+ * BlockWalkVanillaTest on 26.2 holds it to the game's walk.
  */
 public final class BlockWalk {
     private BlockWalk() {
@@ -62,24 +67,5 @@ public final class BlockWalk {
             if (found != null) return found;
         }
         return miss.miss(context);
-    }
-
-    // Mth's, as 26.2 has them
-
-    static double lerp(double delta, double start, double end) {
-        return start + delta * (end - start);
-    }
-
-    static int floor(double v) {
-        return (int) Math.floor(v);
-    }
-
-    static double frac(double v) {
-        return v - (double) (long) Math.floor(v);
-    }
-
-    static int sign(double v) {
-        if (v == 0.0) return 0;
-        return v > 0.0 ? 1 : -1;
     }
 }
