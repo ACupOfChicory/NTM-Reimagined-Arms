@@ -1,10 +1,10 @@
 package acup.gunfeel.ai;
 
+import acup.gunfeel.PosLong;
+
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
 
 /**
  * A* over the cells of the tactical map, off the server thread. From a cell a mob walks to the cell beside it on the
@@ -84,7 +84,7 @@ public final class PathSearch {
     }
 
     public static final class Result {
-        /** cells from the start to the end, as BlockPos longs (the start included) */
+        /** cells from the start to the end, as block keys (PosLong.block, as BlockPos.asLong; the start included) */
         public final long[] cells;
         /** the end is within the goal radius; else it is the cell nearest the goal the search got to */
         public final boolean reached;
@@ -148,7 +148,7 @@ public final class PathSearch {
         }
 
         SectionCells section(int x, int y, int z) {
-            long key = SectionPos.asLong(x >> 4, y >> 4, z >> 4);
+            long key = PosLong.section(x >> 4, y >> 4, z >> 4);
             SectionCells c = sections.get(key);
             if (c == null) {
                 c = src.cells(key);
@@ -195,7 +195,7 @@ public final class PathSearch {
     static long snap(Reader r, double x, double y, double z) {
         int bx = (int) Math.floor(x), by = (int) Math.floor(y + 0.01), bz = (int) Math.floor(z);
         for (int dy : SNAP_UP_DOWN)
-            if (r.has(bx, by + dy, bz)) return BlockPos.asLong(bx, by + dy, bz);
+            if (r.has(bx, by + dy, bz)) return PosLong.block(bx, by + dy, bz);
         // on the edge of a block: the nearest cell beside, at the same height
         double best = Double.MAX_VALUE;
         long found = NONE;
@@ -206,7 +206,7 @@ public final class PathSearch {
                     double ex = bx + dx + 0.5 - x, ez = bz + dz + 0.5 - z, d = ex * ex + ez * ez;
                     if (d < best) {
                         best = d;
-                        found = BlockPos.asLong(bx + dx, by + dy, bz + dz);
+                        found = PosLong.block(bx + dx, by + dy, bz + dz);
                     }
                 }
         return found;
@@ -241,9 +241,9 @@ public final class PathSearch {
     private static Result find(Reader r, long start, long goal, double goalRadius, int maxNodes, Cost cost, boolean wayBack, boolean dry) {
         long t0 = System.nanoTime();
         cost = cost.forSearch();
-        int gx = BlockPos.getX(goal), gy = BlockPos.getY(goal), gz = BlockPos.getZ(goal);
+        int gx = PosLong.blockX(goal), gy = PosLong.blockY(goal), gz = PosLong.blockZ(goal);
         double r2 = goalRadius * goalRadius;
-        int sx = BlockPos.getX(start), sy = BlockPos.getY(start), sz = BlockPos.getZ(start);
+        int sx = PosLong.blockX(start), sy = PosLong.blockY(start), sz = PosLong.blockZ(start);
         if (!r.has(sx, sy, sz)) return Result.none(0, r.missing.toLongArray(), System.nanoTime() - t0);
         boolean refused = false;
 
@@ -256,7 +256,7 @@ public final class PathSearch {
         while (n.size() > 0) {
             int cur = n.pop();
             long p = n.pos[cur];
-            int x = BlockPos.getX(p), y = BlockPos.getY(p), z = BlockPos.getZ(p);
+            int x = PosLong.blockX(p), y = PosLong.blockY(p), z = PosLong.blockZ(p);
             double ex = x - gx, ez = z - gz;
             if (ex * ex + ez * ez <= r2 && Math.abs(y - gy) <= 1) {
                 reachedNode = cur;
@@ -276,7 +276,7 @@ public final class PathSearch {
             for (int d = 0; d < 8; d++) {
                 long next = step(r, x, y, z, d);
                 if (next == NONE) continue;
-                int nx = BlockPos.getX(next), ny = BlockPos.getY(next), nz = BlockPos.getZ(next);
+                int nx = PosLong.blockX(next), ny = PosLong.blockY(next), nz = PosLong.blockZ(next);
                 int there = r.flags(nx, ny, nz);
                 boolean swim = ((here | there) & SectionCells.SWIM) != 0;
                 // kept dry: no swim begun from the dry (one afloat at the start swims on till it is out)
@@ -303,7 +303,7 @@ public final class PathSearch {
             if ((here & SectionCells.CLIMB) != 0) {
                 long next = gapDown(r, x, y, z);
                 if (next != NONE) {
-                    int fall = y - BlockPos.getY(next);
+                    int fall = y - PosLong.blockY(next);
                     n.relax(next, n.g[cur] + (CLIMB + DOWN) * fall + cost.extra(x, y - fall, z), heuristic(x, y - fall, z, gx, gy, gz), cur);
                 }
             }
@@ -311,7 +311,7 @@ public final class PathSearch {
             if ((here & SectionCells.CLIMB) != 0) for (int d = 0; d < 8; d += 2) {
                 long next = hatchUp(r, x, y, z, d);
                 if (next == NONE) continue;
-                int nx = BlockPos.getX(next), nz = BlockPos.getZ(next);
+                int nx = PosLong.blockX(next), nz = PosLong.blockZ(next);
                 n.relax(next, n.g[cur] + 2 * CLIMB + 1F + cost.extra(nx, y + 2, nz), heuristic(nx, y + 2, nz, gx, gy, gz), cur);
             }
         }
@@ -350,7 +350,7 @@ public final class PathSearch {
     /** the rung over (dy 1) or under (dy -1) a cell on a ladder, both of them on it, or NONE */
     static long climb(Reader r, int x, int y, int z, int dy) {
         if ((r.flags(x, y, z) & SectionCells.CLIMB) == 0 || (r.flags(x, y + dy, z) & SectionCells.CLIMB) == 0) return NONE;
-        return r.has(x, y + dy, z) ? BlockPos.asLong(x, y + dy, z) : NONE;
+        return r.has(x, y + dy, z) ? PosLong.block(x, y + dy, z) : NONE;
     }
 
     /** rungs knocked out of a ladder gone down past at most, blocks (the drop onto what is under them no more than MAX_DROP) */
@@ -364,7 +364,7 @@ public final class PathSearch {
         if ((r.flags(x, y, z) & SectionCells.CLIMB) == 0 || (r.flags(x, y - 1, z) & SectionCells.CLIMB) != 0) return NONE;
         for (int g = 1; g <= GAP_MOST; g++) {
             if (!r.open(x, y - g, z) || r.has(x, y - g, z)) return NONE;
-            if (r.has(x, y - g - 1, z)) return BlockPos.asLong(x, y - g - 1, z);
+            if (r.has(x, y - g - 1, z)) return PosLong.block(x, y - g - 1, z);
         }
         return NONE;
     }
@@ -377,7 +377,7 @@ public final class PathSearch {
     static long hatchUp(Reader r, int x, int y, int z, int d) {
         if ((r.flags(x, y, z) & SectionCells.CLIMB) == 0 || !hatch(r, x, y + 1, z) && !lifted(r, x, y + 1, z) || !r.open(x, y + 2, z)) return NONE;
         int tx = x + Dirs.DX[d], tz = z + Dirs.DZ[d];
-        return r.has(tx, y + 2, tz) && r.open(tx, y + 3, tz) ? BlockPos.asLong(tx, y + 2, tz) : NONE;
+        return r.has(tx, y + 2, tz) && r.open(tx, y + 3, tz) ? PosLong.block(tx, y + 2, tz) : NONE;
     }
 
     /** a hatch lifted already: a door's block open to go through */
@@ -398,17 +398,17 @@ public final class PathSearch {
         if ((d & 1) == 1) {
             // diagonal: on the level, both sides open at the feet and the head
             if (!r.open(tx, y, z) || !r.open(tx, y + 1, z) || !r.open(x, y, tz) || !r.open(x, y + 1, tz)) return NONE;
-            return r.has(tx, y, tz) ? BlockPos.asLong(tx, y, tz) : NONE;
+            return r.has(tx, y, tz) ? PosLong.block(tx, y, tz) : NONE;
         }
-        if (r.has(tx, y, tz)) return !doors && Voxel.shutDoor(r.src.voxel(tx, y, tz)) ? NONE : BlockPos.asLong(tx, y, tz);
+        if (r.has(tx, y, tz)) return !doors && Voxel.shutDoor(r.src.voxel(tx, y, tz)) ? NONE : PosLong.block(tx, y, tz);
         // up a block: room to jump over the head, or a slab that is stepped onto
         if (r.has(tx, y + 1, tz) && (r.open(x, y + 2, z) || Voxel.move(r.src.voxel(tx, y, tz)) == Voxel.LOW))
-            return BlockPos.asLong(tx, y + 1, tz);
+            return PosLong.block(tx, y + 1, tz);
         // down: the column walked into is open down to the cell's head (at the feet a shut hatch a hand opens is open:
         // AiDoors lifts it, the way goes down the ladder under it)
         if (!r.open(tx, y, tz) && !hatch(r, tx, y, tz) || !r.open(tx, y + 1, tz)) return NONE;
         for (int k = 1; k <= MAX_DROP; k++) {
-            if (r.has(tx, y - k, tz)) return BlockPos.asLong(tx, y - k, tz);
+            if (r.has(tx, y - k, tz)) return PosLong.block(tx, y - k, tz);
             if (!r.open(tx, y - k, tz) && !hatch(r, tx, y - k, tz)) return NONE;
         }
         return NONE;
@@ -425,7 +425,7 @@ public final class PathSearch {
         // the way may well go on down there
         if (exhausted && wayBack)
             for (int i = 0, checks = 0; i + 1 < cells.length && checks < BACK_CHECKS; i++) {
-                if (BlockPos.getY(cells[i]) - BlockPos.getY(cells[i + 1]) < NO_WAY_BACK) continue;
+                if (PosLong.blockY(cells[i]) - PosLong.blockY(cells[i + 1]) < NO_WAY_BACK) continue;
                 checks++;
                 if (!find(r, cells[i + 1], cells[i], 0, BACK_NODES, Cost.NONE, false, false).reached) {
                     cells = java.util.Arrays.copyOf(cells, i + 1);
@@ -434,7 +434,7 @@ public final class PathSearch {
             }
         Long2IntOpenHashMap stamps = new Long2IntOpenHashMap();
         for (long c : cells) {
-            long key = SectionPos.asLong(BlockPos.getX(c) >> 4, BlockPos.getY(c) >> 4, BlockPos.getZ(c) >> 4);
+            long key = PosLong.section(PosLong.blockX(c) >> 4, PosLong.blockY(c) >> 4, PosLong.blockZ(c) >> 4);
             if (stamps.containsKey(key)) continue;
             SectionCells s = r.sections.get(key);
             stamps.put(key, s == null ? -1 : s.stamp);
@@ -462,14 +462,14 @@ public final class PathSearch {
         Reader r = new Reader(src);
         for (int i = Math.max(0, from); i + 1 < cells.length; i++) {
             long a = cells[i], b = cells[i + 1];
-            int x = BlockPos.getX(a), y = BlockPos.getY(a), z = BlockPos.getZ(a);
-            int dx = BlockPos.getX(b) - x, dz = BlockPos.getZ(b) - z;
+            int x = PosLong.blockX(a), y = PosLong.blockY(a), z = PosLong.blockZ(a);
+            int dx = PosLong.blockX(b) - x, dz = PosLong.blockZ(b) - z;
             if (dx == 0 && dz == 0) {
                 // a rung up or down
-                if (!r.has(x, y, z) || climb(r, x, y, z, BlockPos.getY(b) - y) != b) return false;
+                if (!r.has(x, y, z) || climb(r, x, y, z, PosLong.blockY(b) - y) != b) return false;
                 continue;
             }
-            if (BlockPos.getY(b) - y == 2) {
+            if (PosLong.blockY(b) - y == 2) {
                 // up off a ladder through a hatch
                 boolean ok = false;
                 for (int k = 0; k < 8; k += 2) if (Dirs.DX[k] == dx && Dirs.DZ[k] == dz && hatchUp(r, x, y, z, k) == b) ok = true;
@@ -480,8 +480,8 @@ public final class PathSearch {
             for (int k = 0; k < 8; k++) if (Dirs.DX[k] == dx && Dirs.DZ[k] == dz) d = k;
             if (d < 0 || !r.has(x, y, z) || step(r, x, y, z, d) != b) return false;
         }
-        return cells.length == 0 || r.has(BlockPos.getX(cells[cells.length - 1]), BlockPos.getY(cells[cells.length - 1]),
-                BlockPos.getZ(cells[cells.length - 1]));
+        return cells.length == 0 || r.has(PosLong.blockX(cells[cells.length - 1]), PosLong.blockY(cells[cells.length - 1]),
+                PosLong.blockZ(cells[cells.length - 1]));
     }
 
     // ------------------------------------------------------------------ nodes and the open heap
