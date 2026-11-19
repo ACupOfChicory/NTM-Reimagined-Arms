@@ -48,21 +48,23 @@ public record ModelBox(String part, double x, double y, double z,
     private double determinant() {
         return ux * (vy * wz - vz * wy) + uy * (vz * wx - vx * wz) + uz * (vx * wy - vy * wx);
     }
-    boolean containsPoint(net.minecraft.world.phys.Vec3 point) {
+    // the point (px, py, pz), in the entity's frame as the box
+    boolean containsPoint(double px,double py,double pz) {
         double det=determinant();if(!Double.isFinite(det) || Math.abs(det)<1e-12) return false;
-        var p=local(point.x-x,point.y-y,point.z-z,det);
+        var p=local(px-x,py-y,pz-z,det);
         for(double value:p) if(!Double.isFinite(value) || value< -1e-7 || value>1+1e-7) return false;
         if(mesh==0) return true;
         var shape=ModelMesh.get(mesh);return shape!=null && shape.clip(p,p)>=0;
     }
 
-    double[] carrierSpan(net.minecraft.world.phys.Vec3 from,net.minecraft.world.phys.Vec3 to) {
-        return span(from,to,0,1);
+    // the segment from (fx, fy, fz) to (tx, ty, tz)
+    double[] carrierSpan(double fx,double fy,double fz,double tx,double ty,double tz) {
+        return span(fx,fy,fz,tx,ty,tz,0,1);
     }
 
-    private double[] span(net.minecraft.world.phys.Vec3 from,net.minecraft.world.phys.Vec3 to,double min,double max) {
+    private double[] span(double fx,double fy,double fz,double tx,double ty,double tz,double min,double max) {
         double det=determinant(); if(Math.abs(det)<1e-12) return null;
-        double[] a=local(from.x-x,from.y-y,from.z-z,det),b=local(to.x-x,to.y-y,to.z-z,det);
+        double[] a=local(fx-x,fy-y,fz-z,det),b=local(tx-x,ty-y,tz-z,det);
         double lo=0,hi=1;
         for(int i=0;i<3;i++) {
             double d=b[i]-a[i];
@@ -79,8 +81,11 @@ public record ModelBox(String part, double x, double y, double z,
     boolean encloses(ModelBox other) {
         double det=determinant(); if(Math.abs(det)<1e-12) return false;
         for(int i=0;i<8;i++) {
-            var p=ModelContours.point(other,(i&1)==0?0:1,(i&2)==0?0:1,(i&4)==0?0:1);
-            var c=local(p.x-x,p.y-y,p.z-z,det);
+            // the corner of `other` as ModelContours.point counts it, operation for operation
+            double ka=(i&1)==0?0:1,kb=(i&2)==0?0:1,kc=(i&4)==0?0:1;
+            double px=other.x()+ka*other.ux()+kb*other.vx()+kc*other.wx(),py=other.y()+ka*other.uy()+kb*other.vy()+kc*other.wy(),
+                    pz=other.z()+ka*other.uz()+kb*other.vz()+kc*other.wz();
+            var c=local(px-x,py-y,pz-z,det);
             for(double value:c) if(value<=1e-6 || value>=1-1e-6) return false;
         }
         return true;

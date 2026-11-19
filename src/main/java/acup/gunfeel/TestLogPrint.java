@@ -7,18 +7,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
-/** What the test log (TestLog, core) takes from 26.2: the versions in the file's head and the game's own values. */
+/** What the test log (TestLog, core) takes from 26.2: the game's own values as a line shows them. */
 public final class TestLogPrint implements TestLog.Printer {
-    @Override
-    public String modVersion() {
-        return acup.gunfeel.compat.Compat.modVersion();
-    }
-
-    @Override
-    public String ntmVersion() {
-        return acup.gunfeel.compat.Compat.hbmVersion();
-    }
-
     @Override
     public String print(Object v, boolean exact) {
         if (exact) {

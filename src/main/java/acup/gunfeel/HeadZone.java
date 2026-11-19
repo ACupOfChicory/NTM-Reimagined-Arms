@@ -16,9 +16,9 @@ public record HeadZone(ModelBox box,List<Plane> planes,List<ModelBox> pieces) {
         public boolean accepts(Vec3 p) { return x*p.x+y*p.y+z*p.z+d>=-1e-8; }
     }
     public boolean contains(Vec3 point) {
-        if(planes.stream().anyMatch(plane->!plane.accepts(point)) || !box.containsPoint(point)) return false;
+        if(planes.stream().anyMatch(plane->!plane.accepts(point)) || !box.containsPoint(point.x,point.y,point.z)) return false;
         if(pieces.isEmpty()) return true;
-        for(var piece:pieces) if(piece.containsPoint(point)) return true;
+        for(var piece:pieces) if(piece.containsPoint(point.x,point.y,point.z)) return true;
         return false;
     }
     /** Коэффициенты плоскости заданы в аффинной системе самой части. */
