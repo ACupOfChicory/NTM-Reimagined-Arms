@@ -15,6 +15,14 @@
 - Smoke and gas clouds in the wind no longer have their upwind end cut off flat
   for a few seconds as they drift, and the wind takes less of them away.
 
+## X1713
+
+- With the OpenGL renderer a smoke or gas cloud no longer shows a picture of the
+  world from an earlier moment where it should be, with no smoke in it. Since
+  X1699 the part of the screen around a cloud was left as an earlier frame had
+  it, often the one from when the grenade was thrown, so that turning the head
+  showed pieces of that old view there.
+
 ## X1711
 
 - The sparks off burning white phosphorus no longer leave a trail of grey
