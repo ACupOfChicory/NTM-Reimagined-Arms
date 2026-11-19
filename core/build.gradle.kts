@@ -48,8 +48,13 @@ afterEvaluate {
 
 sourceSets {
     main { java.setSrcDirs(listOf("src/main/java")); resources.setSrcDirs(emptyList<File>()) }
-    // the tests read the mod's data files as the mod does, from the class path
-    test { java.setSrcDirs(listOf("src/test/java")); resources.setSrcDirs(listOf(root.resolve("src/main/resources"))) }
+    // the tests read the mod's data files as the mod does, from the class path; not 26.2's service files, which name
+    // 26.2's classes: core's tests run with no version, on CoreServices' fallbacks
+    test {
+        java.setSrcDirs(listOf("src/test/java"))
+        resources.setSrcDirs(listOf(root.resolve("src/main/resources")))
+        resources.exclude("META-INF/services/**")
+    }
 }
 
 // The lowest Java a port compiles core with as it is: 1.21.1 (DE) builds at release 21; 1.12.2 and 1.7.10 build at 25
