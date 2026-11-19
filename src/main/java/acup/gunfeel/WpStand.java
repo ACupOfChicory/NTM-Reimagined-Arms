@@ -47,15 +47,16 @@ import net.minecraft.world.phys.Vec3;
 // runCheckClient -PwpStand=<dir>: NTM's white phosphorus through NTM's own code, each scene twice in one run: A as NTM
 // has it (WpSmoke.forced false: the grenade's hazes, the shells' mushroom, the 40 mm and the rocket no smoke), B with the
 // mod's white cloud. Scenes on a flat field at clear noon, high smoke quality, the HUD hidden, vsync and the frame limit
-// off: one hand grenade (ItemGrenadeFilling.explode) seen from 22 blocks, the camera inside it, three grenades 8 blocks
-// apart seen from 22 blocks and from inside the middle one; six 40 mm rounds 0.2 s apart (a grenade launcher's burst),
+// off: one hand grenade (ItemGrenadeFilling.explode) seen from 22 blocks, from 10 blocks at a man's eye height, the camera
+// inside it, three grenades 8 blocks apart seen from 22 blocks and from inside the middle one; six 40 mm rounds 0.2 s
+// apart (a grenade launcher's burst),
 // a rocket, an artillery shell, ten artillery shells about (a cluster's) and a HIMARS rocket, all of them seen from 22
 // blocks, each hitting the ground through its own impact (XFactory40mm and XFactoryRocket's phosphorus impact, the
 // shell types' onImpact). -PwpScenes=g40,arty10 only those, -PwpRounds=1 once (default twice over). A run: 1.5 s before
 // the burst (the base frame), the burst, 26 s after. At 3, 8, 13, 18 and 23 s a row
 // (<dir>/wp.tsv): clouds, NTM's hazes on the client, NTM's fires on the ground, the client's particles, the server's ms a
 // tick, the smoke's own time (server, client), the packets since the burst (all, hazes, the smoke's); frame times from
-// 2 to 22 s (<dir>/frames.tsv). Screenshots of the outside scenes in the first round: <scene>-<mode>-{base,5s,10s,20s}.png.
+// 2 to 22 s (<dir>/frames.tsv). Screenshots of every scene in the first round: <scene>-<mode>-{base,5s,10s,20s}.png.
 final class WpStand {
     static final String DIR = System.getProperty("ntmgunfeel.wpStand", "");
     static final boolean ENABLED = !DIR.isBlank();
@@ -69,10 +70,13 @@ final class WpStand {
 
     private enum What { GRENADE, G40, ROCKET, ARTY, HIMARS }
 
+    // where the camera is: 22 blocks off and 3.5 up, 10 blocks off at a man's eye height, inside by the burst
+    private enum Cam { FAR, NEAR, INSIDE }
+
     // count bursts, every delay seconds after the first, at the offsets (blocks, x and z) from the scene's spot
-    private record Scene(String name, What what, int count, double delay, boolean inside, double[][] at) {
-        Scene(String name, What what, int count, boolean inside) {
-            this(name, what, count, 0, inside, row(count));
+    private record Scene(String name, What what, int count, double delay, Cam cam, double[][] at) {
+        Scene(String name, What what, int count, Cam cam) {
+            this(name, what, count, 0, cam, row(count));
         }
 
         // a row 8 blocks apart
@@ -83,15 +87,16 @@ final class WpStand {
         }
     }
 
-    private static final List<Scene> SCENES = java.util.stream.Stream.of(new Scene("out1", What.GRENADE, 1, false),
-            new Scene("in1", What.GRENADE, 1, true), new Scene("out3", What.GRENADE, 3, false), new Scene("in3", What.GRENADE, 3, true),
+    private static final List<Scene> SCENES = java.util.stream.Stream.of(new Scene("out1", What.GRENADE, 1, Cam.FAR),
+            new Scene("near1", What.GRENADE, 1, Cam.NEAR), new Scene("in1", What.GRENADE, 1, Cam.INSIDE),
+            new Scene("out3", What.GRENADE, 3, Cam.FAR), new Scene("in3", What.GRENADE, 3, Cam.INSIDE),
             // a burst of a grenade launcher at a spot: 2 to 3 blocks apart, as a magazine's rounds land
-            new Scene("g40", What.G40, 6, 0.2, false, new double[][] {{0, 0}, {2, 1}, {-2, 2}, {1, -2}, {-1, -1}, {3, -1}}),
-            new Scene("rocket", What.ROCKET, 1, false), new Scene("arty", What.ARTY, 1, false),
+            new Scene("g40", What.G40, 6, 0.2, Cam.FAR, new double[][] {{0, 0}, {2, 1}, {-2, 2}, {1, -2}, {-1, -1}, {3, -1}}),
+            new Scene("rocket", What.ROCKET, 1, Cam.FAR), new Scene("arty", What.ARTY, 1, Cam.FAR),
             // a cluster's ten shells strewn some 12 blocks about
-            new Scene("arty10", What.ARTY, 10, 0.1, false, new double[][] {{0, 0}, {9, 3}, {-8, 5}, {4, -9}, {-5, -7}, {12, -4},
+            new Scene("arty10", What.ARTY, 10, 0.1, Cam.FAR, new double[][] {{0, 0}, {9, 3}, {-8, 5}, {4, -9}, {-5, -7}, {12, -4},
                     {-12, -2}, {2, 11}, {-3, 12}, {7, 8}}),
-            new Scene("himars", What.HIMARS, 1, false))
+            new Scene("himars", What.HIMARS, 1, Cam.FAR))
             .filter(s -> ONLY.contains("") || ONLY.contains(s.name)).toList();
 
     private record Run(Scene scene, boolean ours, int round) {
@@ -244,14 +249,26 @@ final class WpStand {
     }
 
     private static Vec3 eye(Scene s) {
-        return s.inside ? new Vec3(GX, Y + 1.6, GZ + 1) : new Vec3(GX, Y + 3.5, GZ - 22);
+        return switch (s.cam) {
+            case FAR -> new Vec3(GX, Y + 3.5, GZ - 22);
+            case NEAR -> new Vec3(GX, Y + 1.6, GZ - 10);
+            case INSIDE -> new Vec3(GX, Y + 1.6, GZ + 1);
+        };
+    }
+
+    private static float pitch(Scene s) {
+        return switch (s.cam) {
+            case FAR -> 8F;
+            case NEAR -> 5F;
+            case INSIDE -> 0F;
+        };
     }
 
     private static void place(Scene s) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         Vec3 e = eye(s);
-        float pitch = s.inside ? 0F : 8F;
+        float pitch = pitch(s);
         mc.player.setPos(e.x, e.y - mc.player.getEyeHeight(), e.z);
         mc.player.setYRot(0F);
         mc.player.setXRot(pitch);
@@ -274,7 +291,7 @@ final class WpStand {
                 Vec3 e = eye(r.scene);
                 server.submit(() -> {
                     var sp = server.getPlayerList().getPlayers().getFirst();
-                    sp.teleportTo(server.overworld(), e.x, e.y - sp.getEyeHeight(), e.z, Set.of(), 0F, r.scene.inside ? 0F : 8F, false);
+                    sp.teleportTo(server.overworld(), e.x, e.y - sp.getEyeHeight(), e.z, Set.of(), 0F, pitch(r.scene), false);
                 }).join();
                 // the last run's clouds gone from the client before the next begins
                 SmokeClouds known = SmokeClient.current();
@@ -324,7 +341,7 @@ final class WpStand {
     }
 
     private static boolean shots(Run r) {
-        return r.round == 0 && !r.scene.inside;
+        return r.round == 0;
     }
 
     private static void shoot(Run r, String what) {
