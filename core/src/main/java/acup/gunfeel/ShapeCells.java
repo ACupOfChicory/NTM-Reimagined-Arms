@@ -3,7 +3,7 @@ package acup.gunfeel;
 // A block's shape as a bullet meets it, without the game: 16³ cells (bit x + 16 * (y + 16 * z)), bits[64] the shell's
 // flag, the exact faces after them (ModelSurfaceBase); packed as 1024 hex digits or "z" and the deflated bytes in
 // base64 ("!" before it for a shell), as the shapes' file and the server's payload carry it. PassableClip and the
-// shapes' makers read and write it here.
+// shapes' makers read and write it here, and a bullet's way through the cells is walked here (march, leave).
 public final class ShapeCells {
     private ShapeCells() {
     }
@@ -57,5 +57,72 @@ public final class ShapeCells {
     public static boolean cell(long[] bits, int x, int y, int z) {
         int i = x + 16 * (y + 16 * z);
         return (bits[i >> 6] >>> (i & 63) & 1L) != 0L;
+    }
+
+    // the sides a walk of the cells meets a cell or leaves the block by, as the game's Direction numbers them (DOWN, UP,
+    // NORTH, SOUTH, WEST, EAST); KEPT: no step was made, the side it came in by stays (march), or its opposite (leave)
+    public static final int DOWN = 0, UP = 1, NORTH = 2, SOUTH = 3, WEST = 4, EAST = 5, KEPT = 6;
+
+    /**
+     * From (px, py, pz), where the bullet enters the block's hitbox (in cells, 0 to 16 on each axis), along the unit
+     * direction (dx, dy, dz), to the first set cell in at most {@code cells} cells: the side it met that cell by (KEPT:
+     * the one it came in by), its distance along the way in cells in {@code out[0]}; -1 when it leaves the block first.
+     */
+    public static int march(long[] bits, double px, double py, double pz, double dx, double dy, double dz, int cells, double[] out) {
+        // На границе клетки берём сторону, в которую летит пуля. Иначе отрицательное направление
+        // на x=3/16 проверяло пустую клетку 3 вместо металла в клетке 2 (верхняя половина двери).
+        int x = Math.clamp((int) Math.floor(px + dx * 1e-7), 0, 15);
+        int y = Math.clamp((int) Math.floor(py + dy * 1e-7), 0, 15);
+        int z = Math.clamp((int) Math.floor(pz + dz * 1e-7), 0, 15);
+        int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+        double tx = Math.abs(dx) < 1e-12 ? Double.POSITIVE_INFINITY : ((sx > 0 ? x + 1 : x) - px) / dx;
+        double ty = Math.abs(dy) < 1e-12 ? Double.POSITIVE_INFINITY : ((sy > 0 ? y + 1 : y) - py) / dy;
+        double tz = Math.abs(dz) < 1e-12 ? Double.POSITIVE_INFINITY : ((sz > 0 ? z + 1 : z) - pz) / dz;
+        double ddx = Math.abs(1 / dx), ddy = Math.abs(1 / dy), ddz = Math.abs(1 / dz);
+        double t = 0;
+        int face = KEPT;
+        for (int n = 0; n < cells; n++) {
+            if (cell(bits, x, y, z)) {
+                out[0] = t;
+                return face;
+            }
+            if (tx <= ty && tx <= tz) {
+                t = tx; tx += ddx; x += sx; face = sx > 0 ? WEST : EAST;
+            } else if (ty <= tz) {
+                t = ty; ty += ddy; y += sy; face = sy > 0 ? DOWN : UP;
+            } else {
+                t = tz; tz += ddz; z += sz; face = sz > 0 ? NORTH : SOUTH;
+            }
+            if (x < 0 || x > 15 || y < 0 || y > 15 || z < 0 || z > 15) return -1;
+        }
+        return -1;
+    }
+
+    /**
+     * From (px, py, pz) in a set cell (in cells), along the unit direction (dx, dy, dz), to the first empty cell or the
+     * block's side: the far side it leaves by (KEPT: no step, the opposite of the side it came in by), its distance in
+     * cells in {@code out[0]}
+     */
+    public static int leave(long[] bits, double px, double py, double pz, double dx, double dy, double dz, double[] out) {
+        int x = Math.clamp((int) Math.floor(px), 0, 15), y = Math.clamp((int) Math.floor(py), 0, 15), z = Math.clamp((int) Math.floor(pz), 0, 15);
+        int sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+        double tx = Math.abs(dx) < 1e-12 ? Double.POSITIVE_INFINITY : ((sx > 0 ? x + 1 : x) - px) / dx;
+        double ty = Math.abs(dy) < 1e-12 ? Double.POSITIVE_INFINITY : ((sy > 0 ? y + 1 : y) - py) / dy;
+        double tz = Math.abs(dz) < 1e-12 ? Double.POSITIVE_INFINITY : ((sz > 0 ? z + 1 : z) - pz) / dz;
+        double ddx = Math.abs(1 / dx), ddy = Math.abs(1 / dy), ddz = Math.abs(1 / dz);
+        double t = 0;
+        int face = KEPT;
+        for (int n = 0; n < 64 && cell(bits, x, y, z); n++) {
+            if (tx <= ty && tx <= tz) {
+                t = tx; tx += ddx; x += sx; face = sx > 0 ? EAST : WEST;
+            } else if (ty <= tz) {
+                t = ty; ty += ddy; y += sy; face = sy > 0 ? UP : DOWN;
+            } else {
+                t = tz; tz += ddz; z += sz; face = sz > 0 ? SOUTH : NORTH;
+            }
+            if (x < 0 || x > 15 || y < 0 || y > 15 || z < 0 || z > 15) break;
+        }
+        out[0] = t;
+        return face;
     }
 }
