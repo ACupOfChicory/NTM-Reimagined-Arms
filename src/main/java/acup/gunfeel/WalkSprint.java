@@ -206,7 +206,7 @@ public final class WalkSprint {
 
     /** A pistol or a revolver (kickPreset): the measured pistols are held, turned and swung otherwise than long guns. */
     static boolean pistol(String kickPreset) {
-        return "pistol".equals(kickPreset) || "revolver".equals(kickPreset);
+        return PistolPlace.pistol(kickPreset);
     }
 
     /**

@@ -13,6 +13,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import acup.gunfeel.Config;
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
@@ -73,7 +75,7 @@ public final class SunkBullets {
         BulletConfig config = WaterFx.config(e);
         String ammo = WaterFx.ammo(config);
         // an impact fuze (grenades, rockets, HE and incendiary rounds): NTM's entity sinks on, the explosives part's
-        if (ammo == null || config == null || WaterClass.Fuze.of(config).any() || WaterClass.of(config).explosive) return;
+        if (ammo == null || config == null || WaterClasses.fuze(config).any() || WaterClasses.of(config).explosive) return;
         AmmoModels.Model m = model(config);
         if (m == null) return;
         float open = m.expands ? 1F : 0F;
@@ -176,7 +178,7 @@ public final class SunkBullets {
     private static Round round(BulletConfig config) {
         String ammo = WaterFx.ammo(config);
         AmmoModels.Model m = model(config);
-        return new Round(m, ammo != null && "jhp".equals(variant(ammo)), m != null && m.expands ? WaterClass.of(config).length : 0);
+        return new Round(m, ammo != null && "jhp".equals(variant(ammo)), m != null && m.expands ? WaterClasses.of(config).length : 0);
     }
 
     // the model of a round: as big next to NTM's casing of it as the real bullet next to its case, × waterBodyScale
@@ -240,6 +242,7 @@ public final class SunkBullets {
     private static final BlockPos.MutableBlockPos CELL = new BlockPos.MutableBlockPos();
     private static final double[] EMPTY = new double[0];
 
+    @Hook(HookPoint.WATER_DRAW)
     public static void submit(SubmitCustomGeometryEvent event, Level level, Vec3 cam) {
         if (broken) return;
         try {
@@ -309,7 +312,7 @@ public final class SunkBullets {
         List<Fuzed> out = null;
         float pt = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
         for (Entity en : cl.entitiesForRendering()) {
-            if (!(en instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b) || !WaterClass.Fuze.of(b.config).any()) continue;
+            if (!(en instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b) || !WaterClasses.fuze(b.config).any()) continue;
             if (en.distanceToSqr(cam) > 48 * 48 || !sinking(en)) continue;
             Vec3 at = en.getPosition(pt);
             if (!WaterFx.wetAt(level, at)) continue;

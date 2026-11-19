@@ -57,7 +57,7 @@ public final class BeamWater {
             }
 
             @Override
-            public Vec3 flow(int x, int y, int z) {
+            public Vec3d flow(int x, int y, int z) {
                 return all.flow(x, y, z);
             }
         };

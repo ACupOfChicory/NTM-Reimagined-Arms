@@ -6,9 +6,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import acup.gunfeel.water.WaterEvents.Liquid;
+import acup.gunfeel.water.LiquidEvents.Liquid;
 import acup.gunfeel.water.WaterPath;
-import acup.gunfeel.water.WaterPath.Cell;
+import acup.gunfeel.water.LiquidPath.Cell;
 import net.minecraft.world.phys.Vec3;
 
 class BeamWaterTest {
@@ -23,8 +23,8 @@ class BeamWaterTest {
             }
 
             @Override
-            public Vec3 flow(int x, int y, int z) {
-                return Vec3.ZERO;
+            public Vec3d flow(int x, int y, int z) {
+                return Vec3d.ZERO;
             }
         };
     }
@@ -71,8 +71,8 @@ class BeamWaterTest {
             }
 
             @Override
-            public Vec3 flow(int x, int y, int z) {
-                return Vec3.ZERO;
+            public Vec3d flow(int x, int y, int z) {
+                return Vec3d.ZERO;
             }
         };
         BeamWater b = along(w, 0, 20);
@@ -97,8 +97,8 @@ class BeamWaterTest {
             }
 
             @Override
-            public Vec3 flow(int x, int y, int z) {
-                return Vec3.ZERO;
+            public Vec3d flow(int x, int y, int z) {
+                return Vec3d.ZERO;
             }
         };
         assertSame(BeamWater.NONE, along(w, 0, 30));

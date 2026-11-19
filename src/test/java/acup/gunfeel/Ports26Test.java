@@ -35,6 +35,9 @@ class Ports26Test extends PortsContract {
         assertInstanceOf(PistolHoldReread.class, p.port(Config.Reread.class));
         assertInstanceOf(ServerTablesReload.class, p.port(ReaimTimes.Reload.class));
         assertInstanceOf(RemoteShapes.class, p.port(ServerSettings.Follow.class));
+        assertInstanceOf(GameMainHand.class, p.port(MainHand.class));
+        assertInstanceOf(NtmAnimState.class, p.port(GunAnimState.class));
+        assertInstanceOf(NtmAnimState.class, ArmTimeline.ANIM);
         assertInstanceOf(acup.gunfeel.compat.CompatVersions.class, p.port(acup.gunfeel.host.HostVersions.class));
         assertInstanceOf(acup.gunfeel.compat.CompatVersions.class, acup.gunfeel.host.HostVersions.get());
         assertInstanceOf(FmlGameDirs.class, GameDirs.get());

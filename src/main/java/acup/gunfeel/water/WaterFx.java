@@ -8,6 +8,8 @@ import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
 
 import acup.gunfeel.Config;
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -45,6 +47,7 @@ public final class WaterFx {
         WaterEvents.ntmBubbles = !Config.waterSplash;
     }
 
+    @Hook(HookPoint.WATER_MUZZLE)
     public static boolean on() {
         return Config.waterSplash;
     }
@@ -202,7 +205,7 @@ public final class WaterFx {
     // ---- the events ----
     private static void on(Level level, WaterEvents.Event e) {
         if (tracedBullet(e.bullet())) return;
-        if (e.type() == WaterEvents.Type.ENTER && e.bullet() instanceof EntityBulletBaseMK4 b && WaterClass.Fuze.of(b.config).any()
+        if (e.type() == WaterEvents.Type.ENTER && e.bullet() instanceof EntityBulletBaseMK4 b && WaterClasses.fuze(b.config).any()
                 && WaterSettings.fuze()) return;
         handle(level, e);
     }
@@ -489,6 +492,7 @@ public final class WaterFx {
     }
 
     // the client tick: delayed effects, the bodies on the bottom
+    @Hook(HookPoint.WATER_CLIENT_TICK)
     public static void clientTick() {
         WaterEvents.ntmBubbles = !Config.waterSplash;
         Minecraft mc = Minecraft.getInstance();
@@ -508,6 +512,7 @@ public final class WaterFx {
         }
     }
 
+    @Hook(HookPoint.WATER_CLIENT_LEFT)
     public static void clear() {
         LATER.clear();
         WaterRings.clear();
@@ -524,6 +529,7 @@ public final class WaterFx {
     private static Vec3 gasAt = Vec3.ZERO;
 
     // a point in water for the effects (any liquid but lava)
+    @Hook(HookPoint.WATER_MUZZLE)
     public static boolean wetAt(Level level, Vec3 p) {
         BlockPos pos = BlockPos.containing(p);
         net.minecraft.world.level.material.FluidState fs = level.getFluidState(pos);
@@ -553,6 +559,7 @@ public final class WaterFx {
     // with a motion of length 1 (its speed is NTM's motionMult); one that comes into sight sinking or lying on the
     // bottom has next to none (WaterTick.sink; the server sends NTM's bullets' motion as it changes) and is no shot.
     // Its config follows the entity, so the bubble waits for the next tick.
+    @Hook(HookPoint.WATER_JOINED)
     public static void joined(Level level, Entity e) {
         if (!on() || !(e instanceof EntityBulletBaseMK4 b) || !(level instanceof ClientLevel)) return;
         Vec3 at = e.position(), dir = e.getDeltaMovement();
@@ -561,9 +568,9 @@ public final class WaterFx {
         boolean own = mc.player != null && b.getOwner() == mc.player;
         later(0.05, () -> {
             BulletConfig config = b.getBulletConfig();
-            if (config == null || acup.gunfeel.Tracers.traced(config) || !WaterClass.Fuze.of(config).any()) return;
+            if (config == null || acup.gunfeel.Tracers.traced(config) || !WaterClasses.fuze(config).any()) return;
             // a gun's round only: not the NPCs' bolts and rockets, a cluster's bomblets, a pile's debris, a flame
-            if (config.ammoItem == null || WaterClass.Fuze.field(config) != null) return;
+            if (config.ammoItem == null || WaterClasses.fuzeField(config) != null) return;
             // the player's own shot: at the muzzle drawn in their hands, as a tracer's
             Vec3 muzzle = own ? acup.gunfeel.Tracers.drawnMuzzle() : null;
             fired(level, muzzle != null && muzzle.distanceToSqr(at) < 9 ? muzzle : at, dir, config);

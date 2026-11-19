@@ -10,6 +10,7 @@ import com.hbm.entity.projectile.EntityBulletBaseMK4;
 
 import acup.gunfeel.water.WaterBullet;
 import acup.gunfeel.water.WaterClass;
+import acup.gunfeel.water.WaterClasses;
 import acup.gunfeel.water.WaterPath;
 
 // Both sides: what an NTM bullet keeps of water between ticks (WaterBullet). Its speed is NTM's motionMult × f, so the
@@ -80,7 +81,7 @@ public abstract class MixinWaterBullet implements WaterBullet, acup.gunfeel.wate
         var config = ((EntityBulletBaseMK4) (Object) this).config;
         // NTM sets the config on the first tick
         if (config == null) return WaterClass.PISTOL;
-        gunfeel$expansion = WaterClass.Expansion.of(config);
-        return gunfeel$class = WaterClass.of(config);
+        gunfeel$expansion = WaterClasses.expansion(config);
+        return gunfeel$class = WaterClasses.of(config);
     }
 }
