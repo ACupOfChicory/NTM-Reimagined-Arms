@@ -36,7 +36,6 @@ public final class AiGunner extends AiGunnerBase {
     private @Nullable Vec3 aim;
     /** how far up and down from the aim the part it aims at reaches (the trigger's gate), blocks */
     private double halfHeight = AiAim.HALF_HEIGHT;
-    private boolean wantFire, wantReload, held, reloadHeld;
     /** it runs this tick (AiMover.runs): its body faces its path, it does not shoot */
     boolean runs;
     /** the eye and the hand; whether it follows a target (and which) or looks at a place */
@@ -48,8 +47,6 @@ public final class AiGunner extends AiGunnerBase {
     Vec3 exact;
     /** the exact turn (a grenadier's lob) is let go after this tick */
     private long exactUntil = Long.MAX_VALUE;
-    /** shots let go (trigger pulls), for the stands */
-    public int pulls;
     /**
      * this tick it fires blind, the gun held up over its cover with no look along it (its mind sets it each tick): its
      * bullets spread three times the gun's (MixinAiLeanShot)
@@ -82,11 +79,8 @@ public final class AiGunner extends AiGunnerBase {
     public boolean low;
     /** this tick's own cover just past the gun, as the pull was decided */
     private boolean covered;
-    /**
-     * the stands: trigger pulls the server's no-shot-while-crawling rule threw away (ProneFire), ticks a held trigger
-     * was down crawling (its burst cut), and shots let go lying
-     */
-    public int crawlPulls, crawlHeldTicks, shotsLying;
+    /** the stands: shots let go lying (with AiGunnerBase's crawlPulls and crawlHeldTicks) */
+    public int shotsLying;
     private long reloadFrom = -1;
     /** a reload longer than this (ticks) was not seen through: it was not ticked meanwhile */
     static final int MAX_RELOAD = 200;
@@ -176,37 +170,6 @@ public final class AiGunner extends AiGunnerBase {
         return mob.getMainHandItem().getItem() instanceof ItemGunBaseNT g ? g : null;
     }
 
-    @SuppressWarnings("rawtypes")
-    static @Nullable IMagazine magazine(ItemGunBaseNT gun, ItemStack stack) {
-        try {
-            return gun.getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack);
-        } catch (RuntimeException e) {
-            return null;
-        }
-    }
-
-    /** fills the gun from nothing, not from the reserve (a mob that comes in loaded) */
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public void loadFree() {
-        ItemStack stack = mob.getMainHandItem();
-        ItemGunBaseNT gun = gun();
-        IMagazine mag = gun == null ? null : magazine(gun, stack);
-        if (mag == null) return;
-        mag.reloadAction(stack, null);
-        ammo.lastLoaded = mag instanceof MagazineSingleTypeBase ? mag.getAmount(stack, null) : -1;
-    }
-
-    /** let go of every key: the mob stops shooting at once */
-    public void release() {
-        wantFire = false;
-        ItemGunBaseNT gun = gun();
-        if (gun == null) return;
-        ItemStack stack = mob.getMainHandItem();
-        if (held) key(gun, stack, EnumKeybind.GUN_PRIMARY, false);
-        if (reloadHeld) key(gun, stack, EnumKeybind.RELOAD, false);
-        held = reloadHeld = false;
-    }
-
     @SuppressWarnings({"rawtypes", "unchecked"})
     void tick(ServerLevel level) {
         ItemGunBaseNT gun = gun();
@@ -219,10 +182,7 @@ public final class AiGunner extends AiGunnerBase {
 
         ItemGunBaseNT.GunState state = ItemGunBaseNT.getState(stack, 0);
         int loaded = loaded();
-        if (reloadHeld) {
-            key(gun, stack, EnumKeybind.RELOAD, false);
-            reloadHeld = false;
-        }
+        letGoReload();
         if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
         long time = level.getGameTime();
         // the holds counted on through the pauses of its bursts: a shot, its aim taken away (idle, ordered) or no fire
@@ -279,36 +239,9 @@ public final class AiGunner extends AiGunnerBase {
             coverHolds++;
         }
         coverTicks = held(coverTicks, covered, shoot, holdsOver);
-        if (shoot) {
-            if (!held) {
-                if (acup.gunfeel.ProneFire.blocks(mob, stack)) crawlPulls++;
-                key(gun, stack, EnumKeybind.GUN_PRIMARY, true);
-                held = true;
-                pulls++;
-            } else if (state == ItemGunBaseNT.GunState.IDLE) {
-                // a gun that fires once a pull is ready again: let go, pull again next tick
-                key(gun, stack, EnumKeybind.GUN_PRIMARY, false);
-                held = false;
-            }
-        } else if (held) {
-            key(gun, stack, EnumKeybind.GUN_PRIMARY, false);
-            held = false;
-        }
-        if (held && acup.gunfeel.ProneFire.blocks(mob, stack)) crawlHeldTicks++;
-        if (!held && state == ItemGunBaseNT.GunState.IDLE && (wantReload || loaded == 0) && ammo.any()
-                && loaded >= 0 && loaded < capacity()) {
-            key(gun, stack, EnumKeybind.RELOAD, true);
-            reloadHeld = true;
-        }
+        trigger(shoot, state == ItemGunBaseNT.GunState.IDLE, loaded);
 
-        IMagazine mag = magazine(gun, stack);
-        int gone = 0;
-        if (mag instanceof MagazineSingleTypeBase) {
-            int now = mag.getAmount(stack, null), before = ammo.lastLoaded;
-            int keep = ammo.settle(now);
-            if (keep != now) mag.setAmount(stack, keep);
-            if (before > 0 && now < before) gone = before - Math.max(0, now);
-        }
+        int gone = settleMagazine();
         // shots since its last tick, as the gun ticked or as the trigger went down (those NTM worked out; else rounds
         // gone, as one: a gun fires at most once a tick, and a magazine changed by other means is no burst), each
         // kicking the view
@@ -510,8 +443,9 @@ public final class AiGunner extends AiGunnerBase {
         return on;
     }
 
-    private void key(ItemGunBaseNT gun, ItemStack stack, EnumKeybind key, boolean down) {
-        gun.handleKeybind(mob, null, stack, key, down);
+    @Override
+    boolean proneBlocks() {
+        return acup.gunfeel.ProneFire.blocks(mob, mob.getMainHandItem());
     }
 
     /**
@@ -577,6 +511,14 @@ public final class AiGunner extends AiGunnerBase {
 
         @Override
         @SuppressWarnings("rawtypes")
+        public int rounds(Body holder, int hand) {
+            ItemStack stack = stack(holder, hand);
+            IMagazine mag = magazine(stack);
+            return mag instanceof MagazineSingleTypeBase ? mag.getAmount(stack, null) : NO_ROUNDS;
+        }
+
+        @Override
+        @SuppressWarnings("rawtypes")
         public int capacity(Body holder, int hand) {
             ItemStack stack = stack(holder, hand);
             IMagazine mag = magazine(stack);
@@ -630,6 +572,35 @@ public final class AiGunner extends AiGunnerBase {
             out[1] = off.y;
             out[2] = off.z;
             return true;
+        }
+
+        @Override
+        public void key(Body holder, int hand, int key, boolean down) {
+            ItemStack stack = stack(holder, hand);
+            EnumKeybind k = switch (key) {
+                case PRIMARY -> EnumKeybind.GUN_PRIMARY;
+                case RELOAD -> EnumKeybind.RELOAD;
+                default -> throw new IllegalArgumentException("key " + key);
+            };
+            ((ItemGunBaseNT) stack.getItem()).handleKeybind((LivingEntity) ((acup.gunfeel.EntityBody) holder).entity(), null, stack, k, down);
+        }
+
+        @Override
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        public void setLoaded(Body holder, int hand, int n) {
+            ItemStack stack = stack(holder, hand);
+            IMagazine mag = magazine(stack);
+            if (mag != null) mag.setAmount(stack, n);
+        }
+
+        @Override
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        public int fill(Body holder, int hand) {
+            ItemStack stack = stack(holder, hand);
+            IMagazine mag = magazine(stack);
+            if (mag == null) return NO_ROUNDS;
+            mag.reloadAction(stack, null);
+            return mag instanceof MagazineSingleTypeBase ? mag.getAmount(stack, null) : -1;
         }
     }
 }

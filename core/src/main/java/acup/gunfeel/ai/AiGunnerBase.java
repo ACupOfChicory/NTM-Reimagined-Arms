@@ -14,7 +14,7 @@ import acup.gunfeel.Vec3d;
  * its magazine, its reload, its bullet's speed, the distance it is best at, the cone kept clear for it, the muzzle's
  * offset. AiGunner in 26.2: the aim, the trigger, the keys and the recoil.
  */
-public class AiGunnerBase {
+public abstract class AiGunnerBase {
     static final NtmGuns GUNS = CoreServices.load(acup.gunfeel.host.NtmGuns.class, NtmGuns.NONE);
 
     /** the cone kept clear of other AI mobs before a shot (the gun's spread and the aim's error), degrees */
@@ -30,6 +30,15 @@ public class AiGunnerBase {
     public final AiAmmo ammo;
     /** the ticks its last reload took, from the start to ready again (0 before its first) */
     public int lastReload;
+    // fire and reload wanted (its mind), the trigger and the reload key down (its hand)
+    boolean wantFire, wantReload, held, reloadHeld;
+    /** shots let go (trigger pulls), for the stands */
+    public int pulls;
+    /**
+     * the stands: trigger pulls the server's no-shot-while-crawling rule threw away (ProneFire), ticks a held trigger
+     * was down crawling (its burst cut)
+     */
+    public int crawlPulls, crawlHeldTicks;
     /** a gap between shots, ticks, after which a new burst starts (its climb grows again from the first shot) */
     static final int BURST_GAP = 10;
 
@@ -148,6 +157,78 @@ public class AiGunnerBase {
     public boolean reloading() {
         return GUNS.isGun(body, Body.MAIN_HAND) && GUNS.state(body, Body.MAIN_HAND) == NtmGuns.RELOADING;
     }
+
+    /** fills the gun from nothing, not from the reserve (a mob that comes in loaded) */
+    public void loadFree() {
+        int n = GUNS.fill(body, Body.MAIN_HAND);
+        if (n == NtmGuns.NO_ROUNDS) return;
+        ammo.lastLoaded = n;
+    }
+
+    /** let go of every key: the mob stops shooting at once */
+    public void release() {
+        wantFire = false;
+        if (!GUNS.isGun(body, Body.MAIN_HAND)) return;
+        if (held) GUNS.key(body, Body.MAIN_HAND, NtmGuns.PRIMARY, false);
+        if (reloadHeld) GUNS.key(body, Body.MAIN_HAND, NtmGuns.RELOAD, false);
+        held = reloadHeld = false;
+    }
+
+    /** its tick (AiGunner.tick), first: the reload key down since the last tick let go */
+    void letGoReload() {
+        if (reloadHeld) {
+            GUNS.key(body, Body.MAIN_HAND, NtmGuns.RELOAD, false);
+            reloadHeld = false;
+        }
+    }
+
+    /**
+     * its tick, once it knows whether to shoot: the trigger pulled, let go, or let go to be pulled again (a gun that
+     * fires once a pull, ready again), then the reload key down for an idle gun empty or told to (with rounds to load
+     * and room for them)
+     */
+    void trigger(boolean shoot, boolean idle, int loaded) {
+        if (shoot) {
+            if (!held) {
+                if (proneBlocks()) crawlPulls++;
+                GUNS.key(body, Body.MAIN_HAND, NtmGuns.PRIMARY, true);
+                held = true;
+                pulls++;
+            } else if (idle) {
+                // a gun that fires once a pull is ready again: let go, pull again next tick
+                GUNS.key(body, Body.MAIN_HAND, NtmGuns.PRIMARY, false);
+                held = false;
+            }
+        } else if (held) {
+            GUNS.key(body, Body.MAIN_HAND, NtmGuns.PRIMARY, false);
+            held = false;
+        }
+        if (held && proneBlocks()) crawlHeldTicks++;
+        if (!held && idle && (wantReload || loaded == 0) && ammo.any()
+                && loaded >= 0 && loaded < capacity()) {
+            GUNS.key(body, Body.MAIN_HAND, NtmGuns.RELOAD, true);
+            reloadHeld = true;
+        }
+    }
+
+    /**
+     * its tick, last: the magazine's rounds kept as its ammo has them (AiAmmo.settle), and the rounds gone since the last
+     * tick (0 when it is no magazine of single rounds)
+     */
+    int settleMagazine() {
+        int gone = 0;
+        int now = GUNS.rounds(body, Body.MAIN_HAND);
+        if (now != NtmGuns.NO_ROUNDS) {
+            int before = ammo.lastLoaded;
+            int keep = ammo.settle(now);
+            if (keep != now) GUNS.setLoaded(body, Body.MAIN_HAND, keep);
+            if (before > 0 && now < before) gone = before - Math.max(0, now);
+        }
+        return gone;
+    }
+
+    /** a pull now would be thrown away: it lies and crawls (ProneFire.blocks on its mob and the stack in its hand) */
+    abstract boolean proneBlocks();
 
     /** nothing in the gun and nothing to reload with */
     public boolean dry() {
