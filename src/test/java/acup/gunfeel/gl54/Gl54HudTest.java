@@ -63,17 +63,17 @@ class Gl54HudTest {
     @Test
     void reloadBarRunsFromTheBeginCueThroughTheEndCue() {
         // not empty: 28 + 12 = 40 ticks
-        assertEquals(0F, Gl54Hud.reloadFrac(GunAnimation.RELOAD, 0, GunState.RELOADING, false));
-        assertEquals(14F / 40F, Gl54Hud.reloadFrac(GunAnimation.RELOAD, 14, GunState.RELOADING, false), 1e-6);
-        assertEquals(28F / 40F, Gl54Hud.reloadFrac(GunAnimation.RELOAD_END, 0, GunState.DRAWING, false), 1e-6);
-        assertEquals(39F / 40F, Gl54Hud.reloadFrac(GunAnimation.RELOAD_END, 11, GunState.DRAWING, false), 1e-6);
+        assertEquals(0F, Gl54Gun.reloadFrac(GunAnimation.RELOAD, 0, GunState.RELOADING, false));
+        assertEquals(14F / 40F, Gl54Gun.reloadFrac(GunAnimation.RELOAD, 14, GunState.RELOADING, false), 1e-6);
+        assertEquals(28F / 40F, Gl54Gun.reloadFrac(GunAnimation.RELOAD_END, 0, GunState.DRAWING, false), 1e-6);
+        assertEquals(39F / 40F, Gl54Gun.reloadFrac(GunAnimation.RELOAD_END, 11, GunState.DRAWING, false), 1e-6);
         // an empty gun: 50 ticks, the handle at the end
-        assertEquals(28F / 50F, Gl54Hud.reloadFrac(GunAnimation.RELOAD_END, 0, GunState.DRAWING, true), 1e-6);
-        assertEquals(45F / 50F, Gl54Hud.reloadFrac(GunAnimation.RELOAD_END, 17, GunState.DRAWING, true), 1e-6);
+        assertEquals(28F / 50F, Gl54Gun.reloadFrac(GunAnimation.RELOAD_END, 0, GunState.DRAWING, true), 1e-6);
+        assertEquals(45F / 50F, Gl54Gun.reloadFrac(GunAnimation.RELOAD_END, 17, GunState.DRAWING, true), 1e-6);
         // over, or a stale cue
-        assertEquals(-1F, Gl54Hud.reloadFrac(GunAnimation.RELOAD_END, 12, GunState.DRAWING, false));
-        assertEquals(-1F, Gl54Hud.reloadFrac(GunAnimation.RELOAD_END, 5, GunState.IDLE, false));
-        assertEquals(-1F, Gl54Hud.reloadFrac(GunAnimation.CYCLE, 5, GunState.RELOADING, false));
+        assertEquals(-1F, Gl54Gun.reloadFrac(GunAnimation.RELOAD_END, 12, GunState.DRAWING, false));
+        assertEquals(-1F, Gl54Gun.reloadFrac(GunAnimation.RELOAD_END, 5, GunState.IDLE, false));
+        assertEquals(-1F, Gl54Gun.reloadFrac(GunAnimation.CYCLE, 5, GunState.RELOADING, false));
     }
 
     @Test
