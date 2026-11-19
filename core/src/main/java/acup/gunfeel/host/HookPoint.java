@@ -52,4 +52,6 @@ public enum HookPoint {
     WATER_DRAW,
     /** A gun's muzzle flash is drawn: none under water. */
     WATER_MUZZLE,
+    /** A gun's sound is played from its shooter: dull with the shooter's eyes in water. */
+    WATER_MUFFLE,
 }
