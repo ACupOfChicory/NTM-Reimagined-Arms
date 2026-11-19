@@ -74,6 +74,15 @@ public interface Body {
 
     boolean onGround();
 
+    /** in water (the game's isInWater) */
+    boolean inWater();
+
+    /** riding something (isPassenger) */
+    boolean passenger();
+
+    /** its own random numbers (getRandom): the calls go to the entity's generator, in its sequence */
+    acup.gunfeel.GameRandom random();
+
     /** on a ladder, a vine (onClimbable); living */
     boolean climbing();
 

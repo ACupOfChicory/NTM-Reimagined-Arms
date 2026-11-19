@@ -44,18 +44,19 @@ public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte a
     public static final byte HOLD = 0, AIM = 1, BLIND = 2, NO_GUN = 3;
     /** waiting beside a doorway to go in: the gun close at the chest, its muzzle up (pose-contract §6) */
     public static final byte STACK = 4;
-    public static final byte NONE = 0, RELOAD = 1, THROW = 2, SIGNAL_POINT = 3, SIGNAL_HALT = 4, SIGNAL_COME = 5, SHOT = 6;
+    public static final byte NONE = PoseAction.NONE, RELOAD = PoseAction.RELOAD, THROW = PoseAction.THROW, SIGNAL_POINT = PoseAction.SIGNAL_POINT,
+            SIGNAL_HALT = PoseAction.SIGNAL_HALT, SIGNAL_COME = PoseAction.SIGNAL_COME, SHOT = PoseAction.SHOT;
     /**
      * a slide into cover, a forward roll under fire (AiDash): the whole body, crouched, no shot; only for these
      * actions' ticks the drawn head leaves the eye the server keeps (pose-contract §4)
      */
-    public static final byte SLIDE = 7, ROLL = 8;
+    public static final byte SLIDE = PoseAction.SLIDE, ROLL = PoseAction.ROLL;
     /** a door pushed open with the free hand (pose-contract §6) */
-    public static final byte DOOR = 9;
+    public static final byte DOOR = PoseAction.DOOR;
 
     /** a crouching AI mob's size: a crouching player's (Avatar.CROUCHING_DIMENSIONS) */
-    public static final net.minecraft.world.entity.EntityDimensions CROUCH_SIZE = net.minecraft.world.entity.EntityDimensions.scalable(0.6F, 1.5F)
-            .withEyeHeight(1.27F);
+    public static final net.minecraft.world.entity.EntityDimensions CROUCH_SIZE = net.minecraft.world.entity.EntityDimensions.scalable(Stance.CROUCH_WIDTH, Stance.CROUCH_HEIGHT)
+            .withEyeHeight(Stance.CROUCH_EYE);
 
     public static final AiPose IDLE = new AiPose(STAND, (byte) 0, (byte) 0, 0, HOLD, NONE, 0, (short) 0);
 

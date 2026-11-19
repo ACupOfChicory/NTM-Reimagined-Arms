@@ -82,6 +82,9 @@ public final class EntityBody implements Body {
     @Override public float yHeadRot() { return e.getYHeadRot(); }
     @Override public float xRot() { return e.getXRot(); }
     @Override public boolean onGround() { return e.onGround(); }
+    @Override public boolean inWater() { return e.isInWater(); }
+    @Override public boolean passenger() { return e.isPassenger(); }
+    @Override public GameRandom random() { return GameRandoms.of(e.getRandom()); }
     @Override public boolean climbing() { return ((LivingEntity) e).onClimbable(); }
     @Override public boolean crouching() { return e.getPose() == Pose.CROUCHING; }
     @Override public String poseName() { return String.valueOf(e.getPose()); }

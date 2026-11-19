@@ -3,7 +3,7 @@ package acup.gunfeel.crosshair;
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.Grips;
-import acup.gunfeel.GunWeight;
+import acup.gunfeel.GunWeightBase;
 
 // Which style a gun's crosshair has, by the class the mod already gives it, as TaCZ picks one by the gun's type:
 // pistols and revolvers a corner, SMGs brackets, shotguns a square, launchers and the heaviest guns a ruler, the rest
@@ -20,11 +20,11 @@ public final class CrosshairClass {
     /** the style of the gun with this item id ({@code hbm:gun_g3}), or null for NTM's own crosshair */
     public static @Nullable CrosshairStyle of(String id) {
         String preset = Grips.gunValue(id, "kickPreset");
-        GunWeight.Gun kind = GunWeight.gun(id);
+        GunWeightBase.Gun kind = GunWeightBase.gun(id);
         return of(preset, kind);
     }
 
-    static @Nullable CrosshairStyle of(@Nullable String preset, GunWeight.@Nullable Gun kind) {
+    static @Nullable CrosshairStyle of(@Nullable String preset, GunWeightBase.@Nullable Gun kind) {
         CrosshairStyle s = preset == null ? null : byPreset(preset.strip());
         if (s != null) return s;
         if (kind == null) return null;
@@ -34,8 +34,8 @@ public final class CrosshairClass {
             case "smg" -> CrosshairStyle.BRACKETS;
             case "shotgun" -> CrosshairStyle.SQUARE;
             case "grenade_launcher", "rocket_launcher" -> CrosshairStyle.RULER;
-            case "energy", "special" -> kind.weight() == GunWeight.Weight.SUPER_HEAVY ? CrosshairStyle.RULER
-                    : kind.weight() == GunWeight.Weight.LIGHT && kind.kind().equals("energy") ? CrosshairStyle.CORNER : CrosshairStyle.CROSS;
+            case "energy", "special" -> kind.weight() == GunWeightBase.Weight.SUPER_HEAVY ? CrosshairStyle.RULER
+                    : kind.weight() == GunWeightBase.Weight.LIGHT && kind.kind().equals("energy") ? CrosshairStyle.CORNER : CrosshairStyle.CROSS;
             default -> CrosshairStyle.CROSS;
         };
     }

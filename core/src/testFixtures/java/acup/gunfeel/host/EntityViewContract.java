@@ -80,6 +80,10 @@ public abstract class EntityViewContract {
         assertEquals((int) Math.floor(at[1]), a.blockY());
         assertEquals((int) Math.floor(at[2]), a.blockZ());
         assertFalse(a.crouching());
+        assertFalse(a.inWater());
+        assertFalse(a.passenger());
+        float f = a.random().nextFloat();
+        assertTrue(f >= 0 && f < 1);
         assertTrue(a.eyeHeight(Stance.CROUCH) < a.eyeHeight(Stance.STAND));
         assertTrue(a.height(Stance.CROUCH) < a.height(Stance.STAND));
         assertEquals(a.eyeHeight(Stance.STAND), a.eyeHeight());
