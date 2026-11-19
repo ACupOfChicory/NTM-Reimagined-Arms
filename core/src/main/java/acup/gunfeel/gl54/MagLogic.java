@@ -8,7 +8,8 @@ import java.util.List;
 // section 9): R takes the fullest magazine of the wanted kind (the first by slot among equals); the magazine taken out
 // pours into the fullest unfinished one of its kind and what does not fit stays in it; mixed magazines are not poured.
 public final class MagLogic {
-    public static final int CAPACITY = MagContents.CAPACITY;
+    // at most this many grenades in a magazine (MagContents)
+    public static final int CAPACITY = 8;
 
     private MagLogic() {
     }
