@@ -18,6 +18,7 @@ class FakeEntitiesTest extends EntityViewContract {
         final int kind;
         double x, y, z;
         boolean removed;
+        byte stance = Stance.STAND;
 
         Fake(int id, int kind, boolean living, boolean player, boolean spectator, double x, double y, double z) {
             this.id = id;
@@ -45,8 +46,8 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public int blockZ() { return (int) Math.floor(z); }
         @Override public float bbHeight() { return height(Stance.STAND); }
         @Override public float eyeHeight() { return eyeHeight(Stance.STAND); }
-        @Override public float eyeHeight(byte stance) { return stance == Stance.CROUCH ? 1.27F : 1.62F; }
-        @Override public float height(byte stance) { return stance == Stance.CROUCH ? 1.5F : 1.8F; }
+        @Override public float eyeHeight(byte stance) { return stance == Stance.CROUCH ? 1.27F : stance == Stance.PRONE ? 0.4F : 1.62F; }
+        @Override public float height(byte stance) { return stance == Stance.CROUCH ? 1.5F : stance == Stance.PRONE ? 0.6F : 1.8F; }
         @Override public void eye(double[] out) { out[0] = x; out[1] = y + eyeHeight(); out[2] = z; }
         @Override public void look(double[] out) { out[0] = 0; out[1] = 0; out[2] = 1; }
         @Override public void view(float partial, double[] out) { look(out); }
@@ -68,13 +69,17 @@ class FakeEntitiesTest extends EntityViewContract {
             };
         }
         @Override public boolean climbing() { livingOnly(); return false; }
-        @Override public boolean crouching() { return false; }
+        @Override public boolean crouching() { return stance == Stance.CROUCH; }
+        @Override public byte stance() { return stance; }
+        @Override public boolean sleeping() { livingOnly(); return false; }
+        @Override public void typeBox(double[] out) { out[0] = x - 0.3; out[1] = y; out[2] = z - 0.3; out[3] = x + 0.3; out[4] = y + height(Stance.STAND); out[5] = z + 0.3; }
         @Override public String poseName() { return "standing"; }
         @Override public boolean sprinting() { return false; }
         @Override public boolean lying() { livingOnly(); return false; }
         @Override public boolean alive() { return !removed; }
         @Override public boolean removed() { return removed; }
         @Override public boolean leftHanded() { livingOnly(); return false; }
+        @Override public int held(int hand) { livingOnly(); return 0; }
         @Override public double speed() { livingOnly(); return 0.25; }
         @Override public @Nullable String team() { return null; }
     }
@@ -129,6 +134,11 @@ class FakeEntitiesTest extends EntityViewContract {
     @Override
     protected EntityView view() {
         return level;
+    }
+
+    @Override
+    protected BodyControl control() {
+        return (b, s) -> ((Fake) b).stance = s;
     }
 
     @Override

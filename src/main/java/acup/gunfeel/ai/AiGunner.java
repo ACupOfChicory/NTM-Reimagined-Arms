@@ -5,10 +5,15 @@ import org.jspecify.annotations.Nullable;
 import com.hbm.handler.HbmKeybinds.EnumKeybind;
 import com.hbm.items.weapon.sedna.BulletConfig;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
+import com.hbm.items.weapon.sedna.Receiver;
 import com.hbm.items.weapon.sedna.mags.IMagazine;
 import com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase;
 
+import acup.gunfeel.host.Body;
+import acup.gunfeel.host.NtmGuns;
+
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -20,37 +25,14 @@ import net.minecraft.world.phys.Vec3;
  * told or empty. The gun's clock is the game's: it ticks a mob's held item before the mob's goals, as a player's
  * inventory. Rounds are counted against {@link AiAmmo}. Server thread, from the mob's goal.
  */
-public final class AiGunner {
+public final class AiGunner extends AiGunnerBase {
     /** a shot meets its target this much later than its flight, on average (a bullet moves a tick at a time) */
     static final double LEAVES = 0.5;
-    /** the cone kept clear of other AI mobs before a shot (the gun's spread and the aim's error), degrees */
-    static final double CLEAR_CONE = 3.0;
-    /** the same for an automatic (AUTO_DELAY ticks between shots at most): its burst's kick strays further (the stands: 4 to 9 degrees) */
-    static final double AUTO_CONE = 10.0;
-    static final int AUTO_DELAY = 3;
-    private net.minecraft.world.item.@Nullable Item coneOf;
-    private double cone = CLEAR_CONE;
-
-    /** the cone kept clear for the gun it holds */
-    double clearCone() {
-        ItemStack stack = mob.getMainHandItem();
-        if (stack.getItem() == coneOf) return cone;
-        coneOf = stack.getItem();
-        cone = CLEAR_CONE;
-        ItemGunBaseNT gun = gun();
-        try {
-            if (gun != null && gun.getConfig(stack, 0).getReceivers(stack)[0].getDelayAfterFire(stack) <= AUTO_DELAY) cone = AUTO_CONE;
-        } catch (RuntimeException e) {
-            cone = CLEAR_CONE;
-        }
-        return cone;
-    }
 
     /** whether it holds fire with another AI mob in the line (off only for the stands' "before") */
     static boolean checkLine = true;
 
     private final Mob mob;
-    public final AiAmmo ammo;
     private @Nullable Vec3 aim;
     /** how far up and down from the aim the part it aims at reaches (the trigger's gate), blocks */
     private double halfHeight = AiAim.HALF_HEIGHT;
@@ -105,13 +87,9 @@ public final class AiGunner {
      * was down crawling (its burst cut), and shots let go lying
      */
     public int crawlPulls, crawlHeldTicks, shotsLying;
-    /** the ticks its last reload took, from the start to ready again (0 before its first) */
-    public int lastReload;
     private long reloadFrom = -1;
     /** a reload longer than this (ticks) was not seen through: it was not ticked meanwhile */
     static final int MAX_RELOAD = 200;
-    /** a gap between shots, ticks, after which a new burst starts (its climb grows again from the first shot) */
-    static final int BURST_GAP = 10;
     // the burst: shots so far, the tick of the last, where its sideways wander is
     private int burstShots;
     private long lastShot = Long.MIN_VALUE;
@@ -124,8 +102,8 @@ public final class AiGunner {
     private long shotTick = Long.MIN_VALUE;
 
     AiGunner(Mob mob, AiAmmo ammo) {
+        super(acup.gunfeel.EntityBody.of(mob), ammo);
         this.mob = mob;
-        this.ammo = ammo;
     }
 
     /** the place it looks at, set by aim (null: none, or a target it follows) */
@@ -207,110 +185,6 @@ public final class AiGunner {
         }
     }
 
-    /** rounds in the gun, -1 without a gun whose rounds are counted */
-    @SuppressWarnings("rawtypes")
-    public int loaded() {
-        ItemStack stack = mob.getMainHandItem();
-        ItemGunBaseNT gun = gun();
-        IMagazine mag = gun == null ? null : magazine(gun, stack);
-        return mag instanceof MagazineSingleTypeBase ? mag.getAmount(stack, null) : -1;
-    }
-
-    /** how fast its gun's bullets fly, blocks a tick: NTM's speed, and faster by bulletSpeed as MixinBulletServer makes it */
-    @SuppressWarnings("rawtypes")
-    double bulletSpeed() {
-        ItemStack stack = mob.getMainHandItem();
-        ItemGunBaseNT gun = gun();
-        IMagazine mag = gun == null ? null : magazine(gun, stack);
-        try {
-            if (mag != null && mag.getType(stack, null) instanceof BulletConfig b && b.velocity > 0F)
-                return b.velocity >= 5F ? b.velocity * acup.gunfeel.ReaimTimes.number("bulletSpeed", 1.6F) : b.velocity;
-        } catch (RuntimeException e) {
-            // a magazine that wants an inventory: NTM's usual speed
-        }
-        return 16;
-    }
-
-    private net.minecraft.world.item.@Nullable Item leadOf;
-    private long leadAt = Long.MIN_VALUE;
-    private double leadSpeed = 16;
-
-    /** bulletSpeed for the line kept clear of its own (AiBots.leadLine), worked out again when its gun changes or a second on */
-    double leadSpeed(long tick) {
-        net.minecraft.world.item.Item item = mob.getMainHandItem().getItem();
-        if (item != leadOf || tick - leadAt > LEAD_AGAIN || tick < leadAt) {
-            leadOf = item;
-            leadAt = tick;
-            leadSpeed = Math.max(1, bulletSpeed());
-        }
-        return leadSpeed;
-    }
-
-    /** ticks a gun's bullet speed is kept for the line's lead (a server setting may change it) */
-    private static final int LEAD_AGAIN = 20;
-
-    /** the distance it would rather fight at with no gun to go by, blocks */
-    static final double FIGHT_AT = 20;
-
-    /**
-     * The distance its gun is best at, blocks: where its shot strays about half a block (a body's half width) from
-     * NTM's spread unaimed (the gun's, the round's, the hip's), 8 to 40; a shotgun's pellets 12 at most; a heavy single
-     * shot that fires slowly (a marksman's rifle) 32 at least.
-     */
-    @SuppressWarnings("rawtypes")
-    public double fightAt() {
-        ItemStack stack = mob.getMainHandItem();
-        ItemGunBaseNT gun = gun();
-        IMagazine mag = gun == null ? null : magazine(gun, stack);
-        try {
-            if (mag == null || !(mag.getType(stack, null) instanceof BulletConfig b)) return FIGHT_AT;
-            com.hbm.items.weapon.sedna.Receiver rec = gun.getConfig(stack, 0).getReceivers(stack)[0];
-            double spread = rec.getInnateSpread(stack) + b.spread * rec.getAmmoSpread(stack) + rec.getHipfireSpread(stack);
-            double at = spread <= 1e-4 ? 40 : Math.max(8, Math.min(40, 0.5 / spread));
-            // buckshot, not a Duplex round's two bullets (a rifle's)
-            if (b.projectilesMax > 1 && !(acup.gunfeel.compat.Feature.DUPLEX.on() && acup.gunfeel.ammo.Duplex.is(b))) return Math.min(at, 12);
-            if (rec.getBaseDamage(stack) * b.damageMult >= 25 && rec.getDelayAfterFire(stack) >= 20) return Math.max(at, 32);
-            return at;
-        } catch (RuntimeException e) {
-            return FIGHT_AT;
-        }
-    }
-
-    @SuppressWarnings("rawtypes")
-    public int capacity() {
-        ItemStack stack = mob.getMainHandItem();
-        ItemGunBaseNT gun = gun();
-        IMagazine mag = gun == null ? null : magazine(gun, stack);
-        return mag == null ? 0 : mag.getCapacity(stack);
-    }
-
-    /**
-     * How long a reload of its gun takes, ticks: as long as its last one took, else NTM's start and end of a reload
-     * (and the cocking an empty gun adds); a gun that loads round by round takes longer, and its first reload shows it.
-     */
-    public int reloadTicks() {
-        if (lastReload > 0) return lastReload;
-        ItemStack stack = mob.getMainHandItem();
-        ItemGunBaseNT gun = gun();
-        if (gun == null) return 0;
-        try {
-            com.hbm.items.weapon.sedna.Receiver rec = gun.getConfig(stack, 0).getReceivers(stack)[0];
-            int t = rec.getReloadBeginDuration(stack) + rec.getReloadEndDuration(stack);
-            return loaded() <= 0 ? t + rec.getReloadCockOnEmptyPre(stack) + rec.getReloadCockOnEmptyPost(stack) : t;
-        } catch (RuntimeException e) {
-            return 0;
-        }
-    }
-
-    public boolean reloading() {
-        return gun() != null && ItemGunBaseNT.getState(mob.getMainHandItem(), 0) == ItemGunBaseNT.GunState.RELOADING;
-    }
-
-    /** nothing in the gun and nothing to reload with */
-    public boolean dry() {
-        return loaded() == 0 && !ammo.any();
-    }
-
     /** fills the gun from nothing, not from the reserve (a mob that comes in loaded) */
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void loadFree() {
@@ -320,15 +194,6 @@ public final class AiGunner {
         if (mag == null) return;
         mag.reloadAction(stack, null);
         ammo.lastLoaded = mag instanceof MagazineSingleTypeBase ? mag.getAmount(stack, null) : -1;
-    }
-
-    /**
-     * A count of ticks it held fire for one reason, after this tick: one more while it holds (the first, the holds
-     * over before); none once it shot, or the holds are over (its aim taken away, no fire wanted for HOLD_PAUSE); else
-     * as it was (a pause of its burst keeps it).
-     */
-    static int held(int count, boolean holds, boolean shot, boolean over) {
-        return holds ? (over ? 1 : count + 1) : shot || over ? 0 : count;
     }
 
     /** let go of every key: the mob stops shooting at once */
@@ -492,31 +357,21 @@ public final class AiGunner {
      * Where its gun's bullet starts: the eye and the receiver's projectile offset (scoped when it aims), turned with
      * the body as EntityBulletBaseMK4 turns it (NTM's offset is forward, up, aside; its Vec3 the other way round)
      */
-    @SuppressWarnings("rawtypes")
     Vec3 muzzle(Vec3 eye, ItemStack stack) {
         ItemGunBaseNT gun = gun();
         if (gun == null) return eye;
-        boolean aiming = ItemGunBaseNT.getIsAiming(stack);
-        if (stack.getItem() != offsetOf || aiming != offsetAiming) {
-            offsetOf = stack.getItem();
-            offsetAiming = aiming;
-            offset = null;
-            try {
-                com.hbm.items.weapon.sedna.Receiver r = gun.getConfig(stack, 0).getReceivers(stack)[0];
-                Vec3 off = aiming ? r.getProjectileOffsetScoped(stack) : r.getProjectileOffset(stack);
-                if (off != null) offset = new Vec3(off.z, off.y, off.x);
-            } catch (RuntimeException e) {
-                offset = null;
-            }
+        acup.gunfeel.Vec3d o = offset(ItemGunBaseNT.getIsAiming(stack));
+        if (o != offsetFrom) {
+            offsetFrom = o;
+            offsetMc = o == null ? null : new Vec3(o.x(), o.y(), o.z());
         }
-        if (offset == null) return eye;
-        return eye.add(offset.xRot((float) Math.toRadians(-mob.getXRot())).yRot((float) Math.toRadians(-mob.getYRot())));
+        if (offsetMc == null) return eye;
+        return eye.add(offsetMc.xRot((float) Math.toRadians(-mob.getXRot())).yRot((float) Math.toRadians(-mob.getYRot())));
     }
 
-    // the gun and aim the offset was read for (the receiver's, as EntityBulletBaseMK4 takes it: aside, up, forward)
-    private net.minecraft.world.item.@Nullable Item offsetOf;
-    private boolean offsetAiming;
-    private @Nullable Vec3 offset;
+    // the base's offset as the game's Vec3, made again only when that one is read anew
+    private acup.gunfeel.@Nullable Vec3d offsetFrom;
+    private @Nullable Vec3 offsetMc;
 
     // the stands: it fires to keep a target's head down (AiSoldier.suppress)
     private boolean suppresses() {
@@ -602,11 +457,6 @@ public final class AiGunner {
         return false;
     }
 
-    /** the pause after a burst cut by the heat, ticks: just over a burst's gap when warm, three seconds near the top */
-    static int heatPause(float h) {
-        return BURST_GAP + 5 + Math.round(45 * acup.gunfeel.heat.Overheat.ramp(h, acup.gunfeel.heat.Overheat.AI_SHORT, acup.gunfeel.heat.Overheat.AI_WAIT));
-    }
-
     // the head, body and look control to this view; the look control turns the head after the goals, so it is given a
     // place along the view and the hand's error and the kick stay
     private void face(float y, float p, AiSkill skill) {
@@ -662,5 +512,124 @@ public final class AiGunner {
 
     private void key(ItemGunBaseNT gun, ItemStack stack, EnumKeybind key, boolean down) {
         gun.handleKeybind(mob, null, stack, key, down);
+    }
+
+    /**
+     * 26.2's NTM guns for core (host.NtmGuns): the stack in the body's hand now, read as this class read it (config 0,
+     * receiver 0). Here, in AiGunner, so that its calls into NTM stay the AI's (Feature.MOB_AI, ntmgunfeel-ntm-api.txt)
+     * and not the core's, whose NTM missing a member turns the whole mod off.
+     */
+    public static final class Guns implements NtmGuns {
+        // core's numbers by NTM's states' names (NtmGuns.IDLE...), -1 for one core has none for; made the first time
+        // a state is asked for, not when Wiring makes the port
+        private static final class States {
+            static final int[] OF = states();
+        }
+
+        private static int[] states() {
+            ItemGunBaseNT.GunState[] all = ItemGunBaseNT.GunState.values();
+            int[] out = new int[all.length];
+            for (int i = 0; i < all.length; i++) {
+                out[i] = switch (all[i].name()) {
+                    case "IDLE" -> IDLE;
+                    case "RELOADING" -> RELOADING;
+                    case "COOLDOWN" -> COOLDOWN;
+                    case "JAMMED" -> JAMMED;
+                    case "DRAWING" -> DRAWING;
+                    default -> -1;
+                };
+            }
+            return out;
+        }
+
+        private static ItemStack stack(Body holder, int hand) {
+            if (!(((acup.gunfeel.EntityBody) holder).entity() instanceof LivingEntity l)) return ItemStack.EMPTY;
+            return hand == Body.MAIN_HAND ? l.getMainHandItem() : l.getOffhandItem();
+        }
+
+        private static Receiver receiver(ItemStack stack) {
+            return ((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getReceivers(stack)[0];
+        }
+
+        // AiGunner.magazine as it was: null with no gun, and where NTM threw on the way
+        @SuppressWarnings("rawtypes")
+        private static IMagazine magazine(ItemStack stack) {
+            if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return null;
+            try {
+                return gun.getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack);
+            } catch (RuntimeException e) {
+                return null;
+            }
+        }
+
+        @Override
+        public boolean isGun(Body holder, int hand) {
+            return stack(holder, hand).getItem() instanceof ItemGunBaseNT;
+        }
+
+        @Override
+        @SuppressWarnings("rawtypes")
+        public int loaded(Body holder, int hand) {
+            ItemStack stack = stack(holder, hand);
+            IMagazine mag = magazine(stack);
+            return mag instanceof MagazineSingleTypeBase ? mag.getAmount(stack, null) : -1;
+        }
+
+        @Override
+        @SuppressWarnings("rawtypes")
+        public int capacity(Body holder, int hand) {
+            ItemStack stack = stack(holder, hand);
+            IMagazine mag = magazine(stack);
+            return mag == null ? 0 : mag.getCapacity(stack);
+        }
+
+        @Override
+        public int state(Body holder, int hand) {
+            ItemStack stack = stack(holder, hand);
+            if (!(stack.getItem() instanceof ItemGunBaseNT)) return -1;
+            ItemGunBaseNT.GunState s = ItemGunBaseNT.getState(stack, 0);
+            return s == null ? -1 : States.OF[s.ordinal()];
+        }
+
+        @Override
+        @SuppressWarnings("rawtypes")
+        public boolean bullet(Body holder, int hand, float[] out) {
+            ItemStack stack = stack(holder, hand);
+            IMagazine mag = magazine(stack);
+            if (mag == null || !(mag.getType(stack, null) instanceof BulletConfig b)) return false;
+            out[B_VELOCITY] = b.velocity;
+            out[B_SPREAD] = b.spread;
+            out[B_PROJECTILES_MAX] = b.projectilesMax;
+            out[B_DAMAGE_MULT] = b.damageMult;
+            out[B_DUPLEX] = b.projectilesMax > 1 && acup.gunfeel.compat.Feature.DUPLEX.on() && acup.gunfeel.ammo.Duplex.is(b) ? 1F : 0F;
+            return true;
+        }
+
+        @Override
+        public void receiver(Body holder, int hand, int mask, float[] out) {
+            ItemStack stack = stack(holder, hand);
+            Receiver r = receiver(stack);
+            if ((mask & 1 << R_INNATE_SPREAD) != 0) out[R_INNATE_SPREAD] = r.getInnateSpread(stack);
+            if ((mask & 1 << R_AMMO_SPREAD) != 0) out[R_AMMO_SPREAD] = r.getAmmoSpread(stack);
+            if ((mask & 1 << R_HIPFIRE_SPREAD) != 0) out[R_HIPFIRE_SPREAD] = r.getHipfireSpread(stack);
+            if ((mask & 1 << R_BASE_DAMAGE) != 0) out[R_BASE_DAMAGE] = r.getBaseDamage(stack);
+            if ((mask & 1 << R_DELAY_AFTER_FIRE) != 0) out[R_DELAY_AFTER_FIRE] = r.getDelayAfterFire(stack);
+            if ((mask & 1 << R_RELOAD_BEGIN) != 0) out[R_RELOAD_BEGIN] = r.getReloadBeginDuration(stack);
+            if ((mask & 1 << R_RELOAD_END) != 0) out[R_RELOAD_END] = r.getReloadEndDuration(stack);
+            if ((mask & 1 << R_COCK_ON_EMPTY_PRE) != 0) out[R_COCK_ON_EMPTY_PRE] = r.getReloadCockOnEmptyPre(stack);
+            if ((mask & 1 << R_COCK_ON_EMPTY_POST) != 0) out[R_COCK_ON_EMPTY_POST] = r.getReloadCockOnEmptyPost(stack);
+        }
+
+        @Override
+        public boolean muzzle(Body holder, int hand, boolean scoped, double[] out) {
+            ItemStack stack = stack(holder, hand);
+            Receiver r = receiver(stack);
+            Vec3 off = scoped ? r.getProjectileOffsetScoped(stack) : r.getProjectileOffset(stack);
+            if (off == null) return false;
+            out[0] = off.x;
+            out[1] = off.y;
+            out[2] = off.z;
+            return true;
+        }
     }
 }

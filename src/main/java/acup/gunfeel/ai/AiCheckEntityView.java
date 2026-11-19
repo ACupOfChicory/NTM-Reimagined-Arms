@@ -9,7 +9,9 @@ import java.util.function.Supplier;
 import acup.gunfeel.EntityBody;
 import acup.gunfeel.LevelEntities;
 import acup.gunfeel.Prone;
+import acup.gunfeel.CoreServices;
 import acup.gunfeel.host.Body;
+import acup.gunfeel.host.BodyControl;
 import acup.gunfeel.host.EntityView;
 import acup.gunfeel.mixin.mc.EntityAccess;
 import net.minecraft.core.BlockPos;
@@ -98,6 +100,19 @@ final class AiCheckEntityView {
         dummy.setSprinting(true);
         same("moved, turned, crouched and pushed the same tick: dummy", dummy);
         check.check("entityview: the dummy crouching is crouching to its Body", EntityBody.of(dummy).crouching());
+        // BodyControl.stance: the game's pose it sets is the stance its Body reads back (lying: the swimming pose)
+        BodyControl control = CoreServices.load(BodyControl.class, (b, s) -> {
+            throw new IllegalStateException("no BodyControl");
+        });
+        Body db = EntityBody.of(dummy);
+        boolean set = true;
+        for (byte s : new byte[] {Stance.PRONE, Stance.STAND, Stance.CROUCH, Stance.PRONE}) {
+            control.stance(db, s);
+            set &= db.stance() == s && dummy.getPose() == (s == Stance.STAND ? Pose.STANDING : s == Stance.CROUCH ? Pose.CROUCHING : Pose.SWIMMING);
+        }
+        same("lying by BodyControl: dummy", dummy);
+        check.check("entityview: BodyControl.stance sets the game's pose, the Body's stance() reads it back", set);
+        control.stance(db, Stance.CROUCH);
         removed(view);
         dimension(view);
         check.out(String.format(Locale.ROOT, "     entityview: %d differences from the game's getters%s", wrong.size(),
@@ -140,6 +155,14 @@ final class AiCheckEntityView {
         eq(w + "eyeHeight crouch", b.eyeHeight(Stance.CROUCH), e.getDimensions(Pose.CROUCHING).eyeHeight());
         eq(w + "height stand", b.height(Stance.STAND), e.getDimensions(Pose.STANDING).height());
         eq(w + "height crouch", b.height(Stance.CROUCH), e.getDimensions(Pose.CROUCHING).height());
+        eq(w + "eyeHeight prone", b.eyeHeight(Stance.PRONE), e.getDimensions(Pose.SWIMMING).eyeHeight());
+        eq(w + "height prone", b.height(Stance.PRONE), e.getDimensions(Pose.SWIMMING).height());
+        Pose pose = e.getPose();
+        eq(w + "stance", b.stance(), pose == Pose.STANDING ? Stance.STAND : pose == Pose.CROUCHING ? Stance.CROUCH : pose == Pose.SWIMMING ? Stance.PRONE : (byte) -1);
+        double[] tb = new double[6];
+        b.typeBox(tb);
+        AABB type = e.getType().getDimensions().makeBoundingBox(e.position());
+        if (tb[0] != type.minX || tb[1] != type.minY || tb[2] != type.minZ || tb[3] != type.maxX || tb[4] != type.maxY || tb[5] != type.maxZ) wrong.add(w + "typeBox");
         double[] o = new double[6];
         b.eye(o);
         eq3(w + "eye", o, e.getEyePosition());
@@ -173,6 +196,7 @@ final class AiCheckEntityView {
         eq(w + "team", b.team(), e.getTeam() == null ? null : e.getTeam().getName());
         if (e instanceof LivingEntity le) {
             eq(w + "climbing", b.climbing(), le.onClimbable());
+            eq(w + "sleeping", b.sleeping(), le.isSleeping());
             eq(w + "lying", b.lying(), Prone.lying(le));
             eq(w + "speed", b.speed(), le.getAttributeValue(Attributes.MOVEMENT_SPEED));
         }
@@ -212,7 +236,7 @@ final class AiCheckEntityView {
 
     private void livingOnly() {
         Body a = EntityBody.of(arrow), s = EntityBody.of(stand);
-        check.check("entityview: on the arrow (not living) the living ones throw", throwsOn(a::climbing) && throwsOn(a::speed) && throwsOn(a::lying)
+        check.check("entityview: on the arrow (not living) the living ones throw", throwsOn(a::climbing) && throwsOn(a::speed) && throwsOn(a::lying) && throwsOn(a::sleeping)
                 && throwsOn(a::leftHanded));
         check.check("entityview: on the stand (living, no mob) leftHanded throws", throwsOn(s::leftHanded));
     }
