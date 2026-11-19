@@ -14,9 +14,14 @@ import com.hbm.render.anim.AnimationEnums.GunAnimation;
 
 // The numbers of the GL-54's HUD (Gl54Hud): the number and its colour, LOW AMMO, the reserve, the dots, the reload bar.
 class Gl54HudTest {
+    // `count` grenades of `key` (MagLogicTest.n, in core's tests)
+    private static List<String> n(String key, int count) {
+        return java.util.Collections.nCopies(count, key);
+    }
+
     @Test
     void numberIsBarrelPlusMagazineInTheNextGrenadesColour() {
-        GunMag g = new GunMag(MagLogicTest.n("he", 8), "airburst", List.of(), true, false);
+        GunMag g = new GunMag(n("he", 8), "airburst", List.of(), true, false);
         Gl54Hud.Model m = Gl54Hud.model(g, 21, -1F);
         assertEquals("009", m.big());
         assertEquals("0021", m.small());
@@ -28,12 +33,12 @@ class Gl54HudTest {
     @Test
     void lowAmmoAtTwoNotRed() {
         for (int n = 0; n <= 2; n++) {
-            GunMag g = n == 0 ? new GunMag(List.of(), "", List.of(), true, false) : new GunMag(MagLogicTest.n("he", n - 1), "he", List.of(), true, false);
+            GunMag g = n == 0 ? new GunMag(List.of(), "", List.of(), true, false) : new GunMag(n("he", n - 1), "he", List.of(), true, false);
             Gl54Hud.Model m = Gl54Hud.model(g, 5, -1F);
             assertTrue(m.lowAmmo(), "count " + n);
             assertTrue(m.color() != Gl54Hud.LOW_COLOR);
         }
-        assertFalse(Gl54Hud.model(new GunMag(MagLogicTest.n("he", 2), "he", List.of(), true, false), 5, -1F).lowAmmo());
+        assertFalse(Gl54Hud.model(new GunMag(n("he", 2), "he", List.of(), true, false), 5, -1F).lowAmmo());
         assertEquals(0xFFFFFFFF, Gl54Hud.model(GunMag.NONE, 5, -1F).color(), "nothing to fire: white");
         assertFalse(Gl54Hud.model(GunMag.NONE, 5, 0.5F).lowAmmo(), "not while reloading");
     }
@@ -48,11 +53,11 @@ class Gl54HudTest {
 
     @Test
     void dotsOnlyForMoreThanOneColour() {
-        assertEquals(0, Gl54Hud.dots(new GunMag(MagLogicTest.n("he", 7), "he", List.of(), true, false)).length);
+        assertEquals(0, Gl54Hud.dots(new GunMag(n("he", 7), "he", List.of(), true, false)).length);
         GunMag mixed = new GunMag(List.of("he", "inc", "smoke"), "airburst", List.of(), true, false);
         assertArrayEquals(new int[] {GrenadeKind.HE.argb(), GrenadeKind.INCENDIARY.argb(), GrenadeKind.SMOKE.argb()}, Gl54Hud.dots(mixed));
         // another kind's barrel grenade after a change shows the order too
-        assertEquals(7, Gl54Hud.dots(new GunMag(MagLogicTest.n("he", 7), "airburst", List.of(), true, false)).length);
+        assertEquals(7, Gl54Hud.dots(new GunMag(n("he", 7), "airburst", List.of(), true, false)).length);
     }
 
     @Test
@@ -73,7 +78,7 @@ class Gl54HudTest {
 
     @Test
     void reloadDimsTheNumberAndFillsTheBar() {
-        Gl54Hud.Model m = Gl54Hud.model(new GunMag(MagLogicTest.n("he", 8), "he", List.of(), true, false), 0, 0.5F);
+        Gl54Hud.Model m = Gl54Hud.model(new GunMag(n("he", 8), "he", List.of(), true, false), 0, 0.5F);
         assertTrue(m.dim());
         assertEquals(0.5F, m.bar());
         assertEquals("0000", m.small());

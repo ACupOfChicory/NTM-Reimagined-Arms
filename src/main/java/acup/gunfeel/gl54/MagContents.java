@@ -12,7 +12,7 @@ import net.minecraft.network.codec.StreamCodec;
 // kind is the case where all are equal; a mixed magazine is any list. At most 8. The same list is kept on the gun for the
 // magazine in it (GunMag).
 public record MagContents(List<String> rounds) {
-    public static final int CAPACITY = 8;
+    public static final int CAPACITY = MagLogic.CAPACITY;
     public static final MagContents EMPTY = new MagContents(List.of());
     public static final Codec<MagContents> CODEC = Codec.STRING.listOf(0, CAPACITY).xmap(MagContents::new, MagContents::rounds);
     public static final StreamCodec<RegistryFriendlyByteBuf, MagContents> STREAM_CODEC =

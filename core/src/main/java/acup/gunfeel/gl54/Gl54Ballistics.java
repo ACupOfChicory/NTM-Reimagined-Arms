@@ -3,13 +3,20 @@ package acup.gunfeel.gl54;
 // How the GL-54's grenade flies, as NTM's bullet entity moves it each tick (EntityThrowableNT.tick): the position advances by
 // the motion vector times the speed, then the motion keeps its drag (EntityBulletBaseMK4.getAirDrag: 1, none) and loses
 // the gravity from its height. The motion starts as the unit heading, so the drop in blocks a tick is the gravity times
-// the speed. The numbers come from the grenade's config (Gl54Grenade); this only walks them. Flat ground is assumed and
+// the speed. The grenade's config (Gl54Grenade) takes its numbers from here. Flat ground is assumed and
 // the barrel's offset from the eye is ignored: the angles are against the horizontal through the eye.
 public final class Gl54Ballistics {
     // NTM's EntityBulletBaseMK4.getAirDrag
     public static final double AIR_DRAG = 1.0;
+    // the owner's: the real XM29 20 mm at about 180 m/s, scaled by NTM's own factor for the 40 mm (2.0 blocks a tick against a
+    // real M203's 76 m/s)
+    public static final float SPEED = 4.7F;
+    // Earth's gravity (the owner's): 9.8 m/s^2 with a block a metre and 20 ticks a second is 9.8 / 400 = 0.0245 blocks a tick,
+    // a tick. EntityThrowableNT keeps the heading as a unit vector, moves the grenade by it times the speed and takes the
+    // gravity off the vector, so the drop it makes is the gravity times the speed: the parameter is 0.0245 / 4.7 = 0.0052128.
+    public static final double GRAVITY = 0.0245 / SPEED;
     // the grenade lives this long (Gl54Grenade.LIFE)
-    public static final int TICKS = Gl54Grenade.LIFE;
+    public static final int TICKS = 200;
     // the launch angles tried, radians above the horizontal, at most this
     private static final double STEEPEST = Math.toRadians(80);
 
@@ -37,7 +44,7 @@ public final class Gl54Ballistics {
     }
 
     public static double range(double angle, double below) {
-        return range(angle, Gl54Grenade.SPEED, Gl54Grenade.GRAVITY, AIR_DRAG, below);
+        return range(angle, SPEED, GRAVITY, AIR_DRAG, below);
     }
 
     // The steepest angle at which the grenade is still down within its life (steeper it is gone before it lands). With a drop as
@@ -98,7 +105,7 @@ public final class Gl54Ballistics {
     }
 
     public static Holdover elevation(double distance, double height) {
-        return elevation(distance, height, Gl54Grenade.SPEED, Gl54Grenade.GRAVITY, AIR_DRAG);
+        return elevation(distance, height, SPEED, GRAVITY, AIR_DRAG);
     }
 
     // the launch angle that gives the farthest range at the eye's height (golden-section search; the range rises, then falls,
@@ -147,6 +154,6 @@ public final class Gl54Ballistics {
     }
 
     public static Holdover holdover(double distance) {
-        return holdover(distance, Gl54Grenade.SPEED, Gl54Grenade.GRAVITY, AIR_DRAG);
+        return holdover(distance, SPEED, GRAVITY, AIR_DRAG);
     }
 }

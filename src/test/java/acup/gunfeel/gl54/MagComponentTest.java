@@ -50,17 +50,17 @@ class MagComponentTest {
     @Test
     void gunSavedAndNetworkForm() {
         GunMag g = new GunMag(List.of("he", "inc", "smoke"), "airburst", List.of("he", "inc"), true, true);
-        assertEquals(g, json(GunMag.CODEC, g));
-        assertEquals(GunMag.NONE, json(GunMag.CODEC, GunMag.NONE));
+        assertEquals(g, json(GunMagCodecs.CODEC, g));
+        assertEquals(GunMag.NONE, json(GunMagCodecs.CODEC, GunMag.NONE));
         RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
-        GunMag.STREAM_CODEC.encode(buf, g);
-        assertEquals(g, GunMag.STREAM_CODEC.decode(buf));
+        GunMagCodecs.STREAM_CODEC.encode(buf, g);
+        assertEquals(g, GunMagCodecs.STREAM_CODEC.decode(buf));
     }
 
     @Test
     void anOldGunWithoutTheFieldsReadsAsEmpty() {
         var e = new com.google.gson.JsonObject();
-        assertEquals(GunMag.NONE, GunMag.CODEC.parse(JsonOps.INSTANCE, e).getOrThrow());
+        assertEquals(GunMag.NONE, GunMagCodecs.CODEC.parse(JsonOps.INSTANCE, e).getOrThrow());
     }
 
     @Test
