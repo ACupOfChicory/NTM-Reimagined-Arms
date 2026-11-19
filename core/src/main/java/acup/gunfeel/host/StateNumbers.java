@@ -61,10 +61,11 @@ public final class StateNumbers<S> implements BlockTable {
     /** the state with that number */
     @SuppressWarnings("unchecked")
     public S state(int number) {
+        if (number < 0) throw new IllegalArgumentException("no state " + number);
         Object[] s = states;
         if (number < s.length && s[number] != null) return (S) s[number];
         synchronized (this) {
-            if (number < 0 || number >= size) throw new IllegalArgumentException("no state " + number);
+            if (number >= size) throw new IllegalArgumentException("no state " + number);
             return (S) states[number];
         }
     }

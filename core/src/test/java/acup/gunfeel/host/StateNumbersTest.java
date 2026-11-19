@@ -90,6 +90,7 @@ class StateNumbersTest {
         // a state alike but another object: a number of its own (the game's states are one object each)
         assertEquals(3, t.number(new FakeState("minecraft:stone", 5)));
         assertThrows(IllegalArgumentException.class, () -> t.state(4));
+        assertThrows(IllegalArgumentException.class, () -> t.state(-1));
     }
 
     @Test

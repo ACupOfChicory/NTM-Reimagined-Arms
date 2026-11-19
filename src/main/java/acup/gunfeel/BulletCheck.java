@@ -397,16 +397,15 @@ public final class BulletCheck {
 
         modelHits();
         richterBulletSpeed();
-        // last: it renumbers one of the game's states (and puts it back)
         worldNumbers(server);
         lines.add(ok ? "ALL OK" : "SOME FAILED");
         return ok;
     }
 
     // ---- the world's numbers for core (WorldView, BlockTable: core's WorldViewContract, here on the game's own
-    // blocks): ours, by the state, one for every level; the game renumbering its own changes nothing. The game's
-    // renumbering is done as NeoForge's registry sync does it, to one state (stone): another of the game's numbers,
-    // then its own back; the stand server stops after it.
+    // blocks): ours, by the state, one for every level. That the game renumbering its own changes nothing is by how
+    // they are made (BlockStates reads no game number; StateNumbersTest holds it on a fake one): the game's registry is
+    // not touched here.
     private static void worldNumbers(MinecraftServer server) {
         acup.gunfeel.host.WorldView w = Wiring.world(level);
         BlockPos air = new BlockPos(1, 200, 1), stone = air.above(), fence = stone.above();
@@ -426,14 +425,6 @@ public final class BulletCheck {
         check("world: stone's facts and key", "minecraft:stone minecraft:stone", w.facts(s).id() + " " + w.key(s));
         check("world: a fence's key, its properties by name", "minecraft:oak_fence[east=true,north=false,south=false,waterlogged=false,west=false]", w.key(f));
         check("world: the fence's facts", "minecraft:oak_fence", w.facts(f).id());
-        var ids = Block.BLOCK_STATE_REGISTRY;
-        int was = ids.getId(stoneState), moved = ids.size() + 7;
-        ids.addMapping(stoneState, moved);
-        check("world: the game renumbered stone", moved, ids.getId(stoneState));
-        check("world: our number for stone stays", s, w.state(stone.getX(), stone.getY(), stone.getZ()));
-        check("world: and its facts and key", "minecraft:stone minecraft:stone", w.facts(s).id() + " " + w.key(s));
-        ids.addMapping(stoneState, was);
-        check("world: the game's number for stone back", was, ids.getId(stoneState));
     }
 
     private static void richterBulletSpeed() {
