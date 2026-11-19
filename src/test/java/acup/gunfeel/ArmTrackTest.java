@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 // what a hand carries, the part it lets go at, the magazine in the inspect).
 class ArmTrackTest {
     private static ArmEditor track(String gun, ArmEditor.Track t, String... clips) {
-        var e = new ArmEditor(gun, ArmEditorTest.clips(List.of(clips)));
+        var e = new ArmEditor(gun, ArmClips.clips(List.of(clips)));
         e.page = ArmEditor.Page.KEY;
         e.keyView = ArmEditor.KeyView.TRACK;
         e.hand = 1;
@@ -156,7 +156,7 @@ class ArmTrackTest {
         var opened = Grips.snapshot();
         String gun = "gunfeel:key_probe";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD", "INSPECT")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD", "INSPECT")));
             e.page = ArmEditor.Page.ARM;
             e.hand = 1;
             assertFalse(e.action("set.armInspectReleaseMs.plus").active());
@@ -179,7 +179,7 @@ class ArmTrackTest {
         var opened = Grips.snapshot();
         String gun = "gunfeel:key_probe";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD"), "", true, true));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD"), "", true, true));
             e.page = ArmEditor.Page.KEY;
             e.hand = 1;
             e.track = ArmEditor.Track.PATH;
@@ -220,7 +220,7 @@ class ArmTrackTest {
         var opened = Grips.snapshot();
         String gun = "gunfeel:key_probe";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD"), "", true, true));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD"), "", true, true));
             e.page = ArmEditor.Page.KEY;
             e.hand = 1;
             e.track = ArmEditor.Track.HIDE;
@@ -253,7 +253,7 @@ class ArmTrackTest {
         var opened = Grips.snapshot();
         String gun = "hbm:gun_g3";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.KEY;
             e.hand = 1;
             e.track = ArmEditor.Track.ADJUST;

@@ -2,7 +2,6 @@ package acup.gunfeel;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 class ArmProfilesTest {
@@ -11,7 +10,7 @@ class ArmProfilesTest {
     @Test
     void gunKeepsOneCopyOfArmSettingsForBothModels() {
         String gun = "gunfeel:profile_test";
-        Identifier id = Identifier.parse(gun);
+        String id = ResourceIds.tryParse(gun);
         try {
             Grips.put(gun, "armScale", "0.65", false);
             Grips.put(gun, "slim.armScale", "0.5", false);
@@ -22,10 +21,10 @@ class ArmProfilesTest {
             Config.select(gun);
             assertEquals(0.65F, Config.armScale);
             Grips.set(gun, true, 0.1F, 0.2F, 0.3F, false);
-            assertNull(Grips.get(id.toString()).rightAt(), "fractions hide the inherited point");
-            assertArrayEquals(new float[] {0.1F, 0.2F, 0.3F}, Grips.get(id.toString()).right());
+            assertNull(Grips.get(id).rightAt(), "fractions hide the inherited point");
+            assertArrayEquals(new float[] {0.1F, 0.2F, 0.3F}, Grips.get(id).right());
             Grips.resetHand(gun, true, false);
-            assertNull(Grips.get(id.toString()).rightAt());
+            assertNull(Grips.get(id).rightAt());
         } finally {
             Grips.put(gun, "armScale", null, false);
             Grips.put(gun, "slim.armScale", null, false);

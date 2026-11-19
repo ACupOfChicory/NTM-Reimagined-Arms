@@ -21,7 +21,7 @@ class ArmScrollTest {
         var opened = Grips.snapshot();
         String gun = "gunfeel:key_probe";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.ARM;
             e.hand = 1;
             var all = e.rows();
