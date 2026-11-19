@@ -53,7 +53,19 @@ public final class ServerSettings {
     // the client joined another game's server (null: left it, or this game is the server)
     public static void useRemote(@Nullable Snapshot s) {
         remote = s;
-        PassableClip.useRemoteShapes(s == null ? null : s.shapes());
+        Found.FOLLOW.follow(s);
+    }
+
+    /**
+     * What else goes by the server's settings the moment they come or go: on 26.2 the bullet shapes (PassableClip
+     * takes the server's). Found by META-INF/services; without a version nothing.
+     */
+    public interface Follow {
+        void follow(@Nullable Snapshot s);
+    }
+
+    private static final class Found {
+        static final Follow FOLLOW = CoreServices.load(Follow.class, s -> {});
     }
 
     // ---- the payload: gzip of the four parts

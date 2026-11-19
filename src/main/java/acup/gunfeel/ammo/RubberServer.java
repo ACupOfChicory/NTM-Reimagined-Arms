@@ -6,7 +6,7 @@ import java.util.WeakHashMap;
 
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 
-import acup.gunfeel.TestLog;
+import acup.gunfeel.WorldLog;
 import acup.gunfeel.ai.AiBots;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -194,6 +194,6 @@ public final class RubberServer {
     }
 
     private static void log(ServerLevel level, LivingEntity target, String what) {
-        if (TestLog.on(level)) TestLog.at(level, "rubber", "what", what, "id", target.getId(), "who", target.getPlainTextName());
+        if (WorldLog.on(level)) WorldLog.at(level, "rubber", "what", what, "id", target.getId(), "who", target.getPlainTextName());
     }
 }

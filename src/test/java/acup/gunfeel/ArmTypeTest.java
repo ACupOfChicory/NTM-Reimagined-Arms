@@ -54,7 +54,7 @@ class ArmTypeTest {
             assertTrue(e.press("grip.mode"), "to a point in model units");
             assertNull(e.type("grip.2", "-0,44"));
             Config.select(gun);
-            assertEquals(-0.44F, Grips.get(Identifier.parse(gun)).leftAt()[2]);
+            assertEquals(-0.44F, Grips.get(Identifier.parse(gun).toString()).leftAt()[2]);
             assertEquals(-0.44F, e.rows().stream().filter(r -> r.slider() != null && r.slider().id().equals("grip.2")).findFirst().orElseThrow().slider().value(), 1e-6F);
             e.page = ArmEditor.Page.KEY;
             e.track = ArmEditor.Track.PATH;

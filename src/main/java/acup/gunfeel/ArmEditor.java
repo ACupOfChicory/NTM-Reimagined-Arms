@@ -2077,7 +2077,7 @@ final class ArmEditor {
 
     private Grips.Grip gripNow() {
         String v = clips.variant();
-        return Grips.get(net.minecraft.resources.Identifier.parse(gunBase()), v == null ? "" : v);
+        return Grips.get(net.minecraft.resources.Identifier.parse(gunBase()).toString(), v == null ? "" : v);
     }
 
     private boolean gripPoint() {

@@ -8,8 +8,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
 
-import net.neoforged.fml.loading.FMLPaths;
-
 // Server settings, config/ntm-gunfeel-server.properties: plain numbers and switches (bulletSpeed, spread*,
 // cameraScaleMin, balance). The balance's numbers are fixed in the mod (BalanceKeys), the file only picks arms or ntm. On a client connected to another game's server the server's file counts (ServerSettings).
 // Synchronized: in single player the client and the server thread share it. Also how long before the end of a reload /
@@ -163,8 +161,19 @@ public final class ReaimTimes {
             poll();
         }
         // outside ReaimTimes' lock: BulletRules reads ReaimTimes under its own
-        BalanceGuns.reloadNow();
-        BulletRules.reloadNow();
+        Found.RELOAD.reloadNow();
+    }
+
+    /**
+     * What reads this file's values into its own tables and must read them again with it (reloadNow): on 26.2 the
+     * balance's gun table and the bullet rules. Found by META-INF/services; without a version nothing.
+     */
+    public interface Reload {
+        void reloadNow();
+    }
+
+    private static final class Found {
+        static final Reload RELOAD = CoreServices.load(Reload.class, () -> {});
     }
 
     // a yes/no server setting (bulletBreakConcrete = true)
@@ -177,7 +186,7 @@ public final class ReaimTimes {
     }
 
     private static Path file() {
-        return FMLPaths.CONFIGDIR.get().resolve(FILE);
+        return GameDirs.get().config().resolve(FILE);
     }
 
     // the balance's old keys in the file, logged once for each set of them

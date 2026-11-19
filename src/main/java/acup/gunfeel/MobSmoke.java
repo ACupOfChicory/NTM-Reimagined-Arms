@@ -823,10 +823,10 @@ public final class MobSmoke {
     // game's hit test gave and what the independent walk over the surface expects
     private static void trace(LivingEntity target,Snapshot pose,String label,int rays,CharSequence got,CharSequence want) {
         for(ModelBox b:pose.boxes())
-            TestLog.at(target.level(),-1,"hitbox","case",label,"part",b.part(),"at",new double[]{b.x(),b.y(),b.z()},
+            WorldLog.at(target.level(),-1,"hitbox","case",label,"part",b.part(),"at",new double[]{b.x(),b.y(),b.z()},
                     "u",new double[]{b.ux(),b.uy(),b.uz()},"v",new double[]{b.vx(),b.vy(),b.vz()},"w",new double[]{b.wx(),b.wy(),b.wz()},
                     "triangles",b.mesh()==0?0:ModelMesh.get(b.mesh()).triangles().length/9);
-        TestLog.at(target.level(),-1,"mask","case",label,"source",pose.source(),"anchor",pose.anchor(),"body",target.yBodyRot,
+        WorldLog.at(target.level(),-1,"mask","case",label,"source",pose.source(),"anchor",pose.anchor(),"body",target.yBodyRot,
                 "pos",target.position(),"parts",pose.boxes().size(),"rays",rays,"hit",got.toString(),"oracle",want.toString());
     }
 
