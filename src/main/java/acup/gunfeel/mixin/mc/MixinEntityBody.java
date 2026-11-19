@@ -9,15 +9,19 @@ import acup.gunfeel.host.Body;
 import net.minecraft.world.entity.Entity;
 
 // An entity's one Body for core (EntityBody), kept on the entity for its whole life: holding the Body is holding the
-// entity, as a reference to it was. Made the first time it is asked for, on the server's thread (the AI's).
+// entity, as a reference to it was. Made the first time it is asked for, one Body whatever thread asks (core compares
+// Bodies by ==): once made, one plain read; our own lock (not the entity's monitor) only to make it.
 @Mixin(Entity.class)
 public abstract class MixinEntityBody implements BodyOwner {
-    @Unique private Body gunfeel$body;
+    @Unique private volatile Body gunfeel$body;
 
     @Override
     public Body gunfeel$body() {
         Body b = gunfeel$body;
-        if (b == null) gunfeel$body = b = new EntityBody((Entity) (Object) this);
+        if (b != null) return b;
+        synchronized (EntityBody.class) {
+            if ((b = gunfeel$body) == null) gunfeel$body = b = new EntityBody((Entity) (Object) this);
+        }
         return b;
     }
 }
