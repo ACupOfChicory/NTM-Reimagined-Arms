@@ -65,6 +65,7 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public boolean alive() { return !removed; }
         @Override public boolean removed() { return removed; }
         @Override public boolean leftHanded() { livingOnly(); return false; }
+        @Override public int held(int hand) { livingOnly(); return 0; }
         @Override public double speed() { livingOnly(); return 0.25; }
         @Override public @Nullable String team() { return null; }
     }
