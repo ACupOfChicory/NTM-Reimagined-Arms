@@ -39,7 +39,7 @@ public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte a
         this(stance, lean, prevLean, leanTick, arms, action, actionTick, actionTicks, CALM);
     }
 
-    public static final byte STAND = 0, CROUCH = 1, PRONE = 2;
+    public static final byte STAND = Stance.STAND, CROUCH = Stance.CROUCH, PRONE = Stance.PRONE;
     /** the gun at the chest, aimed where it looks, held up blind over cover, no gun (gestures) */
     public static final byte HOLD = 0, AIM = 1, BLIND = 2, NO_GUN = 3;
     /** waiting beside a doorway to go in: the gun close at the chest, its muzzle up (pose-contract §6) */

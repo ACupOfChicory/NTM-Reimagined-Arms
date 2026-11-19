@@ -32,6 +32,7 @@ public abstract class PortsContract {
     protected static Set<Class<?>> portsCoreAsksFor() throws IOException, ClassNotFoundException {
         Pattern load = Pattern.compile("CoreServices\\.load\\(([\\w.]+)\\.class");
         Pattern pkg = Pattern.compile("(?m)^package ([\\w.]+);");
+        Pattern imp = Pattern.compile("(?m)^import ([\\w.]+(?:\\.\\*)?);");
         Set<Class<?>> out = new LinkedHashSet<>();
         try (Stream<Path> files = Files.walk(Path.of("core/src/main/java"))) {
             for (Path f : files.filter(x -> x.toString().endsWith(".java")).sorted().toList()) {
@@ -40,16 +41,28 @@ public abstract class PortsContract {
                 String p = pm.find() ? pm.group(1) + "." : "";
                 String outer = f.getFileName().toString().replace(".java", "");
                 Matcher m = load.matcher(src);
-                while (m.find()) out.add(resolve(p, outer, m.group(1), f));
+                List<String> imports = new ArrayList<>();
+                Matcher im = imp.matcher(src);
+                while (im.find()) imports.add(im.group(1));
+                while (m.find()) out.add(resolve(p, outer, imports, m.group(1), f));
             }
         }
         return out;
     }
 
-    // the name as written: nested in the file's class, or a class of the package (or a full name)
-    private static Class<?> resolve(String pkg, String outer, String name, Path f) throws ClassNotFoundException {
+    // the name as written: nested in the file's class, a class of the package, one the file imports (by its simple name,
+    // or from a package it imports with .*), or a full name
+    private static Class<?> resolve(String pkg, String outer, List<String> imports, String name, Path f) throws ClassNotFoundException {
         ClassLoader l = PortsContract.class.getClassLoader();
-        for (String c : List.of(pkg + outer + "$" + name.replace('.', '$'), pkg + name.replace('.', '$'), name)) {
+        String first = name.contains(".") ? name.substring(0, name.indexOf('.')) : name;
+        String rest = name.substring(first.length()).replace('.', '$');
+        List<String> tries = new ArrayList<>(List.of(pkg + outer + "$" + name.replace('.', '$'), pkg + name.replace('.', '$')));
+        for (String i : imports) {
+            if (i.endsWith(".*")) tries.add(i.substring(0, i.length() - 1) + name.replace('.', '$'));
+            else if (i.endsWith("." + first)) tries.add(i + rest);
+        }
+        tries.add(name);
+        for (String c : tries) {
             try {
                 return Class.forName(c, false, l);
             } catch (ClassNotFoundException e) {
