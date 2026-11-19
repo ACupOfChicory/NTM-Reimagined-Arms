@@ -10,17 +10,17 @@ import org.junit.jupiter.api.Test;
 class SpawnLerpTest {
     @Test
     void justAddedAtTheOrigin() {
-        assertTrue(SpawnLerp.stale(0, 0, 0, 0, 2000.5, -52, 1994.5));
+        assertTrue(SpawnLerpBase.stale(0, 0, 0, 0, 2000.5, -52, 1994.5));
     }
 
     @Test
     void alreadySettled() {
-        assertFalse(SpawnLerp.stale(0, 2000.5, -52, 1994.5, 2000.5, -52, 1994.5));
+        assertFalse(SpawnLerpBase.stale(0, 2000.5, -52, 1994.5, 2000.5, -52, 1994.5));
     }
 
     @Test
     void tickedEntitiesAreLeftAlone() {
-        assertFalse(SpawnLerp.stale(1, 0, 0, 0, 2000.5, -52, 1994.5));
-        assertFalse(SpawnLerp.stale(40, 10, 0, 0, 10.2, 0, 0));
+        assertFalse(SpawnLerpBase.stale(1, 0, 0, 0, 2000.5, -52, 1994.5));
+        assertFalse(SpawnLerpBase.stale(40, 10, 0, 0, 10.2, 0, 0));
     }
 }
