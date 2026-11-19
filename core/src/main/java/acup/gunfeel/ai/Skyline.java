@@ -6,7 +6,7 @@ import org.jspecify.annotations.Nullable;
  * Whether a head stands out against the sky to one who looks at it: the line from his eye through the head, on past it,
  * stays well over the land and the crowns behind it ({@link #CLEAR} blocks and more, from {@link #FROM} to {@link #FAR}
  * blocks past the head), so nothing is behind the head but sky. A man on a crest seen from below is; on a plain, or on
- * a slope with the hill rising behind him, he is not. Read off the terrain layers (AiTerrain), no ray through blocks;
+ * a slope with the hill rising behind him, he is not. Read off the terrain layers (Tiles: AiTerrain), no ray through blocks;
  * any thread. A column not kept is taken for land behind (no skyline): it is not said without knowing.
  */
 public final class Skyline {
@@ -24,7 +24,12 @@ public final class Skyline {
         int top(int x, int z);
     }
 
-    public static Land of(AiTerrain t) {
+    /** the terrain's tiles by column (26.2: AiTerrain), null where none is kept */
+    public interface Tiles {
+        @Nullable TerrainTile tile(int x, int z);
+    }
+
+    public static Land of(Tiles t) {
         return (x, z) -> {
             TerrainTile tile = t.tile(x, z);
             return tile == null ? Integer.MIN_VALUE : tile.surface(x, z) + tile.canopy(x, z);

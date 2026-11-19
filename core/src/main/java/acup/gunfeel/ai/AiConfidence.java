@@ -1,6 +1,6 @@
 package acup.gunfeel.ai;
 
-import net.minecraft.util.Mth;
+import acup.gunfeel.GameMath;
 
 /**
  * A bot's confidence (Days Gone's squads, notes: research §1.1, stage3-plan 3.2): 0 to 1, BASE to start with. Hurt,
@@ -45,7 +45,7 @@ public final class AiConfidence {
 
     void add(float d, long tick) {
         drift(tick);
-        value = Mth.clamp(value + d, 0F, 1F);
+        value = GameMath.clamp(value + d, 0F, 1F);
     }
 
     /** a hit taken, its share of its health; the hits of one tick count as one */
@@ -81,7 +81,7 @@ public final class AiConfidence {
     /** set to this (the stands: a squad shaken at once) */
     void set(float v, long tick) {
         drift(tick);
-        value = Mth.clamp(v, 0F, 1F);
+        value = GameMath.clamp(v, 0F, 1F);
     }
 
     /** a share of the way to its squad's mean */

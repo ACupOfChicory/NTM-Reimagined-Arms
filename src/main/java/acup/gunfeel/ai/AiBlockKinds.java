@@ -18,7 +18,8 @@ public final class AiBlockKinds {
     private AiBlockKinds() {
     }
 
-    public static final byte NEUTRAL = 0, NATURAL = 1, BUILT = 2, MARKER = 3;
+    // the kinds are core's (CellKind); the same constants here for the 26.2 code that reads them by this name
+    public static final byte NEUTRAL = CellKind.NEUTRAL, NATURAL = CellKind.NATURAL, BUILT = CellKind.BUILT, MARKER = CellKind.MARKER;
 
     /** the server setting: a place under a roof is a building by its shell (false: any roof makes one, as before) */
     public static final String KEY = "aiRoomsShell";
