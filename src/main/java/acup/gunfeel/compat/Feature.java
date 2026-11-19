@@ -45,6 +45,7 @@ public enum Feature {
     BLAST_PARTICLES("blast_particles", List.of("MixinBlastParticleCap"), List.of("ParticleStand")),
     THERMAL_OUTLINES("thermal_outlines", List.of("MixinThermalEdges"), List.of("BoxEdges")),
     MINI_NUKE_CLOUD("mini_nuke_cloud", List.of("MukePayloadAccess", "MixinMiniNukeSend", "MixinMiniNukeSize", "MixinMiniNukeParams", "MixinMiniNukeMk5", "MixinMiniNukeCreeper", "MixinMiniNukeTorex", "MixinMiniNukeFx"), List.of("MiniNukeCloud", "MiniNukeStand")),
+    FLAMER_ARC("flamer_arc", List.of("MixinFritzArc"), List.of("FlamerGravity")),
     AMMO_BAG("ammo_bag", List.of("MixinAmmoBagOurs"), List.of("AmmoBagOurs")),
     NTM_GAS("ntm_gas", List.of("MistAccess", "MixinPhosgeneCreeper", "MixinChemthrowerCloud"), List.of("ChemClouds", "ChemStand")),
     NTM_WP("ntm_wp", List.of("MixinWpGrenade", "MixinWp40mm", "MixinWpRocket", "MixinWpArtillery", "MixinWpHimars"), List.of("WpSmoke", "WpStand")),

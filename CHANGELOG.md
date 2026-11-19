@@ -1,5 +1,15 @@
 # Changelog
 
+## X1727
+
+- Mister Topaz and the Fritz turret: the flame now falls, with the same gravity
+  as the hand flamer's, instead of flying in a straight line (60 blocks for
+  Topaz, 100 for the Fritz). The jet is a little faster than the hand flamer's,
+  so it reaches further: about 17 blocks shot level from the shoulder, 48 at
+  15° up and 87 at 45° (the hand flamer: 13, 31 and 52). The Fritz lifts its
+  barrel to drop the flame on its target. Topaz's gas, the hand flamer and the
+  Daybreaker are as before.
+
 ## X1725
 
 - The white phosphorus haze is a little thicker: looking across the whole of it

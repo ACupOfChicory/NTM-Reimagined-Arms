@@ -45,6 +45,8 @@ public final class GunFeelMod {
         }
         if (Feature.DUPLEX.on()) acup.gunfeel.ammo.Duplex.register(modBus);
         if (Feature.NUCLEAR_BMG50.on()) acup.gunfeel.ammo.NuclearBmg.register(modBus);
+        // Mister Topaz's and the Fritz turret's flame falls as the hand flamer's
+        if (Feature.FLAMER_ARC.on()) acup.gunfeel.ammo.FlamerGravity.register(modBus);
         if (Feature.OVERHEAT.on() && dist.isClient()) acup.gunfeel.heat.client.OverheatClient.init();
         GunWeight.register();
         acup.gunfeel.ai.AiPose.register(modBus);
