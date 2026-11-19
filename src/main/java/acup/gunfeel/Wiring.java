@@ -7,6 +7,7 @@ import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.host.HostVersions;
 import acup.gunfeel.host.NtmFeature;
 import acup.gunfeel.host.Ports;
 import acup.gunfeel.smoke.SmokeClouds;
@@ -26,7 +27,8 @@ public final class Wiring implements Ports {
             TestLog.Printer.class, new TestLogPrint(),
             Config.Reread.class, new PistolHoldReread(),
             ReaimTimes.Reload.class, new ServerTablesReload(),
-            ServerSettings.Follow.class, new RemoteShapes());
+            ServerSettings.Follow.class, new RemoteShapes(),
+            HostVersions.class, new acup.gunfeel.compat.CompatVersions());
 
     @Override
     public <T> @Nullable T port(Class<T> type) {
