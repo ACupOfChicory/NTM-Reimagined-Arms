@@ -39,7 +39,7 @@ class ServerSettingsTest {
     @Test
     void everyRuleKindHasASide() throws IOException {
         Set<String> kinds = new HashSet<>();
-        String src = Files.readString(Path.of("src/main/java/acup/gunfeel/BulletRules.java"), StandardCharsets.UTF_8);
+        String src = Files.readString(Path.of("core/src/main/java/acup/gunfeel/BulletRuleText.java"), StandardCharsets.UTF_8);
         Matcher m = Pattern.compile("(?m)^\\s*# ([a-z]+) (<blocks>|<who>|sound=)").matcher(src.substring(src.indexOf("HELP = \"\"\"")));
         while (m.find()) kinds.add(m.group(1));
         for (String f : new String[] {"src/main/resources/ntmgunfeel-bullets.txt", "src/main/resources/ntmgunfeel-materials.txt"}) {
@@ -92,8 +92,8 @@ class ServerSettingsTest {
         long[] bits = new long[65];
         Random r = new Random(2);
         for (int i = 0; i < 64; i++) bits[i] = r.nextLong();
-        assertArrayEquals(bits, PassableClip.unpack(PassableClip.pack(bits)));
+        assertArrayEquals(bits, ShapeCells.unpack(ShapeCells.pack(bits)));
         bits[64] = 1;
-        assertArrayEquals(bits, PassableClip.unpack(PassableClip.pack(bits)));
+        assertArrayEquals(bits, ShapeCells.unpack(ShapeCells.pack(bits)));
     }
 }

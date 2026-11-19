@@ -1374,7 +1374,7 @@ public final class Tracers {
             Vec3 in = at.add(p.dir().normalize().scale(1.0 / 64.0)); // just inside, along the bullet
             int x = Math.clamp((int) Math.floor((in.x - pos.getX()) * 16), 0, 15), y = Math.clamp((int) Math.floor((in.y - pos.getY()) * 16), 0, 15),
                     z = Math.clamp((int) Math.floor((in.z - pos.getZ()) * 16), 0, 15);
-            onBoard = PassableClip.cell(boards, x, y, z);
+            onBoard = ShapeCells.cell(boards, x, y, z);
         }
         int machines = 0;
         for (Hole o : HOLES) if (o.machine()) machines++;
@@ -1723,7 +1723,7 @@ public final class Tracers {
         // hit on (the bullet went through those before it). A block met by its model's pixels (a door, a scaffold) was
         // met on a 1/16 voxel: its own faces from a voxel before, and nothing much further (a door stops the bullet
         // where it came in: never its far inner face, seen through its window)
-        double reachTo = shape == null ? 1.0 + Math.max(1.0, through) : PassableClip.shell(shape) ? 1.1 : 1.15;
+        double reachTo = shape == null ? 1.0 + Math.max(1.0, through) : ShapeCells.shell(shape) ? 1.1 : 1.15;
         Vector3d o = new Vector3d(hit.getLocation().x, hit.getLocation().y, hit.getLocation().z).sub(new Vector3d(d));
         // the nearest shown pixel on the line (of two as near, the one first in the list), looked for only among the
         // triangles in the grid boxes the line passes

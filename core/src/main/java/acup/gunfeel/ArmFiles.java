@@ -25,7 +25,7 @@ final class ArmFiles {
     }
 
     static Path dir() {
-        if (dir == null) dir = net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get().resolve(FOLDER);
+        if (dir == null) dir = GameDirs.get().config().resolve(FOLDER);
         return dir;
     }
 
@@ -89,7 +89,7 @@ final class ArmFiles {
                 }
             }
         } catch (IOException e) {
-            DebugLog.LOGGER.warn("Could not list {}", d, e);
+            ModLog.LOGGER.warn("Could not list {}", d, e);
         }
         out.sort(Comparator.comparing((Saved x) -> x.path().getFileName().toString()).reversed());
         return out;

@@ -15,7 +15,7 @@ class RecoilTest {
             Spring kick = new Spring(1F, 0.015F, 0.4F, 0.1F, 0F, 0F);
             for (float t = 0F; t <= kick.length() + 0.05F; t += 1F / 60F) {
                 float pitch = t >= kick.length() ? 0F : kick.at(t) * 8F;
-                float got = CameraRecoil.pitchTurn(xRot, pitch - applied);
+                float got = CameraKick.pitchTurn(xRot, pitch - applied);
                 xRot -= got;
                 applied += got;
                 assertTrue(xRot >= -90F && xRot <= 90F);
@@ -28,9 +28,9 @@ class RecoilTest {
     @Test
     void noClimbIsTheCurveItself() {
         Spring kick = new Spring(1F, 0.015F, 0.4F, 0.1F, 0F, 0F);
-        float[] reach = CameraRecoil.reachTable(kick);
+        float[] reach = CameraKick.reachTable(kick);
         for (float t = 0F; t <= kick.length(); t += 0.0007F) {
-            assertEquals(kick.at(t) * 8F, CameraRecoil.pitchOf(kick, reach, 8F, 0F, 0F, t), 0F, "at " + t);
+            assertEquals(kick.at(t) * 8F, CameraKick.pitchOf(kick, reach, 8F, 0F, 0F, t), 0F, "at " + t);
         }
     }
 
@@ -39,15 +39,15 @@ class RecoilTest {
     @Test
     void halfTheKickStays() {
         Spring kick = new Spring(1F, 0.015F, 0.4F, 0.1F, 0F, 0F);
-        float[] reach = CameraRecoil.reachTable(kick);
+        float[] reach = CameraKick.reachTable(kick);
         assertEquals(1F, reach[reach.length - 1], 2e-3F, "peak");
-        assertEquals(8F, CameraRecoil.pitchOf(kick, reach, 8F, 0.5F, 0F, 0.015F), 0.02F, "the whole kick at the peak");
+        assertEquals(8F, CameraKick.pitchOf(kick, reach, 8F, 0.5F, 0F, 0.015F), 0.02F, "the whole kick at the peak");
         float keep = 8F * 0.5F * reach[reach.length - 1];
         for (float start : new float[] {-90F, -88F, -85F, 0F, 89F, 90F}) {
             float xRot = start, applied = 0F, top = start;
             for (float t = 0F; t <= kick.length() + 0.05F; t += 1F / 60F) {
-                float pitch = t >= kick.length() ? keep : CameraRecoil.pitchOf(kick, reach, 8F, 0.5F, 0F, t);
-                float got = CameraRecoil.pitchTurn(xRot, pitch - applied);
+                float pitch = t >= kick.length() ? keep : CameraKick.pitchOf(kick, reach, 8F, 0.5F, 0F, t);
+                float got = CameraKick.pitchTurn(xRot, pitch - applied);
                 xRot -= got;
                 applied += got;
                 top = Math.min(top, xRot);
@@ -63,32 +63,32 @@ class RecoilTest {
     @Test
     void degreesStayWhateverTheKick() {
         Spring kick = new Spring(1F, 0.015F, 0.4F, 0.1F, 0F, 0F);
-        float[] reach = CameraRecoil.reachTable(kick);
-        float half = CameraRecoil.pitchOf(kick, reach, 0F, 0F, 0.4F, 0.0075F);
+        float[] reach = CameraKick.reachTable(kick);
+        float half = CameraKick.pitchOf(kick, reach, 0F, 0F, 0.4F, 0.0075F);
         assertTrue(half > 0.1F && half < 0.35F, "half way up the rise: " + half);
         for (float up : new float[] {0F, -1.5F, 2F}) {
             float xRot = 0F, applied = 0F;
             for (float t = 0F; t <= kick.length() + 0.05F; t += 1F / 60F) {
-                float pitch = t >= kick.length() ? 0.4F : CameraRecoil.pitchOf(kick, reach, up, 0F, 0.4F, t);
-                float got = CameraRecoil.pitchTurn(xRot, pitch - applied);
+                float pitch = t >= kick.length() ? 0.4F : CameraKick.pitchOf(kick, reach, up, 0F, 0.4F, t);
+                float got = CameraKick.pitchTurn(xRot, pitch - applied);
                 xRot -= got;
                 applied += got;
             }
             assertEquals(-0.4F, xRot, 1e-3F, "kick " + up);
         }
-        assertEquals(0F, CameraRecoil.rise(reach, 0F), 1e-6F, "the sideways part starts with the kick");
-        assertEquals(1F, CameraRecoil.rise(reach, kick.length()), 1e-6F, "and ends whole");
+        assertEquals(0F, CameraKick.rise(reach, 0F), 1e-6F, "the sideways part starts with the kick");
+        assertEquals(1F, CameraKick.rise(reach, kick.length()), 1e-6F, "and ends whole");
     }
 
     // cameraClimbRamp: the staying parts grow evenly over the burst's first shots
     @Test
     void rampGrowsToFull() {
-        assertEquals(1F, CameraRecoil.ramp(1, 0F));
-        assertEquals(1F, CameraRecoil.ramp(1, 1F));
-        assertEquals(0.2F, CameraRecoil.ramp(1, 5F), 1e-6F);
-        assertEquals(0.6F, CameraRecoil.ramp(3, 5F), 1e-6F);
-        assertEquals(1F, CameraRecoil.ramp(5, 5F));
-        assertEquals(1F, CameraRecoil.ramp(40, 5F));
+        assertEquals(1F, CameraKick.ramp(1, 0F));
+        assertEquals(1F, CameraKick.ramp(1, 1F));
+        assertEquals(0.2F, CameraKick.ramp(1, 5F), 1e-6F);
+        assertEquals(0.6F, CameraKick.ramp(3, 5F), 1e-6F);
+        assertEquals(1F, CameraKick.ramp(5, 5F));
+        assertEquals(1F, CameraKick.ramp(40, 5F));
     }
 
     // cameraDriftDeg: the side keeps its heading for a few shots and its spread stays about 1 over a long burst
@@ -99,7 +99,7 @@ class RecoilTest {
         double sum2 = 0;
         int flips = 0, n = 20000;
         for (int i = 0; i < n; i++) {
-            float next = CameraRecoil.nextDrift(d, i == 0, (float) r.nextGaussian());
+            float next = CameraKick.nextDrift(d, i == 0, (float) r.nextGaussian());
             if (i > 0 && Math.signum(next) != Math.signum(d)) flips++;
             d = next;
             sum2 += d * d;

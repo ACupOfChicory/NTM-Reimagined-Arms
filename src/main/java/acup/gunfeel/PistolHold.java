@@ -8,7 +8,6 @@ import com.hbm.render.anim.HbmAnimations;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -38,15 +37,7 @@ import org.joml.Vector3f;
  * would change them, and a turn takes the front sight off the line.
  */
 public final class PistolHold {
-    // the gun's middle from the hip, from the eye, in L: right, up, ahead
-    static final float RIGHT = 0.081F, UP = -0.334F, AHEAD = 0.965F;
-
-    // the aimed picture's size: the root of its width by its height in the view's tangents (x / z, y / z), the middle
-    // of the measured pistols' (0.064 of the width and 0.4695 of the height on a screen 70° high and 1.6 wide)
-    static final float AIM_SIZE = (float) Math.sqrt(0.064 * 2 * Math.tan(Math.toRadians(35)) * 1.6 * 0.4695 * 2 * Math.tan(Math.toRadians(35)));
-    // nothing of the gun nearer the eye than this when aimed (the hands' near plane)
-    private static final float NEAR = 0.05F;
-
+    // the places themselves are core's (PistolPlace); here the guns' measures, the camera's view and NTM's calls
     // each gun's two ends and its middle past NTM's placing call (relative to where it puts the gun), from an earlier
     // frame
     private static final Map<Item, Vector3f[]> ENDS = new IdentityHashMap<>();
@@ -61,10 +52,6 @@ public final class PistolHold {
     // VIEW·pose with the eye looking along +z and the screen's right -x, as the pose space is when the camera looks
     // along the world's +z (yaw 0, pitch 0). The pose space itself is turned with the world, not with the camera
     private static final Matrix4f VIEW = new Matrix4f();
-    private static String hipDefaultsGun;
-    private static int hipDefaultsVersion = -1;
-    private static float hipDefaultX = 0.6F, hipDefaultY = 1F, hipDefaultZ = 0.75F;
-    private static final float[] HIP_SCALES = new float[3];
 
     private PistolHold() {
     }
@@ -74,9 +61,7 @@ public final class PistolHold {
      * the left main hand yet (NTM draws the gun on the other side then, as WalkSprint.bobOff leaves it).
      */
     public static boolean on() {
-        if (!Config.enabled || Config.pistolHold <= 0F || !WalkSprint.pistol(Config.kickPreset)) return false;
-        var mc = net.minecraft.client.Minecraft.getInstance();
-        return mc == null || mc.options.mainHand().get() != net.minecraft.world.entity.HumanoidArm.LEFT;
+        return PistolPlace.on();
     }
 
     /**
@@ -84,7 +69,7 @@ public final class PistolHold {
      * its hip place is ours or NTM's.
      */
     public static boolean aimOn() {
-        if (!Config.enabled || Config.aimHold <= 0F || !WalkSprint.pistol(Config.kickPreset)) return false;
+        if (!Config.enabled || Config.aimHold <= 0F || !PistolPlace.pistol(Config.kickPreset)) return false;
         return net.minecraft.client.Minecraft.getInstance().options.mainHand().get() != net.minecraft.world.entity.HumanoidArm.LEFT;
     }
 
@@ -103,8 +88,7 @@ public final class PistolHold {
      * at 0.06 / 0.13 / 0.19 s.
      */
     public static float curve(float p) {
-        float x = Math.clamp(p, 0F, 1F);
-        return x * x * (3F - 2F * x);
+        return PistolPlace.curve(p);
     }
 
     /**
@@ -114,54 +98,13 @@ public final class PistolHold {
     public static boolean hip(PoseStack pose, Item item, double aX, double aY, double aZ, Vector3f out) {
         Vector3f[] ends = ENDS.get(item);
         if (ends == null) return false;
-        float[] k = hipScales(Config.selectedGun());
-        return hip(VIEW, pose.last().pose(), WalkSprint.moved(item), ends, (float) aX, (float) aY, (float) aZ, k[0], k[1], k[2], out);
+        float[] k = PistolPlace.hipScales(Config.selectedGun());
+        return PistolPlace.hip(VIEW, pose.last().pose(), WalkSprint.moved(item), ends, (float) aX, (float) aY, (float) aZ, k[0], k[1], k[2], out);
     }
 
-    static float[] hipScales(String gun) {
-        int version = Grips.version();
-        if (!java.util.Objects.equals(gun, hipDefaultsGun) || version != hipDefaultsVersion) {
-            hipDefaultsGun = gun;
-            hipDefaultsVersion = version;
-            hipDefaultX = defaultHip(gun, "hipX");
-            hipDefaultY = defaultHip(gun, "hipY");
-            hipDefaultZ = defaultHip(gun, "hipZ");
-        }
-        HIP_SCALES[0] = hipScale(Config.hipX, hipDefaultX);
-        HIP_SCALES[1] = hipScale(Config.hipY, hipDefaultY);
-        HIP_SCALES[2] = hipScale(Config.hipZ, hipDefaultZ);
-        return HIP_SCALES;
-    }
-
+    // the settings file read again (PistolHoldReread)
     static void clearHipDefaults() {
-        hipDefaultsGun = null;
-        hipDefaultsVersion = -1;
-    }
-
-    static float defaultHip(String gun, String key) {
-        String shipped = gun == null ? null : Grips.shipped(gun, key);
-        String value = shipped == null ? Config.codeValue(key) : shipped;
-        if (value == null) return 1F;
-        try {
-            return Float.parseFloat(value.trim());
-        } catch (NumberFormatException ignored) {
-            return 1F;
-        }
-    }
-
-    static float hipScale(float value, float defaultValue) {
-        return Math.abs(defaultValue) < 1e-6F ? 1F + value - defaultValue : value / defaultValue;
-    }
-
-    /**
-     * The hip place for the camera's view, the pose and moved in the pose space (turned with the world): in the eye's
-     * space the pose is view·pose and moved is view·moved·view⁻¹.
-     */
-    static boolean hip(Matrix4f view, Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ,
-            float kx, float ky, float kz, Vector3f out) {
-        if (Math.abs(view.determinant()) < 1e-12F) return false;
-        Matrix4f eyeMoved = new Matrix4f(view).mul(moved).mul(new Matrix4f(view).invert());
-        return hip(new Matrix4f(view).mul(pose), eyeMoved, ends, aX, aY, aZ, kx, ky, kz, out);
+        PistolPlace.clearHipDefaults();
     }
 
     /**
@@ -177,107 +120,18 @@ public final class PistolHold {
     }
 
     /**
-     * The hip place for the pose m of standardAimingTransform in the eye's space (the eye at the origin, looking
-     * along +z: VIEW·pose), the gun's ends and middle past it, the aimed place a. moved is the move in the same space
-     * before NTM places the gun (the turn's sway, WalkSprint, NTM's bob), already in m: the place is found in the
-     * frame before it (moved⁻¹·m), so the sway as the camera turns and the walk's, the run's and the jump's move stay
-     * on top of the hip place, as they do of the aimed one.
-     */
-    static boolean hip(Matrix4f pose, Matrix4f moved, Vector3f[] ends, float aX, float aY, float aZ,
-            float kx, float ky, float kz, Vector3f out) {
-        if (Math.abs(moved.determinant()) < 1e-12F) return false;
-        Matrix4f m = new Matrix4f(moved).invert().mul(pose);
-        // the ends and the middle when aimed: the eye is at the pose space's origin and looks along +z
-        Vector3f b = m.transformPosition(aX + ends[0].x, aY + ends[0].y, aZ + ends[0].z, new Vector3f());
-        Vector3f f = m.transformPosition(aX + ends[1].x, aY + ends[1].y, aZ + ends[1].z, new Vector3f());
-        Vector3f c = m.transformPosition(aX + ends[2].x, aY + ends[2].y, aZ + ends[2].z, new Vector3f());
-        float len = b.distance(f);
-        Matrix3f r = m.get3x3(new Matrix3f());
-        if (!Float.isFinite(len) || len < 1e-4F || Math.abs(r.determinant()) < 1e-12F) return false;
-        // the pose space is turned half round from the screen's: the screen's right is -x and the eye looks along +z
-        // (Arms.cameraFrame); the middle goes from where it is aimed to its hip place, and the inverse takes that
-        // through what NTM's renderer did before this frame
-        Vector3f d = new Vector3f(-RIGHT * kx * len - c.x, UP * ky * len - c.y, AHEAD * kz * len - c.z);
-        r.invert().transform(d);
-        out.set(aX + d.x, aY + d.y, aZ + d.z);
-        return Float.isFinite(out.x) && Float.isFinite(out.y) && Float.isFinite(out.z);
-    }
-
-    /**
      * The aimed place in the frame of standardAimingTransform, from NTM's aimed place aX, aY, aZ: false while the gun
      * is not measured yet, then NTM's own place is kept.
      */
     public static boolean aim(PoseStack pose, Item item, double aX, double aY, double aZ, Vector3f out) {
         Vector3f[] corners = CORNERS.get(item);
         if (corners == null) return false;
-        return aim(VIEW, pose.last().pose(), WalkSprint.moved(item), corners, (float) aX, (float) aY, (float) aZ, out);
-    }
-
-    /** The aimed place for the camera's view, the pose and moved in the pose space, as hip. */
-    static boolean aim(Matrix4f view, Matrix4f pose, Matrix4f moved, Vector3f[] corners, float aX, float aY, float aZ, Vector3f out) {
-        if (Math.abs(view.determinant()) < 1e-12F) return false;
-        Matrix4f eyeMoved = new Matrix4f(view).mul(moved).mul(new Matrix4f(view).invert());
-        return aim(new Matrix4f(view).mul(pose), eyeMoved, corners, aX, aY, aZ, out);
-    }
-
-    /**
-     * The aimed place for the pose of standardAimingTransform in the eye's space (the eye at the origin, looking
-     * along +z), the gun's corners past it and NTM's aimed place a, found before moved as hip's: NTM's place moved
-     * along the eye's line (the eye's z) until the gun's picture is AIM_SIZE big. A point on that line stays on it,
-     * so the sights NTM puts there stay on the middle of the screen; nothing turns. The sway and the walk on top of
-     * it (moved) move the gun with its sights off the line, as they move NTM's aimed place, and back onto it when the
-     * camera stands still.
-     */
-    static boolean aim(Matrix4f pose, Matrix4f moved, Vector3f[] corners, float aX, float aY, float aZ, Vector3f out) {
-        if (corners.length == 0 || Math.abs(moved.determinant()) < 1e-12F) return false;
-        Matrix4f m = new Matrix4f(moved).invert().mul(pose);
-        Matrix3f r = m.get3x3(new Matrix3f());
-        if (Math.abs(r.determinant()) < 1e-12F) return false;
-        Vector3f[] eye = new Vector3f[corners.length];
-        float nearest = Float.MAX_VALUE, across = 0F;
-        for (int i = 0; i < corners.length; i++) {
-            eye[i] = m.transformPosition(aX + corners[i].x, aY + corners[i].y, aZ + corners[i].z, new Vector3f());
-            nearest = Math.min(nearest, eye[i].z);
-            across = Math.max(across, Math.max(Math.abs(eye[i].x), Math.abs(eye[i].y)));
-        }
-        if (!Float.isFinite(nearest) || !Float.isFinite(across)) return false;
-        // the picture shrinks as the gun goes away: from all of it in front of the eye to where its nearest point is
-        // so far that no side of the picture can be wider than AIM_SIZE (2 across / its depth)
-        float lo = NEAR - nearest, hi = Math.max(lo, 2F * across / AIM_SIZE - nearest);
-        float dz;
-        if (size(eye, lo) <= AIM_SIZE) dz = lo;
-        else if (size(eye, hi) >= AIM_SIZE) dz = hi;
-        else {
-            for (int k = 0; k < 40; k++) {
-                float mid = (lo + hi) / 2F;
-                if (size(eye, mid) > AIM_SIZE) lo = mid;
-                else hi = mid;
-            }
-            dz = (lo + hi) / 2F;
-        }
-        Vector3f d = r.invert().transform(new Vector3f(0F, 0F, dz));
-        out.set(aX + d.x, aY + d.y, aZ + d.z);
-        return Float.isFinite(out.x) && Float.isFinite(out.y) && Float.isFinite(out.z);
-    }
-
-    // the root of the picture's width by its height, in the view's tangents, of the points moved dz along the eye's z
-    static float size(Vector3f[] eye, float dz) {
-        float l = Float.MAX_VALUE, r = -Float.MAX_VALUE, b = Float.MAX_VALUE, t = -Float.MAX_VALUE;
-        for (Vector3f p : eye) {
-            float z = p.z + dz;
-            if (z < NEAR * 0.5F) continue;
-            l = Math.min(l, p.x / z);
-            r = Math.max(r, p.x / z);
-            b = Math.min(b, p.y / z);
-            t = Math.max(t, p.y / z);
-        }
-        return l > r ? 0F : (float) Math.sqrt((r - l) * (t - b));
+        return PistolPlace.aim(VIEW, pose.last().pose(), WalkSprint.moved(item), corners, (float) aX, (float) aY, (float) aZ, out);
     }
 
     /** NTM's aimed place a, w of the way (aimHold, at most 1) to the measured one. */
     public static Vector3f blend(float w, double aX, double aY, double aZ, Vector3f measured) {
-        float k = Math.clamp(w, 0F, 1F);
-        return new Vector3f((float) (aX + (measured.x - aX) * k), (float) (aY + (measured.y - aY) * k), (float) (aZ + (measured.z - aZ) * k));
+        return PistolPlace.blend(w, aX, aY, aZ, measured);
     }
 
     /** NTM is about to call setupFirstPerson for the gun drawn. */
