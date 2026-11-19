@@ -14,8 +14,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import acup.gunfeel.GunFeel;
-import net.minecraft.util.Mth;
+import acup.gunfeel.GameMath;
+import acup.gunfeel.ModLog;
 
 /**
  * The AI mobs' moves from recordings of people (tools/motion/retarget_moves.py, moves_to_mod.py): a turn on the spot,
@@ -76,7 +76,7 @@ public final class BotMoves {
         /** its crouch share at t (0 none), linear between its samples */
         public float crouchAt(float t) {
             if (crouch.length == 0) return 0F;
-            float at = Mth.clamp(t * hz, 0F, crouch.length - 1);
+            float at = GameMath.clamp(t * hz, 0F, crouch.length - 1);
             int i = Math.min((int) at, crouch.length - 2);
             return crouch[i] + (crouch[i + 1] - crouch[i]) * (at - i);
         }
@@ -389,7 +389,7 @@ public final class BotMoves {
         Map<String, Move> out = new HashMap<>();
         try (InputStream in = BotMoves.class.getResourceAsStream(PATH)) {
             if (in == null) {
-                GunFeel.LOGGER.warn("AI mob moves missing: {}", PATH);
+                ModLog.LOGGER.warn("AI mob moves missing: {}", PATH);
                 return out;
             }
             try (Reader r = new InputStreamReader(in, StandardCharsets.UTF_8)) {
@@ -401,12 +401,12 @@ public final class BotMoves {
                         out.put(name, m);
                         out.put(name + "_mirrored", m.mirrored());
                     } catch (RuntimeException e) {
-                        GunFeel.LOGGER.warn("AI mob move {} unreadable: {}", name, e.toString());
+                        ModLog.LOGGER.warn("AI mob move {} unreadable: {}", name, e.toString());
                     }
                 }
             }
         } catch (IOException | RuntimeException e) {
-            GunFeel.LOGGER.warn("AI mob moves unreadable: {}", e.toString());
+            ModLog.LOGGER.warn("AI mob moves unreadable: {}", e.toString());
         }
         return out;
     }
