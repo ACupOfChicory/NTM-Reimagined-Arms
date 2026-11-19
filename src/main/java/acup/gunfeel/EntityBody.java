@@ -34,10 +34,17 @@ public final class EntityBody implements Body {
         return e;
     }
 
-    private static Pose pose(byte stance) {
+    /** the entity behind a Body, or null for none (26.2's code on its way to core) */
+    public static @Nullable Entity entity(@Nullable Body b) {
+        return b == null ? null : ((EntityBody) b).e;
+    }
+
+    /** the game's pose for a stance: the swimming pose for PRONE (the one an AI mob lies down in, AiProne) */
+    static Pose pose(byte stance) {
         return switch (stance) {
             case Stance.STAND -> Pose.STANDING;
             case Stance.CROUCH -> Pose.CROUCHING;
+            case Stance.PRONE -> Pose.SWIMMING;
             default -> throw new IllegalArgumentException("stance " + stance);
         };
     }
@@ -90,6 +97,24 @@ public final class EntityBody implements Body {
     @Override public String poseName() { return String.valueOf(e.getPose()); }
     @Override public boolean sprinting() { return e.isSprinting(); }
     @Override public boolean lying() { return Prone.lying((LivingEntity) e); }
+    @Override public boolean sleeping() { return ((LivingEntity) e).isSleeping(); }
+
+    @Override
+    public byte stance() {
+        Pose p = e.getPose();
+        return p == Pose.STANDING ? Stance.STAND : p == Pose.CROUCHING ? Stance.CROUCH : p == Pose.SWIMMING ? Stance.PRONE : (byte) -1;
+    }
+
+    @Override
+    public void typeBox(double[] out) {
+        AABB b = e.getType().getDimensions().makeBoundingBox(e.position());
+        out[0] = b.minX;
+        out[1] = b.minY;
+        out[2] = b.minZ;
+        out[3] = b.maxX;
+        out[4] = b.maxY;
+        out[5] = b.maxZ;
+    }
     @Override public boolean alive() { return e.isAlive(); }
     @Override public boolean removed() { return e.isRemoved(); }
     @Override public boolean leftHanded() { return ((Mob) e).isLeftHanded(); }

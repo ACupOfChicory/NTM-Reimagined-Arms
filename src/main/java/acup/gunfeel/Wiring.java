@@ -44,6 +44,7 @@ public final class Wiring implements Ports {
         put(GunAnimState.class, new NtmAnimState());
         // ---- ballistics and balance (the world comes per level: world below)
         put(BlockTable.class, new BlockStates());
+        put(acup.gunfeel.host.BodyControl.class, new EntityBodyControl());
         // ---- water (its world comes per level: liquids below)
         // ---- other: hitboxes, GL-54, HUD, tacz
         put(acup.gunfeel.host.GamePause.class, new ClientPause());

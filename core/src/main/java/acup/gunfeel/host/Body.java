@@ -42,10 +42,10 @@ public interface Body {
     /** its eyes over its feet in its pose now */
     float eyeHeight();
 
-    /** its eyes over its feet in a pose ({@link acup.gunfeel.ai.Stance#STAND} or CROUCH), as the game's size for it */
+    /** its eyes over its feet in a stance ({@link acup.gunfeel.ai.Stance}), as the game's size for its pose */
     float eyeHeight(byte stance);
 
-    /** its height in a pose ({@link acup.gunfeel.ai.Stance#STAND} or CROUCH), as the game's size for it */
+    /** its height in a stance ({@link acup.gunfeel.ai.Stance}), as the game's size for its pose */
     float height(byte stance);
 
     /** its eyes' place */
@@ -96,6 +96,22 @@ public interface Body {
 
     /** lying down (the mod's own prone); living */
     boolean lying();
+
+    /**
+     * Its stance by the game's pose: standing {@link acup.gunfeel.ai.Stance#STAND}, crouching CROUCH, the swimming
+     * pose (the one an AI mob lies down in, AiProne) PRONE; any other pose -1. After {@link BodyControl#stance}(this,
+     * s) it is s.
+     */
+    byte stance();
+
+    /** asleep in a bed (isSleeping); living */
+    boolean sleeping();
+
+    /**
+     * The box its type has at its feet, whatever its pose (getType().getDimensions().makeBoundingBox(position())): the
+     * room it takes standing; into out as {@link #box}.
+     */
+    void typeBox(double[] out);
 
     boolean alive();
 
