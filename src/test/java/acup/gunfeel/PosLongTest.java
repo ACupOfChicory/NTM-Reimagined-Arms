@@ -53,6 +53,8 @@ class PosLongTest {
             long b = BlockPos.asLong(x, y, z), s = SectionPos.asLong(x, y, z);
             assertEquals(b, PosLong.block(x, y, z), () -> "block " + at);
             assertEquals(s, PosLong.section(x, y, z), () -> "section " + at);
+            // a block's section (TacticalMapBase.changed): SectionPos.asLong(BlockPos)
+            assertEquals(SectionPos.asLong(new BlockPos(x, y, z)), PosLong.section(x >> 4, y >> 4, z >> 4), () -> "block's section " + at);
             unpacks("of block " + at, b);
             unpacks("of section " + at, s);
         }
@@ -66,6 +68,7 @@ class PosLongTest {
                     String at = x + " " + y + " " + z;
                     assertEquals(BlockPos.asLong(x, y, z), PosLong.block(x, y, z), () -> "block " + at);
                     assertEquals(SectionPos.asLong(x, y, z), PosLong.section(x, y, z), () -> "section " + at);
+                    assertEquals(SectionPos.asLong(new BlockPos(x, y, z)), PosLong.section(x >> 4, y >> 4, z >> 4), () -> "block's section " + at);
                 }
     }
 
