@@ -99,6 +99,7 @@ public final class SettingsCheck {
         // the balance's gun table of the server's own: Henry with .44 express x3.33, Heretic's pause 7
         Files.writeString(guns, "henry\tm44_express\t3.33\t0\t0\t2\nautoshotgun_heretic\t*\t0.2\t0\t0\t5\tdelay=7\n");
         Thread.sleep(2100); // the files are looked at once a second, the gun table every two
+        BulletRules.reloadNow(); // the rules' file is looked at by the game's ticks, and none goes by here
         check("server: its own path rule", "through", BulletRules.path(fence));
         check("server: its own bulletSpeed", 2.5F, ReaimTimes.number("bulletSpeed", 1.6F));
         check("server: a reaim time is the mod's, not the file's", 0.6F, ReaimTimes.seconds("hbm:gun_double_barrel", "inspect"));
@@ -125,6 +126,7 @@ public final class SettingsCheck {
         Files.writeString(server, "bulletSpeed = 1.0\n");
         Files.writeString(guns, "henry\tm44_express\t0.5\t0\t0\t2\n");
         Thread.sleep(2100);
+        BulletRules.reloadNow(); // the rules' file is looked at by the game's ticks, and none goes by here
         check("files changed: packed anew", false, ServerSettingsPayload.current() == sent);
         ServerSettings.useRemote(s);
         check("remote: path is the server's", "through", BulletRules.path(fence));

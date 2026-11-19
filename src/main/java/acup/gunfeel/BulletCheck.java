@@ -89,6 +89,7 @@ public final class BulletCheck {
         for (int cx = 0; cx < 4; cx++) for (int cz = 0; cz < 4; cz++) level.setChunkForced(cx, cz, true);
         Files.writeString(FMLPaths.CONFIGDIR.get().resolve(BulletRules.FILE), RULES);
         Thread.sleep(1100); // the rules file is looked at once a second
+        BulletRules.reloadNow(); // the rules' file is looked at by the game's ticks, and none goes by here
         round = pick();
         if (round == null) {
             fail("no plain NTM bullet to fire");
@@ -132,6 +133,7 @@ public final class BulletCheck {
         for (boolean enabled : new boolean[] {false, true}) {
             Files.writeString(machineSettings, BulletRules.MACHINES_KEY + " = " + enabled + "\n");
             Thread.sleep(2100);
+            BulletRules.reloadNow(); // the rules' file is looked at by the game's ticks, and none goes by here
             for (String part : new String[] {"core", "cell"}) {
                 BlockPos at = single("hbm:cargo_elevator[facing=north,part=" + part + "]");
                 var in = new net.minecraft.world.phys.BlockHitResult(
@@ -146,6 +148,7 @@ public final class BulletCheck {
         Files.writeString(machineSettings, BulletRules.MACHINES_KEY + " = false\n");
         Files.writeString(bulletRules, RULES);
         Thread.sleep(2100);
+        BulletRules.reloadNow(); // the rules' file is looked at by the game's ticks, and none goes by here
 
         // ---- fences: a row of three, the middle one shot; rails at 6-9 and 12-15 pixels, the post in the middle
         String fence = "minecraft:oak_fence";
@@ -333,6 +336,7 @@ public final class BulletCheck {
         Path serverFile = FMLPaths.CONFIGDIR.get().resolve(ReaimTimes.FILE);
         Files.writeString(serverFile, BulletRules.CONCRETE_KEY + " = true\n");
         Thread.sleep(2100); // both files are looked at once a second
+        BulletRules.reloadNow(); // the rules' file is looked at by the game's ticks, and none goes by here
         hard = single("minecraft:white_concrete");
         for (int i = 0; i < 9; i++) shoot(hard, .5, .5, 120F);
         check("concrete, switch on: 9 heavy rounds leave it", "minecraft:white_concrete", after(hard));
@@ -343,6 +347,7 @@ public final class BulletCheck {
         check("concrete, switch on: 60 rounds of 18 leave it", "minecraft:white_concrete", after(hard));
         Files.writeString(serverFile, BulletRules.CONCRETE_KEY + " = false\n");
         Thread.sleep(2100);
+        BulletRules.reloadNow(); // the rules' file is looked at by the game's ticks, and none goes by here
 
         // ---- NTM's wooden trench blocks: their boards as drawn (the gaps flown through), not their solid hitboxes
         // ceiling: boards along x at 15-16 px (z 1-7, 9-15), beams along z at 14-15 px (x 0-2, 14-16)
@@ -407,6 +412,7 @@ public final class BulletCheck {
         worldNumbers(server);
         selectorsAsBefore();
         tagsAnew(server);
+        rulesByTicks();
         lines.add(ok ? "ALL OK" : "SOME FAILED");
         return ok;
     }
@@ -439,6 +445,39 @@ public final class BulletCheck {
         check("world: air is the game's: plain and cave, not stone or a fence", "true true false false",
                 w.air(acup.gunfeel.host.BlockTable.AIR) + " " + w.air(cave) + " " + w.air(s) + " " + w.air(f));
         check("world: stone's destroy speed there", stoneState.getDestroySpeed(level, stone), w.destroySpeed(s, stone.getX(), stone.getY(), stone.getZ()));
+    }
+
+    // ---- the rules' file looked at by the game's ticks (BulletRuleText.tick), not by the clock at each question: a
+    // change waits for a tick a second on; a tick within the second does not look; reloadNow looks at once. The ticks
+    // are given here (none goes by while the check runs), a second past the clock; each file its own modified time
+    private static void rulesByTicks() throws Exception {
+        Path f = FMLPaths.CONFIGDIR.get().resolve(BulletRules.FILE);
+        BlockState melon = state("minecraft:melon");
+        String melonRule = "break minecraft:melon instant drop\n";
+        long stamp = System.currentTimeMillis() + 60_000;
+        BulletRules.reloadNow();
+        String before = String.valueOf(BulletRules.breakRule(melon));
+        Files.writeString(f, RULES + melonRule);
+        Files.setLastModifiedTime(f, java.nio.file.attribute.FileTime.fromMillis(stamp += 1000));
+        check("rules: a change to the file waits for a tick", before, String.valueOf(BulletRules.breakRule(melon)));
+        long t = System.currentTimeMillis() + 1001;
+        BulletRuleText.tick(t);
+        BulletRuleText.Break instant = BulletRules.breakRule(melon);
+        check("rules: a tick a second on, and the next question has it", "1 true", instant == null ? "none" : instant.mode() + " " + instant.drop());
+        Files.writeString(f, RULES);
+        Files.setLastModifiedTime(f, java.nio.file.attribute.FileTime.fromMillis(stamp += 1000));
+        BulletRuleText.tick(t + 500);
+        check("rules: a tick within the second does not look", String.valueOf(instant), String.valueOf(BulletRules.breakRule(melon)));
+        BulletRuleText.tick(t + 1001);
+        check("rules: the tick after it does", before, String.valueOf(BulletRules.breakRule(melon)));
+        Files.writeString(f, RULES + melonRule);
+        Files.setLastModifiedTime(f, java.nio.file.attribute.FileTime.fromMillis(stamp += 1000));
+        BulletRules.reloadNow();
+        check("rules: reloadNow looks at once", String.valueOf(instant), String.valueOf(BulletRules.breakRule(melon)));
+        Files.writeString(f, RULES);
+        Files.setLastModifiedTime(f, java.nio.file.attribute.FileTime.fromMillis(stamp += 1000));
+        BulletRules.reloadNow();
+        check("rules: the stand's own again", before, String.valueOf(BulletRules.breakRule(melon)));
     }
 
     // ---- NTM's standard ricochet and ours (Ricochet, core): a bullet grazing a floor at half its ricochetAngle bounces

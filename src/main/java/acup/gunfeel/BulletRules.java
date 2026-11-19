@@ -32,6 +32,13 @@ public final class BulletRules extends BulletRuleText {
     private BulletRules() {
     }
 
+    // the rules' file looked at again a second on, by the game's ticks (BulletRuleText.tick): every level's, both sides
+    // (a client's level, a server's), from the first question to the rules on; the first one looks at the file at once
+    static {
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.tick.LevelTickEvent.Post.class,
+                e -> tick(System.currentTimeMillis()));
+    }
+
     // the answers per block (core: BlockRuleAnswers), by its state's number (BlockStates)
     private static final BlockRuleAnswers ANSWERS = new BlockRuleAnswers();
     // goes up each time the rules are read anew (PassableClip forgets the shapes it took from them)
