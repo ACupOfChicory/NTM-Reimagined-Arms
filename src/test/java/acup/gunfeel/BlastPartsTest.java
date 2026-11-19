@@ -68,13 +68,13 @@ class BlastPartsTest {
         assertEquals(new Vec3(0.5, 1, 0.25), BlastParts.nearest(box, new Vec3(0.5, 1, 0.25)));
         assertEquals(new Vec3(0, 0, 0), BlastParts.nearest(box, new Vec3(-1, -1, -1)));
         assertEquals(2 * (2 + 1 + 0.5), BlastParts.surface(box), 1e-9);
-        var three = BlastParts.points(box, 3);
+        var three = BlastSight.points(box, 3);
         // the middle, then 0.15 and 0.85 along the longest edge (y)
-        var want = List.of(new Vec3(0.5, 1, 0.25), new Vec3(0.5, 0.3, 0.25), new Vec3(0.5, 1.7, 0.25));
+        var want = List.of(new Vec3d(0.5, 1, 0.25), new Vec3d(0.5, 0.3, 0.25), new Vec3d(0.5, 1.7, 0.25));
         assertEquals(3, three.size());
         for (int i = 0; i < 3; i++) assertTrue(three.get(i).distanceTo(want.get(i)) < 1e-9, three.toString());
-        assertEquals(1, BlastParts.points(box, 1).size());
-        assertEquals(9, BlastParts.points(box, 9).size());
+        assertEquals(1, BlastSight.points(box, 1).size());
+        assertEquals(9, BlastSight.points(box, 9).size());
     }
 
     @Test

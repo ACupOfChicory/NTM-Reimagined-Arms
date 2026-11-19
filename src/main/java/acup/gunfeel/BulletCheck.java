@@ -15,8 +15,13 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
@@ -398,6 +403,7 @@ public final class BulletCheck {
         modelHits();
         richterBulletSpeed();
         ricochets();
+        blastSight(server);
         worldNumbers(server);
         selectorsAsBefore();
         tagsAnew(server);
@@ -455,6 +461,215 @@ public final class BulletCheck {
             check("ricochet: a grazing round off " + floor, floor.equals("minecraft:cobblestone") ? "bounced up" : "stopped", got);
             for (int i = -1; i < 8; i++) level.setBlock(at.south(i), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
         }
+    }
+
+    // ---- what a blast by parts sees (BlastSight, core, on the world's ray and shapes: WorldView's clip and boxes)
+    // against 95ce893's BlastParts.points, visibility and solid on the game's level, word for word below (OldSight):
+    // a block of random shapes (slabs, stairs, fences, panes, walls, scaffolding and powder snow, whose shapes go by
+    // the entity's context), random parts and nodes in it, the same share to the bit; the world's own answers (its ray's
+    // every field, a shape's boxes, free room, its tick and side) against the game's as its callers ask it
+    private static final class OldSight {
+        /** the part's points the rays start from: its middle, then pairs along its longest edge */
+        static List<Vec3> points(ModelBox b, int rays) {
+            double lu = Math.sqrt(b.ux() * b.ux() + b.uy() * b.uy() + b.uz() * b.uz());
+            double lv = Math.sqrt(b.vx() * b.vx() + b.vy() * b.vy() + b.vz() * b.vz());
+            double lw = Math.sqrt(b.wx() * b.wx() + b.wy() * b.wy() + b.wz() * b.wz());
+            int axis = lu >= lv && lu >= lw ? 0 : lv >= lw ? 1 : 2;
+            List<Vec3> out = new ArrayList<>(rays);
+            out.add(ModelContours.point(b, .5, .5, .5));
+            for (int i = 1; out.size() < rays; i++) {
+                // 0.15 and 0.85 of the length, then halfway in to the middle and so on
+                double off = 0.35 / i;
+                for (double t : new double[] { .5 - off, .5 + off }) {
+                    if (out.size() >= rays) break;
+                    out.add(ModelContours.point(b, axis == 0 ? t : .5, axis == 1 ? t : .5, axis == 2 ? t : .5));
+                }
+            }
+            return out;
+        }
+
+        /** the share of the part's rays that reach the blast from its best node, as NTM's getBlockDensity's */
+        static double visibility(Level level, ModelBox b, Vec3[] nodes, Entity entity, int rays) {
+            // a point inside a block (a big model reaches into a wall) sends no ray: the part's others go by themselves
+            List<Vec3> from = new ArrayList<>(rays);
+            for (Vec3 p : points(b, rays)) if (!solid(level, p)) from.add(p);
+            if (from.isEmpty()) return 0;
+            double best = 0;
+            for (Vec3 node : nodes) {
+                int clear = 0;
+                for (Vec3 p : from)
+                    if (level.clip(new ClipContext(p, node, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, entity)).getType()
+                            == HitResult.Type.MISS) clear++;
+                best = Math.max(best, clear / (double) from.size());
+                if (best >= 1) break;
+            }
+            return best;
+        }
+
+        static boolean solid(Level level, Vec3 p) {
+            var pos = net.minecraft.core.BlockPos.containing(p);
+            var shape = level.getBlockState(pos).getCollisionShape(level, pos);
+            if (shape.isEmpty()) return false;
+            Vec3 in = p.subtract(pos.getX(), pos.getY(), pos.getZ());
+            for (var box : shape.toAabbs()) if (box.contains(in)) return true;
+            return false;
+        }
+    }
+
+    private static void blastSight(MinecraftServer server) {
+        java.util.SplittableRandom r = new java.util.SplittableRandom(1909);
+        int x0 = 40, y0 = 180, z0 = 40, n = 12;
+        String[] palette = {"minecraft:stone", "minecraft:smooth_stone_slab[type=bottom]", "minecraft:smooth_stone_slab[type=top]",
+                "minecraft:oak_stairs[facing=east,half=bottom]", "minecraft:oak_stairs[facing=north,half=top,shape=outer_left]",
+                "minecraft:oak_fence[east=true,north=true]", "minecraft:glass_pane[east=true,west=true]", "minecraft:iron_bars[north=true]",
+                "minecraft:cobblestone_wall[up=true]", "minecraft:scaffolding[bottom=false,distance=0]", "minecraft:scaffolding[bottom=true,distance=1]",
+                "minecraft:powder_snow", "minecraft:snow[layers=3]", "minecraft:soul_sand", "minecraft:lantern", "minecraft:iron_chain",
+                "minecraft:ladder[facing=south]", "minecraft:water", "minecraft:hopper", "minecraft:anvil"};
+        for (int x = 0; x < n; x++)
+            for (int y = 0; y < n; y++)
+                for (int z = 0; z < n; z++)
+                    level.setBlock(new BlockPos(x0 + x, y0 + y, z0 + z),
+                            r.nextInt(3) == 0 ? state(palette[r.nextInt(palette.length)]) : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(),
+                            2 | 16);
+        var zombie = net.minecraft.world.entity.EntityTypes.ZOMBIE.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        zombie.setPos(x0 + 6.5, y0 + 6, z0 + 6.5);
+        zombie.setNoAi(true);
+        zombie.setNoGravity(true);
+        level.addFreshEntity(zombie);
+        acup.gunfeel.host.WorldView w = Wiring.world(level);
+        acup.gunfeel.host.Body body = EntityBody.of(zombie);
+        try {
+            // a point inside a block's shape: on the cells' edges and halves too
+            double[] edges = {0, .5, 1 - 1e-9, .4999999999, .25, .75, .9375, .0625};
+            int same = 0, solid = 0, points = 40000;
+            for (int i = 0; i < points; i++) {
+                double[] c = new double[3];
+                for (int k = 0; k < 3; k++)
+                    c[k] = new int[] {x0, y0, z0}[k] + r.nextInt(n) + (r.nextBoolean() ? edges[r.nextInt(edges.length)] : r.nextDouble());
+                boolean was = OldSight.solid(level, new net.minecraft.world.phys.Vec3(c[0], c[1], c[2]));
+                if (was == BlastSight.solid(w, new Vec3d(c[0], c[1], c[2]))) same++;
+                if (was) solid++;
+            }
+            check("blast: a point inside a block's shape, as before (" + solid + " inside)", points + "", same + "");
+            check("blast: points both inside and out", true, solid > points / 10 && solid < points * 9 / 10);
+            // the parts' share in sight: random boxes and nodes in the block, 1 to 9 rays, by the zombie
+            int parts = 4000, equal = 0, whole = 0, none = 0;
+            for (int i = 0; i < parts; i++) {
+                double ox = x0 + 1 + r.nextDouble() * (n - 2), oy = y0 + 1 + r.nextDouble() * (n - 2), oz = z0 + 1 + r.nextDouble() * (n - 2);
+                double a = r.nextDouble() * Math.PI * 2, lu = .1 + r.nextDouble() * 1.4, lv = .1 + r.nextDouble() * 1.4, lw = .1 + r.nextDouble() * 1.4;
+                double ca = Math.cos(a), sa = Math.sin(a);
+                ModelBox b = new ModelBox("part", ox, oy, oz, ca * lu, 0, sa * lu, 0, lv, 0, -sa * lw, 0, ca * lw);
+                int k = 1 + r.nextInt(3), rays = 1 + r.nextInt(9);
+                net.minecraft.world.phys.Vec3[] nodes = new net.minecraft.world.phys.Vec3[k];
+                Vec3d[] sight = new Vec3d[k];
+                for (int j = 0; j < k; j++) {
+                    nodes[j] = new net.minecraft.world.phys.Vec3(x0 + r.nextDouble() * n, y0 + r.nextDouble() * n, z0 + r.nextDouble() * n);
+                    sight[j] = new Vec3d(nodes[j].x, nodes[j].y, nodes[j].z);
+                }
+                double was = OldSight.visibility(level, b, nodes, zombie, rays), is = BlastSight.visibility(w, body, b, sight, rays);
+                if (Double.doubleToRawLongBits(was) == Double.doubleToRawLongBits(is)) equal++;
+                if (was == 1) whole++;
+                if (was == 0) none++;
+            }
+            check("blast: a part's share in sight, to the bit (" + whole + " whole, " + none + " none)", parts + "", equal + "");
+            check("blast: parts seen whole, partly and not at all", true, whole > 0 && none > 0 && whole + none < parts);
+            worldAsked(w, body, zombie, r, x0, y0, z0, n, server);
+        } finally {
+            zombie.discard();
+            for (int x = 0; x < n; x++)
+                for (int y = 0; y < n; y++)
+                    for (int z = 0; z < n; z++)
+                        level.setBlock(new BlockPos(x0 + x, y0 + y, z0 + z), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 2 | 16);
+        }
+    }
+
+    // the world's (WorldView's) answers against the game's as its callers ask it: the ray (ClipContext with the entity,
+    // or the empty context), a shape's boxes (getCollisionShape(level, pos) and its kin, with the entity's context),
+    // noCollision, the tick and the side
+    private static void worldAsked(acup.gunfeel.host.WorldView w, acup.gunfeel.host.Body body, net.minecraft.world.entity.Entity zombie,
+            java.util.SplittableRandom r, int x0, int y0, int z0, int n, MinecraftServer server) {
+        var shapes = net.minecraft.world.level.ClipContext.Block.values();
+        var fluids = net.minecraft.world.level.ClipContext.Fluid.values();
+        acup.gunfeel.host.RayHit out = new acup.gunfeel.host.RayHit();
+        int rays = 20000, same = 0, hits = 0, inside = 0;
+        int[] kinds = new int[4];
+        for (int i = 0; i < rays; i++) {
+            var from = new net.minecraft.world.phys.Vec3(x0 - 1 + r.nextDouble() * (n + 2), y0 - 1 + r.nextDouble() * (n + 2), z0 - 1 + r.nextDouble() * (n + 2));
+            var to = r.nextInt(20) == 0 ? from : new net.minecraft.world.phys.Vec3(x0 - 1 + r.nextDouble() * (n + 2), y0 - 1 + r.nextDouble() * (n + 2),
+                    z0 - 1 + r.nextDouble() * (n + 2));
+            int shape = r.nextInt(4), fluid = r.nextInt(4);
+            boolean by = r.nextBoolean();
+            var hit = by ? level.clip(new net.minecraft.world.level.ClipContext(from, to, shapes[shape], fluids[fluid], zombie))
+                    : level.clip(new net.minecraft.world.level.ClipContext(from, to, shapes[shape], fluids[fluid],
+                            net.minecraft.world.phys.shapes.CollisionContext.empty()));
+            boolean got = w.clip(from.x, from.y, from.z, to.x, to.y, to.z, shape, fluid, by ? body : null, out);
+            boolean block = hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK;
+            if (got == block && out.block == block && out.x == hit.getLocation().x && out.y == hit.getLocation().y && out.z == hit.getLocation().z
+                    && out.face == hit.getDirection().ordinal() && out.bx == hit.getBlockPos().getX() && out.by == hit.getBlockPos().getY()
+                    && out.bz == hit.getBlockPos().getZ() && out.inside == hit.isInside()) same++;
+            if (block) {
+                hits++;
+                kinds[shape]++;
+            }
+            if (hit.isInside()) inside++;
+        }
+        check("world: the game's ray, every field (" + hits + " hits, " + inside + " inside)", rays + "", same + "");
+        check("world: rays hit by every shape kind, and some start inside", true, kinds[0] > 0 && kinds[1] > 0 && kinds[2] > 0 && kinds[3] > 0 && inside > 0);
+        // a shape's boxes: each kind, with and without the zombie's context, as the game's own calls give them
+        int cells = 0, boxesSame = 0, many = 0;
+        double[] buf = new double[6 * 64];
+        for (int x = 0; x < n; x++)
+            for (int y = 0; y < n; y++)
+                for (int z = 0; z < n; z++) {
+                    BlockPos p = new BlockPos(x0 + x, y0 + y, z0 + z);
+                    BlockState st = level.getBlockState(p);
+                    var ctx = net.minecraft.world.phys.shapes.CollisionContext.of(zombie);
+                    net.minecraft.world.phys.shapes.VoxelShape[] want = {st.getCollisionShape(level, p), st.getShape(level, p),
+                            st.getVisualShape(level, p, net.minecraft.world.phys.shapes.CollisionContext.empty()), st.getCollisionShape(level, p, ctx),
+                            st.getShape(level, p, ctx), st.getVisualShape(level, p, ctx)};
+                    for (int k = 0; k < 6; k++) {
+                        cells++;
+                        var aabbs = want[k].toAabbs();
+                        int got = w.boxes(p.getX(), p.getY(), p.getZ(), k % 3, k < 3 ? null : body, buf);
+                        boolean eq = got == aabbs.size();
+                        for (int i = 0; eq && i < got; i++) {
+                            var b = aabbs.get(i);
+                            eq = buf[i * 6] == b.minX && buf[i * 6 + 1] == b.minY && buf[i * 6 + 2] == b.minZ && buf[i * 6 + 3] == b.maxX
+                                    && buf[i * 6 + 4] == b.maxY && buf[i * 6 + 5] == b.maxZ;
+                        }
+                        if (eq) boxesSame++;
+                        if (got > 1) many++;
+                        if (got > 0) {
+                            double[] shortOut = new double[got * 6 - 1];
+                            if (w.boxes(p.getX(), p.getY(), p.getZ(), k % 3, k < 3 ? null : body, shortOut) != -got) boxesSame--;
+                        }
+                    }
+                }
+        check("world: a shape's boxes as the game's, in its order (" + many + " of many boxes)", cells + "", boxesSame + "");
+        String thrown;
+        try {
+            w.boxes(x0, y0, z0, acup.gunfeel.host.WorldView.FALLDAMAGE_RESETTING, null, buf);
+            thrown = "none";
+        } catch (IllegalArgumentException e) {
+            thrown = "IllegalArgumentException";
+        }
+        check("world: no block shape of the fall damage kind", "IllegalArgumentException", thrown);
+        // free room: noCollision with the zombie and without
+        int rooms = 4000, freeSame = 0, free = 0;
+        for (int i = 0; i < rooms; i++) {
+            double ax = x0 - 1 + r.nextDouble() * (n + 2), ay = y0 - 1 + r.nextDouble() * (n + 2), az = z0 - 1 + r.nextDouble() * (n + 2);
+            double bx = ax + r.nextDouble() * 1.5, by = ay + r.nextDouble() * 2, bz = az + r.nextDouble() * 1.5;
+            boolean with = r.nextBoolean();
+            boolean was = level.noCollision(with ? zombie : null, new net.minecraft.world.phys.AABB(ax, ay, az, bx, by, bz));
+            if (was == w.free(with ? body : null, ax, ay, az, bx, by, bz)) freeSame++;
+            if (was) free++;
+        }
+        check("world: free room as the game's noCollision (" + free + " free)", rooms + "", freeSame + "");
+        check("world: rooms free and not", true, free > 0 && free < rooms);
+        // the tick: the level's, the Nether's the same; the side: the server's
+        check("world: the level's tick, the Nether's the same", level.getGameTime() + " " + level.getGameTime(),
+                w.gameTime() + " " + Wiring.world(server.getLevel(net.minecraft.world.level.Level.NETHER)).gameTime());
+        check("world: the server's side", false, w.client());
     }
 
     // ---- the rules' selectors on the blocks' facts (core: BlockSelectors) against b11fa9b's BulletRules.blockMatches
