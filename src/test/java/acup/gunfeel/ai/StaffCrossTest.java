@@ -25,7 +25,7 @@ class StaffCrossTest {
         HqGrid.Route r = g.route(x, HqGridTest.mid(10), x, HqGridTest.mid(22));
         StaffCross.Site s = StaffCross.site(g, r);
         assertNotNull(s);
-        assertEquals(AiCrossing.Kind.FORD, s.kind());
+        assertEquals(CrossingKind.FORD, s.kind());
         // at the ford's cell: on the near bank before it, gathering past the far bank
         assertEquals(22, g.cellX(s.x()), 1);
         assertTrue(s.z() < 16 * C && s.farZ() > 17 * C, "near " + s.z() + ", far " + s.farZ());
@@ -37,7 +37,7 @@ class StaffCrossTest {
         double x = HqGridTest.mid(16);
         StaffCross.Site s = StaffCross.site(g, g.route(x, HqGridTest.mid(10), x, HqGridTest.mid(22)));
         assertNotNull(s);
-        assertEquals(AiCrossing.Kind.SWIM, s.kind());
+        assertEquals(CrossingKind.SWIM, s.kind());
         assertTrue(s.z() < 16 * C && s.farZ() > 17 * C, "near " + s.z() + ", far " + s.farZ());
     }
 

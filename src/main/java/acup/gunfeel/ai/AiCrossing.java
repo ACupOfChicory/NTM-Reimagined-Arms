@@ -67,7 +67,7 @@ public final class AiCrossing {
 
     
     /** a place to cross a squad found: where (on the river), how */
-    public record Spot(double x, double z, Kind kind) {
+    public record Spot(double x, double z, CrossingKind kind) {
     }
 
     /** a squad's report to its staff: a foe across a river, where it is on its bank, the places to cross it found */
@@ -75,16 +75,13 @@ public final class AiCrossing {
     }
 
     /** an order to cross: at the place (on the near bank), how, and the far bank's rally point */
-    public record Task(double crossX, double crossZ, Kind kind, double farX, double farZ) {
+    public record Task(double crossX, double crossZ, CrossingKind kind, double farX, double farZ) {
     }
 
     /** the stands' orders, by side (till the staff's AiCommander.crossing is in) */
     static final Map<String, Task> STAND_ORDERS = new HashMap<>();
 
-    /** how a crossing goes over: a bridge, a ford waded, or swum (the staff's task CROSS, a squad's report) */
-    public enum Kind {
-        BRIDGE, FORD, SWIM
-    }
+    // how a crossing goes over: CrossingKind (core)
 
     enum Phase {
         GATHER, SMOKE, SECURITY, MAIN, LAST
@@ -126,7 +123,7 @@ public final class AiCrossing {
         }
 
         boolean swims() {
-            return task.kind == Kind.SWIM;
+            return task.kind == CrossingKind.SWIM;
         }
     }
 
@@ -467,7 +464,7 @@ public final class AiCrossing {
         Spot spot = null;
         // (a look a little slant measures the water a little wider: SLANT more)
         if (banks != null && across - 1 <= NARROW + SLANT)
-            spot = new Spot((BlockPos.getX(banks[0]) + BlockPos.getX(banks[1])) / 2.0 + 0.5, (BlockPos.getZ(banks[0]) + BlockPos.getZ(banks[1])) / 2.0 + 0.5, Kind.SWIM);
+            spot = new Spot((BlockPos.getX(banks[0]) + BlockPos.getX(banks[1])) / 2.0 + 0.5, (BlockPos.getZ(banks[0]) + BlockPos.getZ(banks[1])) / 2.0 + 0.5, CrossingKind.SWIM);
         // straight across no water to swim, the river beside it (the lines to the side swim): a bridge or a ford there,
         // if a dry way goes over to the far side of the river
         else if (straightDry && banks != null) {
@@ -480,7 +477,7 @@ public final class AiCrossing {
                 if (p.reached && over && p.cells.length <= (width + 10) * 2) {
                     boolean wet = false;
                     for (long c : p.cells) wet |= wet(r, c);
-                    spot = new Spot(BlockPos.getX(from) + 0.5 + w.ux * (width / 2 + 3), BlockPos.getZ(from) + 0.5 + w.uz * (width / 2 + 3), wet ? Kind.FORD : Kind.BRIDGE);
+                    spot = new Spot(BlockPos.getX(from) + 0.5 + w.ux * (width / 2 + 3), BlockPos.getZ(from) + 0.5 + w.uz * (width / 2 + 3), wet ? CrossingKind.FORD : CrossingKind.BRIDGE);
                 }
             }
         }
@@ -540,7 +537,7 @@ public final class AiCrossing {
         Vec3 at = new Vec3(t.crossX(), bot.mob.getY(), t.crossZ());
         long near = PathSearch.NONE;
         // the near bank's cell at the place: the water's edge on the line over, swimming; the place itself, else
-        if (t.kind() == Kind.SWIM) {
+        if (t.kind() == CrossingKind.SWIM) {
             long[] b = line(map, at.add(-ux * 8, 0, -uz * 8), new Vec3(t.farX(), at.y, t.farZ()));
             if (b != null) near = b[0];
         }
