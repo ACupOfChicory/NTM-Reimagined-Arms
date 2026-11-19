@@ -5,6 +5,9 @@ import org.joml.Vector3f;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
+
 // Gun model kick per shot along the gun's recoil preset (RecoilPresets: kickPitch ... kickPosZ), as the preset has it
 // (times modelKick): the preset is for the gun's class already, so NTM's recoil number does not scale it again. Yaw
 // and roll get a random direction and size per shot. Overlapping shots add up. Rotation pivots on the right-hand grip.
@@ -24,6 +27,7 @@ public final class ModelRecoil {
         return ModelKick.over(GunClock.nanos());
     }
 
+    @Hook(HookPoint.RECOIL_SHOT)
     public static void shot(boolean aiming) {
         float s = Config.modelKick * (aiming ? Config.adsRecoil : 1F) * Prone.recoil(net.minecraft.client.Minecraft.getInstance().player);
         if (s <= 0F) return;
@@ -39,6 +43,7 @@ public final class ModelRecoil {
     }
 
     // Pose is in NTM's gun frame before the model scale: +Z forward, +Y up. size = gun length there.
+    @Hook(HookPoint.RECOIL_MODEL)
     public static void apply(PoseStack pose, float size, Vector3f pivot) {
         if (ModelKick.idle()) return;
         ModelKick.at(GunClock.nanos(), SUM);

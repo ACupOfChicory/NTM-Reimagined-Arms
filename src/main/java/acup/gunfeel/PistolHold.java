@@ -11,6 +11,9 @@ import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
+
 /**
  * A pistol or a revolver held as the reference measurements show it (pistolHold, notes/measure.md is local): from the
  * hip the gun is a little right of the middle and below it, pointing ahead, and it comes up to the sights on a smooth
@@ -95,6 +98,7 @@ public final class PistolHold {
      * The hip place in the frame of standardAimingTransform (the pose as it is there), from NTM's aimed place
      * aX, aY, aZ: false while the gun is not measured yet, then NTM's own hold is kept.
      */
+    @Hook(HookPoint.PISTOL_PLACE)
     public static boolean hip(PoseStack pose, Item item, double aX, double aY, double aZ, Vector3f out) {
         Vector3f[] ends = ENDS.get(item);
         if (ends == null) return false;
@@ -123,6 +127,7 @@ public final class PistolHold {
      * The aimed place in the frame of standardAimingTransform, from NTM's aimed place aX, aY, aZ: false while the gun
      * is not measured yet, then NTM's own place is kept.
      */
+    @Hook(HookPoint.PISTOL_PLACE)
     public static boolean aim(PoseStack pose, Item item, double aX, double aY, double aZ, Vector3f out) {
         Vector3f[] corners = CORNERS.get(item);
         if (corners == null) return false;

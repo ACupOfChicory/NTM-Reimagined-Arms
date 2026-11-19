@@ -30,6 +30,9 @@ import net.minecraft.world.entity.player.PlayerModelType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
+
 // Player arms holding the first-person NTM gun with both hands.
 // The first model NTM submits for a gun is its body; the parts it draws give the gun's shape
 // (GunGeometry). Hands sit on that shape (Grips), follow the body through NTM's animations, and the
@@ -263,6 +266,7 @@ public final class Arms {
         return a.distance(b);
     }
 
+    @Hook(HookPoint.ARMS_DRAW)
     public static void end(ItemStack stack, SubmitNodeCollector collector, int light, boolean drawArms) {
         capturing = false;
         geometry = variant();
