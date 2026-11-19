@@ -589,7 +589,7 @@ public final class AiGunner {
      * longer: the next burst starts its climb over.
      */
     private boolean heatHolds(ItemStack stack, long time) {
-        acup.gunfeel.heat.Overheat.Gun g = acup.gunfeel.heat.Overheat.Gun.of(stack);
+        acup.gunfeel.heat.Overheat.Gun g = acup.gunfeel.heat.Overheat.gun(stack);
         if (g == null) return false;
         float h = acup.gunfeel.heat.Overheat.heat(stack, time);
         if (h >= acup.gunfeel.heat.Overheat.AI_WAIT) cooling = true;
