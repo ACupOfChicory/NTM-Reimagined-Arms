@@ -7,6 +7,7 @@ import acup.gunfeel.ai.AiMoveControl;
 import acup.gunfeel.host.Body;
 import acup.gunfeel.host.BodyControl;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.pathfinder.Node;
 import net.minecraft.world.level.pathfinder.Path;
@@ -65,5 +66,40 @@ final class EntityBodyControl implements BodyControl {
     @Override
     public boolean stuck(Body b) {
         return mob(b).getMoveControl() instanceof AiMoveControl legs && legs.stuck();
+    }
+
+    @Override
+    public void yRot(Body b, float v) {
+        EntityBody.entity(b).setYRot(v);
+    }
+
+    @Override
+    public void yHeadRot(Body b, float v) {
+        EntityBody.entity(b).setYHeadRot(v);
+    }
+
+    @Override
+    public void yBodyRot(Body b, float v) {
+        ((LivingEntity) EntityBody.entity(b)).yBodyRot = v;
+    }
+
+    @Override
+    public void xRot(Body b, float v) {
+        EntityBody.entity(b).setXRot(v);
+    }
+
+    @Override
+    public void face(Body b, float yaw) {
+        if (mob(b).getMoveControl() instanceof AiMoveControl legs) legs.face(yaw);
+    }
+
+    @Override
+    public boolean turned(Body b) {
+        return mob(b).getMoveControl() instanceof AiMoveControl legs && legs.turned();
+    }
+
+    @Override
+    public void lookAt(Body b, double x, double y, double z, float yMax, float xMax) {
+        mob(b).getLookControl().setLookAt(x, y, z, yMax, xMax);
     }
 }

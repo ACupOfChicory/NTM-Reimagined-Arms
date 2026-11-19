@@ -129,6 +129,19 @@ final class AiCheckEntityView {
         walked &= mc.hasWanted() && mc.getWantedX() == cx + 0.5 && mc.getWantedY() == cy && mc.getWantedZ() == cz + 0.25 && mc.getSpeedModifier() == 0.7
                 && !control.stuck(db);
         check.check("entityview: BodyControl walks the cells as the game's path, stops it, sets the MoveControl's point", walked);
+        // BodyControl's turn: each the game's setter, read back by the Body and the game's getters; the game's
+        // MoveControl never turned to a path, face nothing to it; lookAt sets the LookControl's point
+        control.yRot(db, 21F);
+        control.yHeadRot(db, -33F);
+        control.xRot(db, 17F);
+        control.yBodyRot(db, 23F);
+        boolean turnSet = db.yRot() == 21F && dummy.getYRot() == 21F && db.yHeadRot() == -33F && dummy.getYHeadRot() == -33F
+                && db.xRot() == 17F && dummy.getXRot() == 17F && dummy.yBodyRot == 23F && !control.turned(db);
+        control.face(db, 21F);
+        control.lookAt(db, cx + 0.5, cy + 1.25, cz + 5.5, 10F, 20F);
+        net.minecraft.world.entity.ai.control.LookControl lc = dummy.getLookControl();
+        turnSet &= lc.getWantedX() == cx + 0.5 && lc.getWantedY() == cy + 1.25 && lc.getWantedZ() == cz + 5.5;
+        check.check("entityview: BodyControl turns the body, head and look by the game's setters, the Body reads them back", turnSet);
         removed(view);
         dimension(view);
         check.out(String.format(Locale.ROOT, "     entityview: %d differences from the game's getters%s", wrong.size(),

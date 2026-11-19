@@ -39,13 +39,13 @@ public final class AiMoveControl extends MoveControl<Mob> {
     }
 
     /** face this way this tick, walking or not (from the mob's goal, before the control ticks) */
-    void face(float yaw) {
+    public void face(float yaw) {
         faceYaw = yaw;
         facing = true;
     }
 
     /** stuck jumping a while ago: it faces its path now (the gunner does not turn its body to the aim) */
-    boolean turned() {
+    public boolean turned() {
         return mob.tickCount < turnUntil;
     }
 

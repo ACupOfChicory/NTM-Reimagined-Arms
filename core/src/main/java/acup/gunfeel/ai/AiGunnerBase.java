@@ -26,6 +26,9 @@ public abstract class AiGunnerBase {
     private int coneOf = -1;
     private double cone = CLEAR_CONE;
 
+    private static final acup.gunfeel.host.BodyControl CONTROL = CoreServices.load(acup.gunfeel.host.BodyControl.class,
+            acup.gunfeel.host.BodyControl.MISSING);
+
     final Body body;
     public final AiAmmo ammo;
     /** ammo.settle, made once (no object a tick) for NtmGuns.settle */
@@ -41,6 +44,27 @@ public abstract class AiGunnerBase {
      * was down crawling (its burst cut)
      */
     public int crawlPulls, crawlHeldTicks;
+    // where it aims (the version keeps its own object of it, set with these): the place, none without
+    boolean hasAim;
+    double aimX, aimY, aimZ;
+    /** how far up and down from the aim the part it aims at reaches (the trigger's gate), blocks */
+    double halfHeight = AiAim.HALF_HEIGHT;
+    /** it runs this tick (AiMover.runs): its body faces its path, it does not shoot */
+    boolean runs;
+    /** the eye and the hand; whether it follows a target (and which) or looks at a place */
+    final AiAim sight = new AiAim();
+    boolean tracking;
+    int tracked = Integer.MIN_VALUE;
+    // for the stands and a grenadier's lob: a perfect hand, at once exactly here, always on target; let go after exactUntil
+    boolean hasExact;
+    double exactX, exactY, exactZ;
+    long exactUntil = Long.MAX_VALUE;
+    /** its body's random numbers (the game's own generator), and their gaussian for its hand, made once */
+    private final acup.gunfeel.GameRandom random;
+    private final java.util.function.DoubleSupplier gauss;
+    // the eye it turns from (leaned), the upright eye its look control turns the head from, the way it looks
+    private final double[] eye = new double[3], upright = new double[3], dir = new double[3];
+
     /** a gap between shots, ticks, after which a new burst starts (its climb grows again from the first shot) */
     static final int BURST_GAP = 10;
 
@@ -52,7 +76,93 @@ public abstract class AiGunnerBase {
         this.body = body;
         this.ammo = ammo;
         this.settle = ammo::settle;
+        this.random = body.random();
+        this.gauss = random::nextGaussian;
     }
+
+    /** where it aims: the place (has false: none) */
+    void aimAt(boolean has, double x, double y, double z) {
+        hasAim = has;
+        aimX = x;
+        aimY = y;
+        aimZ = z;
+    }
+
+    /**
+     * A lob (AiGrenadier): turned exactly along the barrel to this point, with no hand's error and no kick, till the
+     * tick until; has false lets go of it.
+     */
+    void lob(boolean has, double x, double y, double z, long until) {
+        hasExact = has;
+        exactX = x;
+        exactY = y;
+        exactZ = z;
+        exactUntil = has ? until : Long.MAX_VALUE;
+    }
+
+    // the head, body and look control to this view; the look control turns the head after the goals, so it is given a
+    // place along the view and the hand's error and the kick stay
+    void face(float y, float p, AiSkill skill) {
+        CONTROL.yHeadRot(body, y);
+        CONTROL.xRot(body, p);
+        // NTM fires a mob's bullet the way its body faces: the body faces the aim, but while running (the body
+        // follows the path then, the head turns within its neck)
+        if (!runs && !CONTROL.turned(body)) {
+            CONTROL.yRot(body, y);
+            CONTROL.yBodyRot(body, y);
+            CONTROL.face(body, y);
+        }
+        // from the upright eye: the look control turns the head from the mob's own place, not a leaned eye's
+        body.eye(upright);
+        double far;
+        if (!hasAim) far = 16;
+        else {
+            // Vec3.distanceTo, the aim's minus the eye's
+            double dx = aimX - upright[0], dy = aimY - upright[1], dz = aimZ - upright[2];
+            far = Math.max(1, Math.sqrt(dx * dx + dy * dy + dz * dz));
+        }
+        acup.gunfeel.GameMath.direction(p, y, dir);
+        CONTROL.lookAt(body, upright[0] + dir[0] * far, upright[1] + dir[1] * far, upright[2] + dir[2] * far, skill.turn(), skill.turn());
+    }
+
+    /**
+     * Turns the mob towards the aim with its hand (AiAim.turn); whether the spot it expects the target at is on the
+     * barrel now (the trigger may be down).
+     */
+    boolean turn(long tick) {
+        if (hasExact && tick > exactUntil) lob(false, 0, 0, 0, tick);
+        if (!hasAim) return false;
+        leanEye(eye);
+        AiSkill skill = AiSkill.current();
+        float y, p;
+        boolean on;
+        if (hasExact) {
+            y = AiAim.yawTo(eye[0], eye[2], exactX, exactZ);
+            p = AiAim.pitchTo(eye[0], eye[1], eye[2], exactX, exactY, exactZ);
+            on = true;
+        } else {
+            double mx = tracking ? sight.moveX : 0, my = tracking ? sight.moveY : 0, mz = tracking ? sight.moveZ : 0;
+            sight.turn(tick, skill, eye[0], eye[1], eye[2], body.yHeadRot(), body.xRot(), aimX, aimY, aimZ, mx, my, mz, gauss);
+            y = sight.yaw;
+            p = sight.pitch;
+            // on target as far as it knows: a kick it has not noticed yet left out
+            on = AiAim.onTarget(skill, eye[0], eye[1], eye[2], sight.seenYaw, sight.seenPitch, aimX, aimY, aimZ, halfHeight);
+        }
+        // a rubber slug's confusion swings the aim off (it fires all the same, as it believes it is on)
+        float[] off = rubberDrift();
+        if (off != null) {
+            y += off[0];
+            p = Math.clamp(p + off[1], -90F, 90F);
+        }
+        face(y, p, skill);
+        return on;
+    }
+
+    /** the eye it aims from, leaned as it leans (AiLean.eye) */
+    abstract void leanEye(double[] out);
+
+    /** a rubber slug's confusion now, {yaw, pitch} degrees, read only with the rubber slug on (null: off) */
+    abstract float @Nullable [] rubberDrift();
 
     /** the cone kept clear for the gun it holds */
     double clearCone() {
