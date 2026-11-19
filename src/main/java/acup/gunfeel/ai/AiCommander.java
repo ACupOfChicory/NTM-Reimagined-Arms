@@ -289,7 +289,7 @@ public final class AiCommander {
          * where to gather on the far bank
          */
         double crossX, crossZ, farX, farZ;
-        AiCrossing.@Nullable Kind crossKind;
+        @Nullable CrossingKind crossKind;
         /** the staff's way there as asked for (stage 7 C1, the squad's one); null: straight, as R5 */
         @Nullable Way way;
         /** a way walked to its end: not taken up again (on from there in straight legs) */

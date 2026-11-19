@@ -5,7 +5,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import acup.gunfeel.DebugLog;
+import acup.gunfeel.ModLog;
 import acup.gunfeel.ReaimTimes;
 
 /**
@@ -54,7 +54,7 @@ public final class AiThreads {
                     job.run();
                 } catch (RuntimeException | Error e) {
                     synchronized (AiThreads.class) {
-                        if (!failed) DebugLog.LOGGER.error("AI background job failed (logged once)", e);
+                        if (!failed) ModLog.LOGGER.error("AI background job failed (logged once)", e);
                         failed = true;
                     }
                 } finally {
