@@ -9,7 +9,6 @@ import java.util.Arrays;
 
 import org.junit.jupiter.api.Test;
 
-import acup.gunfeel.ai.imitation.AiChoice.Ask;
 import acup.gunfeel.ai.imitation.ImitationModel.Question;
 
 // The model file read as train.py writes it, and how its answers become AiChoice's: a decision every few ticks at a
