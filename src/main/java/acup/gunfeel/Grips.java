@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -35,10 +36,20 @@ public final class Grips {
     // The file keeps only what differs from the jar; "" there hides a shipped value.
     private static final Map<String, String> BUILTIN = builtin();
     private static final Map<String, String> USER = new HashMap<>();
-    private static final Map<String, String> VALUES = new HashMap<>(BUILTIN);
+    private static final Map<String, String> VALUES = new HashMap<>();
+    // A better make of a gun (Mister Topaz is the flamethrower a tier up) takes every setting of that gun, the jar's
+    // and the player's, its variants' ("-HeatShield") too, where it has none of its own; what is set on it is its own
+    // and written under it. Unlike sameAs, the other gun stays as it is when this one is changed.
+    private static final Map<String, String> INHERITS = Map.of("hbm:gun_flamer_topaz", "hbm:gun_flamer");
+    // the keys VALUES has from INHERITS, not the gun's own
+    private static final Set<String> INHERITED = new HashSet<>();
     private static Path file;
     private static long stamp = Long.MIN_VALUE;
     private static int version;
+
+    static {
+        merge();
+    }
 
     public static int version() {
         return version;
@@ -102,7 +113,36 @@ public final class Grips {
     public static String shipped(String gun, String key) {
         String v = BUILTIN.get(gun + "." + key);
         if (v == null || v.isEmpty()) v = BUILTIN.get(canon(gun) + "." + key);
+        String from = inheritsFrom(gun), hid = from == null ? null : VALUES.get(from + "." + key);
+        // the other gun's, unless the player's file hides it there (Topaz takes the hiding too)
+        if ((v == null || v.isEmpty()) && from != null && (hid == null || !hid.isEmpty())) v = BUILTIN.get(from + "." + key);
         return v == null || v.isEmpty() ? null : v;
+    }
+
+    // the gun this one takes its settings from where it has none of its own (INHERITS), null = none
+    static String inheritsFrom(String gun) {
+        return INHERITS.get(baseOf(gun));
+    }
+
+    // this gun's value of the key is the one of the gun it inherits from, not its own
+    static boolean inherited(String gun, String key) {
+        return INHERITED.contains(gun + "." + key);
+    }
+
+    // the full key ("<gun>.<setting>", "<gun>-Part.<setting>") of the gun the key's gun inherits from, null = none
+    private static String inheritedKey(String key) {
+        for (Map.Entry<String, String> e : INHERITS.entrySet()) {
+            String gun = e.getKey();
+            if (key.startsWith(gun + ".") || key.startsWith(gun + "-")) return e.getValue() + key.substring(gun.length());
+        }
+        return null;
+    }
+
+    // what a key is without the player's own value of it: the jar's, else the one inherited (INHERITS); null = none
+    private static String beneath(String key) {
+        if (BUILTIN.containsKey(key)) return BUILTIN.get(key);
+        String from = inheritedKey(key);
+        return from == null ? null : VALUES.get(from);
     }
 
     // this gun's value from the player's file, "" = hides the shipped one; null = none
@@ -142,7 +182,8 @@ public final class Grips {
         // unless the gun was given arms of its own (the arm editor's "own arms")
         if (!key.equals("sameAs") && !VALUES.containsKey(gun + "." + key) && !(armKey(key) && ownArms(baseOf(gun)))) gun = canon(gun);
         String k = gun + "." + key;
-        if (value == null || value.equals(BUILTIN.get(k))) USER.remove(k);
+        // a value the gun has anyway (from the jar, or inherited) is not the player's own: it keeps following that one
+        if (value == null || value.equals(beneath(k))) USER.remove(k);
         else USER.put(k, value);
         merge();
         if (save) save();
@@ -195,7 +236,8 @@ public final class Grips {
     static boolean variantHand(String variant, boolean right, boolean shippedOnly) {
         String g = armsGun(variant), h = right ? "right" : "left";
         var from = shippedOnly ? BUILTIN : VALUES;
-        return from.containsKey(g + "." + h) || from.containsKey(g + "." + h + "At");
+        // an empty value (a hand hidden) is no hand, as Grips.get reads it
+        return !from.getOrDefault(g + "." + h, "").isBlank() || !from.getOrDefault(g + "." + h + "At", "").isBlank();
     }
 
     // the gun this one shares its settings with (sameAs), null = none
@@ -275,7 +317,7 @@ public final class Grips {
                 }
         for (String k : keys) {
             String name = k.substring(k.lastIndexOf('.') + 1);
-            String jar = BUILTIN.get(k);
+            String jar = beneath(k);
             String other = from.equals(t) || gripKey(name) || !k.startsWith(t + ".") ? null : VALUES.get(from + "." + name);
             boolean through = jar != null && !jar.isEmpty() || other != null && !other.isEmpty();
             String want = arms.get(k);
@@ -334,6 +376,20 @@ public final class Grips {
         dirty = true;
     }
 
+    // a variant's hand of one side is the one it takes from the gun its gun inherits from (INHERITS), not its own
+    static boolean variantHandInherited(String variant, boolean right) {
+        String g = armsGun(variant), h = right ? "right" : "left";
+        return INHERITED.contains(g + "." + h) || INHERITED.contains(g + "." + h + "At");
+    }
+
+    // a variant held as the whole gun: its own hand taken off, the one it inherits (INHERITS) hidden
+    static void commonHand(String variant, boolean right) {
+        resetHand(variant, right, false);
+        String g = armsGun(variant), h = right ? "right" : "left";
+        for (String k : new String[] {g + "." + h, g + "." + h + "At"}) if (INHERITED.contains(k)) USER.put(k, "");
+        merge();
+    }
+
     // one hand back to the jar's position (or computed from the model)
     public static void resetHand(String id, boolean right, boolean save) {
         id = armsGun(id);
@@ -363,6 +419,20 @@ public final class Grips {
         VALUES.clear();
         VALUES.putAll(BUILTIN);
         VALUES.putAll(USER);
+        INHERITED.clear();
+        for (Map.Entry<String, String> in : INHERITS.entrySet()) {
+            String gun = in.getKey(), from = in.getValue();
+            Map<String, String> add = new HashMap<>();
+            for (Map.Entry<String, String> e : VALUES.entrySet()) {
+                String k = e.getKey();
+                if (!k.startsWith(from + ".") && !k.startsWith(from + "-") || k.equals(from + ".sameAs")) continue;
+                String mine = gun + k.substring(from.length());
+                // the gun's own key wins, "" too (it hides the other gun's value)
+                if (!VALUES.containsKey(mine)) add.put(mine, e.getValue());
+            }
+            VALUES.putAll(add);
+            INHERITED.addAll(add.keySet());
+        }
         version++;
     }
 

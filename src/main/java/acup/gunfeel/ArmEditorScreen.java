@@ -476,7 +476,9 @@ public final class ArmEditorScreen extends Screen {
     String title() {
         var clip = model.clip();
         String shared = model.sharedWith();
-        String whose = shared == null ? "" : Grips.ownArms(baseGun()) ? " · свои руки" : " · руки общие с «" + model.clips.gunName(shared) + "»";
+        String from = Grips.inheritsFrom(baseGun());
+        String whose = shared == null ? from == null ? "" : " · наследует «" + model.clips.gunName(from) + "»"
+                : Grips.ownArms(baseGun()) ? " · свои руки" : " · руки общие с «" + model.clips.gunName(shared) + "»";
         if (clip == null) return "Руки пушки · нет анимаций" + whose;
         String head = clip.label() + " · " + ArmEditor.seconds(clip.ms());
         for (String t : new String[] {"Руки пушки · " + head + whose, head + whose, head + whose.replace("руки общие", "общие")})

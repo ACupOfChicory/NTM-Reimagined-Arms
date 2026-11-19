@@ -126,10 +126,13 @@ public final class GripCommand {
         String gun = id.toString();
         String own = Grips.own(gun, key), shipped = Grips.shipped(gun, key);
         String global = Config.globalValue(key), code = Config.codeValue(key);
-        String now, from;
+        String now, from, inherited = own == null && Grips.inherited(gun, key) ? Grips.gunValue(gun, key) : null;
         if (own != null && !own.isEmpty()) {
             now = own;
             from = "твоя настройка этой пушки";
+        } else if (inherited != null) {
+            now = inherited;
+            from = "как у " + Grips.inheritsFrom(gun);
         } else if (shipped != null && own == null) {
             now = shipped;
             from = "по умолчанию для этой пушки в моде";

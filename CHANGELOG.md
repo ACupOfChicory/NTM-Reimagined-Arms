@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Mister Topaz now takes every arm and recoil setting of the hand flamethrower,
+  the mod's and your own (including its hands without the heat shield), wherever
+  Topaz has no setting of its own: change the flamethrower and Topaz changes with
+  it. What you set on Topaz stays Topaz's own and wins; the Daybreaker keeps its
+  own settings. In the gun editor a value Topaz takes from the flamethrower is
+  marked ○, its own ones ●.
+
 ## X1730
 
 - With "Fabulous!" graphics and Flywheel's translucent terrain off, smoke and

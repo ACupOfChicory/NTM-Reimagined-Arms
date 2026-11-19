@@ -2163,7 +2163,9 @@ final class ArmEditor {
             out.add(new Row("Деталь: " + partName((String) config(partKey())), "Деталь модели, с которой двигается кисть (помпа, рычаг). Корпус — всё оружие.", null,
                     List.of("grip.part.prev", "grip.part.next", "grip.part.reset")));
             if (!variantParts().isEmpty())
-                out.add(new Row("Хват вида: " + (Grips.variantHand(gunBase() + clips.variant(), hand == 0, false) ? "свой" : "общий"),
+                out.add(new Row("Хват вида: " + (!Grips.variantHand(gunBase() + clips.variant(), hand == 0, false) ? "общий"
+                        : Grips.variantHandInherited(gunBase() + clips.variant(), hand == 0)
+                                ? "как у «" + clips.gunName(Grips.inheritsFrom(gunBase())) + "»" : "свой"),
                         "Оружие сейчас без деталей " + variantParts() + " (например, обрез). Такой вид может держаться иначе."
                                 + " Общий хват — такой же, как у всего оружия.", null,
                         List.of("grip.variant.own", "grip.variant.common")));
@@ -2254,7 +2256,7 @@ final class ArmEditor {
                         !own ? "этот вид и так держится, как всё оружие"
                                 : Grips.variantHand(variant, hand == 0, true) ? "свой хват этого вида задан в моде: его можно править, но не убрать" : null,
                         () -> change(() -> {
-                            Grips.resetHand(variant, hand == 0, false);
+                            Grips.commonHand(variant, hand == 0);
                             Config.select(gun);
                         })));
             }
