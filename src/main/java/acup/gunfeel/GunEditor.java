@@ -172,7 +172,9 @@ public final class GunEditor extends Screen {
         String missing = missing();
         int y = height - 34;
         g.text(font, gun + missing, 4, y, 0xFFFFFFFF);
-        g.text(font, "● = своё у этой пушки   колесо: шаг, Shift+колесо: мельче", 4, y + 10, 0xFFA0A0A0);
+        String from = Grips.inheritsFrom(gun);
+        g.text(font, "● = своё у этой пушки" + (from == null ? "" : "   ○ = как у «" + itemName(from) + "»") + "   колесо: шаг, Shift+колесо: мельче", 4, y + 10,
+                0xFFA0A0A0);
         g.text(font, status, 4, y + 20, 0xFFFFC040);
         if (tab == 0 && curves) graph(g);
     }
@@ -241,7 +243,11 @@ public final class GunEditor extends Screen {
         Map<String, Spring> out = new java.util.LinkedHashMap<>();
         for (String c : group) out.put(c, RecoilPresets.spring(c));
         RecoilPresets.save(name, out);
-        for (String c : group) Grips.put(gun, c, null, false);
+        for (String c : group) {
+            Grips.put(gun, c, null, false);
+            // a movement taken from the gun this one inherits from would lie over the preset: hidden
+            if (Grips.inherited(gun, c) && Grips.gunValue(gun, c) != null) Grips.put(gun, c, "", false);
+        }
         Grips.put(gun, camera ? "cameraPreset" : "kickPreset", name, true);
         Config.select(gun);
         status = Component.literal("Пресет " + name + " (" + (camera ? "камера" : "пушка") + ") сохранён в config/" + RecoilPresets.FILE);
@@ -349,6 +355,11 @@ public final class GunEditor extends Screen {
 
         abstract boolean own();
 
+        // the value is the one of the gun this one inherits from (Grips.inheritsFrom)
+        boolean inherited() {
+            return false;
+        }
+
         void sync() {
             value = Math.clamp((get() - min) / (max - min), 0.0, 1.0);
             updateMessage();
@@ -363,7 +374,7 @@ public final class GunEditor extends Screen {
             float v = get();
             String n = step >= 1F ? String.format(Locale.ROOT, "%.0f", v) : step >= 0.1F ? String.format(Locale.ROOT, "%.1f", v)
                     : step >= 0.01F ? String.format(Locale.ROOT, "%.2f", v) : String.format(Locale.ROOT, "%.3f", v);
-            setMessage(Component.literal((own() ? "● " : "") + name() + ": " + n));
+            setMessage(Component.literal((own() ? "● " : inherited() ? "○ " : "") + name() + ": " + n));
         }
 
         @Override
@@ -420,7 +431,12 @@ public final class GunEditor extends Screen {
 
         @Override
         boolean own() {
-            return Grips.gunValue(gun, key) != null;
+            return Grips.gunValue(gun, key) != null && !inherited();
+        }
+
+        @Override
+        boolean inherited() {
+            return Grips.inherited(gun, key) && Grips.gunValue(gun, key) != null;
         }
 
         @Override
@@ -511,7 +527,13 @@ public final class GunEditor extends Screen {
         @Override
         boolean own() {
             String v = Grips.gunValue(gun, key);
-            return v != null && !v.isBlank();
+            return v != null && !v.isBlank() && !Grips.inherited(gun, key);
+        }
+
+        @Override
+        boolean inherited() {
+            String v = Grips.gunValue(gun, key);
+            return v != null && !v.isBlank() && Grips.inherited(gun, key);
         }
 
         @Override
@@ -529,6 +551,14 @@ public final class GunEditor extends Screen {
         void reset() {
             Grips.put(gun, key, null, true);
             Config.select(gun);
+        }
+    }
+
+    private static String itemName(String gun) {
+        try {
+            return new ItemStack(BuiltInRegistries.ITEM.getValue(net.minecraft.resources.Identifier.parse(gun))).getHoverName().getString();
+        } catch (RuntimeException e) {
+            return gun;
         }
     }
 
