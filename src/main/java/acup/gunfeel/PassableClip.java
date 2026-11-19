@@ -190,10 +190,36 @@ public final class PassableClip extends ClipContext {
         return new BlockHitResult(hit.getLocation(), f, pos.relative(f.getOpposite()), false);
     }
 
+    // level.clip (BlockGetter.clip) as 26.2 has it: its walk of the blocks in core (BlockWalk, the same blocks in the
+    // same order), each block's hit as the game's: the context's shape and its interaction override, the fluid's
+    // shape (none here: Fluid.NONE), the nearer of the two; past the end its miss
+    private static BlockHitResult walk(Level level, PassableClip c) {
+        Vec3 from = c.getFrom(), to = c.getTo();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        return BlockWalk.walk(from.x, from.y, from.z, to.x, to.y, to.z, c, (ctx, x, y, z) -> blockHit(level, ctx, pos.set(x, y, z)), PassableClip::miss);
+    }
+
+    private static @Nullable BlockHitResult blockHit(Level level, PassableClip c, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        net.minecraft.world.level.material.FluidState fluid = level.getFluidState(pos);
+        Vec3 from = c.getFrom(), to = c.getTo();
+        VoxelShape shape = c.getBlockShape(state, level, pos);
+        BlockHitResult block = level.clipWithInteractionOverride(from, to, pos, shape, state);
+        BlockHitResult wet = c.getFluidShape(fluid, level, pos).clip(from, to, pos);
+        double b = block == null ? Double.MAX_VALUE : c.getFrom().distanceToSqr(block.getLocation());
+        double w = wet == null ? Double.MAX_VALUE : c.getFrom().distanceToSqr(wet.getLocation());
+        return b <= w ? block : wet;
+    }
+
+    private static BlockHitResult miss(PassableClip c) {
+        Vec3 d = c.getFrom().subtract(c.getTo());
+        return BlockHitResult.miss(c.getTo(), Direction.getApproximateNearest(d.x, d.y, d.z), BlockPos.containing(c.getTo()));
+    }
+
     private static BlockHitResult clip0(Level level, Vec3 from, Vec3 to) {
         Set<BlockPos> skip = new HashSet<>();
         for (int i = 0; i < 16; i++) {
-            BlockHitResult hit = level.clip(new PassableClip(from, to, skip));
+            BlockHitResult hit = walk(level, new PassableClip(from, to, skip));
             if (hit.getType() == HitResult.Type.MISS) return hit;
             hit = owner(hit);
             BlockState state = level.getBlockState(hit.getBlockPos());
