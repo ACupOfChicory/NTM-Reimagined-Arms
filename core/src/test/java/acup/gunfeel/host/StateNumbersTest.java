@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 import acup.gunfeel.BlockFacts;
@@ -52,6 +53,111 @@ class StateNumbersTest {
             blocks.put(key(1, 0, 0), new FakeState("minecraft:stone", 1));
             blocks.put(key(2, 0, 0), new FakeState("minecraft:oak_fence[east=true,north=false,south=false,waterlogged=false,west=true]", 7));
             blocks.put(key(3, 0, 0), new FakeState("minecraft:cave_air", 2));
+            blocks.put(key(4, 0, 0), new FakeState("minecraft:stone_slab[type=bottom,waterlogged=false]", 9));
+        }
+
+        long time = 1000;
+
+        // a fake level's shapes: stone a whole block, a bottom slab its lower half, else nothing
+        private static double[][] shape(FakeState s) {
+            if (s.key.equals("minecraft:stone")) return new double[][] {{0, 0, 0, 1, 1, 1}};
+            if (s.key.startsWith("minecraft:stone_slab[type=bottom")) return new double[][] {{0, 0, 0, 1, .5, 1}};
+            return new double[0][];
+        }
+
+        private FakeState at(int x, int y, int z) {
+            return blocks.getOrDefault(key(x, y, z), AIR_STATE);
+        }
+
+        @Override
+        public long gameTime() {
+            return time;
+        }
+
+        @Override
+        public boolean client() {
+            return false;
+        }
+
+        // the ray by the blocks it passes (core's BlockWalk) and each one's boxes' nearest face it enters by; a miss as
+        // the game's (its end, the face back, the end's block)
+        @Override
+        public boolean clip(double fx, double fy, double fz, double tx, double ty, double tz, int shape, int fluid, @Nullable Body by, RayHit out) {
+            double dx = tx - fx, dy = ty - fy, dz = tz - fz;
+            Boolean hit = acup.gunfeel.BlockWalk.walk(fx, fy, fz, tx, ty, tz, this, (w, x, y, z) -> {
+                double best = 2;
+                int face = 0;
+                for (double[] b : shape(w.at(x, y, z))) {
+                    double[] lo = {x + b[0], y + b[1], z + b[2]}, hi = {x + b[3], y + b[4], z + b[5]}, f = {fx, fy, fz}, d = {dx, dy, dz};
+                    double t0 = 0, t1 = 1;
+                    int in = -1;
+                    for (int i = 0; i < 3; i++) {
+                        if (d[i] == 0) {
+                            if (f[i] < lo[i] || f[i] > hi[i]) t0 = 2;
+                            continue;
+                        }
+                        double a = ((d[i] > 0 ? lo[i] : hi[i]) - f[i]) / d[i], c = ((d[i] > 0 ? hi[i] : lo[i]) - f[i]) / d[i];
+                        if (a > t0) {
+                            t0 = a;
+                            in = i * 2 + (d[i] > 0 ? 0 : 1);
+                        }
+                        t1 = Math.min(t1, c);
+                    }
+                    if (t0 <= t1 && t0 < best && in >= 0) {
+                        best = t0;
+                        // x: WEST 4 / EAST 5, y: DOWN 0 / UP 1, z: NORTH 2 / SOUTH 3
+                        face = new int[] {4, 5, 0, 1, 2, 3}[in];
+                    }
+                }
+                if (best > 1) return null;
+                out.block = true;
+                out.x = fx + dx * best;
+                out.y = fy + dy * best;
+                out.z = fz + dz * best;
+                out.face = face;
+                out.bx = x;
+                out.by = y;
+                out.bz = z;
+                out.inside = false;
+                return Boolean.TRUE;
+            }, w -> Boolean.FALSE);
+            if (hit) return true;
+            out.block = false;
+            out.x = tx;
+            out.y = ty;
+            out.z = tz;
+            double bx = -dx, byy = -dy, bz = -dz;
+            double ax = Math.abs(bx), ay = Math.abs(byy), az = Math.abs(bz);
+            out.face = ay >= ax && ay >= az ? (byy < 0 ? 0 : 1) : az >= ax ? (bz < 0 ? 2 : 3) : (bx < 0 ? 4 : 5);
+            out.bx = (int) Math.floor(tx);
+            out.by = (int) Math.floor(ty);
+            out.bz = (int) Math.floor(tz);
+            out.inside = false;
+            return false;
+        }
+
+        @Override
+        public int boxes(int x, int y, int z, int kind, @Nullable Body by, double[] out) {
+            if (kind == FALLDAMAGE_RESETTING) throw new IllegalArgumentException("no block shape of kind " + kind);
+            double[][] b = shape(at(x, y, z));
+            if (out.length < b.length * 6) return -b.length;
+            for (int i = 0; i < b.length; i++) System.arraycopy(b[i], 0, out, i * 6, 6);
+            return b.length;
+        }
+
+        @Override
+        public boolean free(@Nullable Body by, double x0, double y0, double z0, double x1, double y1, double z1) {
+            for (var e : blocks.entrySet()) {
+                long k = e.getKey();
+                for (int x = (int) Math.floor(x0); x <= (int) Math.floor(x1); x++)
+                    for (int y = (int) Math.floor(y0); y <= (int) Math.floor(y1); y++)
+                        for (int z = (int) Math.floor(z0); z <= (int) Math.floor(z1); z++) {
+                            if (key(x, y, z) != k) continue;
+                            for (double[] b : shape(e.getValue()))
+                                if (x0 < x + b[3] && x1 > x + b[0] && y0 < y + b[4] && y1 > y + b[1] && z0 < z + b[5] && z1 > z + b[2]) return false;
+                        }
+            }
+            return true;
         }
 
         @Override
