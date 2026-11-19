@@ -1549,7 +1549,7 @@ public final class AiSoldier implements AiBrain {
     private CoverQuery.@Nullable Spot query(AiBot bot, ServerLevel level, TacticalMap map, List<Vec3> threats, boolean lookOut, boolean fight,
             @Nullable Vec3 flankFrom, double back) {
         CoverQuery.Params p = new CoverQuery.Params();
-        p.flankFrom = flankFrom;
+        p.flankFrom = flankFrom == null ? null : Vecs.of(flankFrom);
         if (flankFrom != null) p.radius = FLANK_RADIUS;
         // from what it only heard: cover it can look out of (low, or high with a peek); none such, it stays and watches
         p.needPeek = lookOut;
@@ -1573,7 +1573,7 @@ public final class AiSoldier implements AiBrain {
             p.fightAt = Math.max(p.fightAt, back + BACK_STEP);
         }
         var held = AiBots.heldByOthers(bot);
-        List<CoverQuery.Spot> found = CoverQuery.find(map, AiBots.voxels(level), bot.mob.position(), threats, p,
+        List<CoverQuery.Spot> found = CoverQuery.find(map, AiBots.voxels(level), Vecs.of(bot.mob.position()), Vecs.of(threats), p,
                 k -> held.test(k) || unreachable.contains(k), CoverQuery.POOL);
         // the pool is found whatever is asked for; which of it: the formula's best, or the imitation's pick (AiChoice)
         return found.isEmpty() ? null : found.get(AiChoice.rank(bot, found, level.getGameTime()));

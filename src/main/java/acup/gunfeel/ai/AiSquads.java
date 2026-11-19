@@ -35,11 +35,8 @@ public final class AiSquads {
     static final double BASE_REACH = 2;
     /** the most in one squad */
     static final int MAX = 6;
-    /**
-     * flanking cover: off the line from the target to the squad by 45 degrees at least, and short of the target's
-     * back (135 degrees): no way past it (cosines)
-     */
-    static final double FLANK_COS = 0.7071, BEHIND_COS = -0.7071;
+    /** flanking cover's bounds (Flank, core): the same constants here for the code that reads them by this name */
+    static final double FLANK_COS = Flank.FLANK_COS, BEHIND_COS = Flank.BEHIND_COS;
     /** the most of a side that go after one lost target, within HUNT_NEAR blocks of one another */
     static final int HUNTERS = 2;
     static final double HUNT_NEAR = 32;
@@ -226,8 +223,7 @@ public final class AiSquads {
     }
 
     static double cos(double ax, double az, double bx, double bz) {
-        double la = Math.hypot(ax, az), lb = Math.hypot(bx, bz);
-        return la < 1e-3 || lb < 1e-3 ? 1 : (ax * bx + az * bz) / (la * lb);
+        return Flank.cos(ax, az, bx, bz);
     }
 
     static @Nullable Squad of(AiBot bot) {

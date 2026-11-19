@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.Vec3d;
+import acup.gunfeel.Vecs;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
 import com.hbm.items.weapon.sedna.mags.IMagazine;
 
@@ -196,10 +198,10 @@ public final class FightLook {
      */
     public static List<CoverQuery.Spot> covers(ServerLevel level, LivingEntity self, FightView v, int n) {
         if (v.enemies.isEmpty()) return List.of();
-        List<Vec3> threats = new ArrayList<>();
+        List<Vec3d> threats = new ArrayList<>();
         for (FightView.Enemy e : v.enemies) {
             if (threats.size() >= 4) break;
-            threats.add(new Vec3(e.x(), e.y() + 1.5, e.z()));
+            threats.add(new Vec3d(e.x(), e.y() + 1.5, e.z()));
         }
         CoverQuery.Params p = new CoverQuery.Params();
         p.othersSoft = true;
@@ -207,7 +209,7 @@ public final class FightLook {
         // as the bot's fight query weighs a place to shoot from (CoverQuery.PEEK_FIGHT)
         p.peekBonus = 4;
         TacticalMap map = TacticalMap.of(level);
-        return CoverQuery.find(map, AiBots.voxels(level), self.position(), threats, p, k -> false, n);
+        return CoverQuery.find(map, AiBots.voxels(level), Vecs.of(self.position()), threats, p, k -> false, n);
     }
 
     /** a spot's numbers for the model (FightFeatures.spot), against the view's nearest enemy */

@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.LongPredicate;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
-import net.minecraft.world.phys.Vec3;
+import acup.gunfeel.PosLong;
+import acup.gunfeel.Vec3d;
+
 
 /**
  * Where to take cover from a threat, as the shooters' position queries do it (Crysis, Unreal): cells of the tactical
@@ -43,7 +43,7 @@ public final class CoverQuery {
         /** threats after the first: each that sees its head costs SEEN_BY, instead of ruling the cell out */
         public boolean othersSoft;
         /** a flank (AiSquads): the squad's middle; seen from the threat, cells within 45 degrees of it or past 135 are no flank */
-        public @org.jspecify.annotations.Nullable Vec3 flankFrom;
+        public @org.jspecify.annotations.Nullable Vec3d flankFrom;
         /**
          * in a fight: a spot it cannot shoot from does not fill the pool (it is still found, to be taken if nothing
          * better is); and with half the rays spent and no spot to shoot from found yet, the rest go to cells on the
@@ -110,12 +110,12 @@ public final class CoverQuery {
      * best spots first, at most n. self: where the mob's feet are; threats: the eyes it must hide from, the first one
      * is the one it fights.
      */
-    public static List<Spot> find(CellSource map, VoxelRay.Source voxels, Vec3 self, List<Vec3> threats, Params p, LongPredicate held, int n) {
+    public static List<Spot> find(CellSource map, VoxelRay.Source voxels, Vec3d self, List<Vec3d> threats, Params p, LongPredicate held, int n) {
         long t0 = System.nanoTime();
         runs++;
         List<Spot> out = new ArrayList<>();
         if (threats.isEmpty()) return out;
-        Vec3 main = threats.get(0);
+        Vec3d main = threats.get(0);
         // [0, KEEP) for any cell; in a fight [KEEP, KEEP + AHEAD) besides for cells on the threat's side
         boolean fight = p.fight && pick;
         int general = KEEP, all = fight ? KEEP + AHEAD : KEEP;
@@ -123,16 +123,16 @@ public final class CoverQuery {
         double[] score = new double[all];
         int[] info = new int[all];
         int[] counts = {0, 0};
-        double selfTd = Math.hypot(main.x - self.x, main.z - self.z);
+        double selfTd = Math.hypot(main.x() - self.x(), main.z() - self.z());
         double r2 = p.radius * p.radius;
-        int x0 = (int) Math.floor(self.x - p.radius), x1 = (int) Math.floor(self.x + p.radius);
-        int z0 = (int) Math.floor(self.z - p.radius), z1 = (int) Math.floor(self.z + p.radius);
-        int y0 = (int) Math.floor(self.y) - p.reach, y1 = (int) Math.floor(self.y) + p.reach, low = (int) Math.floor(self.y) - DOWN;
-        double threatFeet = main.y - EYE;
+        int x0 = (int) Math.floor(self.x() - p.radius), x1 = (int) Math.floor(self.x() + p.radius);
+        int z0 = (int) Math.floor(self.z() - p.radius), z1 = (int) Math.floor(self.z() + p.radius);
+        int y0 = (int) Math.floor(self.y()) - p.reach, y1 = (int) Math.floor(self.y()) + p.reach, low = (int) Math.floor(self.y()) - DOWN;
+        double threatFeet = main.y() - EYE;
         for (int sx = x0 >> 4; sx <= x1 >> 4; sx++)
             for (int sz = z0 >> 4; sz <= z1 >> 4; sz++)
                 for (int sy = y0 >> 4; sy <= y1 >> 4; sy++) {
-                    SectionCells c = map.cells(SectionPos.asLong(sx, sy, sz));
+                    SectionCells c = map.cells(PosLong.section(sx, sy, sz));
                     if (c == null) continue;
                     for (int i = 0; i < c.count(); i++) {
                         int x = (sx << 4) + c.x(i), y = (sy << 4) + c.y(i), z = (sz << 4) + c.z(i);
@@ -141,13 +141,13 @@ public final class CoverQuery {
                         // nor on a ladder: it hangs there and can do nothing (a shaft is no cover from the foe under it)
                         if ((c.flags(i) & (SectionCells.SWIM | SectionCells.CLIMB)) != 0) continue;
                         double cx = x + 0.5, cz = z + 0.5;
-                        double dx = cx - self.x, dz = cz - self.z, d2 = dx * dx + dz * dz;
+                        double dx = cx - self.x(), dz = cz - self.z(), d2 = dx * dx + dz * dz;
                         if (d2 > r2) continue;
-                        double tx = main.x - cx, tz = main.z - cz, td = Math.sqrt(tx * tx + tz * tz);
+                        double tx = main.x() - cx, tz = main.z() - cz, td = Math.sqrt(tx * tx + tz * tz);
                         if (td < p.minFromThreat || td > p.maxFromThreat) continue;
                         if (p.flankFrom != null) {
-                            double fc = AiSquads.cos(cx - main.x, cz - main.z, p.flankFrom.x - main.x, p.flankFrom.z - main.z);
-                            if (fc > AiSquads.FLANK_COS || fc < AiSquads.BEHIND_COS) continue;
+                            double fc = Flank.cos(cx - main.x(), cz - main.z(), p.flankFrom.x() - main.x(), p.flankFrom.z() - main.z());
+                            if (fc > Flank.FLANK_COS || fc < Flank.BEHIND_COS) continue;
                         }
                         int dir = Dirs.of(tx, tz);
                         int cover = c.cover(i);
@@ -155,7 +155,7 @@ public final class CoverQuery {
                         if (height == 0) continue;
                         boolean hard = SectionCells.hard(cover, dir);
                         if (p.hardOnly && !hard) continue;
-                        long key = BlockPos.asLong(x, y, z);
+                        long key = PosLong.block(x, y, z);
                         if (held.test(key) && key != p.current) continue;
                         if (key != p.current && nearAny(p.friendCovers, x, z, APART)) continue;
                         double s = (height == 2 ? HIGH : LOW) + (hard ? HARD : 0) - Math.sqrt(d2) * PER_BLOCK
@@ -191,18 +191,18 @@ public final class CoverQuery {
             if (k >= a0 && firing > 0) break;
             long key = cand[i];
             if (tried != null && !tried.add(key)) continue;
-            int x = BlockPos.getX(key), y = BlockPos.getY(key), z = BlockPos.getZ(key);
+            int x = PosLong.blockX(key), y = PosLong.blockY(key), z = PosLong.blockZ(key);
             int height = info[i] & 3, dir = info[i] >> 3;
             // hidden from every threat: its head behind high cover, its legs behind low cover (it shoots over that)
             double look = height == 2 ? 1.6 : 0.5;
             boolean hidden = true;
             double seenBy = 0;
             for (int ti = 0; ti < threats.size(); ti++) {
-                Vec3 t = threats.get(ti);
+                Vec3d t = threats.get(ti);
                 if (budget-- <= 0) break;
                 rays++;
-                // leaves hide it only thick: behind a bush it is seen (Senses.PLAIN)
-                if (Senses.plain(voxels, t.x, t.y, t.z, x + 0.5, y + look, z + 0.5)) {
+                // leaves hide it only thick: behind a bush it is seen (Sight.PLAIN)
+                if (Sight.plain(voxels, t.x(), t.y(), t.z(), x + 0.5, y + look, z + 0.5)) {
                     // the one it fights must not see it; the others, in a fight, cost it
                     if (ti > 0 && p.othersSoft) seenBy += SEEN_BY;
                     else {
@@ -229,9 +229,9 @@ public final class CoverQuery {
                         int side = sides[w], px = x + Dirs.DX[side] * far, pz = z + Dirs.DZ[side] * far;
                         if (!open(map, px, y, pz) || budget-- <= 0) continue;
                         rays++;
-                        if (!VoxelRay.clear(voxels, main.x, main.y, main.z, px + 0.5, y + 1.6, pz + 0.5, SHOOT_MASK)) continue;
+                        if (!VoxelRay.clear(voxels, main.x(), main.y(), main.z(), px + 0.5, y + 1.6, pz + 0.5, SHOOT_MASK)) continue;
                         if (far == 1) sees[w] = true;
-                        long pk = BlockPos.asLong(px, y, pz);
+                        long pk = PosLong.block(px, y, pz);
                         if (!contains(p.friendPeeks, pk) && !contains(p.friendCovers, pk) && !held.test(pk)) peeks[np++] = pk;
                     }
                 if (np > 0) peek = peeks[0];
@@ -239,7 +239,7 @@ public final class CoverQuery {
                 // low cover: it shoots over it, standing where it is, if the target is seen over it and nothing
                 // there stops a bullet (else the cell hides it, and that is all)
                 rays++;
-                if (VoxelRay.clear(voxels, main.x, main.y, main.z, x + 0.5, y + 1.6, z + 0.5, SHOOT_MASK)) {
+                if (VoxelRay.clear(voxels, main.x(), main.y(), main.z(), x + 0.5, y + 1.6, z + 0.5, SHOOT_MASK)) {
                     peek = key;
                     peeks[np++] = key;
                 }
@@ -249,7 +249,7 @@ public final class CoverQuery {
             // where it fires from its head against the sky to the threat: a mark seen from afar (with no place to fire from
             // the threat sees nothing of it)
             if (p.land != null && peek != Long.MIN_VALUE
-                    && Skyline.against(p.land, main.x, main.y, main.z, BlockPos.getX(peek) + 0.5, BlockPos.getY(peek) + EYE, BlockPos.getZ(peek) + 0.5))
+                    && Skyline.against(p.land, main.x(), main.y(), main.z(), PosLong.blockX(peek) + 0.5, PosLong.blockY(peek) + EYE, PosLong.blockZ(peek) + 0.5))
                 seenBy += SKYLINE;
             out.add(new Spot(key, score[i] + (peek != Long.MIN_VALUE ? p.peekBonus : 0) - seenBy, height, hard, peek, java.util.Arrays.copyOf(peeks, np)));
         }
@@ -282,13 +282,13 @@ public final class CoverQuery {
     }
 
     private static boolean open(CellSource map, int x, int y, int z) {
-        SectionCells c = map.cells(SectionPos.asLong(x >> 4, y >> 4, z >> 4));
+        SectionCells c = map.cells(PosLong.section(x >> 4, y >> 4, z >> 4));
         return c != null && c.find(x & 15, y & 15, z & 15) >= 0;
     }
 
     private static boolean nearAny(long[] cells, int x, int z, double d) {
         for (long c : cells) {
-            double dx = BlockPos.getX(c) - x, dz = BlockPos.getZ(c) - z;
+            double dx = PosLong.blockX(c) - x, dz = PosLong.blockZ(c) - z;
             if (dx * dx + dz * dz < d * d) return true;
         }
         return false;
