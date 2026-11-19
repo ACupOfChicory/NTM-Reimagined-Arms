@@ -17,7 +17,8 @@ import java.util.Properties;
 import org.junit.jupiter.api.Test;
 
 // Fences, fence gates and walls (tools/fence_shapes.py): a bullet goes through the gaps (пролёт) and meets only the
-// rails, posts and the wall itself, not their 1.5 block high collision box.
+// rails, posts and the wall itself, not their 1.5 block high collision box. The families' words and keys without the
+// shapes' file: core's FenceFamiliesTest.
 class FenceShapesTest {
     static final Path FILE = Path.of("src/main/resources/ntmgunfeel-bullet-shapes.properties");
 
@@ -93,29 +94,6 @@ class FenceShapesTest {
         assertTrue(at(tall, 8, 15, 3), "tall wall");
         long[] post = get(all, "wall", "north", "none", "east", "none", "south", "none", "west", "none", "up", "true");
         assertTrue(at(post, 8, 15, 8), "post");
-    }
-
-    // a "path" rule wins over the class and its mask filter; without one the class decides, a mask keeps it out
-    @Test
-    void ruleWinsOverTheClass() {
-        assertEquals(null, PassableClip.family("hitbox", "fence", false), "hitbox takes a fence out");
-        assertEquals(null, PassableClip.family("pixels", "fence", false), "pixels takes a fence out");
-        assertEquals("fence", PassableClip.family("fence", null, false), "a rule makes any block a fence");
-        assertEquals("fence", PassableClip.family("fence", "fence", true), "a rule wins over the mask filter");
-        assertEquals("wall", PassableClip.family("wall", "fence", false), "a rule wins over the class");
-        assertEquals("wall", PassableClip.family(null, "wall", false), "no rule: by the class");
-        assertEquals(null, PassableClip.family(null, "fence", true), "no rule, a mask: by its pixels");
-        assertEquals(null, PassableClip.family(null, null, false), "no rule, no family");
-    }
-
-    // every path word but the four algorithms is a family with its cells
-    @Test
-    void pathWordsAreAlgorithmsOrFamilies() {
-        for (String w : PassableClip.PATH_WORDS) {
-            if (java.util.Set.of("hitbox", "pixels", "model", "through").contains(w)) continue;
-            assertTrue(PassableClip.FAMILIES.containsKey(w), w);
-        }
-        assertTrue(PassableClip.PATH_WORDS.containsAll(PassableClip.FAMILIES.keySet()));
     }
 
     // a block made a fence or wall by a rule, without their properties (or with others' values): the family's default
