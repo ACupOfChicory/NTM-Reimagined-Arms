@@ -108,7 +108,7 @@ public abstract class WorldViewContract {
     @Test
     void destroySpeedThere() {
         int[] s = stone();
-        assertEquals(stoneDestroySpeed(), world().destroySpeed(s[0], s[1], s[2]));
+        assertEquals(stoneDestroySpeed(), world().destroySpeed(at(s), s[0], s[1], s[2]));
     }
 
     @Test

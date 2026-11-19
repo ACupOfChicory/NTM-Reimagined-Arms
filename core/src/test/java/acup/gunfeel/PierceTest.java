@@ -80,7 +80,9 @@ class PierceTest {
             }
 
             @Override
-            public float destroySpeed(int x, int y, int z) {
+            public float destroySpeed(int state, int x, int y, int z) {
+                // the number state gave, at the block's place
+                assertEquals(7 + " " + 4 + " " + 5 + " " + 6, state + " " + x + " " + y + " " + z);
                 b.asked.add("destroySpeed");
                 return b.destroySpeed;
             }
