@@ -1180,7 +1180,6 @@ MINI_NUKE_CLOUD method com/hbm/registration/RegistryHandle get ()Ljava/lang/Obje
 MOB_AI class com/hbm/client/render/ArmorWorldRenderer$Bone
 MOB_AI class com/hbm/entity/grenade/EntityGrenadeUniversal
 MOB_AI class com/hbm/entity/projectile/EntityThrowableNT
-MOB_AI class com/hbm/handler/HbmKeybinds$EnumKeybind
 MOB_AI class com/hbm/interfaces/injected/IBufferBuilderExtension
 MOB_AI class com/hbm/items/armor/ModArmorItem
 MOB_AI class com/hbm/items/weapon/sedna/BulletConfig
