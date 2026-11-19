@@ -5,13 +5,12 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
-import net.minecraft.world.phys.Vec3;
 
 /** Ручные области выше любых процедурных предположений. */
 final class HeadProfiles {
     // instead: the part this one is drawn in place of (another form of it), -1 = none
-    record Ref(String name,double[] size,long shape,Vec3 center,int instead) {
-        Ref(String name,double[] size,long shape,Vec3 center) { this(name,size,shape,center,-1); }
+    record Ref(String name,double[] size,long shape,Vec3d center,int instead) {
+        Ref(String name,double[] size,long shape,Vec3d center) { this(name,size,shape,center,-1); }
     }
     record Zone(int part,int group,List<HeadZone.Plane> planes,long face) {}
     record Profile(boolean none,List<Ref> parts,List<Zone> zones) {}
@@ -38,7 +37,7 @@ final class HeadProfiles {
             if(stream!=null) read(new InputStreamReader(stream,StandardCharsets.UTF_8),out);
         } catch(Exception e) { throw new IllegalStateException("Не удалось загрузить ручную разметку "+resource,e); }
         if(Files.isRegularFile(override)) try(var reader=Files.newBufferedReader(override)) { read(reader,out); }
-        catch(Exception e) { DebugLog.LOGGER.error("Не удалось прочитать локальную разметку {}; встроенная сохранена",override,e); }
+        catch(Exception e) { ModLog.LOGGER.error("Не удалось прочитать локальную разметку {}; встроенная сохранена",override,e); }
         return Map.copyOf(out);
     }
     private static void read(Reader reader,Map<String,Profile> destination) {
@@ -53,7 +52,7 @@ final class HeadProfiles {
             for(var p:value.getAsJsonArray("parts")) {
                 var part=p.getAsJsonObject();var s=numbers(part.getAsJsonArray("size"),3);var c=numbers(part.getAsJsonArray("center"),3);
                 if(Arrays.stream(s).anyMatch(v->v<=0)) throw new IllegalArgumentException("Неверный размер части");
-                parts.add(new Ref(part.get("name").getAsString(),s,Long.parseUnsignedLong(part.get("shape").getAsString(),16),new Vec3(c[0],c[1],c[2]),
+                parts.add(new Ref(part.get("name").getAsString(),s,Long.parseUnsignedLong(part.get("shape").getAsString(),16),new Vec3d(c[0],c[1],c[2]),
                         part.has("instead")?part.get("instead").getAsInt():-1));
             }
             for(var z:value.getAsJsonArray("zones")) {
@@ -89,8 +88,8 @@ final class HeadProfiles {
         var data=mesh.triangles();boolean cube=data.length==108;double area=0;
         for(float f:data) if(Math.abs(f-Math.round(f))>1e-5) cube=false;
         if(cube) for(int at=0;at<data.length;at+=9) {
-            var u=new Vec3(data[at+3]-data[at],data[at+4]-data[at+1],data[at+5]-data[at+2]);
-            var v=new Vec3(data[at+6]-data[at],data[at+7]-data[at+1],data[at+8]-data[at+2]);area+=u.cross(v).length()/2;
+            var u=new Vec3d(data[at+3]-data[at],data[at+4]-data[at+1],data[at+5]-data[at+2]);
+            var v=new Vec3d(data[at+6]-data[at],data[at+7]-data[at+1],data[at+8]-data[at+2]);area+=u.cross(v).length()/2;
         }
         long hash=0xcbf29ce484222325L;
         if(cube && Math.abs(area-6)<1e-5) hash=0;
@@ -308,35 +307,35 @@ final class HeadProfiles {
     // the box around boxes whose edges run the same ways (the cubes of one part), null if they do not
     private static ModelBox around(List<ModelBox> group) {
         var first=group.getFirst();
-        Vec3[] axis={new Vec3(first.ux(),first.uy(),first.uz()).normalize(),new Vec3(first.vx(),first.vy(),first.vz()).normalize(),new Vec3(first.wx(),first.wy(),first.wz()).normalize()};
-        var inverse=new org.joml.Matrix3d(axis[0].x,axis[0].y,axis[0].z,axis[1].x,axis[1].y,axis[1].z,axis[2].x,axis[2].y,axis[2].z);
+        Vec3d[] axis={new Vec3d(first.ux(),first.uy(),first.uz()).normalize(),new Vec3d(first.vx(),first.vy(),first.vz()).normalize(),new Vec3d(first.wx(),first.wy(),first.wz()).normalize()};
+        var inverse=new org.joml.Matrix3d(axis[0].x(),axis[0].y(),axis[0].z(),axis[1].x(),axis[1].y(),axis[1].z(),axis[2].x(),axis[2].y(),axis[2].z());
         if(Math.abs(inverse.determinant())<1e-9) return null;
         inverse.invert();
         double[] min={Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY},max={Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY};
-        var origin=new Vec3(first.x(),first.y(),first.z());
+        var origin=new Vec3d(first.x(),first.y(),first.z());
         for(var box:group) {
-            Vec3[] edges={new Vec3(box.ux(),box.uy(),box.uz()),new Vec3(box.vx(),box.vy(),box.vz()),new Vec3(box.wx(),box.wy(),box.wz())};
+            Vec3d[] edges={new Vec3d(box.ux(),box.uy(),box.uz()),new Vec3d(box.vx(),box.vy(),box.vz()),new Vec3d(box.wx(),box.wy(),box.wz())};
             for(int a=0;a<3;a++) if(edges[a].normalize().dot(axis[a])<1-1e-4) return null;
             for(int corner=0;corner<8;corner++) {
-                var point=new Vec3(box.x(),box.y(),box.z());
+                var point=new Vec3d(box.x(),box.y(),box.z());
                 for(int a=0;a<3;a++) if((corner>>a&1)!=0) point=point.add(edges[a]);
-                var d=point.subtract(origin);var c=inverse.transform(new org.joml.Vector3d(d.x,d.y,d.z));
+                var d=point.subtract(origin);var c=inverse.transform(new org.joml.Vector3d(d.x(),d.y(),d.z()));
                 double[] at={c.x,c.y,c.z};
                 for(int a=0;a<3;a++) { min[a]=Math.min(min[a],at[a]);max[a]=Math.max(max[a],at[a]); }
             }
         }
         var start=origin.add(axis[0].scale(min[0])).add(axis[1].scale(min[1])).add(axis[2].scale(min[2]));
         var u=axis[0].scale(max[0]-min[0]);var v=axis[1].scale(max[1]-min[1]);var w=axis[2].scale(max[2]-min[2]);
-        return new ModelBox(first.part(),start.x,start.y,start.z,u.x,u.y,u.z,v.x,v.y,v.z,w.x,w.y,w.z);
+        return new ModelBox(first.part(),start.x(),start.y(),start.z(),u.x(),u.y(),u.z(),v.x(),v.y(),v.z(),w.x(),w.y(),w.z());
     }
     // the part around the profile's parts (the model's and its layers'), as the game draws them in one box
     private static Ref around(String name,List<Ref> parts) {
         double[] min={Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY},max={Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.NEGATIVE_INFINITY};
         for(var ref:parts) {
-            double[] c={ref.center().x,ref.center().y,ref.center().z};
+            double[] c={ref.center().x(),ref.center().y(),ref.center().z()};
             for(int a=0;a<3;a++) { min[a]=Math.min(min[a],c[a]-ref.size()[a]/2);max[a]=Math.max(max[a],c[a]+ref.size()[a]/2); }
         }
-        return new Ref(name,new double[]{max[0]-min[0],max[1]-min[1],max[2]-min[2]},0,new Vec3((min[0]+max[0])/2,(min[1]+max[1])/2,(min[2]+max[2])/2),-1);
+        return new Ref(name,new double[]{max[0]-min[0],max[1]-min[1],max[2]-min[2]},0,new Vec3d((min[0]+max[0])/2,(min[1]+max[1])/2,(min[2]+max[2])/2),-1);
     }
     // The profile's parts in its order paired with the boxes in theirs, either list skipping what the other lacks: the
     // cheapest pairing by place (to the part's size) and size, each part or box left over costing SKIP
@@ -364,9 +363,9 @@ final class HeadProfiles {
         return mapping;
     }
     // a box's center in the frame of the profile: the mob turned to yaw 0, at the profile's size
-    private static Vec3 local(ModelBox box,double scale,float yaw) {
-        var c=ModelContours.point(box,.5,.5,.5);double angle=Math.toRadians(yaw),cos=Math.cos(angle),sin=Math.sin(angle);
-        return new Vec3(cos*c.x+sin*c.z,c.y,-sin*c.x+cos*c.z).scale(1/scale);
+    private static Vec3d local(ModelBox box,double scale,float yaw) {
+        var c=box.point(.5,.5,.5);double angle=Math.toRadians(yaw),cos=Math.cos(angle),sin=Math.sin(angle);
+        return new Vec3d(cos*c.x()+sin*c.z(),c.y(),-sin*c.x()+cos*c.z()).scale(1/scale);
     }
     private record Pick(int box,double score) {}
     private static Pick best(Ref ref,List<ModelBox> boxes,double scale,float yaw,java.util.function.Predicate<ModelBox> candidate) {

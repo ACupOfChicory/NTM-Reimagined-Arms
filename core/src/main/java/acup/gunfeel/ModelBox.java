@@ -21,6 +21,11 @@ public record ModelBox(String part, double x, double y, double z,
         return new ModelBox(part, (float) x, (float) y, (float) z, (float) ux, (float) uy, (float) uz, (float) vx, (float) vy, (float) vz,
                 (float) wx, (float) wy, (float) wz, mesh);
     }
+    // the point at (a, b, c) of the box's own frame (0..1 along each edge): ModelContours.point's arithmetic in its
+    // order, on core's vector. Two copies of one sum: ModelBoxPointTest (26.2) holds them to the same bits.
+    public Vec3d point(double a,double b,double c) {
+        return new Vec3d(x()+a*ux()+b*vx()+c*wx(),y()+a*uy()+b*vy()+c*wy(),z()+a*uz()+b*vz()+c*wz());
+    }
     public double[] numbers() {
         return new double[] {x, y, z, ux, uy, uz, vx, vy, vz, wx, wy, wz};
     }

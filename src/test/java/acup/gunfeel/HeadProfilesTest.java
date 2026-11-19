@@ -7,16 +7,16 @@ import org.junit.jupiter.api.Test;
 
 class HeadProfilesTest {
     @Test void babyWithDifferentProportionsNeedsItsOwnVerifiedProfile() {
-        var body=new HeadProfiles.Ref("root/body",new double[]{1,2,1},0,new Vec3(.5,1,.5));
-        var head=new HeadProfiles.Ref("root/head",new double[]{1,1,1},0,new Vec3(.5,2.5,.5));
-        var leg=new HeadProfiles.Ref("root/leg",new double[]{1,1,1},0,new Vec3(.5,-.5,.5));
+        var body=new HeadProfiles.Ref("root/body",new double[]{1,2,1},0,new Vec3d(.5,1,.5));
+        var head=new HeadProfiles.Ref("root/head",new double[]{1,1,1},0,new Vec3d(.5,2.5,.5));
+        var leg=new HeadProfiles.Ref("root/leg",new double[]{1,1,1},0,new Vec3d(.5,-.5,.5));
         var profile=new HeadProfiles.Profile(false,List.of(body,head,leg),List.of(new HeadProfiles.Zone(1,1,List.of(),0)));
         var smallBody=new ModelBox("mesh/root/body",0,0,0,.5,0,0,0,1,0,0,0,.5);
         var largeHead=new ModelBox("mesh/root/root/head",0,1,0,.75,0,0,0,.75,0,0,0,.75);
         var smallLeg=new ModelBox("mesh/root/leg",0,-.5,0,.5,0,0,0,.5,0,0,0,.5);
         var boxes=List.of(smallBody,largeHead,smallLeg);
         assertEquals(1,HeadProfiles.bind(profile,boxes,0).missing(),"Старый общий масштаб терял голову");
-        var verifiedParts=boxes.stream().map(b->new HeadProfiles.Ref(b.part(),HeadProfiles.size(b),0,ModelContours.point(b,.5,.5,.5))).toList();
+        var verifiedParts=boxes.stream().map(b->new HeadProfiles.Ref(b.part(),HeadProfiles.size(b),0,b.point(.5,.5,.5))).toList();
         var binding=HeadProfiles.bind(new HeadProfiles.Profile(false,verifiedParts,profile.zones()),boxes,0);
         assertEquals(0,binding.missing());
         assertTrue(HeadZoneTests.contains(HeadProfiles.zones(binding,boxes),new Vec3(.4,1.4,.4)));
@@ -44,7 +44,7 @@ class HeadProfilesTest {
         var boxes=new ArrayList<ModelBox>();int i=0;
         for(var ref:profile.parts()) {
             assertEquals(0,ref.shape());var s=ref.size();var c=ref.center();
-            boxes.add(new ModelBox("foreign/part"+i++,c.x-s[0]/2,c.y-s[1]/2,c.z-s[2]/2,s[0],0,0,0,s[1],0,0,0,s[2]));
+            boxes.add(new ModelBox("foreign/part"+i++,c.x()-s[0]/2,c.y()-s[1]/2,c.z()-s[2]/2,s[0],0,0,0,s[1],0,0,0,s[2]));
         }
         var result=ModelHeads.resolve("foreign:custom_zombie",boxes,0);
         assertEquals("template",result.source());
@@ -63,7 +63,7 @@ class HeadProfilesTest {
     }
     @Test void conflictingCheckedShapesDoNotAssignAnArbitraryHead() {
         var boxes=List.of(new ModelBox("a",0,0,0,2,0,0,0,2,0,0,0,2),box("b",3));
-        var refs=boxes.stream().map(b->new HeadProfiles.Ref(b.part(),HeadProfiles.size(b),0,ModelContours.point(b,.5,.5,.5))).toList();
+        var refs=boxes.stream().map(b->new HeadProfiles.Ref(b.part(),HeadProfiles.size(b),0,b.point(.5,.5,.5))).toList();
         var head=new HeadProfiles.Profile(false,refs,List.of(new HeadProfiles.Zone(1,1,List.of(),0)));
         var other=new HeadProfiles.Profile(false,refs,List.of(new HeadProfiles.Zone(0,1,List.of(),0)));
         assertNotNull(ZoneTemplates.find(Map.of("first",head),boxes,0));
@@ -89,8 +89,8 @@ class HeadProfilesTest {
         assertEquals(.7,-restored.d()/restored.y(),1e-8);
     }
     @Test void reorderingNamedPartsAndUniformGrowthKeepTheirIdentity() {
-        var a=new HeadProfiles.Ref("root/body",new double[]{1,1,1},0,new Vec3(.5,.5,.5));
-        var b=new HeadProfiles.Ref("root/head",new double[]{1,1,1},0,new Vec3(.5,1.5,.5));
+        var a=new HeadProfiles.Ref("root/body",new double[]{1,1,1},0,new Vec3d(.5,.5,.5));
+        var b=new HeadProfiles.Ref("root/head",new double[]{1,1,1},0,new Vec3d(.5,1.5,.5));
         var profile=new HeadProfiles.Profile(false,List.of(a,b),List.of(new HeadProfiles.Zone(1,1,List.of(new HeadZone.Plane(0,1,0,-.7)),0)));
         var head=new ModelBox("root/head",0,2,0,2,0,0,0,2,0,0,0,2);
         var body=new ModelBox("root/body",0,0,0,2,0,0,0,2,0,0,0,2);
@@ -198,8 +198,8 @@ class HeadProfilesTest {
             if(!name.equals("root/head")) { cubes.add(box(r,name));continue; }
             // голова ламы — шея и морда: нижний и верхний куб, верхний уже по x и z
             var c=r.center();var s=r.size();double low=s[1]*.6;
-            cubes.add(new ModelBox(name,c.x-s[0]/2,c.y-s[1]/2,c.z-s[2]/2,s[0],0,0,0,low,0,0,0,s[2]*.6));
-            cubes.add(new ModelBox(name,c.x-s[0]/4,c.y-s[1]/2+low,c.z-s[2]/2,s[0]/2,0,0,0,s[1]-low,0,0,0,s[2]));
+            cubes.add(new ModelBox(name,c.x()-s[0]/2,c.y()-s[1]/2,c.z()-s[2]/2,s[0],0,0,0,low,0,0,0,s[2]*.6));
+            cubes.add(new ModelBox(name,c.x()-s[0]/4,c.y()-s[1]/2+low,c.z()-s[2]/2,s[0]/2,0,0,0,s[1]-low,0,0,0,s[2]));
         }
         var expected=ModelHeads.resolve("minecraft:llama",whole,0);
         assertEquals("dataset",expected.source());assertEquals(1,expected.zones().size());
@@ -221,7 +221,7 @@ class HeadProfilesTest {
             if(name.endsWith("_horn")) continue;
             if(!name.equals("root/head")) { ears.add(box(r,name));continue; }
             var c=r.center();var s=r.size();
-            for(double x:new double[]{c.x-s[0]/2,c.x+s[0]/2-.1875}) ears.add(new ModelBox(name,x,c.y+s[1]/2-.125,c.z,.1875,0,0,0,.125,0,0,0,.0625));
+            for(double x:new double[]{c.x()-s[0]/2,c.x()+s[0]/2-.1875}) ears.add(new ModelBox(name,x,c.y()+s[1]/2-.125,c.z(),.1875,0,0,0,.125,0,0,0,.0625));
         }
         var horns=ModelHeads.resolve("minecraft:goat",ears,0);
         assertEquals("dataset",horns.source(),horns.reason());assertEquals(2,horns.zones().size());
@@ -271,7 +271,7 @@ class HeadProfilesTest {
             cpu.add(box(r,name));flywheel.add(box(r,r.name()));
         }
         var head=profile.parts().stream().filter(r->r.name().equals("mesh/root/head")).findFirst().orElseThrow();
-        assertArrayEquals(head.size(),HeadProfiles.size(around),1e-4);assertEquals(0,head.center().distanceTo(ModelContours.point(around,.5,.5,.5)),1e-4);
+        assertArrayEquals(head.size(),HeadProfiles.size(around),1e-4);assertEquals(0,head.center().distanceTo(around.point(.5,.5,.5)),1e-4);
         cpu.add(skull);cpu.add(nose);
         var a=around;flywheel.add(new ModelBox("mesh/root/head",a.x(),a.y(),a.z(),a.ux(),a.uy(),a.uz(),a.vx(),a.vy(),a.vz(),a.wx(),a.wy(),a.wz()).withMesh(ModelMesh.register(new ModelMesh(mesh)).id()));
         var without=ModelHeads.resolve(type,cpu,0);var with=ModelHeads.resolve(type,flywheel,0);
@@ -343,7 +343,7 @@ class HeadProfilesTest {
             var name=r.name().substring("mesh/".length());
             if(!name.endsWith("_pants")) { boxes.add(box(r,name));continue; }
             var cc=r.center();var size=r.size();
-            boxes.add(new ModelBox(name,cc.x-size[0]/2,cc.y+size[1]/2-.781,cc.z-size[2]/2,size[0],0,0,0,.781,0,0,0,size[2]));
+            boxes.add(new ModelBox(name,cc.x()-size[0]/2,cc.y()+size[1]/2-.781,cc.z()-size[2]/2,size[0],0,0,0,.781,0,0,0,size[2]));
         }
         var binding=HeadProfiles.bind(piglin,HeadProfiles.unite(piglin,boxes),0);
         assertEquals(0,binding.missing());assertEquals(6,binding.zones().size());
@@ -377,8 +377,8 @@ class HeadProfilesTest {
         // слой рисуется не всегда (лама без ковра): часть модели нашлась — слой, который на неё не похож, коробку не
         // берёт, даже если коробка вокруг обеих на неё похожа; его зону покрывает instead
         var profile=new HeadProfiles.Profile(false,List.of(
-                new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3(0,0,0),-1),
-                new HeadProfiles.Ref("mesh/root/overlayLayer/draws/0/tree/head",new double[]{.6,1.1,.6},0,new Vec3(0,.05,0),0)),
+                new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3d(0,0,0),-1),
+                new HeadProfiles.Ref("mesh/root/overlayLayer/draws/0/tree/head",new double[]{.6,1.1,.6},0,new Vec3d(0,.05,0),0)),
                 List.of(new HeadProfiles.Zone(0,1,List.of(),0),new HeadProfiles.Zone(1,1,List.of(),0)));
         var binding=HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-.5,-.5,-.5,1,0,0,0,1,0,0,0,1)),0);
         assertEquals(0,binding.missing());assertEquals(1,binding.zones().size());assertEquals(0,binding.zones().getFirst().part());
@@ -496,7 +496,7 @@ class HeadProfilesTest {
             assertEquals(0,binding.missing(),c.toString());assertEquals(c.zones(),binding.zones().size(),c.toString());
         }
         // коробка больше по одной оси и меньше по другой — не та часть; коробки Flywheel (mesh/) не берутся
-        var profile=new HeadProfiles.Profile(false,List.of(new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3(0,0,0),-1)),
+        var profile=new HeadProfiles.Profile(false,List.of(new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3d(0,0,0),-1)),
                 List.of(new HeadProfiles.Zone(0,1,List.of(),0)));
         assertEquals(1,HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-1,-.25,-.5,2,0,0,0,.5,0,0,0,1)),0).missing());
         assertEquals(0,HeadProfiles.bind(profile,List.of(new ModelBox("root/head",-1,-1,-.5,2,0,0,0,2,0,0,0,1)),0).missing());
@@ -511,8 +511,8 @@ class HeadProfilesTest {
         assertEquals(1,HeadProfiles.bind(husk,cubes,0).missing());
         // слой рисуется не всегда (лама без ковра): коробку модели, в которую он вложен, он так не берёт
         var layered=new HeadProfiles.Profile(false,List.of(
-                new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3(0,0,0),-1),
-                new HeadProfiles.Ref("mesh/root/overlayLayer/draws/0/tree/head",new double[]{.6,.6,.6},0,new Vec3(0,0,0),0)),
+                new HeadProfiles.Ref("mesh/root/head",new double[]{1,1,1},0,new Vec3d(0,0,0),-1),
+                new HeadProfiles.Ref("mesh/root/overlayLayer/draws/0/tree/head",new double[]{.6,.6,.6},0,new Vec3d(0,0,0),0)),
                 List.of(new HeadProfiles.Zone(0,1,List.of(),0),new HeadProfiles.Zone(1,1,List.of(),0)));
         assertEquals(1,HeadProfiles.bind(layered,List.of(new ModelBox("root/head",-.5,-.5,-.5,1,0,0,0,1,0,0,0,1)),0).zones().size());
     }
@@ -591,7 +591,7 @@ class HeadProfilesTest {
         var refs=new ArrayList<HeadProfiles.Ref>();var zoned=new ArrayList<HeadProfiles.Zone>();
         double[][] at3={{0,0,0},{2,0,0},{-2,0,0},{0,2,0}};double[] edge={.6,.5,.5,.4};
         for(int i=0;i<4;i++) {
-            refs.add(new HeadProfiles.Ref("mesh/root/parts/"+i+"/base",new double[]{edge[i],edge[i],edge[i]},0,new Vec3(at3[i][0],at3[i][1],at3[i][2]),-1));
+            refs.add(new HeadProfiles.Ref("mesh/root/parts/"+i+"/base",new double[]{edge[i],edge[i],edge[i]},0,new Vec3d(at3[i][0],at3[i][1],at3[i][2]),-1));
             if(i>0) zoned.add(new HeadProfiles.Zone(i,i,List.of(),0));
         }
         var lost=new HeadProfiles.Profile(false,refs,zoned);
@@ -630,8 +630,8 @@ class HeadProfilesTest {
         var fly=HeadProfiles.bind(legs,plates,0);assertEquals(0,fly.missing());assertEquals(18,fly.zones().size());
         // две одинаковые части подряд, нарисована одна: какая из них, говорит место
         var pair=new HeadProfiles.Profile(false,List.of(
-                new HeadProfiles.Ref("mesh/root/parts/0/base",new double[]{.25,.25,.25},0,new Vec3(1,0,0),-1),
-                new HeadProfiles.Ref("mesh/root/parts/1/base",new double[]{.25,.25,.25},0,new Vec3(-1,0,0),-1)),
+                new HeadProfiles.Ref("mesh/root/parts/0/base",new double[]{.25,.25,.25},0,new Vec3d(1,0,0),-1),
+                new HeadProfiles.Ref("mesh/root/parts/1/base",new double[]{.25,.25,.25},0,new Vec3d(-1,0,0),-1)),
                 List.of(new HeadProfiles.Zone(0,1,List.of(),0),new HeadProfiles.Zone(1,2,List.of(),0)));
         for(int side:new int[]{0,1}) {
             var one=HeadProfiles.bind(pair,List.of(box(pair.parts().get(side),"mesh/Claw")),0);
@@ -685,6 +685,6 @@ class HeadProfilesTest {
     private static ModelBox box(HeadProfiles.Ref ref) { return box(ref,ref.name()); }
     private static ModelBox box(HeadProfiles.Ref ref,String name) {
         var c=ref.center();var s=ref.size();
-        return new ModelBox(name,c.x-s[0]/2,c.y-s[1]/2,c.z-s[2]/2,s[0],0,0,0,s[1],0,0,0,s[2]);
+        return new ModelBox(name,c.x()-s[0]/2,c.y()-s[1]/2,c.z()-s[2]/2,s[0],0,0,0,s[1],0,0,0,s[2]);
     }
 }

@@ -13,6 +13,10 @@ final class HeadZoneTests {
         return HeadZone.contains(zones, p.x, p.y, p.z);
     }
 
+    static boolean contains(List<HeadZone> zones, Vec3d p) {
+        return HeadZone.contains(zones, p.x(), p.y(), p.z());
+    }
+
     static boolean contains(HeadZone zone, Vec3 p) {
         return zone.contains(p.x, p.y, p.z);
     }
