@@ -59,6 +59,44 @@ public abstract class AiGunnerBase {
     boolean hasExact;
     double exactX, exactY, exactZ;
     long exactUntil = Long.MAX_VALUE;
+    /** whether it holds fire with another AI mob in the line (off only for the stands' "before") */
+    static boolean checkLine = true;
+    /**
+     * this tick it fires blind, the gun held up over its cover with no look along it (its mind sets it each tick): its
+     * bullets spread three times the gun's (MixinAiLeanShot)
+     */
+    public boolean blind;
+    /** for the stands: shots let go blind, and the tick of the last */
+    public int blindShots;
+    public long lastBlind = Long.MIN_VALUE;
+    /**
+     * ticks it would have shot but another AI mob was in the line, since its last shot (the pauses of its bursts
+     * between kept: a burst shorter than the soldier's patience, and it never stepped aside); ticks of that in all (the
+     * stands)
+     */
+    public int blockedTicks, holds;
+    /** ticks it held fire with a block that stops bullets just past its gun (its own cover), so too; such holds (the stands) */
+    public int coverTicks, coverHolds;
+    /** the counts above go back to none once it has not wanted to fire this long, ticks (a pause of a burst is shorter) */
+    static final int HOLD_PAUSE = 40;
+    /** the last tick it wanted to fire */
+    private long wantedAt = Long.MIN_VALUE / 2;
+    /** shots it let go (the stands) */
+    public int shots;
+    /** the stands: shots let go from a crouch it chose for its clear line, and shots with a block that stops bullets just past the gun (none) */
+    public int shotsLow, coverShots;
+    /** this tick it fires from a crouch, its line from there clear (AiSoldier sets it; the stands count its shots) */
+    public boolean low;
+    /** this tick's own cover just past the gun, as the pull was decided */
+    boolean covered;
+    /** the stands: shots let go lying (with AiGunnerBase's crawlPulls and crawlHeldTicks) */
+    public int shotsLying;
+    long reloadFrom = -1;
+    /** a reload longer than this (ticks) was not seen through: it was not ticked meanwhile */
+    static final int MAX_RELOAD = 200;
+    /** shots since its last tick (AiShots: once a tick, whatever the projectiles) */
+    int fresh;
+
     // the burst: shots so far, the tick of the last, where its sideways wander is
     private int burstShots;
     private long lastShot = Long.MIN_VALUE;
@@ -215,6 +253,95 @@ public abstract class AiGunnerBase {
         }
         return false;
     }
+
+    /**
+     * Its tick (the game's tick now): turned to the aim, the trigger pulled or not as its mind wants and the world lets
+     * it, the reload key, the magazine settled, the shots counted and kicking the view.
+     */
+    void tick(long time) {
+        if (!GUNS.isGun(body, Body.MAIN_HAND)) {
+            fresh = 0;
+            return;
+        }
+        boolean aligned = turn(time);
+
+        int state = GUNS.state(body, Body.MAIN_HAND);
+        int loaded = loaded();
+        letGoReload();
+        if (state == NtmGuns.RELOADING) wantReload = false;
+        // the holds counted on through the pauses of its bursts: a shot, its aim taken away (idle, ordered) or no fire
+        // wanted a while ends them (read before this tick's want: a count from before a sleep starts over)
+        boolean holdsOver = !hasAim || time - wantedAt > HOLD_PAUSE;
+        if (wantFire) wantedAt = time;
+        if (state == NtmGuns.RELOADING && reloadFrom < 0) reloadFrom = time;
+        else if (reloadFrom >= 0 && state == NtmGuns.IDLE) {
+            // ready again (NTM's reload ends in DRAWING, its end animation); not one it was not ticked through
+            if (time - reloadFrom <= MAX_RELOAD) lastReload = (int) (time - reloadFrom);
+            reloadFrom = -1;
+        }
+        // lying, it fires only still: a pull while it crawls would be thrown away (ProneFire), so it waits until it has
+        // stopped (its legs keep still meanwhile, steady)
+        // stuck at a step, turned to its path a moment (AiMoveControl): its body does not face the aim, no shot
+        boolean turned = CONTROL.turned(body);
+        // swimming it holds fire: its hands are for the water (AiWater)
+        boolean shoot = wantFire && hasAim && aligned && loaded != 0 && !runs && !turned && !proneBlocks() && !swims();
+        // a grenadier's shells go only as lobs worked out to burst clear of its own (AiGrenadier), never straight
+        if (shoot && !hasExact && lobsOnly()) shoot = false;
+        // a hot barrel (acup.gunfeel.heat.Overheat): shorter bursts with longer pauses, and near the top it waits for it to cool
+        if (shoot && heatHolds(time)) shoot = false;
+        boolean friend = false;
+        if (shoot && checkLine) friend = friendInLine();
+        traceLine(shoot, friend);
+        if (friend) {
+            // one of its own between it and the target: it holds fire
+            shoot = false;
+            holds++;
+            countSuppressHold();
+        }
+        blockedTicks = held(blockedTicks, friend, shoot, holdsOver);
+        covered = shoot && ownCover();
+        if (covered) {
+            // its own cover in front of the gun (it sees over it, the bullet would not go over): it holds fire
+            shoot = false;
+            coverHolds++;
+        }
+        coverTicks = held(coverTicks, covered, shoot, holdsOver);
+        trigger(shoot, state == NtmGuns.IDLE, loaded);
+
+        int gone = settleMagazine();
+        // shots since its last tick, as the gun ticked or as the trigger went down (those NTM worked out; else rounds
+        // gone, as one: a gun fires at most once a tick, and a magazine changed by other means is no burst), each
+        // kicking the view
+        int n = fresh > 0 ? fresh : Math.min(gone, 1);
+        fresh = 0;
+        shots += n;
+        if (n > 0 && blind) {
+            blindShots += n;
+            lastBlind = time;
+        }
+        if (n > 0 && body.lying()) shotsLying += n;
+        if (n > 0 && low && body.crouching()) shotsLow += n;
+        if (n > 0 && covered) coverShots += n;
+        if (n > 0 && !hasExact) recoil(n, time);
+    }
+
+    /** swimming (AiWater.swims): its hands are for the water */
+    abstract boolean swims();
+
+    /** a grenadier's gun in hand fires only lobs (AiGrenadier.lobsOnly) */
+    abstract boolean lobsOnly();
+
+    /** one of its own in the line of fire (AiBots.friendInLine along the aim, the look and the body's turn) */
+    abstract boolean friendInLine();
+
+    /** the stands' trace of the line checked (AiBots.friendTrace): a shot wanted this tick, a friend found in its line */
+    abstract void traceLine(boolean shoot, boolean friend);
+
+    /** the stands' count of a hold for a friend while it suppresses (AiSoldier.suppressHolds) */
+    abstract void countSuppressHold();
+
+    /** a block that stops bullets just past its gun along the line to the aim (its own cover) */
+    abstract boolean ownCover();
 
     /** it lies for its recoil: the prone feature on and it lying (Feature.PRONE, Prone.lying) */
     abstract boolean recoilLying();

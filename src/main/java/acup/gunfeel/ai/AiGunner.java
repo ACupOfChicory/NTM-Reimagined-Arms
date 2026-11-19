@@ -29,52 +29,18 @@ public final class AiGunner extends AiGunnerBase {
     /** a shot meets its target this much later than its flight, on average (a bullet moves a tick at a time) */
     static final double LEAVES = 0.5;
 
-    /** whether it holds fire with another AI mob in the line (off only for the stands' "before") */
-    static boolean checkLine = true;
 
     private final Mob mob;
     /** where it aims, the object (AiGunnerBase keeps its numbers, set with it) */
     private @Nullable Vec3 aim;
-    /**
-     * this tick it fires blind, the gun held up over its cover with no look along it (its mind sets it each tick): its
-     * bullets spread three times the gun's (MixinAiLeanShot)
-     */
-    public boolean blind;
-    /** for the stands: shots let go blind, and the tick of the last */
-    public int blindShots;
-    public long lastBlind = Long.MIN_VALUE;
-    /**
-     * ticks it would have shot but another AI mob was in the line, since its last shot (the pauses of its bursts
-     * between kept: a burst shorter than the soldier's patience, and it never stepped aside); ticks of that in all (the
-     * stands)
-     */
-    public int blockedTicks, holds;
-    /** ticks it held fire with a block that stops bullets just past its gun (its own cover), so too; such holds (the stands) */
-    public int coverTicks, coverHolds;
-    /** the counts above go back to none once it has not wanted to fire this long, ticks (a pause of a burst is shorter) */
-    static final int HOLD_PAUSE = 40;
-    /** the last tick it wanted to fire */
-    private long wantedAt = Long.MIN_VALUE / 2;
     /** a block that stops bullets this near along the line of fire is its own cover, not the target's: no shot */
     static final double MUZZLE_CLEAR = 2.5;
     /** the line of fire starts this far under its eyes (NTM fires from the eyes, a gun's own offset off them) */
     static final double MUZZLE_DROP = 0.1;
-    /** shots it let go (the stands) */
-    public int shots;
-    /** the stands: shots let go from a crouch it chose for its clear line, and shots with a block that stops bullets just past the gun (none) */
-    public int shotsLow, coverShots;
-    /** this tick it fires from a crouch, its line from there clear (AiSoldier sets it; the stands count its shots) */
-    public boolean low;
-    /** this tick's own cover just past the gun, as the pull was decided */
-    private boolean covered;
-    /** the stands: shots let go lying (with AiGunnerBase's crawlPulls and crawlHeldTicks) */
-    public int shotsLying;
-    private long reloadFrom = -1;
-    /** a reload longer than this (ticks) was not seen through: it was not ticked meanwhile */
-    static final int MAX_RELOAD = 200;
-    // shots since its last tick (AiShots: once a tick, whatever the projectiles), and the tick of the last
-    private int fresh;
+    // the tick's shots (AiShots: once a tick, whatever the projectiles): the tick of the last
     private long shotTick = Long.MIN_VALUE;
+    /** the level of the tick under way (tick), for what the base asks of the world */
+    private @Nullable ServerLevel tickLevel;
 
     AiGunner(Mob mob, AiAmmo ammo) {
         super(acup.gunfeel.EntityBody.of(mob), ammo);
@@ -159,90 +125,56 @@ public final class AiGunner extends AiGunnerBase {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     void tick(ServerLevel level) {
-        ItemGunBaseNT gun = gun();
-        if (gun == null) {
-            fresh = 0;
-            return;
-        }
-        ItemStack stack = mob.getMainHandItem();
-        boolean aligned = turn(level.getGameTime());
+        tickLevel = level;
+        tick(level.getGameTime());
+    }
 
-        ItemGunBaseNT.GunState state = ItemGunBaseNT.getState(stack, 0);
-        int loaded = loaded();
-        letGoReload();
-        if (state == ItemGunBaseNT.GunState.RELOADING) wantReload = false;
-        long time = level.getGameTime();
-        // the holds counted on through the pauses of its bursts: a shot, its aim taken away (idle, ordered) or no fire
-        // wanted a while ends them (read before this tick's want: a count from before a sleep starts over)
-        boolean holdsOver = aim == null || time - wantedAt > HOLD_PAUSE;
-        if (wantFire) wantedAt = time;
-        if (state == ItemGunBaseNT.GunState.RELOADING && reloadFrom < 0) reloadFrom = time;
-        else if (reloadFrom >= 0 && state == ItemGunBaseNT.GunState.IDLE) {
-            // ready again (NTM's reload ends in DRAWING, its end animation); not one it was not ticked through
-            if (time - reloadFrom <= MAX_RELOAD) lastReload = (int) (time - reloadFrom);
-            reloadFrom = -1;
-        }
-        // lying, it fires only still: a pull while it crawls would be thrown away (ProneFire), so it waits until it has
-        // stopped (its legs keep still meanwhile, steady)
-        // stuck at a step, turned to its path a moment (AiMoveControl): its body does not face the aim, no shot
-        boolean turned = mob.getMoveControl() instanceof AiMoveControl legs && legs.turned();
-        // swimming it holds fire: its hands are for the water (AiWater)
-        boolean shoot = wantFire && aim != null && aligned && loaded != 0 && !runs && !turned && !acup.gunfeel.ProneFire.blocks(mob, stack)
-                && !AiWater.swims(mob);
-        // a grenadier's shells go only as lobs worked out to burst clear of its own (AiGrenadier), never straight
-        if (shoot && !hasExact && AiGrenadier.lobsOnly(mob, stack)) shoot = false;
-        // a hot barrel (acup.gunfeel.heat.Overheat): shorter bursts with longer pauses, and near the top it waits for it to cool
-        if (shoot && heatHolds(time)) shoot = false;
-        // the line to the aim, the line it looks along now (a burst's kick, a turn not done) and the one its body faces
-        // (the bullet's), each in a cone as wide as the gun strays: an automatic's wider
-        boolean friend = false;
-        if (shoot && checkLine) {
-            Vec3 eye = AiLean.eye(mob);
-            double cone = AiBots.wideLine ? clearCone() : CLEAR_CONE;
-            double far = Math.max(2, aim.distanceTo(eye));
-            // NTM sends the bullet along the body's turn (getYRot), not the head's
-            double yaw = Math.toRadians(mob.getYRot()), pitch = Math.toRadians(mob.getXRot());
-            Vec3 body = new Vec3(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
-            // the bullet leaves NTM's gun at its muzzle, off the eye to the side and down, and flies along the body's
-            // line from there (AiBots.leadLine)
-            Vec3 from = AiBots.leadLine ? muzzle(eye, stack) : eye;
-            friend = AiBots.friendInLine(level, mob, eye, aim, cone)
-                    || AiBots.wideLine && AiBots.friendInLine(level, mob, from, from.add(mob.getViewVector(1F).scale(far)), cone)
-                    || AiBots.wideLine && AiBots.friendInLine(level, mob, from, from.add(body.scale(far)), cone);
-        }
+    @Override
+    boolean swims() {
+        return AiWater.swims(mob);
+    }
+
+    @Override
+    boolean lobsOnly() {
+        return AiGrenadier.lobsOnly(mob, mob.getMainHandItem());
+    }
+
+    // the line to the aim, the line it looks along now (a burst's kick, a turn not done) and the one its body faces
+    // (the bullet's), each in a cone as wide as the gun strays: an automatic's wider
+    @Override
+    boolean friendInLine() {
+        ServerLevel level = tickLevel;
+        ItemStack stack = mob.getMainHandItem();
+        Vec3 eye = AiLean.eye(mob);
+        double cone = AiBots.wideLine ? clearCone() : CLEAR_CONE;
+        double far = Math.max(2, aim.distanceTo(eye));
+        // NTM sends the bullet along the body's turn (getYRot), not the head's
+        double yaw = Math.toRadians(mob.getYRot()), pitch = Math.toRadians(mob.getXRot());
+        Vec3 body = new Vec3(-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+        // the bullet leaves NTM's gun at its muzzle, off the eye to the side and down, and flies along the body's
+        // line from there (AiBots.leadLine)
+        Vec3 from = AiBots.leadLine ? muzzle(eye, stack) : eye;
+        return AiBots.friendInLine(level, mob, eye, aim, cone)
+                || AiBots.wideLine && AiBots.friendInLine(level, mob, from, from.add(mob.getViewVector(1F).scale(far)), cone)
+                || AiBots.wideLine && AiBots.friendInLine(level, mob, from, from.add(body.scale(far)), cone);
+    }
+
+    @Override
+    void traceLine(boolean shoot, boolean friend) {
+        ServerLevel level = tickLevel;
+        ItemStack stack = mob.getMainHandItem();
         if (AiBots.friendTrace && shoot) checked = new Checked(level.getGameTime(), AiLean.eye(mob), AiBots.leadLine ? muzzle(AiLean.eye(mob), stack) : AiLean.eye(mob),
                 aim, mob.getViewVector(1F), mob.getYRot(), mob.getXRot(), AiBots.wideLine ? clearCone() : CLEAR_CONE, friend, checkLine);
-        if (friend) {
-            // one of its own between it and the target: it holds fire
-            shoot = false;
-            holds++;
-            if (AiSoldier.counting && suppresses()) AiSoldier.suppressHolds++;
-        }
-        blockedTicks = held(blockedTicks, friend, shoot, holdsOver);
-        covered = shoot && ownCover(level);
-        if (covered) {
-            // its own cover in front of the gun (it sees over it, the bullet would not go over): it holds fire
-            shoot = false;
-            coverHolds++;
-        }
-        coverTicks = held(coverTicks, covered, shoot, holdsOver);
-        trigger(shoot, state == ItemGunBaseNT.GunState.IDLE, loaded);
+    }
 
-        int gone = settleMagazine();
-        // shots since its last tick, as the gun ticked or as the trigger went down (those NTM worked out; else rounds
-        // gone, as one: a gun fires at most once a tick, and a magazine changed by other means is no burst), each
-        // kicking the view
-        int n = fresh > 0 ? fresh : Math.min(gone, 1);
-        fresh = 0;
-        shots += n;
-        if (n > 0 && blind) {
-            blindShots += n;
-            lastBlind = level.getGameTime();
-        }
-        if (n > 0 && acup.gunfeel.Prone.lying(mob)) shotsLying += n;
-        if (n > 0 && low && mob.getPose() == net.minecraft.world.entity.Pose.CROUCHING) shotsLow += n;
-        if (n > 0 && covered) coverShots += n;
-        if (n > 0 && !hasExact) recoil(n, level.getGameTime());
+    @Override
+    void countSuppressHold() {
+        if (AiSoldier.counting && suppresses()) AiSoldier.suppressHolds++;
+    }
+
+    @Override
+    boolean ownCover() {
+        return ownCover(tickLevel);
     }
 
     /**
