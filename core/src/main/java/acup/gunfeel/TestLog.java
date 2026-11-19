@@ -76,30 +76,16 @@ public final class TestLog {
     }
 
     /**
-     * What only the version knows: the mod's and NTM's versions for the file's head, and the game's own values (a
-     * position, a block) as a line shows them. On 26.2: TestLogPrint.
+     * What only the version knows: the game's own values (a position, a block) as a line shows them. On 26.2:
+     * TestLogPrint. The versions in the file's head are the host's ({@link acup.gunfeel.host.HostVersions}).
      */
     public interface Printer {
-        String modVersion();
-
-        String ntmVersion();
-
         /** v as the line shows it (exact: a trace's, every digit), or null when v is none of the game's values. */
         String print(Object v, boolean exact);
     }
 
     private static final class Found {
         static final Printer PRINTER = CoreServices.load(Printer.class, new Printer() {
-            @Override
-            public String modVersion() {
-                return "";
-            }
-
-            @Override
-            public String ntmVersion() {
-                return "";
-            }
-
             @Override
             public String print(Object v, boolean exact) {
                 return null;
@@ -117,12 +103,12 @@ public final class TestLog {
             Files.createDirectories(file.toAbsolutePath().getParent());
             out = Files.newBufferedWriter(file, StandardCharsets.UTF_8);
             opened = System.currentTimeMillis();
-            String mod = Found.PRINTER.modVersion();
+            String mod = acup.gunfeel.host.HostVersions.get().mod();
             if (Trace.ON) {
                 int mc = mod.indexOf("+mc");
                 out.write(Trace.header(mod, mc < 0 ? "?" : mod.substring(mc + 3)));
             }
-            out.write("# ntm-gunfeel testlog, mod " + mod + ", NTM " + Found.PRINTER.ntmVersion() + "\n");
+            out.write("# ntm-gunfeel testlog, mod " + mod + ", NTM " + acup.gunfeel.host.HostVersions.get().ntm() + "\n");
             out.flush();
         } catch (IOException e) {
             ModLog.LOGGER.warn("Could not open the test log", e);
