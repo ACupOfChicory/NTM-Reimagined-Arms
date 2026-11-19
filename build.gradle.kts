@@ -611,6 +611,12 @@ neoForge {
     }
 }
 
+// core/: the code every version shares, compiled into the mod as it always was (the :core project builds it once
+// more without Minecraft: core/build.gradle.kts)
+sourceSets.main {
+    java.srcDir(root.resolve("core/src/main/java"))
+}
+
 // the tests see what the mod compiles against, the Minecraft client included
 sourceSets.test {
     compileClasspath += sourceSets.main.get().compileClasspath

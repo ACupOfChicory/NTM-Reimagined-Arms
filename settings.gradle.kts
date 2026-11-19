@@ -20,3 +20,6 @@ stonecutter {
 }
 
 rootProject.name = "NTM-Reimagined-Arms"
+
+// core/: the code every version shares, built alone without Minecraft (core/build.gradle.kts)
+include("core")

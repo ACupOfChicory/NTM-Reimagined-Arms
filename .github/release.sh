@@ -29,7 +29,8 @@ conf() {
         26.2)
             DIR=.; ARGS=(build -PnoAssets); LIBS=versions/26.2/build/libs; SUFFIX=-mc26.2; HEAD_RE='X[0-9]+'
             BRANCH=main; TITLE="26.2 NeoForge"; MC="Minecraft 26.2 (NeoForge)"; PORT=
-            TESTS=(versions/26.2/build/test-results/test); RETEST=() ;;
+            # core/ (the code every version shares) has its own tests, built without Minecraft
+            TESTS=(versions/26.2/build/test-results/test core/build/test-results/test); RETEST=() ;;
         1.7.10)
             DIR=port/1.7.10; ARGS=(build); LIBS=port/1.7.10/build/libs; SUFFIX=-mc1.7.10-forge; HEAD_RE='X[0-9]+\.[0-9]+'
             BRANCH=port/1.7.10-forge; TITLE="1.7.10 Forge"; MC="Minecraft 1.7.10 (Forge)"; PORT=1
