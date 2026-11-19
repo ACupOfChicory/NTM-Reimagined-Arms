@@ -411,8 +411,8 @@ public final class Arms {
         if (!gr.valid) return;
         Matrix4f aimedInCamera = new Matrix4f(cameraInv).mul(AIMED);
         Matrix4f restBody = new Matrix4f(aimedInCamera).mul(gr.body);
-        Quaternionf now = rotation(bodyInCamera);
-        Quaternionf rest = rotation(restBody);
+        Quaternionf now = ArmMath.rotation(bodyInCamera);
+        Quaternionf rest = ArmMath.rotation(restBody);
         ArmRest[] rests = ARM_REST.computeIfAbsent(geometry, k -> new ArmRest[] {new ArmRest(), new ArmRest()});
         // When an animation turns the gun, the arms follow only its roll around the barrel; the rest of
         // the motion (lifting, tilting) is taken up by the hands sliding along the gun.
@@ -488,7 +488,7 @@ public final class Arms {
                     Matrix4f attached=new Matrix4f(cameraInv).mul(rifle).mul(movement).mul(bind);
                     float weight=MagazineInspect.handWeight(time,Config.armInspectReleaseMs);
                     Matrix4f m=weight>=1?attached:weight<=0?r.local:
-                            blendAtHand(r.local,r.crop,attached,r.crop,weight,right,slim);
+                            ArmMath.blendAtHand(r.local,r.crop,attached,r.crop,weight,right,slim);
                     submit(collector,light,arm,skin,new Matrix4f(CAMERA).mul(m),r.crop,right,slim,sleeveShown,sleeve);
                     continue;
                 }
@@ -557,8 +557,8 @@ public final class Arms {
                     Matrix4f usual = pose(right, slim, g, HAVE_FOLLOW[i] ? null : profiles(item)[i], geometry.fraction(grip[i][2]), bodyInCamera,
                             down, hc, !right && !inspect, hown, inspect && !right ? Config.armInspectDrop : 0F, r);
                     float e = w * w * (3F - 2F * w);
-                    m = blendAtHand(usual, lastCrop, m, crop, e, right, slim);
-                    crop = blendCrop;
+                    m = ArmMath.blendAtHand(usual, lastCrop, m, crop, e, right, slim);
+                    crop = ArmMath.blendCrop;
                 }
                 var contactOffset=new Vector3f(onPath[12],onPath[13],onPath[14]);
                 if (onPath[10] > 0F) ArmContact.attach(m,p,right,slim,onPath[10],contactOffset);
@@ -1024,28 +1024,6 @@ public final class Arms {
         return new Matrix4f().translate(m[0] * k, m[1] * k, m[2] * k).mul(rest.local);
     }
 
-    // point at fraction f (stock 0 - muzzle 1) of a hand's path, in camera space, hand offset added
-    private static Vector3f onPath(float[][] path, float f, Matrix4f bodyInCamera, Vector3f off) {
-        float x = Math.clamp(f, 0F, 1F) * (path.length - 1);
-        int k = Math.min((int) x, path.length - 2);
-        float u = x - k;
-        float[] a = path[k], b = path[k + 1];
-        return bodyInCamera.transformPosition(a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u,
-                new Vector3f()).add(off);
-    }
-
-    // Pure rotation of a matrix that may carry scale and a mirror (NTM flips models with a negative scale).
-    private static Quaternionf rotation(Matrix4f m) {
-        org.joml.Matrix3f r = new org.joml.Matrix3f();
-        m.get3x3(r);
-        Vector3f c0 = r.getColumn(0, new Vector3f()).normalize();
-        Vector3f c1 = r.getColumn(1, new Vector3f()).normalize();
-        Vector3f c2 = r.getColumn(2, new Vector3f()).normalize();
-        if (c0.dot(new Vector3f(c1).cross(c2)) < 0F) c0.negate();
-        r.setColumn(0, c0).setColumn(1, c1).setColumn(2, c2);
-        return r.getNormalizedRotation(new Quaternionf()).normalize();
-    }
-
     // The arm at rest, in camera space: from the hand under the grip point back along the configured
     // direction until depth `reach`. grip = point on the gun's underside; the arm's end face touches it there.
     private static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
@@ -1065,10 +1043,6 @@ public final class Arms {
     static void restArm(ArmRest rest, boolean right, boolean slim, Vector3f grip, Vector3f down, Vector3f center,
             Vector3f axisPoint, float[] dirCfg, float reach, float holdScale) {
         restArm(rest, right, slim, grip, down, center, axisPoint, dirCfg, reach, holdScale, false, 0F);
-    }
-
-    static float pistolThickness(float sOld, float target, float wp) {
-        return sOld + (target - sOld) * Math.min(1F, wp);
     }
 
     // armPistolScale: the thickness (before armScale x holdScale = scale) at which the arm's silhouette across the hand
@@ -1141,7 +1115,7 @@ public final class Arms {
         float base = right ? Config.armBaseRight : Config.armBaseLeft;
         float thickness = base > 0F ? base : Math.min(length / (18F / 16F), Config.armMaxScale);
         if (pistolScale && pistolWeight > 0F)
-            thickness = pistolThickness(thickness, pistolTarget(right, slim, grip, down, dir, Config.armScale * holdScale,
+            thickness = ArmMath.pistolThickness(thickness, pistolTarget(right, slim, grip, down, dir, Config.armScale * holdScale,
                     base > 0F && Config.armLength > 0F, length), pistolWeight);
         float s = thickness * Config.armScale * holdScale;
         // Like TaCZ: an arm of fixed thickness is the whole arm, armLength x the vanilla arm of its thickness,
@@ -1232,17 +1206,10 @@ public final class Arms {
             for (int a = -1; a <= 1; a++) for (int b = -1; b <= 1; b++) {
                 if (a == 0 && b == 0) continue;
                 all++;
-                if (screenPoint(clip, cx + a * half, y, b * 2F / 16F) != null) in++;
+                if (ArmMath.screenPoint(clip, cx + a * half, y, b * 2F / 16F) != null) in++;
             }
         }
         return "screen hand=" + screenText(clip, cx, top) + " cut=" + screenText(clip, cx, cut) + " vis=" + Math.round(100F * in / all) + "%";
-    }
-
-    private static float[] screenPoint(Matrix4f clip, float x, float y, float z) {
-        org.joml.Vector4f v = clip.transform(new org.joml.Vector4f(x, y, z, 1F));
-        if (v.w <= 1e-4F) return null;
-        float sx = (v.x / v.w + 1F) * 0.5F, sy = (1F - v.y / v.w) * 0.5F;
-        return sx < 0F || sx > 1F || sy < 0F || sy > 1F ? null : new float[] {sx, sy};
     }
 
     private static String screenText(Matrix4f clip, float x, float y) {
@@ -1251,25 +1218,6 @@ public final class Arms {
         float sx = (v.x / v.w + 1F) * 0.5F, sy = (1F - v.y / v.w) * 0.5F;
         boolean out = sx < 0F || sx > 1F || sy < 0F || sy > 1F;
         return String.format(java.util.Locale.ROOT, "(%.2f %.2f)%s", sx, sy, out ? "out" : "");
-    }
-
-    // pixels of arm shown by the last blendAtHand
-    private static int blendCrop = 12;
-
-    // Between two arm poses, turned and sized around the hand (the point the arm holds stays on the line
-    // between the two hands); the shown length is blended too, the cut goes pixel by pixel.
-    private static Matrix4f blendAtHand(Matrix4f a, int cropA, Matrix4f b, int cropB, float w, boolean right, boolean slim) {
-        Vector3f pivot = new Vector3f((right ? -1F : 1F) * (slim ? 5.5F : 6F) / 16F, 12F / 16F, 0F);
-        Vector3f h = a.transformPosition(pivot, new Vector3f()).lerp(b.transformPosition(pivot, new Vector3f()), w);
-        Vector3f sa = a.getScale(new Vector3f()), sb = b.getScale(new Vector3f());
-        float shown = sa.y * cropA + (sb.y * cropB - sa.y * cropA) * w;
-        int crop = Math.clamp(Math.round(cropA + (cropB - cropA) * w), 1, 12);
-        blendCrop = crop;
-        Vector3f sc = new Vector3f(sa).lerp(sb, w);
-        sc.y = shown / crop;
-        // rotation(): JOML getNormalizedRotation is wrong for an arm scaled unevenly (length vs thickness)
-        Quaternionf q = rotation(a).slerp(rotation(b), w);
-        return new Matrix4f().translation(h).rotate(q).scale(sc).translate(new Vector3f(pivot).negate());
     }
 
     // The arm's pose in camera space (before CAMERA); lastCrop is set to the pixels of arm it shows.
@@ -1309,7 +1257,7 @@ public final class Arms {
                 float prev = hi, found = Float.NaN, nearest = hi, nearestD = Float.MAX_VALUE;
                 for (int k = 1; k <= 64; k++) {
                     float f = hi + (lo - hi) * k / 64F;
-                    float d = onPath(path, f, bodyInCamera, off).distance(shoulder);
+                    float d = ArmMath.onPath(path, f, bodyInCamera, off).distance(shoulder);
                     if (d <= limit) {
                         found = f;
                         break;
@@ -1329,10 +1277,10 @@ public final class Arms {
             }
             for (int k = 0; k < 16; k++) {
                 float mid = (lo + hi) * 0.5F;
-                if (onPath(path, mid, bodyInCamera, off).distance(shoulder) > limit) hi = mid;
+                if (ArmMath.onPath(path, mid, bodyInCamera, off).distance(shoulder) > limit) hi = mid;
                 else lo = mid;
             }
-            hand = onPath(path, lo, bodyInCamera, off);
+            hand = ArmMath.onPath(path, lo, bodyInCamera, off);
         }
         // keep the rest length: the shoulder end moves along the arm instead of the arm stretching
         Vector3f back = new Vector3f(shoulder).sub(hand);
@@ -1380,8 +1328,8 @@ public final class Arms {
             if (u < 1F) {
                 u = Math.max(0F, u);
                 float e = u * u * (3F - 2F * u);
-                here = blendAtHand(switchFrom[hand], switchFromCrop[hand], here, crop, e, right, slim);
-                crop = blendCrop;
+                here = ArmMath.blendAtHand(switchFrom[hand], switchFromCrop[hand], here, crop, e, right, slim);
+                crop = ArmMath.blendCrop;
                 m = new Matrix4f(CAMERA).mul(here);
             } else {
                 switchFrom[hand] = null;
