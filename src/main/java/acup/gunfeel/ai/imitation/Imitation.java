@@ -58,7 +58,7 @@ public final class Imitation {
         }
 
         @Override
-        public boolean choose(AiBot bot, AiChoice.Ask ask, boolean formula, long tick) {
+        public boolean choose(AiBot bot, Ask ask, boolean formula, long tick) {
             long t0 = System.nanoTime();
             try {
                 return core.choose(bot, ask, formula, tick, () -> FightFeatures.of(view(bot, tick)));
@@ -142,7 +142,7 @@ public final class Imitation {
         StringBuilder b = new StringBuilder(key).append(on ? "; the model answers" : "; the formula decides").append("; asked ").append(k.asks)
                 .append(", decided ").append(k.decided).append(", unknown ").append(k.unknown).append(", forced ").append(k.forced).append("; views ")
                 .append(c.viewsMade).append(", ").append(String.format(java.util.Locale.ROOT, "%.1f", c.nanos / 1e6)).append(" ms");
-        for (AiChoice.Ask a : AiChoice.Ask.values())
+        for (Ask a : Ask.values())
             if (k.decisions[a.ordinal()] > 0) b.append("; ").append(a).append(' ').append(k.yes[a.ordinal()]).append('/').append(k.decisions[a.ordinal()]);
         return b.toString();
     }

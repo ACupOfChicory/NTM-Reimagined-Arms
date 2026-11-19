@@ -9,7 +9,7 @@ import acup.gunfeel.Vec3d;
 import acup.gunfeel.Vecs;
 import acup.gunfeel.ai.AiThoughts.Why;
 import acup.gunfeel.ai.imitation.AiChoice;
-import acup.gunfeel.ai.imitation.AiChoice.Ask;
+import acup.gunfeel.ai.imitation.Ask;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;

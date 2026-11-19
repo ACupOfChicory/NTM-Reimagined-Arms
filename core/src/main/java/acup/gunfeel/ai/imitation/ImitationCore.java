@@ -4,7 +4,6 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.Supplier;
 
-import acup.gunfeel.ai.imitation.AiChoice.Ask;
 import acup.gunfeel.ai.imitation.ImitationModel.Linear;
 import acup.gunfeel.ai.imitation.ImitationModel.Question;
 
