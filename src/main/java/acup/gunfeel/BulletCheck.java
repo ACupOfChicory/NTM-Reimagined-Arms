@@ -438,7 +438,7 @@ public final class BulletCheck {
         int cave = BlockStates.number(net.minecraft.world.level.block.Blocks.CAVE_AIR.defaultBlockState());
         check("world: air is the game's: plain and cave, not stone or a fence", "true true false false",
                 w.air(acup.gunfeel.host.BlockTable.AIR) + " " + w.air(cave) + " " + w.air(s) + " " + w.air(f));
-        check("world: stone's destroy speed there", stoneState.getDestroySpeed(level, stone), w.destroySpeed(stone.getX(), stone.getY(), stone.getZ()));
+        check("world: stone's destroy speed there", stoneState.getDestroySpeed(level, stone), w.destroySpeed(s, stone.getX(), stone.getY(), stone.getZ()));
     }
 
     // ---- NTM's standard ricochet and ours (Ricochet, core): a bullet grazing a floor at half its ricochetAngle bounces

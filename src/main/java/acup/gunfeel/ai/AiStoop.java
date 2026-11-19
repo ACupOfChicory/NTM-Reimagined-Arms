@@ -14,7 +14,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class AiStoop {
     /** its speed crouched, a share of its run's step (AiMover.slow) */
-    static final double SHARE = 0.75;
+    static final double SHARE = Stride.STOOP;
     /** the standing head and a crouching mob's chest (AiPose.CROUCH_SIZE, 1.5 high), above its feet */
     static final double HEAD = 1.6, LOW_CHEST = 0.85;
     /** off only for the stands' "before" */

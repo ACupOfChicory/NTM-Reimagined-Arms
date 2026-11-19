@@ -47,9 +47,9 @@ final class LevelWorld implements WorldView {
     }
 
     @Override
-    public float destroySpeed(int x, int y, int z) {
+    public float destroySpeed(int state, int x, int y, int z) {
         BlockPos at = AT.get().set(x, y, z);
-        return level.getBlockState(at).getDestroySpeed(level, at);
+        return BlockStates.state(state).getDestroySpeed(level, at);
     }
 
     @Override

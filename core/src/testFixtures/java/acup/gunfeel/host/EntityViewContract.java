@@ -24,6 +24,9 @@ import acup.gunfeel.ai.Stance;
 public abstract class EntityViewContract {
     protected abstract EntityView view();
 
+    /** the version's BodyControl */
+    protected abstract BodyControl control();
+
     /** a living mob's number, standing (not crouching) on the ground */
     protected abstract int mob();
 
@@ -64,6 +67,17 @@ public abstract class EntityViewContract {
         assertFalse(a.removed());
     }
 
+    // the stance BodyControl sets is the one the Body reads; the mob is left standing
+    @Test
+    void stanceSetIsStanceRead() {
+        Body a = view().byId(mob());
+        for (byte s : new byte[] {Stance.PRONE, Stance.STAND, Stance.CROUCH, Stance.PRONE, Stance.STAND}) {
+            control().stance(a, s);
+            assertEquals(s, a.stance());
+            assertEquals(s == Stance.CROUCH, a.crouching());
+        }
+    }
+
     @Test
     void noneByAnotherNumber() {
         assertNull(view().byId(Integer.MIN_VALUE));
@@ -82,6 +96,12 @@ public abstract class EntityViewContract {
         assertFalse(a.crouching());
         assertFalse(a.inWater());
         assertFalse(a.passenger());
+        assertFalse(a.sleeping());
+        assertEquals(Stance.STAND, a.stance());
+        double[] box = new double[6], type = new double[6];
+        a.box(box);
+        a.typeBox(type);
+        assertArrayEquals(box, type, "standing, its type's box is its box");
         float f = a.random().nextFloat();
         assertTrue(f >= 0 && f < 1);
         assertTrue(a.eyeHeight(Stance.CROUCH) < a.eyeHeight(Stance.STAND));
@@ -129,6 +149,7 @@ public abstract class EntityViewContract {
         assertThrows(RuntimeException.class, p::speed);
         assertThrows(RuntimeException.class, p::lying);
         assertThrows(RuntimeException.class, () -> p.held(Body.MAIN_HAND));
+        assertThrows(RuntimeException.class, p::sleeping);
     }
 
     @Test
