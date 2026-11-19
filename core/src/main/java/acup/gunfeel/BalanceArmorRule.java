@@ -119,4 +119,15 @@ public final class BalanceArmorRule {
         if (!"hbm".equals(namespace) || !SHOT_TYPES.contains(path)) return false;
         return !path.equals("physical") || !byCreature;
     }
+
+    /** a weak blast's power floor reaches c·S at this raw damage; a blast's tail below it gets a share as small */
+    static final float BLAST_LOW_REF = 7F;
+
+    /**
+     * the power floor of balanceBlastLowFloor {@code c} (BalanceArmor.blastLowFloor) on a set of rating {@code s}:
+     * c·S, less for a blast weaker than {@link #BLAST_LOW_REF}
+     */
+    static float lowFloorPower(float c, float s, float raw) {
+        return c * s * Math.min(1F, Math.max(0F, raw) / BLAST_LOW_REF);
+    }
 }
