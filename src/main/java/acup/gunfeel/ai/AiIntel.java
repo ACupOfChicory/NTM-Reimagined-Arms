@@ -24,7 +24,7 @@ public final class AiIntel {
     /** a report this often, ticks */
     public static final int REPORT = IntelBook.REPORT;
     /** the staff knows of enemies this near one of its side, blocks (the owner: 256) */
-    public static final double KNOW = 256;
+    public static final double KNOW = IntelBook.KNOW;
 
     /** a group as the side knows of it: the mobs and players in it (to tell them by), what the book has of it */
     public record Group(List<LivingEntity> members, IntelBook.Group known) {
