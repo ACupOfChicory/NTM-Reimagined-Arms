@@ -19,8 +19,8 @@ class HeadProfilesTest {
         var verifiedParts=boxes.stream().map(b->new HeadProfiles.Ref(b.part(),HeadProfiles.size(b),0,ModelContours.point(b,.5,.5,.5))).toList();
         var binding=HeadProfiles.bind(new HeadProfiles.Profile(false,verifiedParts,profile.zones()),boxes,0);
         assertEquals(0,binding.missing());
-        assertTrue(HeadZone.contains(HeadProfiles.zones(binding,boxes),new Vec3(.4,1.4,.4)));
-        assertFalse(HeadZone.contains(HeadProfiles.zones(binding,boxes),new Vec3(.2,.5,.2)));
+        assertTrue(HeadZoneTests.contains(HeadProfiles.zones(binding,boxes),new Vec3(.4,1.4,.4)));
+        assertFalse(HeadZoneTests.contains(HeadProfiles.zones(binding,boxes),new Vec3(.2,.5,.2)));
         assertNull(HeadProfiles.get("naturalist:bear#baby"),"Непроверенный детёныш не наследует разметку взрослого по ID");
     }
     private ModelBox box(String name,double y) { return new ModelBox(name,0,y,0,1,0,0,0,1,0,0,0,1); }
@@ -48,7 +48,7 @@ class HeadProfilesTest {
         }
         var result=ModelHeads.resolve("foreign:custom_zombie",boxes,0);
         assertEquals("template",result.source());
-        assertTrue(HeadZone.contains(result.zones(),profile.parts().get(profile.zones().getFirst().part()).center()));
+        assertTrue(HeadZoneTests.contains(result.zones(),profile.parts().get(profile.zones().getFirst().part()).center()));
         var changed=new ArrayList<>(boxes);changed.removeLast();
         assertEquals("height",ModelHeads.resolve("foreign:missing_limb",changed,0).source());
     }
@@ -76,15 +76,15 @@ class HeadProfilesTest {
         // Вычитание большого мирового начала и обратный поворот в игре
         // оставляют точку на несколько ulp снаружи поверхности.
         var rounded=surface.add(-c*1e-14,0,-s*1e-14);
-        assertTrue(new HeadZone(box,List.of()).contains(rounded));
-        assertFalse(new HeadZone(box,List.of()).contains(surface.add(-c*.001,0,-s*.001)));
+        assertTrue(HeadZoneTests.contains(new HeadZone(box,List.of()),rounded));
+        assertFalse(HeadZoneTests.contains(new HeadZone(box,List.of()),surface.add(-c*.001,0,-s*.001)));
     }
     @Test void localCutFollowsRotationShearMovementAndScale() {
         var local=List.of(new HeadZone.Plane(0,1,0,-.7));
         var moved=new ModelBox("head",8,20,-3,0,0,-2,.3,2,0,2,0,0);
         var zone=HeadZone.local(moved,local);
-        assertTrue(zone.contains(ModelContours.point(moved,.5,.85,.5)));
-        assertFalse(zone.contains(ModelContours.point(moved,.5,.3,.5)));
+        assertTrue(HeadZoneTests.contains(zone,ModelContours.point(moved,.5,.85,.5)));
+        assertFalse(HeadZoneTests.contains(zone,ModelContours.point(moved,.5,.3,.5)));
         var restored=HeadZone.localPlane(moved,zone.planes().getFirst());
         assertEquals(.7,-restored.d()/restored.y(),1e-8);
     }
@@ -97,8 +97,8 @@ class HeadProfilesTest {
         var binding=HeadProfiles.bind(profile,List.of(head,body),0);
         assertEquals(0,binding.missing());
         var zones=HeadProfiles.zones(binding,List.of(head,body));
-        assertTrue(HeadZone.contains(zones,new Vec3(1,3.8,1)));
-        assertFalse(HeadZone.contains(zones,new Vec3(1,2.4,1)));
+        assertTrue(HeadZoneTests.contains(zones,new Vec3(1,3.8,1)));
+        assertFalse(HeadZoneTests.contains(zones,new Vec3(1,2.4,1)));
     }
     // Mask Man с половины здоровья: NTM рисует череп (1x1x1, захват зовёт его mesh/root/6) и записку IOU вместо головы
     @Test void maskManHeadIsFoundOnTheSkullItWearsWhenWounded() {
@@ -118,9 +118,9 @@ class HeadProfilesTest {
             assertEquals(boxes==healthy?"mesh/root/5":"mesh/root/6",boxes.get(binding.zones().getFirst().part()).part());
         }
         var zones=HeadProfiles.zones(HeadProfiles.bind(profile,wounded,0),wounded);
-        assertTrue(HeadZone.contains(zones,new Vec3(0,4.5,.5)));
+        assertTrue(HeadZoneTests.contains(zones,new Vec3(0,4.5,.5)));
         var healthyZones=HeadProfiles.zones(HeadProfiles.bind(profile,healthy,0),healthy);
-        assertTrue(HeadZone.contains(healthyZones,ModelContours.point(healthy.get(5),.5,.5,.5)));
+        assertTrue(HeadZoneTests.contains(healthyZones,ModelContours.point(healthy.get(5),.5,.5,.5)));
     }
     // Части, которых модель может не нарисовать: шерсть стриженой овцы, рог козы, тыква снеговика, ковёр ламы,
     // скрещённые руки разбойника (в атаке и колдовстве модель рисует right_arm/left_arm).
@@ -209,9 +209,9 @@ class HeadProfilesTest {
         var neck=cubes.stream().filter(x->x.part().equals("root/head")).toList();
         for(int i=0;i<=10;i++) for(int j=0;j<=10;j++) for(int k=0;k<=10;k++) {
             var point=ModelContours.point(b,i/10.,j/10.,k/10.);
-            boolean in=HeadZone.contains(expected.zones(),point);if(in) head++;
+            boolean in=HeadZoneTests.contains(expected.zones(),point);if(in) head++;
             // без Flywheel зона — сами кубы, а не коробка вокруг них
-            assertEquals(in && neck.stream().anyMatch(x->x.containsPoint(point.x,point.y,point.z)),HeadZone.contains(resolved.zones(),point),point.toString());
+            assertEquals(in && neck.stream().anyMatch(x->x.containsPoint(point.x,point.y,point.z)),HeadZoneTests.contains(resolved.zones(),point),point.toString());
         }
         assertTrue(head>100,"в голове есть точки зоны: "+head);
         // коза без рогов: голова без Flywheel — только уши (бородка плоская): голова — уши и нос, как под Flywheel
@@ -282,8 +282,8 @@ class HeadProfilesTest {
         var back=new Vec3(0,1.501-px/2,-.1875);var chest=new Vec3(.2,1.501-px/2,.1875);
         assertTrue(united.box().containsPoint(back.x,back.y,back.z) && united.box().containsPoint(chest.x,chest.y,chest.z),"коробка вокруг кубов берёт спину и грудь");
         for(var body:List.of(back,chest)) {
-            assertFalse(HeadZone.contains(without.zones(),body),"без Flywheel: "+body);
-            assertFalse(HeadZone.contains(with.zones(),body),"с Flywheel: "+body);
+            assertFalse(HeadZoneTests.contains(without.zones(),body),"без Flywheel: "+body);
+            assertFalse(HeadZoneTests.contains(with.zones(),body),"с Flywheel: "+body);
         }
         // грани, куда приходит пуля: первая встреча луча с кубами (без Flywheel) и с сеткой части (с Flywheel) —
         // перед черепа, низ носа, верх черепа, перед носа
@@ -294,7 +294,7 @@ class HeadProfilesTest {
                 var pick=HeadLabelGeometry.pick(fly?List.of(mesh1):List.of(skull,nose),ray[0],ray[1]);assertNotNull(pick);
                 var at=ray[0].add(ray[1].subtract(ray[0]).scale(pick.t()));
                 assertEquals(0,at.distanceTo(ray[2]),1e-5,at.toString());
-                assertTrue(HeadZone.contains((fly?with:without).zones(),at),(fly?"с":"без")+" Flywheel: "+at);
+                assertTrue(HeadZoneTests.contains((fly?with:without).zones(),at),(fly?"с":"без")+" Flywheel: "+at);
             }
         // в мире (ModelHits.world) кубы идут тем же поворотом и сдвигом, что коробка и плоскости
         double angle=.7,c=Math.cos(-angle),s=Math.sin(-angle);var position=new Vec3(100.5,64,-30.25);
@@ -303,15 +303,15 @@ class HeadProfilesTest {
         int in=0,out=0;
         for(int i=0;i<13;i++) for(int j=0;j<13;j++) for(int k=0;k<13;k++) {
             var p=ModelContours.point(around,(i+.5)/13,(j+.5)/13,(k+.5)/13);
-            boolean head1=HeadZone.contains(without.zones(),p);if(head1) in++; else out++;
+            boolean head1=HeadZoneTests.contains(without.zones(),p);if(head1) in++; else out++;
             assertEquals(skull.containsPoint(p.x,p.y,p.z) || nose.containsPoint(p.x,p.y,p.z),head1,p.toString());
-            assertEquals(head1,HeadZone.contains(world,new Vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z).add(position)),"в мире: "+p);
+            assertEquals(head1,HeadZoneTests.contains(world,new Vec3(c*p.x+s*p.z,p.y,-s*p.x+c*p.z).add(position)),"в мире: "+p);
         }
         assertTrue(in>1000 && out>100,"в коробке и голова, и нет: "+in+"/"+out);
         // надетое закрывает всю выросшую коробку, как у Flywheel: кубы в ней не режут
         var worn=WornGear.zones(without.zones(),new WornGear.Worn(WornGear.Head.ARMOR,false,false,false),true);
         assertTrue(worn.stream().allMatch(z->z.pieces().isEmpty()));
-        assertTrue(HeadZone.contains(worn,back));
+        assertTrue(HeadZoneTests.contains(worn,back));
     }
     // Без Flywheel слой поверх моба приходит под именами самой модели (root/<часть>): копией модели (утопленник,
     // страй, болотник) или никак, когда текстура слоя ничего не добавляет (глаза паука, свечение вардена). Часть слоя
@@ -666,7 +666,7 @@ class HeadProfilesTest {
         for(var leg:shell) if(leg.part().startsWith("root/leg")) for(double a:new double[]{.1,.5,.9}) for(double b:new double[]{.1,.5,.9}) for(double c:new double[]{.1,.5,.9}) {
             var point=new Vec3(leg.x()+a*leg.ux()+b*leg.vx()+c*leg.wx(),leg.y()+a*leg.uy()+b*leg.vy()+c*leg.wy(),leg.z()+a*leg.uz()+b*leg.vz()+c*leg.wz());
             if(!crabZones.getFirst().box().containsPoint(point.x,point.y,point.z) || shellCubes.stream().anyMatch(cube->cube.containsPoint(point.x,point.y,point.z))) continue;
-            under++;assertFalse(HeadZone.contains(crabZones,point),leg.part()+" "+point);
+            under++;assertFalse(HeadZoneTests.contains(crabZones,point),leg.part()+" "+point);
         }
         assertTrue(under>0,"нога в коробке панциря вне его кубов");
     }

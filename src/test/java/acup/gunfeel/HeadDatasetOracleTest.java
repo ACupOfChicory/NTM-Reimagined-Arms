@@ -69,9 +69,9 @@ class HeadDatasetOracleTest {
                     -b.uz()*.5,b.uy()*.5,b.ux()*.5,-b.vz()*.5,b.vy()*.5,b.vx()*.5,-b.wz()*.5,b.wy()*.5,b.wx()*.5,b.mesh()));
             var bound=HeadProfiles.zones(binding,moved);
             for(var sample:samples) {
-                boolean expected=HeadZone.contains(zones,sample.point());truth.add(expected);
+                boolean expected=HeadZoneTests.contains(zones,sample.point());truth.add(expected);
                 var p=sample.point();var next=new Vec3(-p.z*.5+7,p.y*.5-30,p.x*.5-4);
-                assertEquals(expected,HeadZone.contains(bound,next),id+": срез не следует движению/масштабу");
+                assertEquals(expected,HeadZoneTests.contains(bound,next),id+": срез не следует движению/масштабу");
             }
             var indices=new ArrayList<Integer>();
             if(samples.size()<=1024) for(int i=0;i<samples.size();i++) indices.add(i);
@@ -84,7 +84,7 @@ class HeadDatasetOracleTest {
                 }
             }
             var visible=new ArrayList<Boolean>();
-            for(int at:indices) { var s=samples.get(at);visible.add(s.area()>1e-20 && HeadZone.visible(body,s.point(),s.normal(),reach)); }
+            for(int at:indices) { var s=samples.get(at);visible.add(s.area()>1e-20 && HeadZoneTests.visible(body,s.point(),s.normal(),reach)); }
             output.put(id,new Result(indices,truth,visible));
         }
         assertEquals(index.size(),output.size());
