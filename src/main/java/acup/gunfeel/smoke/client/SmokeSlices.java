@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import acup.gunfeel.Config;
 import acup.gunfeel.smoke.SmokeClouds;
 import acup.gunfeel.smoke.SmokeGrid;
@@ -48,6 +50,7 @@ public final class SmokeSlices {
         drawnLast = 0;
     }
 
+    @Hook(HookPoint.SMOKE_DRAW)
     public static void submit(SubmitCustomGeometryEvent e) {
         drawnLast = 0;
         if (!SmokeRender.slicesWanted()) {

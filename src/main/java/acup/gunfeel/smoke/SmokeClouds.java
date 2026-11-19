@@ -1,5 +1,7 @@
 package acup.gunfeel.smoke;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -91,7 +93,7 @@ public final class SmokeClouds extends SmokeCloudSet<SmokeClouds.Cloud> {
     }
 
     private SmokeClouds(Level level) {
-        super(c -> SmokeMask.of(level, c));
+        super(acup.gunfeel.Wiring.smokeWalls(level));
     }
 
     // tests: clouds over a mask of their own, with no level
@@ -122,6 +124,7 @@ public final class SmokeClouds extends SmokeCloudSet<SmokeClouds.Cloud> {
      *
      * @param scale share of the kind's volume (1 = one grenade)
      */
+    @Hook(HookPoint.SMOKE_BURST)
     public static int spawn(ServerLevel level, Vec3 pos, Vec3 direction, SmokeKind kind, float scale) {
         if (!enabled()) return -1;
         SmokeClouds all = of(level);
@@ -193,6 +196,7 @@ public final class SmokeClouds extends SmokeCloudSet<SmokeClouds.Cloud> {
     }
 
     /** Once a level tick on the server. */
+    @Hook(HookPoint.SMOKE_SERVER_TICK)
     public static void serverTick(ServerLevel level) {
         SmokeClouds all = get(level);
         if (all == null || all.isEmpty()) return;

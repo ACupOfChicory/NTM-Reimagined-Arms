@@ -5,6 +5,9 @@
 // the game stays in src/main/java (the version's adapter) and reaches core through an interface core declares.
 plugins {
     java
+    // core/src/testFixtures: the contract tests of the ports, which each version's tests extend (it compiles them as
+    // a source directory of its tests, the way it compiles core's main)
+    `java-test-fixtures`
 }
 
 val root: File = rootProject.projectDir
@@ -31,6 +34,8 @@ val testGroups = setOf("org.junit", "org.junit.jupiter", "org.junit.platform", "
 
 dependencies {
     for (lib in coreLibraries) implementation(lib) { isTransitive = false }
+    testFixturesApi(platform("org.junit:junit-bom:5.13.4"))
+    testFixturesApi("org.junit.jupiter:junit-jupiter-api")
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -40,7 +45,9 @@ dependencies {
 // what the script declares, every build (a class path is only resolved when there is something to compile).
 afterEvaluate {
     for (conf in configurations) for (d in conf.dependencies) {
-        val ok = d is ExternalModuleDependency && (d.group in coreGroups || (conf.name.startsWith("test") && d.group in testGroups))
+        // the test fixtures' plugin ties core's tests and fixtures to core itself: that is no library
+        val self = d is ProjectDependency && d.path == project.path
+        val ok = self || d is ExternalModuleDependency && (d.group in coreGroups || (conf.name.startsWith("test") && d.group in testGroups))
         if (!ok) throw GradleException("core may use only ${coreLibraries.joinToString()} " +
                 "(configuration ${conf.name} has ${d.group}:${d.name}): what needs the game stays in src/main/java")
     }
@@ -48,6 +55,7 @@ afterEvaluate {
 
 sourceSets {
     main { java.setSrcDirs(listOf("src/main/java")); resources.setSrcDirs(emptyList<File>()) }
+    testFixtures { java.setSrcDirs(listOf("src/testFixtures/java")); resources.setSrcDirs(emptyList<File>()) }
     // the tests read the mod's data files as the mod does, from the class path; not 26.2's service files, which name
     // 26.2's classes: core's tests run with no version, on CoreServices' fallbacks
     test {
@@ -70,8 +78,8 @@ tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.addAll(listOf("-proc:none", "-nowarn"))
 }
 
-// nothing uses a jar of core alone: the versions compile its sources
-tasks.jar { enabled = false }
+// core's jar is for core's own tests and fixtures alone (the fixtures' plugin ties them to it); no version ships it:
+// the versions compile core's sources into their own jar
 
 // core at PORT_RELEASE once more, for that check alone (the classes are thrown away), with every test run
 val compileForPorts = tasks.register<JavaCompile>("compileForPorts") {

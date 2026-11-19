@@ -166,7 +166,7 @@ public final class ReaimTimes {
 
     /**
      * What reads this file's values into its own tables and must read them again with it (reloadNow): on 26.2 the
-     * balance's gun table and the bullet rules. Found by META-INF/services; without a version nothing.
+     * balance's gun table and the bullet rules. A port of the version (CoreServices); without one nothing.
      */
     public interface Reload {
         void reloadNow();

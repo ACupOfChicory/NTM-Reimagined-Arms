@@ -33,7 +33,7 @@ class CoreBoundaryTest {
     @Test
     void coreNamesNoGameClass() throws IOException {
         List<String> bad = new ArrayList<>();
-        for (Path dir : List.of(Path.of("core/src/main/java"), Path.of("core/src/test/java"))) {
+        for (Path dir : List.of(Path.of("core/src/main/java"), Path.of("core/src/testFixtures/java"), Path.of("core/src/test/java"))) {
             if (!Files.isDirectory(dir)) continue;
             try (Stream<Path> files = Files.walk(dir)) {
                 // this file names them in its own examples

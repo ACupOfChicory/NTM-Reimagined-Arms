@@ -391,8 +391,8 @@ public final class Config {
 
     /**
      * What the version does when the settings file has been changed and is read again, before its values are: on
-     * 26.2 the pistol's hip defaults measured against the old values are dropped (PistolHold). Found by
-     * META-INF/services; without a version nothing.
+     * 26.2 the pistol's hip defaults measured against the old values are dropped (PistolHold). Found through the
+     * version's root (CoreServices); without a version nothing.
      */
     public interface Reread {
         void reread();

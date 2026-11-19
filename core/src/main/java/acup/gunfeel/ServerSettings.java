@@ -58,7 +58,7 @@ public final class ServerSettings {
 
     /**
      * What else goes by the server's settings the moment they come or go: on 26.2 the bullet shapes (PassableClip
-     * takes the server's). Found by META-INF/services; without a version nothing.
+     * takes the server's). A port of the version (CoreServices); without one nothing.
      */
     public interface Follow {
         void follow(@Nullable Snapshot s);

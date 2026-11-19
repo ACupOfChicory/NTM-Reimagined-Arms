@@ -17,6 +17,8 @@ import com.hbm.lib.ModDamageTypes;
 import com.hbm.util.ArmorRegistry;
 import com.hbm.util.DamageResistanceHandler;
 
+import acup.gunfeel.host.Hook;
+import acup.gunfeel.host.HookPoint;
 import acup.gunfeel.ReaimTimes;
 import acup.gunfeel.smoke.SmokeClouds;
 import acup.gunfeel.smoke.SmokeGrid;
@@ -68,16 +70,19 @@ public final class GasServer {
         return FLOORS.computeIfAbsent(level, l -> new GasFloor());
     }
 
+    @Hook(HookPoint.GAS_FORGET)
     public static void forget(Level level) {
         AFFLICTED.remove(level);
         FLOORS.remove(level);
     }
 
+    @Hook(HookPoint.GAS_FORGET)
     public static void forget(UUID player) {
         SENT.remove(player);
     }
 
     /** A thing that came into the world with a dose in it (loaded) is looked at again. */
+    @Hook(HookPoint.GAS_LIVING)
     public static void joined(LivingEntity e) {
         if (e.level() instanceof ServerLevel level && e.getExistingDataOrNull(GasAttach.STATE.get()) != null) afflicted(level).add(e);
     }
@@ -91,6 +96,7 @@ public final class GasServer {
     }
 
     /** Once a level tick. */
+    @Hook(HookPoint.GAS_SERVER_TICK)
     public static void tick(ServerLevel level) {
         Set<LivingEntity> held = AFFLICTED.get(level);
         SmokeClouds all = SmokeClouds.get(level);
@@ -311,12 +317,14 @@ public final class GasServer {
     }
 
     /** Whether natural healing is shut for this one (the mustard's dose is at its first level). */
+    @Hook(HookPoint.GAS_LIVING)
     public static boolean noRegen(LivingEntity e) {
         GasState s = e.getExistingDataOrNull(GasAttach.STATE.get());
         return s != null && s.dose[GasState.MUSTARD] >= GasRules.MUSTARD_L1;
     }
 
     /** Vanilla milk drunk: the phosgene dose by half. */
+    @Hook(HookPoint.GAS_LIVING)
     public static void milk(LivingEntity e) {
         GasState s = e.getExistingDataOrNull(GasAttach.STATE.get());
         if (s != null) GasModel.milk(s);
