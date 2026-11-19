@@ -87,6 +87,9 @@ public final class GunFeelMod {
                     acup.gunfeel.ai.AiCommand.register(e.getDispatcher());
                     acup.gunfeel.ai.imitation.ImitationCommand.register(e.getDispatcher());
                 });
+        // the game's block tags applied anew (a /reload; a server's, on joining it): the blocks' facts with them (BlockStates)
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.TagsUpdatedEvent.class,
+                e -> BlockStates.forgetFacts());
         // a vanilla blast (TNT, a creeper, a bed) near players: their suppression scale (NTM's: MixinSuppressionBlast)
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.level.ExplosionEvent.Detonate.class,
                 e -> {

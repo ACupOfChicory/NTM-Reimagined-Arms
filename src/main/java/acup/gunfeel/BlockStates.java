@@ -28,6 +28,16 @@ public final class BlockStates implements BlockTable {
         return Table.T.state(number);
     }
 
+    /** the facts of the state with that number (as {@link #facts}, for 26.2's own code) */
+    public static BlockFacts factsOf(int number) {
+        return Table.T.facts(number);
+    }
+
+    /** the game's tags changed (a /reload, a server's on joining it): every state's facts made anew when next asked */
+    public static void forgetFacts() {
+        Table.T.forgetFacts();
+    }
+
     @Override
     public BlockFacts facts(int state) {
         return Table.T.facts(state);
