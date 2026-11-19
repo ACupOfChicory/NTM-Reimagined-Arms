@@ -51,7 +51,7 @@ public final class Pierce {
         // Проверяем до правил пробития, чтобы они тоже не обходили общий выключатель.
         if ((block.machine(state) || v.material() == Materials.Material.MACHINE) && !ReaimTimes.flag(MACHINES_KEY, false)) return -1F;
         BulletRuleText.Break rule = block.breakRule(state);
-        if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, w.destroySpeed(x, y, z), path);
+        if (rule != null && rule.pierce() > 0F) return rule.pierced(damage, w.destroySpeed(state, x, y, z), path);
         float left = penetration.left(v, path, damage, negation, piercing);
         return left >= 1F ? left : -1F;
     }
