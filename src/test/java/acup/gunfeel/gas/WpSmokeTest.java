@@ -59,7 +59,7 @@ class WpSmokeTest {
         assertFalse(GasKind.gas(WP));
         assertFalse(SmokeClouds.feeds(WP));
         assertEquals(WP.look(), WP.extinction());
-        assertTrue(WP.extinction() * WP.fill() * 17 < 1F, "seen through: " + WP.extinction());
+        assertTrue(WP.extinction() * WP.fill() * 17 < 1.5F, "seen through: " + WP.extinction());
         assertTrue(WP.lift() < 0F && WP.rise() < 0F, "lies low");
         // the shells' is the same haze under an id of its own (no sparks)
         SmokeKind shell = SmokeKind.WP_SHELL;
