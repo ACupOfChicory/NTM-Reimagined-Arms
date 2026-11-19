@@ -15,7 +15,7 @@ final class StaffCross {
     /** the gathering place this far past the far bank's first dry ground, blocks */
     static final double PAST = 2;
 
-    record Site(double x, double z, AiCrossing.Kind kind, double farX, double farZ) {
+    record Site(double x, double z, CrossingKind kind, double farX, double farZ) {
     }
 
     private StaffCross() {
@@ -39,7 +39,7 @@ final class StaffCross {
                 } else if (in) {
                     // the far bank: on a little along the way
                     double dx = (qx - px) / Math.max(1e-9, len), dz = (qz - pz) / Math.max(1e-9, len);
-                    return new Site(dryX, dryZ, swims ? AiCrossing.Kind.SWIM : AiCrossing.Kind.FORD, x + dx * PAST, z + dz * PAST);
+                    return new Site(dryX, dryZ, swims ? CrossingKind.SWIM : CrossingKind.FORD, x + dx * PAST, z + dz * PAST);
                 } else {
                     dryX = x;
                     dryZ = z;

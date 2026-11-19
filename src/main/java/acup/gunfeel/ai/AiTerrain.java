@@ -24,7 +24,7 @@ import net.minecraft.world.level.material.FluidState;
  * <p>The layers say what the sky sees: under a roof or in a cave they give the roof and the hill, not the floor.
  * There the cells and the rooms speak (TacticalMap, AiRooms).
  */
-public final class AiTerrain {
+public final class AiTerrain implements Skyline.Tiles {
     /** the server thread's time for copying chunks, per tick */
     static final long BUDGET_NANOS = 150_000L;
     /** the deepest water counted, blocks */
@@ -151,6 +151,7 @@ public final class AiTerrain {
 
     // ------------------------------------------------------------------ reading (any thread)
 
+    @Override
     public @Nullable TerrainTile tile(int x, int z) {
         return core.tileAt(x, z);
     }

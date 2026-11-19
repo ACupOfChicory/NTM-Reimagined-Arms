@@ -41,6 +41,7 @@ class Ports26Test extends PortsContract {
         assertInstanceOf(acup.gunfeel.compat.CompatVersions.class, p.port(acup.gunfeel.host.HostVersions.class));
         assertInstanceOf(acup.gunfeel.compat.CompatVersions.class, acup.gunfeel.host.HostVersions.get());
         assertInstanceOf(FmlGameDirs.class, GameDirs.get());
+        assertInstanceOf(BlockStates.class, p.port(acup.gunfeel.host.BlockTable.class));
     }
 
     @Test

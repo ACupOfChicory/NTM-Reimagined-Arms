@@ -336,7 +336,7 @@ final class AiCheckCrossing {
         down.clear();
         AiCrossing.on = arm() != OFF;
         AiCrossing.STAND_ORDERS.clear();
-        if (arm() == ORDER || arm() == QUIET || arm() == SILENT) AiCrossing.STAND_ORDERS.put(SIDE, new AiCrossing.Task(CROSS_X, CROSS_Z, AiCrossing.Kind.SWIM, CROSS_X, FAR_Z));
+        if (arm() == ORDER || arm() == QUIET || arm() == SILENT) AiCrossing.STAND_ORDERS.put(SIDE, new AiCrossing.Task(CROSS_X, CROSS_Z, CrossingKind.SWIM, CROSS_X, FAR_Z));
         mainEarly = nearEarly = mostMain = reports = spots = farSwam = nearSwam = 0;
         lastReport = "none";
         AiSquads.on = true;
