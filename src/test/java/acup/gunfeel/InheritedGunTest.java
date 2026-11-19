@@ -18,7 +18,7 @@ class InheritedGunTest {
             assertNull(Grips.inheritsFrom(DAYBREAKER));
             assertNull(Grips.inheritsFrom(FLAMER));
             // the jar's hands
-            assertArrayEquals(Grips.get(Identifier.parse(FLAMER)).leftAt(), Grips.get(Identifier.parse(TOPAZ)).leftAt());
+            assertArrayEquals(Grips.get(Identifier.parse(FLAMER).toString()).leftAt(), Grips.get(Identifier.parse(TOPAZ).toString()).leftAt());
             assertTrue(Grips.inherited(TOPAZ, "leftAt"));
 
             // the player's settings of the flamethrower, a variant's hand too
@@ -29,7 +29,7 @@ class InheritedGunTest {
             assertEquals("7", Grips.gunValue(TOPAZ, "armRollLeft"));
             assertTrue(Grips.inherited(TOPAZ, "kickPitch"));
             assertNull(Grips.own(TOPAZ, "kickPitch"), "inherited is not Topaz's own");
-            assertArrayEquals(new float[] {0.1F, 0.2F, 0.3F}, Grips.get(Identifier.parse(TOPAZ), "-HeatShield").left());
+            assertArrayEquals(new float[] {0.1F, 0.2F, 0.3F}, Grips.get(Identifier.parse(TOPAZ).toString(), "-HeatShield").left());
             Config.select(TOPAZ);
             assertEquals(7F, Config.armRollLeft);
             assertNull(Grips.gunValue(DAYBREAKER, "kickPitch"), "the Daybreaker takes nothing");
@@ -63,12 +63,12 @@ class InheritedGunTest {
             assertEquals("3", Grips.gunValue(FLAMER, "armRollLeft"));
 
             // a hand moved on Topaz is Topaz's; the flamethrower's stays
-            float[] flamerLeft = Grips.get(Identifier.parse(FLAMER)).leftAt().clone();
+            float[] flamerLeft = Grips.get(Identifier.parse(FLAMER).toString()).leftAt().clone();
             Grips.setAt(TOPAZ, false, 1F, 2F, 3F, false);
-            assertArrayEquals(new float[] {1F, 2F, 3F}, Grips.get(Identifier.parse(TOPAZ)).leftAt());
-            assertArrayEquals(flamerLeft, Grips.get(Identifier.parse(FLAMER)).leftAt());
+            assertArrayEquals(new float[] {1F, 2F, 3F}, Grips.get(Identifier.parse(TOPAZ).toString()).leftAt());
+            assertArrayEquals(flamerLeft, Grips.get(Identifier.parse(FLAMER).toString()).leftAt());
             Grips.resetHand(TOPAZ, false, false);
-            assertArrayEquals(flamerLeft, Grips.get(Identifier.parse(TOPAZ)).leftAt());
+            assertArrayEquals(flamerLeft, Grips.get(Identifier.parse(TOPAZ).toString()).leftAt());
         } finally {
             Grips.restoreUnsaved(opened);
             Config.select(null);
@@ -107,14 +107,14 @@ class InheritedGunTest {
             assertTrue(Grips.snapshot().keySet().stream().noneMatch(k -> k.startsWith(TOPAZ)), "nothing of Topaz written");
             Grips.commonHand(TOPAZ + "-HeatShield", false);
             assertFalse(Grips.variantHand(TOPAZ + "-HeatShield", false, false));
-            assertArrayEquals(Grips.get(Identifier.parse(TOPAZ)).leftAt(), Grips.get(Identifier.parse(TOPAZ), "-HeatShield").leftAt());
+            assertArrayEquals(Grips.get(Identifier.parse(TOPAZ).toString()).leftAt(), Grips.get(Identifier.parse(TOPAZ).toString(), "-HeatShield").leftAt());
             assertTrue(Grips.variantHand(FLAMER + "-HeatShield", false, false), "the flamethrower's stays");
 
             assertEquals(Grips.shipped(FLAMER, "leftAt"), Grips.shipped(TOPAZ, "leftAt"));
             assertNotNull(Grips.shipped(TOPAZ, "leftAt"));
             Grips.put(FLAMER, "leftAt", "", false);
             assertNull(Grips.shipped(TOPAZ, "leftAt"), "hidden on the flamethrower: hidden for Topaz");
-            assertNull(Grips.get(Identifier.parse(TOPAZ)).leftAt());
+            assertNull(Grips.get(Identifier.parse(TOPAZ).toString()).leftAt());
         } finally {
             Grips.restoreUnsaved(opened);
             Config.select(null);

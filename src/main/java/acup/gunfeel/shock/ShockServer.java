@@ -10,7 +10,7 @@ import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
 
 import acup.gunfeel.ReaimTimes;
-import acup.gunfeel.TestLog;
+import acup.gunfeel.WorldLog;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -230,7 +230,7 @@ public final class ShockServer {
     }
 
     private static void log(ServerLevel level, LivingEntity target, String what, long left, long immune) {
-        if (TestLog.on(level)) TestLog.at(level, "shock", "what", what, "id", target.getId(), "who", target.getPlainTextName(), "left", left, "immune", immune);
+        if (WorldLog.on(level)) WorldLog.at(level, "shock", "what", what, "id", target.getId(), "who", target.getPlainTextName(), "left", left, "immune", immune);
     }
 
     // the discharge where it hit: NTM's Tesla zap, heard by everyone near

@@ -77,7 +77,7 @@ class ArmReplayTest {
         }
         var id = Identifier.parse(gun);
         for (String m : variants) {
-            var g = Grips.get(id, m);
+            var g = Grips.get(id.toString(), m);
             sb.append("grip").append(m).append('=').append(f(g.right())).append(f(g.left())).append(f(g.rightAt())).append(f(g.leftAt())).append('\n');
         }
         return sb.toString();

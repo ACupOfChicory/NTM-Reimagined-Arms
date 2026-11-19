@@ -359,7 +359,7 @@ public final class Arms {
             gripVersion = Grips.version();
         }
         return GRIP_CACHE.computeIfAbsent(geometry(held), geo -> {
-            Grips.Grip g = Grips.get(BuiltInRegistries.ITEM.getKey(held), geo.missing);
+            Grips.Grip g = Grips.get(BuiltInRegistries.ITEM.getKey(held).toString(), geo.missing);
             float[] r = g.rightAt() != null ? g.rightAt() : geo.grip(g.right());
             float[] l = g.leftAt() != null ? g.leftAt() : geo.grip(g.left());
             return new float[][] {r, l, geo.holdCenter(r), geo.holdCenter(l)};
@@ -373,7 +373,7 @@ public final class Arms {
     private static float[][][] profiles(Item held) {
         grips(held); // keeps the caches in step with the grip file
         return PROFILE_CACHE.computeIfAbsent(geometry(held), geo -> {
-            Grips.Grip g = Grips.get(BuiltInRegistries.ITEM.getKey(held), geo.missing);
+            Grips.Grip g = Grips.get(BuiltInRegistries.ITEM.getKey(held).toString(), geo.missing);
             float[] r = g.rightAt() != null ? geo.fractions(g.rightAt()) : g.right();
             float[] l = g.leftAt() != null ? geo.fractions(g.leftAt()) : g.left();
             return new float[][][] {geo.profile(r[0], r[1], PROFILE_STEPS), geo.profile(l[0], l[1], PROFILE_STEPS)};

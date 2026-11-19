@@ -48,7 +48,7 @@ class ArmFilesTest {
         }
         var id = Identifier.parse(gun);
         for (String m : variants) {
-            var g = Grips.get(id, m);
+            var g = Grips.get(id.toString(), m);
             sb.append("grip").append(m).append('=').append(Arrays.toString(g.right())).append(Arrays.toString(g.left())).append(Arrays.toString(g.rightAt()))
                     .append(Arrays.toString(g.leftAt())).append('\n');
         }
