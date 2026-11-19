@@ -100,22 +100,22 @@ class ArmSettingsTest {
             e.page = ArmEditor.Page.GRIP;
             e.hand = 1;
             // the grease gun holds its left hand at a point of the model
-            assertNotNull(Grips.get(Identifier.parse(GUN)).leftAt());
-            float[] at = Grips.get(Identifier.parse(GUN)).leftAt().clone();
+            assertNotNull(Grips.get(Identifier.parse(GUN).toString()).leftAt());
+            float[] at = Grips.get(Identifier.parse(GUN).toString()).leftAt().clone();
             assertEquals("В доли", e.action("grip.mode").label());
             assertTrue(e.press("grip.mode"));
-            assertNull(Grips.get(Identifier.parse(GUN)).leftAt());
-            float[] f = Grips.get(Identifier.parse(GUN)).left();
+            assertNull(Grips.get(Identifier.parse(GUN).toString()).leftAt());
+            float[] f = Grips.get(Identifier.parse(GUN).toString()).left();
             assertArrayEquals(new float[] {(at[0] + 2) / 4, (at[1] + 2) / 4, (at[2] + 10) / 20}, f, 1e-4F);
             assertTrue(e.press("grip.mode"));
-            assertArrayEquals(at, Grips.get(Identifier.parse(GUN)).leftAt(), 1e-4F);
+            assertArrayEquals(at, Grips.get(Identifier.parse(GUN).toString()).leftAt(), 1e-4F);
             // beyond the muzzle the model has no section to take shares of: the hand would move, so it does not change way
             assertTrue(e.press("grip.mode"));
             assertNull(e.action("grip.mode").why());
             Grips.setAt(GUN, false, 1F, -1F, 12F, false);
             assertNotNull(e.action("grip.mode").why());
             assertFalse(e.press("grip.mode"));
-            assertArrayEquals(new float[] {1F, -1F, 12F}, Grips.get(Identifier.parse(GUN)).leftAt(), 1e-4F);
+            assertArrayEquals(new float[] {1F, -1F, 12F}, Grips.get(Identifier.parse(GUN).toString()).leftAt(), 1e-4F);
             // without a measured model there is nothing to change by
             var blind = new ArmEditor(GUN, ArmEditorTest.clips(List.of("RELOAD"), "", false));
             blind.page = ArmEditor.Page.GRIP;
@@ -135,22 +135,22 @@ class ArmSettingsTest {
             var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD"), "-Barrel", true));
             e.page = ArmEditor.Page.GRIP;
             e.hand = 1;
-            float[] whole = Grips.get(Identifier.parse(gun)).leftAt();
+            float[] whole = Grips.get(Identifier.parse(gun).toString()).leftAt();
             assertTrue(e.press("set.grip.2.plus"));
-            assertArrayEquals(whole, Grips.get(Identifier.parse(gun)).leftAt(), "the whole gun's hand stays");
+            assertArrayEquals(whole, Grips.get(Identifier.parse(gun).toString()).leftAt(), "the whole gun's hand stays");
             assertNotNull(Grips.own(gun + "-Barrel", "leftAt"));
             assertFalse(e.action("grip.variant.common").active(), "the jar's own grip of the sawn-off cannot be taken away");
             e.hand = 0;
-            float[] variantRight = Grips.get(Identifier.parse(gun), "-Barrel").right().clone();
+            float[] variantRight = Grips.get(Identifier.parse(gun).toString(), "-Barrel").right().clone();
             assertTrue(e.press("set.grip.0.plus"));
-            assertArrayEquals(Grips.get(Identifier.parse(gun)).right(), Grips.get(Identifier.parse(gun), "-Barrel").right(),
+            assertArrayEquals(Grips.get(Identifier.parse(gun).toString()).right(), Grips.get(Identifier.parse(gun).toString(), "-Barrel").right(),
                     "a variant without a grip of its own moves with the gun");
-            assertNotEquals(variantRight[0], Grips.get(Identifier.parse(gun)).right()[0]);
+            assertNotEquals(variantRight[0], Grips.get(Identifier.parse(gun).toString()).right()[0]);
             assertTrue(e.press("grip.variant.own"));
             assertTrue(e.press("set.grip.0.plus"));
-            assertNotEquals(Grips.get(Identifier.parse(gun)).right()[0], Grips.get(Identifier.parse(gun), "-Barrel").right()[0]);
+            assertNotEquals(Grips.get(Identifier.parse(gun).toString()).right()[0], Grips.get(Identifier.parse(gun).toString(), "-Barrel").right()[0]);
             assertTrue(e.press("grip.variant.common"));
-            assertArrayEquals(Grips.get(Identifier.parse(gun)).right(), Grips.get(Identifier.parse(gun), "-Barrel").right());
+            assertArrayEquals(Grips.get(Identifier.parse(gun).toString()).right(), Grips.get(Identifier.parse(gun).toString(), "-Barrel").right());
         } finally {
             Grips.restoreUnsaved(opened);
             Config.select(null);

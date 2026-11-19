@@ -15,9 +15,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
-import net.minecraft.resources.Identifier;
-import net.neoforged.fml.loading.FMLPaths;
-
 // Per-gun settings, config/ntm-gunfeel-guns.properties, keys "<gun id>.<setting>":
 //   hbm\:gun_maresleg.right = 0.5,0.05,0.30      hand positions (see below)
 //   hbm\:gun_maresleg.armRollLeft = -55          any setting from ntm-gunfeel.properties
@@ -58,14 +55,15 @@ public final class Grips {
     private Grips() {
     }
 
-    public static Grip get(Identifier id) {
+    // id: the gun's item id ("hbm:gun_light_revolver")
+    public static Grip get(String id) {
         return get(id, "");
     }
 
     // A variant of the gun (missing = the model parts it does not draw, e.g. "-Barrel" for a sawn-off) may
     // have its own hand positions: "<gun id>-Barrel.leftAt"; each hand falls back to the gun's own.
-    public static Grip get(Identifier id, String missing) {
-        String base = armsGun(id.toString()), own = base + missing;
+    public static Grip get(String id, String missing) {
+        String base = armsGun(id), own = base + missing;
         Grip b = read(base);
         if (missing.isEmpty()) return b;
         Grip v = read(own);
@@ -444,7 +442,7 @@ public final class Grips {
             p.load(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8));
             for (String key : p.stringPropertyNames()) out.put(key, p.getProperty(key).trim());
         } catch (IOException | RuntimeException e) {
-            DebugLog.LOGGER.warn("Could not read the built-in gun settings", e);
+            ModLog.LOGGER.warn("Could not read the built-in gun settings", e);
         }
         return out;
     }
@@ -461,7 +459,7 @@ public final class Grips {
     }
 
     private static Path file() throws IOException {
-        if (file == null) file = FMLPaths.CONFIGDIR.get().resolve(FILE);
+        if (file == null) file = GameDirs.get().config().resolve(FILE);
         return file;
     }
 
@@ -484,7 +482,7 @@ public final class Grips {
             }
             merge();
         } catch (IOException | RuntimeException e) {
-            DebugLog.LOGGER.warn("Could not read {}", file, e);
+            ModLog.LOGGER.warn("Could not read {}", file, e);
         }
     }
 
@@ -504,7 +502,7 @@ public final class Grips {
             stamp = Files.getLastModifiedTime(f).toMillis();
             dirty = false;
         } catch (IOException e) {
-            DebugLog.LOGGER.warn("Could not write {}", file, e);
+            ModLog.LOGGER.warn("Could not write {}", file, e);
         }
     }
 }

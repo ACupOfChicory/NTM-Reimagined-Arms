@@ -17,6 +17,12 @@ class CoreServicesFoundTest {
     }
 
     @Test
+    void theSettingsRereadDropsThePistolsHipDefaults() {
+        var found = java.util.ServiceLoader.load(Config.Reread.class).stream().map(p -> p.type()).toList();
+        assertEquals(java.util.List.of(PistolHoldReread.class), found);
+    }
+
+    @Test
     void theTestLogPrintsTheGamesValuesAsBefore() {
         assertEquals("1,2,3", TestLog.fmt(new BlockPos(1, 2, 3)));
         assertEquals("0.500,1.000,-2.250", TestLog.fmt(new Vec3(0.5, 1, -2.25)));

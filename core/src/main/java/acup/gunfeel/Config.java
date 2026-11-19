@@ -7,8 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 
-import net.neoforged.fml.loading.FMLPaths;
-
 // config/ntm-gunfeel.properties, re-read whenever the file changes so values can be tuned in game.
 public final class Config {
     public static boolean enabled = true;
@@ -391,20 +389,33 @@ public final class Config {
     private Config() {
     }
 
+    /**
+     * What the version does when the settings file has been changed and is read again, before its values are: on
+     * 26.2 the pistol's hip defaults measured against the old values are dropped (PistolHold). Found by
+     * META-INF/services; without a version nothing.
+     */
+    public interface Reread {
+        void reread();
+    }
+
+    private static final class Found {
+        static final Reread REREAD = CoreServices.load(Reread.class, () -> {});
+    }
+
     public static void poll() {
         long now = System.currentTimeMillis();
         if (now < nextCheck) return;
         nextCheck = now + 1000;
         Grips.poll();
         try {
-            if (file == null) file = FMLPaths.CONFIGDIR.get().resolve("ntm-gunfeel.properties");
+            if (file == null) file = GameDirs.get().config().resolve("ntm-gunfeel.properties");
             if (!Files.exists(file)) {
                 save();
             }
             long modified = Files.getLastModifiedTime(file).toMillis();
             if (modified == stamp) return;
             stamp = modified;
-            PistolHold.clearHipDefaults();
+            Found.REREAD.reread();
             Properties p = new Properties();
             try (Reader r = Files.newBufferedReader(file)) {
                 p.load(r);
@@ -412,9 +423,9 @@ public final class Config {
             GLOBAL.clear();
             GLOBAL.putAll(p);
             selected = null;
-            DebugLog.LOGGER.info("Loaded {}", file);
+            ModLog.LOGGER.info("Loaded {}", file);
         } catch (IOException | RuntimeException e) {
-            DebugLog.LOGGER.warn("Could not read {}", file, e);
+            ModLog.LOGGER.warn("Could not read {}", file, e);
         }
     }
 
@@ -795,7 +806,7 @@ public final class Config {
 
     // one key of config/ntm-gunfeel.properties changed in the file (for commands); the file is read back on the next poll
     public static void setInFile(String key, String value) throws IOException {
-        if (file == null) file = FMLPaths.CONFIGDIR.get().resolve("ntm-gunfeel.properties");
+        if (file == null) file = GameDirs.get().config().resolve("ntm-gunfeel.properties");
         if (!Files.exists(file)) save();
         Properties p = new Properties();
         try (Reader r = Files.newBufferedReader(file)) {
