@@ -60,6 +60,15 @@ public interface NtmGuns {
      */
     boolean muzzle(Body holder, int hand, boolean scoped, double[] out);
 
+    /** NTM's aiming (the gun's own state: down its sights) */
+    boolean aiming(Body holder, int hand);
+
+    /** The barrel's heat (the mod's, kept on NTM's gun): which of OverheatBase.Gun it is, its ordinal; -1 for none. */
+    int heatGun(Body holder, int hand);
+
+    /** The barrel's heat now (the game's tick now): Overheat.heat, 0 off or for no gun of OverheatBase.Gun. */
+    float heat(Body holder, int hand, long now);
+
     // --- 2. writes, each one of NTM's, in the caller's order
 
     /**
@@ -121,6 +130,21 @@ public interface NtmGuns {
         @Override
         public void key(Body holder, int hand, int key, boolean down) {
             throw new IllegalStateException("no gun");
+        }
+
+        @Override
+        public boolean aiming(Body holder, int hand) {
+            return false;
+        }
+
+        @Override
+        public int heatGun(Body holder, int hand) {
+            return -1;
+        }
+
+        @Override
+        public float heat(Body holder, int hand, long now) {
+            return 0F;
         }
 
         @Override

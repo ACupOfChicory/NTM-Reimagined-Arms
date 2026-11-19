@@ -11,10 +11,13 @@ import net.minecraft.world.item.Items;
  */
 final class ItemNumbers {
     private static final ConcurrentHashMap<Item, Integer> NUMBERS = new ConcurrentHashMap<>();
+    /** the items by number (ItemNames), written under add's lock */
+    private static final ConcurrentHashMap<Integer, Item> ITEMS = new ConcurrentHashMap<>();
     private static int next = 1;
 
     static {
         NUMBERS.put(Items.AIR, 0);
+        ITEMS.put(0, Items.AIR);
     }
 
     private ItemNumbers() {
@@ -26,6 +29,16 @@ final class ItemNumbers {
     }
 
     private static synchronized int add(Item item) {
-        return NUMBERS.computeIfAbsent(item, k -> next++);
+        Integer n = NUMBERS.get(item);
+        if (n != null) return n;
+        int m = next++;
+        ITEMS.put(m, item);
+        NUMBERS.put(item, m);
+        return m;
+    }
+
+    /** the item with this number, null for a number none has */
+    static Item item(int number) {
+        return ITEMS.get(number);
     }
 }
