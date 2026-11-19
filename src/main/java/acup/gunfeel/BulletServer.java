@@ -115,7 +115,7 @@ public final class BulletServer {
         if (state.isAir()) return false;
         BlockState rule = Cells.ruleState(level, hit.getBlockPos(), state);
         BulletRuleText.Sound s = BulletRules.hit(rule).sound();
-        boolean steel = s != null && (s.id().startsWith("ntmgunfeel:bullet.hit.steel") || s.id().startsWith("ntmgunfeel:bullet.hit.metal"));
+        boolean steel = Ricochet.steelSound(s == null ? null : s.id());
         if (TestLog.server) TestLog.s(TestLog.shot(), "ricochet", "block", rule, "pos", hit.getBlockPos(), "material", WorldLog.material(level, hit.getBlockPos()),
                 "result", "bounced", "sound", steel ? "ours" : "ntm");
         if (!steel) return false;

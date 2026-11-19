@@ -3,7 +3,6 @@ package acup.gunfeel;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
-import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 // a number typed for a slider: taken exactly, off the step's grid too, in one step of undo; a text that is not a
@@ -14,7 +13,7 @@ class ArmTypeTest {
         var opened = Grips.snapshot();
         String gun = "gunfeel:key_probe";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.ARM;
             e.hand = 1;
             assertNull(e.type("armRollLeft", "-66,25"));
@@ -48,13 +47,13 @@ class ArmTypeTest {
         var opened = Grips.snapshot();
         String gun = "gunfeel:key_probe";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.GRIP;
             e.hand = 1;
             assertTrue(e.press("grip.mode"), "to a point in model units");
             assertNull(e.type("grip.2", "-0,44"));
             Config.select(gun);
-            assertEquals(-0.44F, Grips.get(Identifier.parse(gun).toString()).leftAt()[2]);
+            assertEquals(-0.44F, Grips.get(ResourceIds.tryParse(gun)).leftAt()[2]);
             assertEquals(-0.44F, e.rows().stream().filter(r -> r.slider() != null && r.slider().id().equals("grip.2")).findFirst().orElseThrow().slider().value(), 1e-6F);
             e.page = ArmEditor.Page.KEY;
             e.track = ArmEditor.Track.PATH;
@@ -90,7 +89,7 @@ class ArmTypeTest {
         var opened = Grips.snapshot();
         String gun = "gunfeel:key_probe";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.KEY;
             e.track = ArmEditor.Track.CARRY;
             e.hand = 1;

@@ -138,7 +138,7 @@ class ArmDeadSliderTest {
                 for (int state = 0; state < STATES; state++) {
                     resetState(opened, gun, state);
                     // The first state is the gun's shipped defaults. Remaining states isolate each base/length branch.
-                    var editor = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+                    var editor = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
                     for (boolean right : new boolean[] {true, false}) {
                         editor.page = ArmEditor.Page.ARM;
                         editor.hand = right ? 0 : 1;
@@ -252,7 +252,7 @@ class ArmDeadSliderTest {
                         Grips.put(gun, "armReleaseLeft", releasePart ? "ROLL" : "", false);
                         Grips.put(gun, "armReleaseRight", releasePart ? "ROLL" : "", false);
                         Config.select(gun);
-                        var editor = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+                        var editor = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
                         for (ArmEditor.Page page : ArmEditor.Page.values()) {
                             editor.page = page;
                             for (ArmEditor.KeyView view : page == ArmEditor.Page.KEY ? ArmEditor.KeyView.values()
@@ -293,7 +293,7 @@ class ArmDeadSliderTest {
             String gun = GUNS.get(0);
             Config.select(gun);
             Config.kickPreset = "rifle";
-            var editor = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var editor = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             editor.page = ArmEditor.Page.BOTH;
             var row = editor.rows().stream().filter(r -> r.text() != null && r.text().startsWith("Руки пистолета по глубине:"))
                     .findFirst().orElseThrow();
@@ -307,7 +307,7 @@ class ArmDeadSliderTest {
             String pistol = GUNS.get(1);
             Config.select(pistol);
             assertTrue(WalkSprint.pistol(Config.kickPreset), pistol + " is a pistol");
-            var plain = ArmEditorTest.clips(List.of("RELOAD"));
+            var plain = ArmClips.clips(List.of("RELOAD"));
             var scoped = new ArmEditor.Clips() {
                 public List<ArmEditor.Clip> list() {
                     return plain.list();
@@ -356,7 +356,7 @@ class ArmDeadSliderTest {
         Map<String, String> opened = Grips.snapshot();
         try {
             String gun = GUNS.get(0);
-            var editor = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var editor = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             editor.page = ArmEditor.Page.KEY;
             editor.keyView = ArmEditor.KeyView.TRACK;
             editor.track = ArmEditor.Track.RELEASE;
@@ -410,7 +410,7 @@ class ArmDeadSliderTest {
             Grips.put(gun, "armSlide", "true", false);
             Grips.put(gun, "armStretch", "0", false);
             Config.select(gun);
-            var editor = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var editor = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             editor.page = ArmEditor.Page.BOTH;
             var s = setting(editor, "armSlideTo");
             assertNull(s.why());

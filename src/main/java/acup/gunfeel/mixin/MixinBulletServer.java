@@ -116,13 +116,12 @@ public abstract class MixinBulletServer implements acup.gunfeel.PierceSteps.Hold
         if (config == null || config.onImpact != null || config.onRicochet != BulletConfig.LAMBDA_STANDARD_RICOCHET || self.level().isClientSide()
                 || !(mop instanceof net.minecraft.world.phys.BlockHitResult hit) || hit.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) return;
         net.minecraft.world.level.block.state.BlockState state = self.level().getBlockState(hit.getBlockPos());
-        if (state.isAir() || acup.gunfeel.BulletRules.ricochet(acup.gunfeel.Cells.ruleState(self.level(), hit.getBlockPos(), state))) return;
+        if (state.isAir()) return;
+        // the decision is core's (Ricochet)
+        boolean rule = acup.gunfeel.BulletRules.ricochet(acup.gunfeel.Cells.ruleState(self.level(), hit.getBlockPos(), state));
         net.minecraft.core.Direction f = hit.getDirection();
         Vec3 vel = self.getDeltaMovement();
-        double l = vel.length();
-        if (l < 1e-9) return;
-        double cos = (f.getStepX() * vel.x + f.getStepY() * vel.y + f.getStepZ() * vel.z) / l;
-        if (Math.abs(Math.toDegrees(Math.acos(Math.clamp(cos, -1.0, 1.0))) - 90.0) > config.ricochetAngle) return;
+        if (!acup.gunfeel.Ricochet.stopsInstead(rule, f.getStepX(), f.getStepY(), f.getStepZ(), vel.x, vel.y, vel.z, config.ricochetAngle)) return;
         Vec3 at = hit.getLocation();
         if (acup.gunfeel.TestLog.server) acup.gunfeel.TestLog.s(self.getId(), "ricochet", "block", state, "pos", hit.getBlockPos(), "result", "stopped");
         self.setPos(at.x, at.y, at.z);

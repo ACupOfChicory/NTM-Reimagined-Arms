@@ -397,6 +397,7 @@ public final class BulletCheck {
 
         modelHits();
         richterBulletSpeed();
+        ricochets();
         worldNumbers(server);
         selectorsAsBefore();
         tagsAnew(server);
@@ -432,6 +433,28 @@ public final class BulletCheck {
         check("world: air is the game's: plain and cave, not stone or a fence", "true true false false",
                 w.air(acup.gunfeel.host.BlockTable.AIR) + " " + w.air(cave) + " " + w.air(s) + " " + w.air(f));
         check("world: stone's destroy speed there", stoneState.getDestroySpeed(level, stone), w.destroySpeed(stone.getX(), stone.getY(), stone.getZ()));
+    }
+
+    // ---- NTM's standard ricochet and ours (Ricochet, core): a bullet grazing a floor at half its ricochetAngle bounces
+    // off cobblestone and flies on up (stone is "through" in this stand's rules); off dirt (the rules: "ricochet $soil
+    // ... no") it stops on it instead
+    private static void ricochets() {
+        lines.add("     ricochet: round " + round.id + ", ricochetAngle " + round.ricochetAngle + ", maxRicochetCount " + round.maxRicochetCount);
+        for (String floor : new String[] {"minecraft:cobblestone", "minecraft:dirt"}) {
+            BlockPos at = ownLane(0);
+            for (int i = -1; i < 8; i++) level.setBlock(at.south(i), state(floor), Block.UPDATE_CLIENTS);
+            double rad = Math.toRadians(round.ricochetAngle * 0.5F);
+            EntityBulletBaseMK4 b = new EntityBulletBaseMK4(level, round, 1F, 0F, 0F, 0F);
+            b.setPos(at.getX() + .5, at.getY() + 1 + 0.05, at.getZ() + .2);
+            b.setThrowableHeading(0, -Math.sin(rad), Math.cos(rad), round.velocity, 0F);
+            // below 1 it pierces nothing (Pierce): the block holds it and NTM's onImpact takes it, to bounce or stop
+            b.damage = 0.5F;
+            for (int i = 0; i < 3 && !b.isRemoved(); i++) b.tick();
+            // where it stopped is not asked: NTM puts the bullet at its tick's end after onImpact
+            String got = b.isRemoved() ? "stopped" : b.getDeltaMovement().y > 0 ? "bounced up" : "flies on down";
+            check("ricochet: a grazing round off " + floor, floor.equals("minecraft:cobblestone") ? "bounced up" : "stopped", got);
+            for (int i = -1; i < 8; i++) level.setBlock(at.south(i), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        }
     }
 
     // ---- the rules' selectors on the blocks' facts (core: BlockSelectors) against b11fa9b's BulletRules.blockMatches

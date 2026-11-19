@@ -25,8 +25,8 @@ class ArmKeysTest {
     void theKeysAreTheOnesTheGamePlays() throws Exception {
         int compared = 0;
         try {
-            for (var g : ArmEditorTest.jarGuns().entrySet()) {
-                var e = new ArmEditor(g.getKey(), ArmEditorTest.clips(g.getValue()));
+            for (var g : ArmClips.jarGuns().entrySet()) {
+                var e = new ArmEditor(g.getKey(), ArmClips.clips(g.getValue()));
                 for (int c = 0; c < e.clipList().size(); c++)
                     for (int h = 0; h < 2; h++)
                         for (var t : KEYED) {
@@ -49,8 +49,8 @@ class ArmKeysTest {
         var opened = Grips.snapshot();
         int tried = 0;
         try {
-            for (var g : ArmEditorTest.jarGuns().entrySet()) {
-                var e = new ArmEditor(g.getKey(), ArmEditorTest.clips(g.getValue()));
+            for (var g : ArmClips.jarGuns().entrySet()) {
+                var e = new ArmEditor(g.getKey(), ArmClips.clips(g.getValue()));
                 e.page = ArmEditor.Page.KEY;
                 for (int c = 0; c < e.clipList().size(); c++)
                     for (int h = 0; h < 2; h++)
@@ -81,7 +81,7 @@ class ArmKeysTest {
         var opened = Grips.snapshot();
         String gun = "hbm:gun_autoshotgun_sexy";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.KEY;
             e.track = ArmEditor.Track.PATH;
             e.hand = 1;
@@ -102,7 +102,7 @@ class ArmKeysTest {
         var opened = Grips.snapshot();
         String gun = "gunfeel:key_probe";
         try {
-            var e = new ArmEditor(gun, ArmEditorTest.clips(List.of("RELOAD")));
+            var e = new ArmEditor(gun, ArmClips.clips(List.of("RELOAD")));
             e.page = ArmEditor.Page.KEY;
             e.hand = 1;
             // hidden from 100 ms for half a second
