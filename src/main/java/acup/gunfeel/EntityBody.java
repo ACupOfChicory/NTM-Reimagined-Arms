@@ -73,6 +73,7 @@ public final class EntityBody implements Body {
     @Override public void view(float partial, double[] out) { put(e.getViewVector(partial), out); }
     @Override public void motion(double[] out) { put(e.getDeltaMovement(), out); }
     @Override public void lastSpeed(double[] out) { put(((EntityAccess) e).gunfeel$lastKnownSpeed(), out); }
+    @Override public void knownSpeed(double[] out) { put(e.getKnownSpeed(), out); }
 
     @Override
     public void box(double[] out) {
@@ -97,6 +98,9 @@ public final class EntityBody implements Body {
     @Override public String poseName() { return String.valueOf(e.getPose()); }
     @Override public boolean sprinting() { return e.isSprinting(); }
     @Override public boolean lying() { return Prone.lying((LivingEntity) e); }
+    @Override public boolean crawling() { return e.isVisuallyCrawling(); }
+    @Override public boolean fallFlying() { return ((LivingEntity) e).isFallFlying(); }
+    @Override public boolean flying() { return e instanceof net.minecraft.world.entity.player.Player p && p.getAbilities().flying; }
     @Override public boolean sleeping() { return ((LivingEntity) e).isSleeping(); }
 
     @Override

@@ -27,4 +27,11 @@ public interface BlockTable {
 
     /** the state is air as the game tells it (its block's: plain, cave and void air, a mod's own), not only {@link #AIR} */
     boolean air(int state);
+
+    /**
+     * The bullet rules' {@code %mod} selector's test, the game's: a machine (a block entity, or drawn by a renderer of
+     * its own, not as a model) or a block whose collision is not one full cube (26.2: hasBlockEntity, getRenderShape,
+     * Block.isShapeFullBlock; a shape that throws: true). Worked out once a state; the game's tags change nothing here.
+     */
+    boolean machineOrPartial(int state);
 }

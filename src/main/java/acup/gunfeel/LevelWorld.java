@@ -124,4 +124,9 @@ final class LevelWorld implements WorldView {
     public String key(int state) {
         return TABLE.key(state);
     }
+
+    @Override
+    public boolean machineOrPartial(int state) {
+        return TABLE.machineOrPartial(state);
+    }
 }
