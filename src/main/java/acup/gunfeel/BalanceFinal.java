@@ -304,11 +304,8 @@ public final class BalanceFinal extends BalanceFinalBase {
     }
 
     private static BalanceFinalRule.Armor armorOf0(LivingEntity target, State s) {
-        return armorOfWorn(EntityBody.of(target), s, BALANCE_ON);
+        return armorOfWorn(EntityBody.of(target), s, BalanceOn.ON);
     }
-
-    /** the balance's feature is on (EuphImmunity.on's first question): asked where it was, as a supplier (one object) */
-    private static final java.util.function.BooleanSupplier BALANCE_ON = () -> acup.gunfeel.compat.Feature.BALANCE.on();
 
     /**
      * what the scheme leaves of a hit on {@code target} (in place of NTM's threshold and resistance and formula C), or
