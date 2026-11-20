@@ -1,12 +1,11 @@
 package acup.gunfeel.ai;
 
+import acup.gunfeel.EntityBody;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
-import net.minecraft.world.scores.Team;
 
 /**
  * Who an AI mob fights, by the game's own teams (/team): one in a team fights the players and the AI mobs of the
@@ -18,22 +17,33 @@ public final class AiTeams {
     private AiTeams() {
     }
 
-    /** whether the AI mob fights t */
+    /**
+     * the stands' comparison with the former code (AiTeamsOld): {asked, differed, then asked of: itself, a player of no
+     * team, a player of a team, a tagged target, an AI mob, any other}; null but on a stand
+     */
+    static long @org.jspecify.annotations.Nullable [] alike;
+
+    /** whether the AI mob fights t (AiTeamsBase.enemy) */
     public static boolean enemy(LivingEntity mob, LivingEntity t) {
-        if (t == mob) return false;
-        Team mine = mob.getTeam();
-        if (t instanceof Player) return mine == null || t.getTeam() != mine;
-        if (t.entityTags().contains(AiBots.TARGET_TAG)) return true;
-        if (AiBots.get(t) == null) return false;
-        Team theirs = t.getTeam();
-        return mine != null && theirs != null && theirs != mine;
+        boolean r = AiTeamsBase.enemy(EntityBody.of(mob), EntityBody.of(t));
+        if (alike != null) same(r, AiTeamsOld.enemy(mob, t), mob, t);
+        return r;
     }
 
-    /** whether a shot of the AI mob's must not go through o: an AI mob it does not fight, or a player of its team */
+    /** whether a shot of the AI mob's must not go through o (AiTeamsBase.own) */
     static boolean own(LivingEntity mob, LivingEntity o) {
-        if (o == mob) return false;
-        if (o instanceof Player) return mob.getTeam() != null && o.getTeam() == mob.getTeam();
-        return AiBots.get(o) != null && !enemy(mob, o);
+        boolean r = AiTeamsBase.own(EntityBody.of(mob), EntityBody.of(o));
+        if (alike != null) same(r, AiTeamsOld.own(mob, o), mob, o);
+        return r;
+    }
+
+    private static void same(boolean now, boolean was, LivingEntity mob, LivingEntity t) {
+        long[] a = alike;
+        if (a == null) return;
+        a[0]++;
+        if (now != was) a[1]++;
+        a[t == mob ? 2 : t instanceof net.minecraft.world.entity.player.Player ? t.getTeam() == null ? 3 : 4
+                : t.entityTags().contains(AiBots.TARGET_TAG) ? 5 : AiBots.get(t) != null ? 6 : 7]++;
     }
 
     /** puts the mob in the level's team of that name, made if there is none */

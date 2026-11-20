@@ -23,7 +23,7 @@ import net.minecraft.world.phys.Vec3;
  * Server thread only.
  */
 public final class AiBots {
-    public static final String TARGET_TAG = "armsai_target";
+    public static final String TARGET_TAG = AiTeamsBase.TARGET_TAG;
     /** sounds this close to an AI mob are its own or its fellows' (steps, shots): not news */
     static final double OWN_SOUND = 1.5;
     /** a sound this near a player in creative or spectator (from their middle) is theirs */

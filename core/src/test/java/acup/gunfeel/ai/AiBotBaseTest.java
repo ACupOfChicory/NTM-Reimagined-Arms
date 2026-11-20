@@ -20,7 +20,11 @@ class AiBotBaseTest {
 
     private static final class Bot extends AiBotBase {
         Bot() {
-            super(BODY, SensesTest.P);
+            this(BODY);
+        }
+
+        Bot(Body body) {
+            super(body, SensesTest.P);
         }
 
         @Override
@@ -117,6 +121,11 @@ class AiBotBaseTest {
     /** a bot with no mover, gunner or the rest */
     static AiBotBase bot() {
         return new Bot();
+    }
+
+    /** a bot of this body */
+    static AiBotBase bot(Body body) {
+        return new Bot(body);
     }
 
     @AfterEach

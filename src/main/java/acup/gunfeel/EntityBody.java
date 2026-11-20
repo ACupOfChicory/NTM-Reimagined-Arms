@@ -141,4 +141,7 @@ public final class EntityBody implements Body {
         PlayerTeam t = e.getTeam();
         return t == null ? null : t.getName();
     }
+
+    @Override public boolean tagged(String tag) { return e.entityTags().contains(tag); }
+    @Override public Object level() { return e.level(); }
 }

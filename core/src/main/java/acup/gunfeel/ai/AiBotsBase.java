@@ -3,6 +3,8 @@ package acup.gunfeel.ai;
 import java.util.Collection;
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 import acup.gunfeel.LevelMap;
 import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -31,6 +33,14 @@ final class AiBotsBase {
     static final LevelMap<PerLevelBase<?>> LEVELS = new LevelMap<>();
 
     private AiBotsBase() {
+    }
+
+    /** the AI mob of this body (one in the registry of its level by its id, that very body), or null */
+    static @Nullable AiBotBase of(acup.gunfeel.host.Body e) {
+        PerLevelBase<?> l = LEVELS.get(e.level());
+        if (l == null) return null;
+        AiBotBase bot = l.bots.get(e.id());
+        return bot != null && bot.body == e ? bot : null;
     }
 
     /** the level's AI mobs as they are (no copy): read only, on the server thread, not while one is added or let go */

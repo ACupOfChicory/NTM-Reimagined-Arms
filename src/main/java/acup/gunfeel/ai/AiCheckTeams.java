@@ -229,6 +229,31 @@ final class AiCheckTeams {
         return done;
     }
 
+    /**
+     * The teams asked of a player of a team (AiTeams.alike counts it; no player of the fights is in one): the stand's
+     * player put in red by the scoreboard, then moved to blue, against the AI mobs of both teams and one of none, then
+     * let go out of the teams and the level. Asked only: nothing of the fight changes.
+     */
+    private void playerOfATeam() {
+        var player = new net.neoforged.neoforge.common.util.FakePlayer(level,
+                new com.mojang.authlib.GameProfile(java.util.UUID.fromString("6a1b2c3d-0000-4000-8000-c7c7c7c7a7e0"), "armsai_teamed"));
+        Vec3 at = red.get(0).position();
+        player.snapTo(at.x, at.y, at.z, 0F, 0F);
+        List<Mob> loner = AiSpawn.spawn(level, at.add(1, 0, 0), AiSpawn.Kind.FBI, 1, null);
+        var board = level.getScoreboard();
+        String name = player.getScoreboardName();
+        for (String team : List.of(RED, BLUE)) {
+            board.addPlayerToTeam(name, board.getPlayerTeam(team));
+            for (List<Mob> side : List.of(red, blue, loner))
+                for (Mob m : side) {
+                    AiTeams.enemy(m, player);
+                    AiTeams.own(m, player);
+                }
+            board.removePlayerFromTeam(name);
+        }
+        for (Mob m : loner) m.discard();
+    }
+
     private void start() {
         AiBots.awake = true;
         // no smoke left from a fight before (AiSmoke): its clouds, its grenades still on their way
@@ -260,6 +285,7 @@ final class AiCheckTeams {
             line(red, 12.5);
             line(blue, 30.5);
         }
+        playerOfATeam();
         // each side facing the other's (a fight of two sides that know where the other is): an AI soldier with no
         // one in sight and nothing heard stands as it is, and with each spawned facing anywhere (AiSpawn) now and then
         // none of the ten had one of the other side in its view, and no fight began
