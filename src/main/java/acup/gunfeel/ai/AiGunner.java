@@ -293,6 +293,12 @@ public final class AiGunner extends AiGunnerBase {
      */
     // its MOB_AI part; the ammo menu's reads are AmmoLock.Reads' (NtmGunsPort, what Wiring gives)
     public abstract static class Guns implements NtmGuns {
+        @Override
+        public acup.gunfeel.host.@Nullable Shell grenadeShell(Body holder) {
+            BulletConfig b = AiGrenadier.shell(stack(holder, Body.MAIN_HAND));
+            return AiGrenadier.shellNumbers(b);
+        }
+
         // core's numbers by NTM's states' names (NtmGuns.IDLE...), -1 for one core has none for; made the first time
         // a state is asked for, not when Wiring makes the port
         private static final class States {

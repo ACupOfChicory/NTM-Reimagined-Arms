@@ -21,6 +21,8 @@ public abstract class AiBotBase {
     private int clearedFor = Integer.MIN_VALUE;
     private long clearedLost = Long.MIN_VALUE;
     public final AiConfidence confidence = new AiConfidence();
+    /** a grenadier's lobs; null till it is one in a fight */
+    AiGrenadierBase.@Nullable State grenadier;
     /** what it is to its squad, worked out for the gun in its hands (the version's AiRoles.of) */
     AiRole role = AiRole.RIFLE;
     /** the role it was given by word (/armsai spawn … role, /armsai kit … role), null: by its gun */
