@@ -1,13 +1,6 @@
 package acup.gunfeel;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -106,40 +99,7 @@ public final class EuphImmunity extends EuphImmunityBase {
      * every hit in the pool and the recovery; DNS and FAU only bullets, beams and blasts (the rest is NTM's).
      */
     public static boolean absorbs(Kit kit, LivingEntity player, DamageSource source, float amount) {
-        // a soldier is not called off what nothing may be (the void, /kill): a player has its own ways out, it has none
-        if (!(player instanceof Player) && source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;
-        long now = player.level().getGameTime();
-        if (radon(player, now)) {
-            // the set's tick takes them off too, but not before this hit
-            if (kit == Kit.EUPHEMIUM) dropEffects(player);
-            return false;
-        }
-        // the gas's damage takes the pool HP for HP, as a shot (Fable №2, 2.4)
-        boolean gas = gasDrains();
-        // DNS and FAU: shots and blasts only; euphemium calls off every hit, its pool drained by melee as before
-        String cat = kit == Kit.EUPHEMIUM ? BalanceArmor.categoryAny(source) : BalanceArmor.category(source);
-        if (kit != Kit.EUPHEMIUM && cat == null && !gas) return false;
-        State s = state(kit, player, now);
-        Pool p = pool(kit);
-        float drain = gas ? amount * (float) BalanceFinalRule.HP / player.getMaxHealth() : drain(kit, player, source, amount, cat);
-        // only a shot, an IR beam, a blast or the gas holds the window: for euphemium cat takes melee and the rest too
-        boolean keeps = gas || (kit == Kit.EUPHEMIUM ? BalanceArmor.category(source) != null : cat != null);
-        Phase before;
-        boolean off;
-        synchronized (EuphImmunityBase.class) {
-            before = phase(s, now);
-            off = hit(s, now, drain, gas || cat != null, keeps, p, keeps && !gas ? reach(source) : 0);
-        }
-        if (before == Phase.POOL && phase(s, now + 1) == Phase.WINDOW) {
-            if (kit == Kit.EUPHEMIUM) dropEffects(player);
-            if (player instanceof net.minecraft.server.level.ServerPlayer sp) sp.sendSystemMessage(Component.translatable(kit.message, p.window() / 20), true);
-        }
-        return off;
-    }
-
-    /** the hurt under way is the gas's and the pools take it, the final scheme on (Fable №2, 2.4) */
-    static boolean gasDrains() {
-        return acup.gunfeel.gas.GasServer.gasNow() && BalanceFinal.on();
+        return absorbsOf(kit, EntityBody.of(player), source, amount, BalanceFinalOn.ON);
     }
 
     /**
@@ -212,20 +172,9 @@ public final class EuphImmunity extends EuphImmunityBase {
         return e instanceof Player || acup.gunfeel.ai.AiBots.get(e) != null;
     }
 
-    /** the last decision on a hit of DNS or FAU: the hit's source (by identity, not held), its tick, called off */
-    private record Decided(int source, long tick, boolean off) {
-    }
-
-    // by the player's id, for the same hit's actuallyHurt: one drain a hit (the source not held: it holds its attacker)
-    private static final Map<UUID, Decided> DECIDED = new HashMap<>();
-
     /** NTM's early check (allowsAttack) of a hit on DNS or FAU: true calls it off */
     public static boolean early(Kit kit, LivingEntity player, DamageSource source, float amount) {
-        boolean off = absorbs(kit, player, source, amount);
-        synchronized (EuphImmunityBase.class) {
-            DECIDED.put(player.getUUID(), new Decided(System.identityHashCode(source), player.level().getGameTime(), off));
-        }
-        return off;
+        return earlyOf(kit, EntityBody.of(player), source, amount, BalanceFinalOn.ON);
     }
 
     /**
@@ -233,12 +182,7 @@ public final class EuphImmunity extends EuphImmunityBase {
      * calling off does not stop them): true takes it to 0. The early check's decision on the same hit, or a new one.
      */
     public static boolean accepted(Kit kit, LivingEntity player, DamageSource source, float amount) {
-        Decided d;
-        synchronized (EuphImmunityBase.class) {
-            d = DECIDED.get(player.getUUID());
-        }
-        if (d != null && d.source() == System.identityHashCode(source) && d.tick() == player.level().getGameTime()) return d.off();
-        return absorbs(kit, player, source, amount);
+        return acceptedOf(kit, EntityBody.of(player), source, amount, BalanceFinalOn.ON);
     }
 
     /** the set's Regeneration and Resistance must not be on the wearer now: the window, or the radon gas */
@@ -249,9 +193,7 @@ public final class EuphImmunity extends EuphImmunityBase {
 
     /** the set's own effects (NTM: amplifier 127) */
     public static void dropEffects(LivingEntity player) {
-        MobEffectInstance regen = player.getEffect(MobEffects.REGENERATION), res = player.getEffect(MobEffects.RESISTANCE);
-        if (regen != null && regen.getAmplifier() >= 100) player.removeEffect(MobEffects.REGENERATION);
-        if (res != null && res.getAmplifier() >= 100) player.removeEffect(MobEffects.RESISTANCE);
+        dropSetEffects(EntityBody.of(player));
     }
 
     /** the stand: the wearer's pool now and the phase */
@@ -269,16 +211,10 @@ public final class EuphImmunity extends EuphImmunityBase {
     }
 
     public static void forget(LivingEntity player) {
-        synchronized (EuphImmunityBase.class) {
-            forgetOf(EntityBody.of(player));
-            DECIDED.remove(player.getUUID());
-        }
+        forgetOf(EntityBody.of(player));
     }
 
     public static void clear() {
-        synchronized (EuphImmunityBase.class) {
-            clearAll();
-            DECIDED.clear();
-        }
+        clearAll();
     }
 }

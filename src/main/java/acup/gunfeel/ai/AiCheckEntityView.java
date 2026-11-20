@@ -620,6 +620,10 @@ final class AiCheckEntityView {
             eq(w + "sleeping", b.sleeping(), le.isSleeping());
             eq(w + "lying", b.lying(), Prone.lying(le));
             eq(w + "speed", b.speed(), le.getAttributeValue(Attributes.MOVEMENT_SPEED));
+            var regen = le.getEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
+            var res = le.getEffect(net.minecraft.world.effect.MobEffects.RESISTANCE);
+            eq(w + "regeneration", b.effectAmplifier(Body.EFFECT_REGENERATION), regen == null ? -1 : regen.getAmplifier());
+            eq(w + "resistance", b.effectAmplifier(Body.EFFECT_RESISTANCE), res == null ? -1 : res.getAmplifier());
         }
         if (e instanceof Mob m) eq(w + "leftHanded", b.leftHanded(), m.isLeftHanded());
     }

@@ -168,6 +168,11 @@ public interface Body {
     /** its walking speed (the movement speed attribute); living */
     double speed();
 
+    int EFFECT_REGENERATION = 0, EFFECT_RESISTANCE = 1;
+
+    /** the effect's amplifier, -1 without it; living */
+    int effectAmplifier(int which);
+
     /** its id that outlives a respawn (the game's getUUID): the same object each call */
     java.util.UUID uuid();
 

@@ -15,6 +15,21 @@ import net.minecraft.world.level.pathfinder.PathType;
 
 /** 26.2's BodyControl: each method one call of the game's on the entity behind the Body. */
 final class EntityBodyControl implements BodyControl {
+    @Override
+    public void removeEffect(Body b, int which) {
+        ((LivingEntity) EntityBody.entity(b)).removeEffect(switch (which) {
+            case Body.EFFECT_REGENERATION -> net.minecraft.world.effect.MobEffects.REGENERATION;
+            case Body.EFFECT_RESISTANCE -> net.minecraft.world.effect.MobEffects.RESISTANCE;
+            default -> throw new IllegalArgumentException("no effect " + which);
+        });
+    }
+
+    @Override
+    public void tellBar(Body b, String key, int arg) {
+        if (EntityBody.entity(b) instanceof net.minecraft.server.level.ServerPlayer sp)
+            sp.sendSystemMessage(net.minecraft.network.chat.Component.translatable(key, arg), true);
+    }
+
     private static Mob mob(Body b) {
         return (Mob) EntityBody.entity(b);
     }

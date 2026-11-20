@@ -136,7 +136,8 @@ class EuphStateTest {
 
         synchronized void forget(Body player) {
             for (Map<UUID, State> m : STATES.values()) m.remove(player.uuid());
-            // DECIDED belongs to the version; its removal remains under the same lock there.
+            // the old forget's DECIDED removal (26.2's, now core's): its read of the id, in its place
+            player.uuid();
             LAST_KIT.remove(player.uuid());
         }
 
