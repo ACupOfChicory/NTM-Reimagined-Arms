@@ -5,7 +5,6 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.smoke.SmokeClouds;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 
@@ -14,14 +13,8 @@ import net.minecraft.world.entity.Mob;
  * senses look around every profile.period ticks, spread over the ticks by the mob's id. Driven by the mob's own tick
  * (the Goal), so a mob in a chunk that does not tick thinks nothing.
  */
-public final class AiBot {
+public final class AiBot extends AiBotBase {
     public final Mob mob;
-    public final AiProfile profile;
-    public final TargetMemory memory;
-    /** search cells looked into, of the target lost last */
-    public final LongOpenHashSet cleared = new LongOpenHashSet();
-    private int clearedFor = Integer.MIN_VALUE;
-    private long clearedLost = Long.MIN_VALUE;
     public final AiMover mover;
     public final AiGunner gunner;
     public final AiProne prone;
@@ -29,13 +22,10 @@ public final class AiBot {
     public final AiStoop stoop = new AiStoop();
     /** a slide into cover, a roll under fire */
     public final AiDash dash = new AiDash();
-    public final AiConfidence confidence = new AiConfidence();
     /** what it is to its squad, and the gun in its hands that was worked out for (AiRole.of) */
     AiRole role = AiRole.RIFLE;
     /** the role it was given by word (/armsai spawn … role, /armsai kit … role), null: by its gun */
     @Nullable AiRole assigned;
-    /** a supplier's stock to hand out {magazines, grenades, smoke grenades} (AiSupply), null till it is one */
-    int @Nullable [] supply;
     /** a supplier: the one it runs to with supplies, since when; no look for one in need before this tick */
     @Nullable AiBot supplyTo;
     /** a marksman's perch and shots (AiMarksman); null till it is one in a fight */
@@ -46,62 +36,15 @@ public final class AiBot {
     AiMedic.@Nullable State medic;
     /** its side's commander's order: an area to go to and look through (AiCommander), null: none */
     AiCommander.@Nullable Order order;
-    /** the group of enemies it gave up looking for (its members' ids), not again before this tick */
-    int @Nullable [] orderFailed;
-    long orderFailedUntil = Long.MIN_VALUE;
-    /** at red (AiCommander.red) since, as its staff last looked; Long.MIN_VALUE: not */
-    long redFrom = Long.MIN_VALUE;
     /** the fallen supplier's stock it goes for (AiSupply) */
     AiSupply.@Nullable Left supplyFetch;
-    long supplyAt, supplyNext = Long.MIN_VALUE;
-    /** when it was last handed supplies */
-    long suppliedAt = Long.MIN_VALUE / 2;
     net.minecraft.world.item.@Nullable Item roleFor;
     /** what it does with what it knows; null: it only senses (a stand drives it) */
     public @Nullable AiBrain brain;
-    /** grenades it has left (AiGrenades) */
-    public int grenades;
-    /**
-     * where a foe it (or its squad) knew of fell in a building, for AiSoldier to go in and through its rooms while it
-     * knows of no one (a room fought in is cleared all the same: there may be more in it): a place, not a target; null none
-     */
-    public TargetMemory.@org.jspecify.annotations.Nullable Contact fought;
-    /** smoke grenades it has left (AiSmoke) */
-    public int smokes;
-    /** when it last called out (AiVoice) */
-    public long saidAt = Long.MIN_VALUE / 2;
-    /** a sign with its free hand or a hand to a door (AiPose's action), since when and how long; shown while it does nothing else with its hands */
-    public byte gesture;
-    public long gestureAt = Long.MIN_VALUE / 2;
-    public short gestureTicks;
-    /** waiting beside a way in (AiEntry) till this tick: its gun held up close (AiPose.STACK) */
-    public long stackUntil = Long.MIN_VALUE;
-
-    /** the server setting: AI soldiers point, wave on and halt with a hand as they call out, put a hand to a door, hold the gun close beside a doorway */
-    public static final String GESTURES_KEY = "aiGestures";
-
-    static boolean gestures() {
-        return acup.gunfeel.ReaimTimes.flag(GESTURES_KEY, true);
-    }
-
-    void gesture(byte kind, int ticks, long tick) {
-        if (!gestures()) return;
-        gesture = kind;
-        gestureAt = tick;
-        gestureTicks = (short) ticks;
-    }
-
-    /** a player within aiRadius: it thinks; else it stands still */
-    boolean active = true;
-
-    /** holding its place in its squad's bounds (C3): the tick it last held, and since when it holds (AiHold) */
-    long holdAt = Long.MIN_VALUE, holdSince = Long.MIN_VALUE;
 
     AiBot(Mob mob, AiProfile profile) {
+        super(acup.gunfeel.EntityBody.of(mob), profile);
         this.mob = mob;
-        this.profile = profile;
-        this.memory = new TargetMemory(profile);
-        this.eyes = profile;
         this.mover = new AiMover(mob);
         this.gunner = new AiGunner(mob, new AiAmmo(0));
         this.prone = new AiProne(mob);
@@ -109,27 +52,10 @@ public final class AiBot {
         this.scanFrom = mob.getId();
     }
 
-    public boolean active() {
-        return active;
-    }
-
     /** a look around now and then, the memory's clock always */
     public void tick(VoxelRay.Source voxels, @Nullable SmokeClouds smoke, List<LivingEntity> targets, long tick) {
         if ((tick + mob.getId()) % profile.period() == 0) perceive(voxels, smoke, targets, tick);
         memory.update(tick);
-    }
-
-    private @Nullable AiSkill eyesFor;
-    private AiProfile eyes;
-
-    /** its profile as its eyes notice with it: the skill (aiSkill) moves the time to notice from a regular's */
-    private AiProfile eyes() {
-        AiSkill skill = AiSkill.current();
-        if (skill != eyesFor) {
-            eyesFor = skill;
-            eyes = profile.withReaction(Math.max(1, profile.reaction() + skill.notice() - AiSkill.REGULAR.notice()));
-        }
-        return eyes;
     }
 
     /**
@@ -173,13 +99,28 @@ public final class AiBot {
         memory.endLook(tick);
     }
 
-    /** the cleared set belongs to one loss of one target: a new loss starts it over */
-    public LongOpenHashSet clearedFor(TargetMemory.Contact c) {
-        if (c.id != clearedFor || c.lostTick != clearedLost) {
-            cleared.clear();
-            clearedFor = c.id;
-            clearedLost = c.lostTick;
-        }
-        return cleared;
+    @Override
+    public AiMover mover() {
+        return mover;
+    }
+
+    @Override
+    public AiGunner gunner() {
+        return gunner;
+    }
+
+    @Override
+    public AiProne prone() {
+        return prone;
+    }
+
+    @Override
+    public AiStoop stoop() {
+        return stoop;
+    }
+
+    @Override
+    public AiDash dash() {
+        return dash;
     }
 }
