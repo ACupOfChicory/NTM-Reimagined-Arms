@@ -13,6 +13,10 @@ class GameRandomsTest {
     void theGamesNumbersInItsSequence() {
         RandomSource game = RandomSource.create(20261120L), ours = RandomSource.create(20261120L);
         GameRandom r = GameRandoms.of(ours);
+        GameRandom other = GameRandoms.of(ours);
+        assertEquals(game.nextInt(41), r.nextInt(41));
+        assertEquals(game.nextInt(41), other.nextInt(41));
+        assertEquals(game.nextInt(41), r.nextInt(41));
         for (int i = 0; i < 10_000; i++) {
             switch (i % 3) {
                 case 0 -> assertEquals(Double.doubleToRawLongBits(game.nextDouble()), Double.doubleToRawLongBits(r.nextDouble()));

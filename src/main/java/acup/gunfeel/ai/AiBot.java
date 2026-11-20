@@ -169,7 +169,7 @@ public final class AiBot extends AiBotBase {
         net.minecraft.world.level.Level level = mob.level();
         if (!(level instanceof net.minecraft.server.level.ServerLevel)) return null;
         if (level != worldOf) {
-            world = acup.gunfeel.Wiring.world(level);
+            world = acup.gunfeel.host.Worlds.of(level);
             worldOf = level;
         }
         return world;

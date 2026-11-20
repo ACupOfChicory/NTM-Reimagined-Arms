@@ -82,6 +82,7 @@ class SpawnPlaceTest {
         final java.util.Random r = new java.util.Random(7);
         final List<String> drawn = new ArrayList<>();
 
+        @Override public int nextInt(int bound) { throw new AssertionError("not asked"); }
         @Override public double nextDouble() { drawn.add("d"); return r.nextDouble(); }
         @Override public boolean nextBoolean() { throw new UnsupportedOperationException(); }
         @Override public float nextFloat() { drawn.add("f"); return r.nextFloat(); }

@@ -92,6 +92,7 @@ final class AiCheckEntityView {
         if (t < SETTLE) return false;
         EntityView view = new LevelEntities(level);
         for (Entity e : List.of(dummy, stand, arrow)) same("standing " + name(e), e);
+        commanderPorts();
         oneBody(view);
         near(view);
         players(view);
@@ -628,6 +629,46 @@ final class AiCheckEntityView {
         if (e instanceof Mob m) eq(w + "leftHanded", b.leftHanded(), m.isLeftHanded());
     }
 
+    private void commanderPorts() {
+        var a = acup.gunfeel.Wiring.world(level).random();
+        var b = acup.gunfeel.Wiring.world(level).random();
+        level.getRandom().setSeed(783L);
+        int r1 = a.nextInt(41), r2 = b.nextInt(41), r3 = a.nextInt(41);
+        level.getRandom().setSeed(783L);
+        check.check("commander ports: two world wrappers draw from the level's one sequence",
+                r1 == level.getRandom().nextInt(41) && r2 == level.getRandom().nextInt(41) && r3 == level.getRandom().nextInt(41));
+        dummy.setLastHurtByMob(stand);
+        Body body = EntityBody.of(dummy);
+        LivingEntity credited = dummy.getKillCredit();
+        check.check("commander ports: last attacker and kill credit keep the entity's one Body",
+                body.lastHurtBy() == EntityBody.of(stand) && body.lastHurtBy() == body.lastHurtBy()
+                && body.killCredit() == (credited == null ? null : EntityBody.of(credited)));
+        dummy.setLastHurtByMob(null);
+        BodyControl c = CoreServices.load(BodyControl.class, BodyControl.MISSING);
+        boolean ok = true;
+        for (Entity e : List.of(dummy, arrow)) {
+            Body eb = EntityBody.of(e);
+            double x = e.getX(), yy = e.getY(), z = e.getZ();
+            float yaw = e.getYRot(), pitch = e.getXRot();
+            c.snap(eb, x + 2, yy + 1, z - 3, 35F, 17F);
+            ok &= eb.x() == x + 2 && eb.y() == yy + 1 && eb.z() == z - 3 && eb.yRot() == 35F && eb.xRot() == 17F
+                    && e.xo == eb.x() && e.yo == eb.y() && e.zo == eb.z();
+            c.snap(eb, x, yy, z, yaw, pitch);
+        }
+        check.check("commander ports: snap sets position, turn and old position as Entity.snapTo", ok);
+        var fluids = acup.gunfeel.Wiring.liquids(level);
+        ok = true;
+        for (int x = RX - GROUND; x <= RX + GROUND; x++) for (int z = Z - GROUND; z <= Z + GROUND; z++) {
+            int top = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+            var fs = level.getFluidState(new BlockPos(x, top - 1, z));
+            boolean was = !fs.isEmpty() && (!fs.is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(new BlockPos(x, top - 2, z)).isEmpty());
+            var f = fluids.at(x, top - 1, z);
+            boolean now = f != null && (f.liquid() != acup.gunfeel.water.LiquidEvents.Liquid.WATER || fluids.at(x, top - 2, z) != null);
+            ok &= now == was;
+        }
+        check.check("commander ports: drift's deep liquid test is the game's former expression", ok);
+    }
+
     private void oneBody(EntityView view) {
         boolean ok = true;
         for (Entity e : List.of(dummy, stand, arrow)) {
@@ -675,7 +716,7 @@ final class AiCheckEntityView {
     private void livingOnly() {
         Body a = EntityBody.of(arrow), s = EntityBody.of(stand);
         check.check("entityview: on the arrow (not living) the living ones throw", throwsOn(a::climbing) && throwsOn(a::speed) && throwsOn(a::lying) && throwsOn(a::sleeping)
-                && throwsOn(a::leftHanded) && throwsOn(a::fallFlying) && throwsOn(a::health) && throwsOn(a::maxHealth));
+                && throwsOn(a::leftHanded) && throwsOn(a::fallFlying) && throwsOn(a::health) && throwsOn(a::maxHealth) && throwsOn(a::lastHurtBy) && throwsOn(a::killCredit));
         check.check("entityview: on the stand (living, no mob) leftHanded throws", throwsOn(s::leftHanded));
     }
 

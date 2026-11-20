@@ -6,6 +6,12 @@ class StateNumbersWorldTest extends WorldViewContract {
     private final StateNumbersTest.FakeWorld world = new StateNumbersTest.FakeWorld();
 
     @Override
+    protected void randomSeed(long seed) { world.rng.setSeed(seed); }
+
+    @Override
+    protected acup.gunfeel.GameRandom anotherRandom() { return world.random(); }
+
+    @Override
     protected WorldView world() {
         return world;
     }
