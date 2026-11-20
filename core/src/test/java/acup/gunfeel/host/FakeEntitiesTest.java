@@ -273,4 +273,9 @@ class FakeEntitiesTest extends EntityViewContract {
     protected int[] livingInBox() {
         return new int[] {1, 4};
     }
+
+    @Override
+    protected int[] players() {
+        return new int[] {3};
+    }
 }

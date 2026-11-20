@@ -21,7 +21,11 @@ public final class AiIntel extends AiIntelBase {
     private AiIntel() {
     }
 
+    /** each level's entities as core reads them, made once (let go with the level, forget) */
+    private static final acup.gunfeel.LevelMap<LevelEntities> VIEWS = new acup.gunfeel.LevelMap<>();
+
     public static void forget(ServerLevel level) {
+        VIEWS.remove(level);
         forgetLevel(level);
         if (alike != null) AiIntelOld.forget(level);
     }
@@ -36,7 +40,7 @@ public final class AiIntel extends AiIntelBase {
     }
 
     static long tick(ServerLevel level, Map<String, List<AiBot>> sides, long now) {
-        long soonest = tickSides(level, new LevelEntities(level), SCOUT, sides, now);
+        long soonest = tickSides(level, VIEWS.computeIfAbsent(level, l -> new LevelEntities(level)), SCOUT, sides, now);
         if (alike != null) alike.tick(level, sides, now, soonest);
         return soonest;
     }

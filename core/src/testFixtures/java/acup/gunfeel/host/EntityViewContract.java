@@ -16,8 +16,9 @@ import acup.gunfeel.ai.Stance;
 /**
  * What every version's entities must say (EntityView, Body): one Body an entity, the same object each time it is
  * asked for, its number its own; a removed one gone from the number but its Body still read as it was left (removed,
- * where it was); near in the game's order, players watching left out, nothing cut when out is short; a triple written
- * into out[0..2] only; the living-only methods throwing on another. A version's test extends this with a level of
+ * where it was); near in the game's order, players watching left out, nothing cut when out is short; the players in
+ * the game's order, those watching in, nothing cut; a triple written into out[0..2] only; the living-only methods
+ * throwing on another, the players' only false on another. A version's test extends this with a level of
  * its own: a living mob standing at {@link #mobAt}, a projectile, a player watching (a spectator) and a removed mob
  * whose Body was taken before it went, all in {@link #box}.
  */
@@ -50,6 +51,9 @@ public abstract class EntityViewContract {
 
     /** the living ones' numbers in the box in the game's order (the game's getEntitiesOfClass with no spectators) */
     protected abstract int[] livingInBox();
+
+    /** the level's players' numbers in the game's order (the game's players(), those watching too) */
+    protected abstract int[] players();
 
     private int near(int kind, Body[] out) {
         double[] b = box();
@@ -211,6 +215,11 @@ public abstract class EntityViewContract {
         assertThrows(RuntimeException.class, () -> p.worn(Body.CHEST));
         assertThrows(RuntimeException.class, p::sleeping);
         assertThrows(RuntimeException.class, p::fallFlying);
+        assertThrows(RuntimeException.class, p::health);
+        assertThrows(RuntimeException.class, p::maxHealth);
+        // a player's only: false on another
+        assertFalse(p.spectator());
+        assertFalse(p.creative());
         // what any entity answers: no projectile crawls or flies as a player
         assertFalse(p.crawling());
         assertFalse(p.flying());
@@ -236,6 +245,35 @@ public abstract class EntityViewContract {
     private int countOf(int kind) {
         Body[] out = new Body[16];
         return near(kind, out);
+    }
+
+    @Test
+    void healthOfTheLiving() {
+        Body a = view().byId(mob());
+        assertTrue(a.maxHealth() > 0);
+        assertTrue(a.health() > 0 && a.health() <= a.maxHealth());
+        assertFalse(a.spectator());
+        assertFalse(a.creative());
+        Body s = view().byId(spectator());
+        assertTrue(s.spectator());
+        assertFalse(s.creative(), "watching is not creative");
+    }
+
+    @Test
+    void playersInTheGamesOrderWatchingIn() {
+        int[] want = players();
+        Body[] out = new Body[want.length + 2];
+        assertEquals(want.length, view().players(out));
+        boolean watching = false;
+        for (int i = 0; i < want.length; i++) {
+            assertEquals(want[i], out[i].id());
+            assertSame(view().byId(want[i]), out[i]);
+            assertTrue(out[i].player());
+            watching |= out[i].id() == spectator();
+        }
+        assertTrue(watching, "the one watching is among them");
+        assertEquals(-want.length, view().players(new Body[want.length - 1]));
+        assertEquals(want.length, view().players(new Body[want.length]));
     }
 
     @Test
