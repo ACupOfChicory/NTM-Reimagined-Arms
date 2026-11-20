@@ -4,6 +4,8 @@ import org.jspecify.annotations.Nullable;
 
 /** Synchronous particles and sounds of a bullet hit. */
 public interface ShotEffects {
+    /** Resolve the bullet's current owner (26.2: EntityBulletBaseMK4.getOwner). */
+    @Nullable Body owner(Object bullet);
     /** A particle or null (26.2: BulletServer.particle, -1 means no hit state). */
     @Nullable Object particle(String name, int hitState);
     /** Emit particles (26.2: ServerLevel.sendParticles, spread .1 and speed .05). */
@@ -18,6 +20,7 @@ public interface ShotEffects {
     Object ricochetSteel();
 
     ShotEffects MISSING = new ShotEffects() {
+        @Override public Body owner(Object bullet) { throw new UnsupportedOperationException("no ShotEffects here"); }
         @Override public Object particle(String name, int hitState) { throw new UnsupportedOperationException("no ShotEffects here"); }
         @Override public void particles(Object level, Object particle, double x, double y, double z, int count) { throw new UnsupportedOperationException("no ShotEffects here"); }
         @Override public Object sound(String id) { throw new UnsupportedOperationException("no ShotEffects here"); }

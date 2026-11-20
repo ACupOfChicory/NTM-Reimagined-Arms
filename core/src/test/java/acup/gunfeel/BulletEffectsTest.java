@@ -22,7 +22,7 @@ import acup.gunfeel.host.ShotEffects;
 import acup.gunfeel.host.WorldView;
 
 class BulletEffectsTest {
-    private static final Object LEVEL = "level", POS = "pos";
+    private static final Object LEVEL = "level", POS = "pos", BULLET = new Object();
     private static final boolean[] BOOL = {false, true};
 
     @SuppressWarnings("unchecked")
@@ -32,7 +32,7 @@ class BulletEffectsTest {
 
     private static final class Fake implements ShotEffects {
         final List<List<Object>> calls = new ArrayList<>();
-        boolean player, living, alive, client, air;
+        boolean owner, player, living, alive, client, air;
         int failAt = -1;
         Effect entity, kill, hit;
         void call(Object... args) {
@@ -85,6 +85,11 @@ class BulletEffectsTest {
             return kind.equals("entity") ? entity : kill;
         }
         Effect hit(int state) { call("hit", state); return hit; }
+        @Override public Body owner(Object bullet) {
+            assertSame(BULLET, bullet);
+            call("owner");
+            return owner ? body : null;
+        }
         @Override public Object particle(String name, int state) { call("particle", name, state); return name.equals("bad") ? null : name; }
         @Override public void particles(Object level, Object part, double x, double y, double z, int count) { call("particles", level, part, x, y, z, count); }
         @Override public Object sound(String id) { call("sound", id); return id.equals("bad id") ? null : id; }
@@ -98,7 +103,7 @@ class BulletEffectsTest {
 
     // The pre-port algorithms, with game calls replaced by the same observable fakes.
     private record Old(Fake f) {
-        void play(Body owner, boolean at, Effect fx) {
+        void play(Object bullet, boolean at, Effect fx) {
             if (fx.empty()) return;
             double x, y, z;
             if (at) { x = 1.25; y = 2.5; z = -6.75; }
@@ -113,14 +118,17 @@ class BulletEffectsTest {
             if (sound == null) return;
             float pitch = s.pitch() * (0.95F + f.world.random().nextFloat() * 0.1F);
             if (fx.toAll()) f.playAll(LEVEL, sound, x, y, z, s.volume(), pitch);
-            else if (owner != null && owner.player()) f.playTo(owner, sound, x, y, z, s.volume(), pitch, f.world.random().nextLong());
+            else {
+                Body owner = f.owner(bullet);
+                if (owner != null && owner.player()) f.playTo(owner, sound, x, y, z, s.volume(), pitch, f.world.random().nextLong());
+            }
         }
 
-        void entityHit(boolean server, Body owner, boolean at, boolean wasAlive) {
+        void entityHit(boolean server, Object bullet, boolean at, boolean wasAlive) {
             if (!server || !wasAlive) return;
             boolean dead = f.body.living() && !f.body.alive();
-            play(owner, at, f.entity("entity", f.body));
-            if (dead) play(owner, at, f.entity("kill", f.body));
+            play(bullet, at, f.entity("entity", f.body));
+            if (dead) play(bullet, at, f.entity("kill", f.body));
         }
 
         boolean ricochetSound(boolean block) {
@@ -151,12 +159,14 @@ class BulletEffectsTest {
             assertEquals(a.calls, b.calls, "ordered calls, arguments and draw counts");
         }
         void play(boolean owner, boolean at, Effect fx) {
-            compare(() -> { old.play(owner ? a.body : null, at, fx); return null; },
-                    () -> { core.play(LEVEL, b.world, owner ? b.body : null, b.body, at, 1.25, 2.5, -6.75, fx); return null; });
+            a.owner = b.owner = owner;
+            compare(() -> { old.play(BULLET, at, fx); return null; },
+                    () -> { core.play(LEVEL, b.world, BULLET, b.body, at, 1.25, 2.5, -6.75, fx); return null; });
         }
         void entity(boolean server, boolean owner, boolean at, boolean wasAlive) {
-            compare(() -> { old.entityHit(server, owner ? a.body : null, at, wasAlive); return null; },
-                    () -> { core.entityHit(LEVEL, b.world, server, owner ? b.body : null, b.body, at, 1.25, 2.5, -6.75, wasAlive); return null; });
+            a.owner = b.owner = owner;
+            compare(() -> { old.entityHit(server, BULLET, at, wasAlive); return null; },
+                    () -> { core.entityHit(LEVEL, b.world, server, BULLET, b.body, at, 1.25, 2.5, -6.75, wasAlive); return null; });
         }
         void ricochet(boolean block) {
             compare(() -> old.ricochetSound(block), () -> core.ricochetSound(LEVEL, b.world, block, POS, 1, 2, 3, 1.25, 2.5, -6.75));
@@ -194,7 +204,30 @@ class BulletEffectsTest {
 
     @Test void pitchIsDrawnWithoutAnyRecipient() {
         Pair p = new Pair(); p.play(false, true, fx(0, 2, false));
-        assertEquals(List.of(List.of("sound", "valid"), List.of("world.random", List.of()), List.of("nextFloat")), p.b.calls);
+        assertEquals(List.of(List.of("sound", "valid"), List.of("world.random", List.of()), List.of("nextFloat"), List.of("owner")), p.b.calls);
+    }
+
+    @Test void ownerIsResolvedOncePerPrivateSoundAfterPitch() {
+        for (boolean all : BOOL) for (boolean owner : BOOL) for (boolean player : BOOL) {
+            Pair p = new Pair(); p.a.player = p.b.player = player;
+            p.play(owner, true, fx(0, 2, all));
+            assertEquals(all ? 0 : 1, ownerCalls(p));
+            if (!all) assertTrue(p.b.calls.indexOf(List.of("nextFloat")) < p.b.calls.indexOf(List.of("owner")));
+
+            Pair dead = new Pair(); dead.a.living = dead.b.living = true;
+            dead.a.player = dead.b.player = player;
+            dead.effects(fx(0, 2, all), fx(0, 2, all));
+            dead.entity(true, owner, true, true);
+            assertEquals(all ? 0 : 2, ownerCalls(dead), "entity and kill resolve independently");
+        }
+        for (Effect fx : List.of(fx(0, 0, false), fx(1, 0, false), fx(0, 1, false))) {
+            Pair p = new Pair(); p.play(true, true, fx);
+            assertEquals(0, ownerCalls(p), "empty, silent or invalid sound");
+        }
+    }
+
+    private static long ownerCalls(Pair p) {
+        return p.b.calls.stream().filter(c -> c.getFirst().equals("owner")).count();
     }
 
     @Test void entityAndKillMatchForLivingDeadAndNonLivingTargets() {

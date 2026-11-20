@@ -1,7 +1,5 @@
 package acup.gunfeel;
 
-import org.jspecify.annotations.Nullable;
-
 import acup.gunfeel.host.Body;
 import acup.gunfeel.host.BulletBlocks;
 import acup.gunfeel.host.ShotEffects;
@@ -24,15 +22,16 @@ public class BulletEffectsBase {
     BulletRuleText.Effect entityEffect(String kind, Body target) { return BulletRulesBase.entity(kind, target); }
     BulletRuleText.Effect hitEffect(int state) { return BulletRulesBase.hit(state); }
 
-    public void entityHit(Object level, WorldView world, boolean server, @Nullable Body owner, Body target,
+    /** 26.2 calls only after its server and wasAlive guards, passing true for both. */
+    public void entityHit(Object level, WorldView world, boolean server, Object bullet, Body target,
             boolean at, double x, double y, double z, boolean wasAlive) {
         if (!server || !wasAlive) return;
         boolean dead = target.living() && !target.alive();
-        play(level, world, owner, target, at, x, y, z, entityEffect("entity", target));
-        if (dead) play(level, world, owner, target, at, x, y, z, entityEffect("kill", target));
+        play(level, world, bullet, target, at, x, y, z, entityEffect("entity", target));
+        if (dead) play(level, world, bullet, target, at, x, y, z, entityEffect("kill", target));
     }
 
-    public void play(Object level, WorldView world, @Nullable Body owner, Body target,
+    public void play(Object level, WorldView world, Object bullet, Body target,
             boolean at, double x, double y, double z, BulletRuleText.Effect fx) {
         if (fx.empty()) return;
         if (!at) {
@@ -51,11 +50,14 @@ public class BulletEffectsBase {
         float pitch = s.pitch() * (0.95F + world.random().nextFloat() * 0.1F);
         if (fx.toAll()) {
             effects.playAll(level, sound, x, y, z, s.volume(), pitch);
-        } else if (owner != null && owner.player()) {
-            effects.playTo(owner, sound, x, y, z, s.volume(), pitch, world.random().nextLong());
+        } else {
+            Body owner = effects.owner(bullet);
+            if (owner != null && owner.player())
+                effects.playTo(owner, sound, x, y, z, s.volume(), pitch, world.random().nextLong());
         }
     }
 
+    /** 26.2 calls only for a block on a non-client level, passing block=true. */
     public boolean ricochetSound(Object level, WorldView world, boolean block, Object pos, int bx, int by, int bz,
             double x, double y, double z) {
         if (!block || world.client()) return false;

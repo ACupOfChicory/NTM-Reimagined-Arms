@@ -87,7 +87,7 @@ public final class BulletServer {
     // NTM's ricochet sound (MixinRicochetSound): off a block whose hit sound is steel (bullet rules; a multiblock's
     // cell by its machine) our steel ricochet where the bullet hit instead, and true; else false (NTM's own plays)
     public static boolean ricochetSound(Level level, net.minecraft.world.phys.HitResult mop) {
-        if (!(mop instanceof BlockHitResult hit)) return false;
+        if (!(mop instanceof BlockHitResult hit) || level.isClientSide()) return false;
         var world = acup.gunfeel.host.Worlds.of(level);
         BlockPos pos = hit.getBlockPos();
         Vec3 at = hit.getLocation();
@@ -269,7 +269,7 @@ public final class BulletServer {
 
         /** The machine's rule state (26.2: Cells.ruleState, then BlockStates.number). */
         @Override public int ruleState(Object level, Object pos, int state) {
-            BulletRules.generation();
+            BulletRules.init();
             return BlockStates.number(Cells.ruleState((Level) level, (BlockPos) pos, BlockStates.state(state)));
         }
         /** The diagnostic material (26.2: WorldLog.material). */
@@ -278,6 +278,7 @@ public final class BulletServer {
         @Override public @Nullable Object particle(String name, int hitState) {
             return BulletServer.particle(name, hitState < 0 ? null : BlockStates.state(hitState));
         }
+        @Override public @Nullable Body owner(Object bullet) { return Reads.body(((EntityBulletBaseMK4) bullet).getOwner()); }
         /** Emit particles (26.2: ServerLevel.sendParticles). */
         @Override public void particles(Object level, Object particle, double x, double y, double z, int count) {
             ((ServerLevel) level).sendParticles((ParticleOptions) particle, x, y, z, count, 0.1, 0.1, 0.1, 0.05);
@@ -368,10 +369,10 @@ public final class BulletServer {
                     "headSource", HeadDamage.last(bullet,target,at).source(), "headReason", HeadDamage.last(bullet,target,at).reason(),
                     "health", health, "after", now, "took", health - now, "left", bullet.damage, "flies", !bullet.isRemoved());
         }
-        Level level = bullet.level();
+        if (!(bullet.level() instanceof ServerLevel level) || !wasAlive) return;
         var world = acup.gunfeel.host.Worlds.of(level);
-        if (level instanceof ServerLevel && wasAlive) BulletRules.generation();
-        EFFECTS.entityHit(level, world, level instanceof ServerLevel, Reads.body(bullet.getOwner()), EntityBody.of(target),
+        BulletRules.init();
+        EFFECTS.entityHit(level, world, true, bullet, EntityBody.of(target),
                 at != null, at == null ? 0 : at.x, at == null ? 0 : at.y, at == null ? 0 : at.z, wasAlive);
     }
 
