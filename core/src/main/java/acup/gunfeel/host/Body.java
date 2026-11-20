@@ -149,4 +149,13 @@ public interface Body {
 
     /** its team's name, null when it has none */
     @Nullable String team();
+
+    /** it has this tag (/tag: the game's entity tags) */
+    boolean tagged(String tag);
+
+    /**
+     * The level it is in, the version's object: to look it up in what core keeps per level (LevelMap), never to be
+     * read. One level is one object (what holds it compares by ==).
+     */
+    Object level();
 }

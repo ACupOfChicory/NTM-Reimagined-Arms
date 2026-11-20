@@ -88,6 +88,8 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public int held(int hand) { livingOnly(); return 0; }
         @Override public double speed() { livingOnly(); return 0.25; }
         @Override public @Nullable String team() { return null; }
+        @Override public boolean tagged(String tag) { return false; }
+        @Override public Object level() { return this; }
     }
 
     static final class FakeLevel implements EntityView {
