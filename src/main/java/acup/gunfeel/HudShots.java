@@ -149,7 +149,7 @@ final class HudShots {
                 ItemStack stack = mc.player.getMainHandItem();
                 Config.ammoMenu = s.look;
                 ClientSmoke.check(RadialMenu.open(stack), s.name + ": меню открылось");
-                int n = RadialMenu.choices(stack).size();
+                int n = RadialMenu.choices().size();
                 double a = Math.PI * 2 * s.hover / n;
                 RadialMenu.move(Math.sin(a) * 400, -Math.cos(a) * 400);
                 META.add("#" + s.name + " sectors " + n);

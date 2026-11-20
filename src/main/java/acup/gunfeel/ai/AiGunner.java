@@ -291,7 +291,8 @@ public final class AiGunner extends AiGunnerBase {
      * receiver 0). Here, in AiGunner, so that its calls into NTM stay the AI's (Feature.MOB_AI, ntmgunfeel-ntm-api.txt)
      * and not the core's, whose NTM missing a member turns the whole mod off.
      */
-    public static final class Guns implements NtmGuns {
+    // its MOB_AI part; the ammo menu's reads are AmmoLock.Reads' (NtmGunsPort, what Wiring gives)
+    public abstract static class Guns implements NtmGuns {
         // core's numbers by NTM's states' names (NtmGuns.IDLE...), -1 for one core has none for; made the first time
         // a state is asked for, not when Wiring makes the port
         private static final class States {
