@@ -63,4 +63,34 @@ public final class BlockStates implements BlockTable {
     public boolean machineOrPartial(int state) {
         return Table.T.machineOrPartial(state);
     }
+
+    @Override
+    public boolean blockEntity(int state) {
+        return Reads.blockEntity(state);
+    }
+
+    @Override
+    public boolean model(int state) {
+        return Reads.model(state);
+    }
+
+    @Override
+    public boolean fullCollision(int state) {
+        return Reads.fullCollision(state);
+    }
+
+    private static final class Reads {
+        static boolean blockEntity(int number) {
+            return state(number).hasBlockEntity();
+        }
+
+        static boolean model(int number) {
+            return state(number).getRenderShape() == net.minecraft.world.level.block.RenderShape.MODEL;
+        }
+
+        static boolean fullCollision(int number) {
+            return net.minecraft.world.level.block.Block.isShapeFullBlock(state(number).getCollisionShape(
+                    net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO));
+        }
+    }
 }

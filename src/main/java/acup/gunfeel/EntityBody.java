@@ -56,6 +56,13 @@ public final class EntityBody implements Body {
     }
 
     @Override public int id() { return e.getId(); }
+    @Override public int typeNumber() { return EntityTypeNumbers.number(e.getType()); }
+
+    /** the type's number (EntityTypeNumbers), also outside this package */
+    public static int typeNumber(net.minecraft.world.entity.EntityType<?> type) {
+        return EntityTypeNumbers.number(type);
+    }
+
     @Override public boolean living() { return e instanceof LivingEntity; }
     @Override public boolean player() { return e instanceof Player; }
     @Override public double x() { return e.getX(); }

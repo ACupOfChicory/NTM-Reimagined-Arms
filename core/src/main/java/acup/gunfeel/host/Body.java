@@ -17,6 +17,9 @@ public interface Body {
     /** the game's number for it (in this process and level only) */
     int id();
 
+    /** the number of its type (EntityTypeNumbers); the same number on every call (26.2: EntityTypeNumbers.number(getType())) */
+    int typeNumber();
+
     /** whether it is a living one (the game's LivingEntity) */
     boolean living();
 
