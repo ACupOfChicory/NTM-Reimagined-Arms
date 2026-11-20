@@ -154,7 +154,7 @@ public final class AiThoughts {
         if (g.loaded() >= 0) b.append("  ").append(g.loaded()).append('/').append(reserve(g));
         b.append("  ").append(hp(bot.mob));
         // what it is to its squad, when that is more than a rifleman by its gun
-        AiRole role = AiRole.of(bot);
+        AiRole role = AiRoles.of(bot);
         if (role != AiRole.RIFLE || bot.assigned != null) b.append("  ").append(role.word());
         if (role == AiRole.SUPPLIER) b.append(' ').append(AiSupply.shown(bot));
         if (role == AiRole.MEDIC) b.append(' ').append(AiMedic.shown(bot));

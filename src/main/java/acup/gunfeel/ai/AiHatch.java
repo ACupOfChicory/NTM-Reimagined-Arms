@@ -608,7 +608,7 @@ final class AiHatch {
         // the security at the hatch: its base of fire, else the last of it; none for one alone
         AiBot guard = null;
         if (members.size() > 1) {
-            for (AiBot b : members) if (AiRole.of(b) == AiRole.BASE) guard = b;
+            for (AiBot b : members) if (AiRoles.of(b) == AiRole.BASE) guard = b;
             if (guard == null) guard = members.get(members.size() - 1);
         }
         Op op = new Op(team, sh, members, guard, tick);

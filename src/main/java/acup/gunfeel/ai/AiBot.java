@@ -22,7 +22,7 @@ public final class AiBot extends AiBotBase {
     public final AiStoop stoop = new AiStoop();
     /** a slide into cover, a roll under fire */
     public final AiDash dash = new AiDash();
-    /** what it is to its squad, and the gun in its hands that was worked out for (AiRole.of) */
+    /** what it is to its squad, and the gun in its hands that was worked out for (AiRoles.of) */
     AiRole role = AiRole.RIFLE;
     /** the role it was given by word (/armsai spawn … role, /armsai kit … role), null: by its gun */
     @Nullable AiRole assigned;

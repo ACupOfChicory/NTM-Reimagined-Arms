@@ -168,7 +168,7 @@ public final class AiKitCommand {
                 AiRole given = AiRole.named(role);
                 for (Mob m : mobs) {
                     AiBot bot = AiBots.get(m);
-                    if (bot != null) AiRole.assign(bot, given);
+                    if (bot != null) AiRoles.assign(bot, given);
                 }
                 told.append(given == null ? ", their roles by their guns" : ", role " + given.word());
             }

@@ -356,7 +356,7 @@ final class StaffMove {
 
     private static List<AiRole> roles(List<AiBot> of) {
         List<AiRole> r = new ArrayList<>(of.size());
-        for (AiBot b : of) r.add(AiRole.of(b));
+        for (AiBot b : of) r.add(AiRoles.of(b));
         return r;
     }
 

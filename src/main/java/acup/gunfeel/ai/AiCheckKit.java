@@ -281,21 +281,21 @@ final class AiCheckKit {
         check.check("kit: /armsai kit names no team", team.contains("a team is named when the mobs are spawned"));
         // a role by word: whatever the gun, kept on the mob; auto: by its gun again
         AiBot who = AiBots.get(shooter);
-        AiRole byGun = who == null ? null : AiRole.of(who);
+        AiRole byGun = who == null ? null : AiRoles.of(who);
         String based = run("armsai kit " + shooter.getStringUUID() + " role base");
-        boolean given = who != null && AiRole.of(who) == AiRole.BASE && "base".equals(shooter.getPersistentData().getString(AiRole.ROLE_KEY).orElse(""));
+        boolean given = who != null && AiRoles.of(who) == AiRole.BASE && "base".equals(shooter.getPersistentData().getString(AiRole.ROLE_KEY).orElse(""));
         // as when the mob comes back into the world: read off the mob again
         if (who != null) {
             who.assigned = null;
-            AiRole.restore(who);
+            AiRoles.restore(who);
         }
-        boolean kept = who != null && AiRole.of(who) == AiRole.BASE && AiSquads.roles(List.of(who)).equals("base 1");
+        boolean kept = who != null && AiRoles.of(who) == AiRole.BASE && AiSquads.roles(List.of(who)).equals("base 1");
         String none = run("armsai kit " + shooter.getStringUUID() + " role sapper");
         String auto = run("armsai kit " + shooter.getStringUUID() + " role auto");
         // (its StG 77 has a scope: a marksman by its gun since R2; any role but the base's will do)
         check.check("kit: role base makes the mob (" + byGun + " by its gun) its squad's base of fire (" + based.trim() + "), kept on the mob; a role there is not is refused in words;"
                 + " role auto: by its gun again (" + auto.trim() + ")", byGun != null && byGun != AiRole.BASE && based.contains("role base") && given && kept
-                && none.contains("no role 'sapper'") && auto.contains("by their guns") && who != null && AiRole.of(who) == byGun
+                && none.contains("no role 'sapper'") && auto.contains("by their guns") && who != null && AiRoles.of(who) == byGun
                 && shooter.getPersistentData().getString(AiRole.ROLE_KEY).isEmpty());
         String both = run("armsai kit @e[tag=" + AiAdapter.TAG + ",distance=..30] ammo " + FMJ + " armor sec");
         AiBot bot = AiBots.get(shooter);
