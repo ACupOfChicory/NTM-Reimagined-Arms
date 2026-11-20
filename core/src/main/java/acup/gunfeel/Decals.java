@@ -55,11 +55,22 @@ public final class Decals {
     // where (u, v) of a mark's own square (0..1 each) lies on its style's texture for that variant: in its cell, kept
     // a hair inside so the next cell's edge pixels never show
     public static float[] cell(int variant, float u, float v) {
+        return new float[] {cellU(variant, u), cellV(variant, v)};
+    }
+
+    // cell()'s u and v each on its own, nothing made (the holes drawn each frame: HoleDecals)
+    public static float cellU(int variant, float u) {
         int c = Math.floorMod(variant, VARIANTS);
         float e = 1F / 512F;
         u = Math.min(1F - e, Math.max(e, u));
+        return (c % GRID + u) / GRID;
+    }
+
+    public static float cellV(int variant, float v) {
+        int c = Math.floorMod(variant, VARIANTS);
+        float e = 1F / 512F;
         v = Math.min(1F - e, Math.max(e, v));
-        return new float[] {(c % GRID + u) / GRID, (c / GRID + v) / GRID};
+        return (c / GRID + v) / GRID;
     }
 
     public static int scratch(String style) {

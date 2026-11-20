@@ -179,6 +179,8 @@ neoForge {
             // -PsmokeStand=<dir>: smoke clouds measured, frame times and screenshots there (SmokeCloudStand);
             // -PstandSize=1920x1080 the window, -PsmokeBackend=vulkan the renderer
             systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
+            // -PholeFrames=<dir>: bullet holes' frames, the same each run, base against branch (HoleFrameStand); -PsmokeFabulous as there
+            systemProperty("ntmgunfeel.holeFrames",providers.gradleProperty("holeFrames").orElse("").get())
             // -PchemStand=<dir>: NTM's phosgene creeper and chemical thrower, the clouds, the server's cost and the frames (ChemStand)
             systemProperty("ntmgunfeel.chemStand",providers.gradleProperty("chemStand").orElse("").get())
             // -PwpStand=<dir>: NTM's white phosphorus grenade, its hazes against the mod's white cloud: frames, the server's cost, packets (WpStand)

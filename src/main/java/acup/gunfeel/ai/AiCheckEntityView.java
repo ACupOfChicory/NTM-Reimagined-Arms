@@ -199,6 +199,34 @@ final class AiCheckEntityView {
         }
         dummy.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, before);
         check.check("entityview: ItemTable names the item in hand by its number as the registry does, the same String each time", named);
+        // Body.worn: each armour slot's item by its number, named by ItemTable as the registry does (a piece in a slot of
+        // another kind too, NTM's chestplate); an empty slot and a stack of none 0; no Body.worn on an arrow
+        net.minecraft.world.entity.EquipmentSlot[] slots = {net.minecraft.world.entity.EquipmentSlot.HEAD, net.minecraft.world.entity.EquipmentSlot.CHEST,
+                net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET};
+        net.minecraft.world.item.ItemStack[] dressed = new net.minecraft.world.item.ItemStack[4];
+        for (int i = 0; i < 4; i++) dressed[i] = dummy.getItemBySlot(slots[i]);
+        net.minecraft.world.item.Item ntmPlate = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(net.minecraft.resources.Identifier.fromNamespaceAndPath("hbm", "steel_plate"));
+        net.minecraft.world.item.ItemStack none = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.IRON_BOOTS);
+        none.setCount(0);
+        String[] want = {"minecraft:diamond_boots", "hbm:steel_plate", "minecraft:air", "minecraft:air"};
+        net.minecraft.world.item.ItemStack[] put = {new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_BOOTS), new net.minecraft.world.item.ItemStack(ntmPlate),
+                net.minecraft.world.item.ItemStack.EMPTY, none};
+        boolean worn = ntmPlate != net.minecraft.world.item.Items.AIR;
+        for (int i = 0; i < 4; i++) dummy.setItemSlot(slots[i], put[i]);
+        for (int i = 0; i < 4; i++) {
+            int n = db.worn(i);
+            worn &= items.name(n).equals(want[i]) && (n == acup.gunfeel.host.ItemTable.AIR) == (i >= 2)
+                    && items.name(n).equals(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(dummy.getItemBySlot(slots[i]).getItem()).toString());
+        }
+        worn &= db.worn(Body.HEAD) != db.held(Body.MAIN_HAND) && Body.HEAD == 0 && Body.FEET == 3;
+        try {
+            EntityBody.of(arrow).worn(Body.CHEST);
+            worn = false;
+        } catch (RuntimeException e) {
+            // the living only
+        }
+        for (int i = 0; i < 4; i++) dummy.setItemSlot(slots[i], dressed[i]);
+        check.check("entityview: Body.worn is the item in each armour slot by its number, an empty slot and a stack of none air; an arrow has none", worn);
         roles();
         removed(view);
         dimension(view);

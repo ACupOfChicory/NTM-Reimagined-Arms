@@ -131,6 +131,13 @@ public final class EntityBody implements Body {
         LivingEntity l = (LivingEntity) e;
         return ItemNumbers.number((hand == MAIN_HAND ? l.getMainHandItem() : l.getOffhandItem()).getItem());
     }
+    private static final net.minecraft.world.entity.EquipmentSlot[] WORN = {net.minecraft.world.entity.EquipmentSlot.HEAD,
+            net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.entity.EquipmentSlot.FEET};
+    @Override
+    public int worn(int slot) {
+        // getItem of an empty stack (EMPTY, air, a count of 0) is air's: 0
+        return ItemNumbers.number(((LivingEntity) e).getItemBySlot(WORN[slot]).getItem());
+    }
     @Override public double speed() { return ((LivingEntity) e).getAttributeValue(Attributes.MOVEMENT_SPEED); }
 
     @Override

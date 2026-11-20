@@ -115,6 +115,7 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public boolean creative() { return false; }
         @Override public boolean leftHanded() { livingOnly(); return false; }
         @Override public int held(int hand) { livingOnly(); return 0; }
+        @Override public int worn(int slot) { livingOnly(); return 0; }
         @Override public double speed() { livingOnly(); return 0.25; }
         @Override public @Nullable String team() { return null; }
         @Override public boolean tagged(String tag) { return false; }

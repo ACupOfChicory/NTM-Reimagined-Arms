@@ -156,6 +156,15 @@ public interface Body {
      */
     int held(int hand);
 
+    /** the armour slots of {@link #worn}, head to feet */
+    int HEAD = 0, CHEST = 1, LEGS = 2, FEET = 3;
+
+    /**
+     * The item worn in an armour slot ({@link #HEAD} .. {@link #FEET}) by the mod's own number, as {@link #held}'s; 0
+     * an empty slot (a stack of none is empty); the living only
+     */
+    int worn(int slot);
+
     /** its walking speed (the movement speed attribute); living */
     double speed();
 

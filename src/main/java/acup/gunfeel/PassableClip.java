@@ -194,14 +194,15 @@ public final class PassableClip extends ClipContext {
 
     private static @Nullable BlockHitResult blockHit(Level level, PassableClip c, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        net.minecraft.world.level.material.FluidState fluid = level.getFluidState(pos);
         Vec3 from = c.getFrom(), to = c.getTo();
         VoxelShape shape = c.getBlockShape(state, level, pos);
         BlockHitResult block = level.clipWithInteractionOverride(from, to, pos, shape, state);
-        BlockHitResult wet = c.getFluidShape(fluid, level, pos).clip(from, to, pos);
+        // No fluid is read: this context's is Fluid.NONE (its one constructor), whose canPick is false, so the game's
+        // fluid shape here is always empty and its clip null (the owner's word, 2026-11-20: the empty read gone). The
+        // game's choice between the block and the fluid stays as it was against that null: a hit at a distance that is
+        // NaN or past Double.MAX_VALUE (+infinity) was not the block's but the fluid's null, and still is
         double b = block == null ? Double.MAX_VALUE : c.getFrom().distanceToSqr(block.getLocation());
-        double w = wet == null ? Double.MAX_VALUE : c.getFrom().distanceToSqr(wet.getLocation());
-        return b <= w ? block : wet;
+        return b <= Double.MAX_VALUE ? block : null;
     }
 
     private static BlockHitResult miss(PassableClip c) {
