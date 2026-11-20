@@ -79,6 +79,11 @@ public final class BalanceArmor extends BalanceArmorBase {
             return source.is(ModDamageTypes.FIRE);
         }
 
+        /** NTM's electric type (its accepted damage takes it five times on a powered chestplate) */
+        static boolean ntmElectric(DamageSource source) {
+            return source.is(ModDamageTypes.ELECTRIC);
+        }
+
         /** the direct entity: living (Hurts.LIVING), NTM's beam (Hurts.NTM_BEAM) */
         static int directKind(DamageSource source) {
             var direct = source.getDirectEntity();

@@ -128,8 +128,7 @@ public final class EuphImmunity extends EuphImmunityBase {
         }
         float[] st = drainSet(kit);
         // NTM's accepted damage takes an electric hit on a powered chestplate five times (EntityDamageUtil)
-        if (kit != Kit.EUPHEMIUM && source.is(com.hbm.lib.ModDamageTypes.ELECTRIC)
-                && player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).getItem() instanceof com.hbm.items.armor.ModArmorItem armor && armor.maxPower() > 0L)
+        if (kit != Kit.EUPHEMIUM && BalanceArmorBase.HurtPort.HURTS.is(source, acup.gunfeel.host.Hurts.NTM_ELECTRIC) && poweredChest(EntityBody.of(player)))
             amount *= BalanceArmor.electricPowered(5F);
         NtmDamageContext ctx = (NtmDamageContext) player;
         float s = DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) ? st[0] * Math.min(1F, ReaimTimes.number("balanceEnShare", 0.75F)) : st[0];
@@ -231,12 +230,28 @@ public final class EuphImmunity extends EuphImmunityBase {
      * player's goes by NTM's own check, MixinEuphImmunity)
      */
     public static Kit kitOf(LivingEntity player) {
-        if (!acup.gunfeel.compat.Feature.BALANCE.on()) return null;
-        if (com.hbm.items.armor.ArmorSuitEffects.hasFullSet(player, com.hbm.items.armor.ModArmorItem.Suit.DNS)) return on(Kit.DNS) ? Kit.DNS : null;
-        if (com.hbm.items.armor.ArmorSuitEffects.hasFullSet(player, com.hbm.items.armor.ModArmorItem.Suit.DIGAMMA)) return on(Kit.FAU) ? Kit.FAU : null;
-        if (!(player instanceof Player) && com.hbm.items.armor.ArmorSuitEffects.hasFullSet(player, com.hbm.items.armor.ModArmorItem.Suit.EUPHEMIUM))
-            return on(Kit.EUPHEMIUM) ? Kit.EUPHEMIUM : null;
-        return null;
+        return kitOfWorn(EntityBody.of(player), BalanceOn.ON);
+    }
+
+    /** NTM's reads for core's ArmorSuits (ArmorSuitsPort): the suits' full sets, a powered piece */
+    static final class Reads {
+        private Reads() {
+        }
+
+        /** NTM's own check of the full set of a suit (ArmorSuits.DNS, DIGAMMA, EUPHEMIUM), the pieces' charge with it */
+        static boolean fullSet(LivingEntity e, int suit) {
+            return com.hbm.items.armor.ArmorSuitEffects.hasFullSet(e, switch (suit) {
+                case acup.gunfeel.host.ArmorSuits.DNS -> com.hbm.items.armor.ModArmorItem.Suit.DNS;
+                case acup.gunfeel.host.ArmorSuits.DIGAMMA -> com.hbm.items.armor.ModArmorItem.Suit.DIGAMMA;
+                case acup.gunfeel.host.ArmorSuits.EUPHEMIUM -> com.hbm.items.armor.ModArmorItem.Suit.EUPHEMIUM;
+                default -> throw new IllegalArgumentException("no suit " + suit);
+            });
+        }
+
+        /** an NTM armour piece with power */
+        static boolean powered(net.minecraft.world.item.Item item) {
+            return item instanceof com.hbm.items.armor.ModArmorItem armor && armor.maxPower() > 0L;
+        }
     }
 
     /** the wearers the pools are for: players and our AI's soldiers (AiBots), not other mobs */

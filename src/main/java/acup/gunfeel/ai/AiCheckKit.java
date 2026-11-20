@@ -229,6 +229,7 @@ final class AiCheckKit {
 
         loads();
         menus();
+        hud();
 
         // kits that make no sense: told in words, no mob made
         int before = AiBots.all(level).size();
@@ -480,6 +481,94 @@ final class AiCheckKit {
         check.check("kit: AmmoChoices is RadialMenu's choices, figures and type as they were on each NTM gun and inventory ("
                 + guns + " guns, " + cases + " inventories" + (differ.isEmpty() ? ")" : "): " + differ.subList(0, Math.min(8, differ.size()))),
                 differ.isEmpty() && entries > guns && typed > guns);
+    }
+
+    // HudBase.read (NtmGuns.hudBlocks and its arithmetic) against Hud.render's and block's reads and arithmetic as they
+    // were (HudWas), on a fake player holding each of NTM's guns in the registry with: no ammo, each round its magazine
+    // takes, every other one, and each with the gun loaded with the last of them: the same blocks (numbers, words,
+    // colours, the durability's bits, the lock, the icon, the GL-54's model) and the stack after them the same byte for
+    // byte; the most blocks a gun has (HudBase keeps room for 8). The GL-54 not here (a server cannot load its reads)
+    private void hud() {
+        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(level,
+                new com.mojang.authlib.GameProfile(java.util.UUID.nameUUIDFromBytes("aiCheckHud".getBytes()), "aiCheckHud"));
+        acup.gunfeel.host.Body body = acup.gunfeel.EntityBody.of(player);
+        int guns = 0, cases = 0, blocks = 0, most = 0, iconed = 0, reserved = 0, gl54 = 0;
+        String mostGun = "";
+        List<String> differ = new ArrayList<>();
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (!(item instanceof ItemGunBaseNT gun)) continue;
+            // the GL-54's HUD reads NTM's animation (HbmAnimations), a class a server cannot load (it reads the client's
+            // player): its gun left to the client, its arithmetic to core's HudBaseTest
+            if (AmmoLock.primary(new ItemStack(item)) instanceof acup.gunfeel.gl54.GrenadeMagazine) {
+                gl54++;
+                continue;
+            }
+            guns++;
+            String id = BuiltInRegistries.ITEM.getKey(item).toString();
+            Map<String, BulletConfig> takes = oldRounds(new ItemStack(item));
+            List<BulletConfig> all = new ArrayList<>(takes.values());
+            for (int s = 0; s < 4; s++) {
+                player.getInventory().clearContent();
+                // the old reads on one stack, the new on another made the same (NTM's reads write a belt's stack the first time)
+                ItemStack stack = new ItemStack(item), other = new ItemStack(item);
+                if (s == 3 && !takes.isEmpty()) {
+                    String last = new ArrayList<>(takes.keySet()).get(takes.size() - 1);
+                    oldLoad(stack, last);
+                    oldLoad(other, last);
+                }
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+                for (int i = 0; i < all.size(); i++) {
+                    if (s == 0 || s == 2 && i % 2 == 1) continue;
+                    MenuWas.give(player, all.get(i));
+                }
+                List<HudWas.Block> was = HudWas.render(player, stack, gun);
+                byte[] wasBytes = bytes(stack);
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, other);
+                int n = acup.gunfeel.HudBase.read(body, acup.gunfeel.host.Body.MAIN_HAND);
+                cases++;
+                blocks += was.size();
+                if (was.size() > most) {
+                    most = was.size();
+                    mostGun = id;
+                }
+                StringBuilder what = new StringBuilder();
+                if (n != was.size()) what.append("N(").append(was.size()).append("/").append(n).append(")");
+                for (int i = 0; i < Math.min(n, was.size()); i++) {
+                    HudWas.Block w = was.get(i);
+                    acup.gunfeel.HudBase.Block b = acup.gunfeel.HudBase.block(i);
+                    if (w.icon() != null && !w.icon().isEmpty()) iconed++;
+                    if (w.small() != null) reserved++;
+                    String d = (java.util.Objects.equals(w.big(), b.big) ? "" : "b") + (java.util.Objects.equals(w.small(), b.small) ? "" : "s")
+                            + (w.low() == b.low ? "" : "l") + (Float.floatToRawIntBits(w.health()) == Float.floatToRawIntBits(b.health) ? "" : "h")
+                            + (w.drawGun() == b.drawGun ? "" : "g") + (w.lead() == b.lead ? "" : "z") + (w.color() == b.color && w.dim() == b.dim ? "" : "c")
+                            + (w.locked() == b.locked ? "" : "k") + (sameIcon(w.icon(), b.icon) ? "" : "i") + (sameGl(w.gl(), b.gl) ? "" : "G");
+                    if (!d.isEmpty()) what.append(" ").append(i).append(d);
+                }
+                if (!java.util.Arrays.equals(wasBytes, bytes(other))) what.append(" B");
+                if (what.length() > 0) differ.add(id + " #" + s + what);
+            }
+        }
+        player.getInventory().clearContent();
+        player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        check.out("     kit: hud compared: " + guns + " guns, " + cases + " inventories, " + blocks + " blocks, " + iconed + " with an icon, "
+                + reserved + " with a reserve, most blocks a gun has " + most + " (" + mostGun + "), " + differ.size() + " differ; the GL-54's "
+                + gl54 + " left to the client");
+        check.check("kit: HudBase is Hud's blocks as they were on each NTM gun but the GL-54 and inventory (" + guns + " guns, " + cases + " inventories, most blocks "
+                + most + (differ.isEmpty() ? ")" : "): " + differ.subList(0, Math.min(8, differ.size()))),
+                differ.isEmpty() && blocks >= cases && iconed > guns && reserved > guns && gl54 == 1);
+    }
+
+    private static boolean sameIcon(ItemStack was, Object now) {
+        ItemStack n = (ItemStack) now;
+        if (was == null || n == null) return was == n;
+        return ItemStack.matches(was, n);
+    }
+
+    private static boolean sameGl(acup.gunfeel.gl54.Gl54Hud.Model a, acup.gunfeel.gl54.Gl54Hud.Model b) {
+        if (a == null || b == null) return a == b;
+        return a.big().equals(b.big()) && a.small().equals(b.small()) && a.color() == b.color() && a.dim() == b.dim()
+                && Float.floatToRawIntBits(a.bar()) == Float.floatToRawIntBits(b.bar()) && java.util.Arrays.equals(a.dots(), b.dots())
+                && a.lowAmmo() == b.lowAmmo();
     }
 
     private static String name(Object round) {

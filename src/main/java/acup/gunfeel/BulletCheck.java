@@ -477,14 +477,14 @@ public final class BulletCheck {
         var beam = new com.hbm.entity.projectile.EntityBulletBeamBase(level, new com.hbm.items.weapon.sedna.BulletConfig().setBeam(), 1);
         java.util.List<String> wrong = new java.util.ArrayList<>();
         int sources = 0;
-        int[] yes = new int[7];
+        int[] yes = new int[8];
         for (var holder : types.listElements().toList()) {
             for (int way = 0; way < 4; way++) {
                 net.minecraft.world.entity.Entity direct = way == 1 ? zombie : way == 2 ? beam : null, cause = way == 0 ? null : zombie;
                 var s = new net.minecraft.world.damagesource.DamageSource(holder, direct, cause);
                 boolean[] game = {s.is(net.minecraft.tags.DamageTypeTags.BYPASSES_EFFECTS), s.is(net.minecraft.tags.DamageTypeTags.IS_FIRE),
                         s.is(net.minecraft.tags.DamageTypeTags.IS_FALL), s.is(com.hbm.lib.ModDamageTypes.NUCLEAR_BLAST), s.is(com.hbm.lib.ModDamageTypes.DIGAMMA),
-                        s.is(com.hbm.lib.ModDamageTypes.RADIATION), s.is(com.hbm.lib.ModDamageTypes.FIRE)};
+                        s.is(com.hbm.lib.ModDamageTypes.RADIATION), s.is(com.hbm.lib.ModDamageTypes.FIRE), s.is(com.hbm.lib.ModDamageTypes.ELECTRIC)};
                 String at = holder.key().identifier() + " way " + way;
                 for (int q = 0; q < game.length; q++) {
                     if (hurts.is(s, q) != game[q]) wrong.add(at + " is " + q);
