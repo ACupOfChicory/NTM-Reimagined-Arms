@@ -17,6 +17,9 @@ public interface Body {
     /** the game's number for it (in this process and level only) */
     int id();
 
+    /** its age in ticks (tickCount) */
+    int age();
+
     /** whether it is a living one (the game's LivingEntity) */
     boolean living();
 
@@ -137,6 +140,9 @@ public interface Body {
 
     /** Last attacker (getLastHurtByMob); living only, null if none. The attacker's one Body, also on repeated calls. */
     @Nullable Body lastHurtBy();
+
+    /** its last attacker's timestamp (getLastHurtByMobTimestamp); living only */
+    int lastHurtTime();
 
     /** Credited killer (getKillCredit); living only, null if none. The entity's one Body, also on repeated calls. */
     @Nullable Body killCredit();

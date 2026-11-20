@@ -55,6 +55,12 @@ public abstract class EntityViewContract {
     /** the level's players' numbers in the game's order (the game's players(), those watching too) */
     protected abstract int[] players();
 
+    /** advance the entities by one tick */
+    protected abstract void tick();
+
+    /** the living entity's last attacker timestamp, read directly */
+    protected abstract int lastHurtTime(int id);
+
     private int near(int kind, Body[] out) {
         double[] b = box();
         return view().near(kind, b[0], b[1], b[2], b[3], b[4], b[5], out);
@@ -110,6 +116,26 @@ public abstract class EntityViewContract {
         control().yRot(a, y0);
         control().yHeadRot(a, h0);
         control().xRot(a, x0);
+    }
+
+    @Test
+    void ageAdvancesOnePerTick() {
+        Body[] bodies = {view().byId(mob()), view().byId(projectile()), view().byId(spectator())};
+        int[] before = new int[bodies.length];
+        for (int i = 0; i < bodies.length; i++) before[i] = bodies[i].age();
+        tick();
+        for (int i = 0; i < bodies.length; i++) assertEquals(before[i] + 1, bodies[i].age());
+    }
+
+    @Test
+    void lastHurtTimeOfTheLiving() {
+        for (int id : new int[] {mob(), spectator()}) {
+            Body b = view().byId(id);
+            int timestamp = lastHurtTime(id);
+            assertEquals(timestamp, b.lastHurtTime());
+            tick();
+            assertEquals(timestamp, b.lastHurtTime());
+        }
     }
 
     @Test
@@ -256,6 +282,7 @@ public abstract class EntityViewContract {
         assertThrows(RuntimeException.class, p::health);
         assertThrows(RuntimeException.class, p::maxHealth);
         assertThrows(RuntimeException.class, p::lastHurtBy);
+        assertThrows(RuntimeException.class, p::lastHurtTime);
         assertThrows(RuntimeException.class, p::killCredit);
         // a player's only: false on another
         assertFalse(p.spectator());

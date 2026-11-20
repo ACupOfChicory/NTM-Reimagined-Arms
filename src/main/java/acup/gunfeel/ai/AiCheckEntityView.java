@@ -549,6 +549,7 @@ final class AiCheckEntityView {
         Body b = EntityBody.of(e);
         String w = at + ": ";
         eq(w + "id", b.id(), e.getId());
+        eq(w + "age", b.age(), e.tickCount);
         eq(w + "uuid", b.uuid(), e.getUUID());
         eq(w + "living", b.living(), e instanceof LivingEntity);
         eq(w + "player", b.player(), e instanceof net.minecraft.world.entity.player.Player);
@@ -615,6 +616,7 @@ final class AiCheckEntityView {
         if (b.level() != e.level()) wrong.add(w + "level");
         if (e instanceof LivingEntity le) {
             eq(w + "health", b.health(), le.getHealth());
+            eq(w + "lastHurtTime", b.lastHurtTime(), le.getLastHurtByMobTimestamp());
             eq(w + "maxHealth", b.maxHealth(), le.getMaxHealth());
             eq(w + "climbing", b.climbing(), le.onClimbable());
             eq(w + "fallFlying", b.fallFlying(), le.isFallFlying());
@@ -643,6 +645,8 @@ final class AiCheckEntityView {
         check.check("commander ports: last attacker and kill credit keep the entity's one Body",
                 body.lastHurtBy() == EntityBody.of(stand) && body.lastHurtBy() == body.lastHurtBy()
                 && body.killCredit() == (credited == null ? null : EntityBody.of(credited)));
+        check.check("medic ports: age and last attacker timestamp are the entity's reads",
+                body.age() == dummy.tickCount && body.lastHurtTime() == dummy.getLastHurtByMobTimestamp());
         dummy.setLastHurtByMob(null);
         BodyControl c = CoreServices.load(BodyControl.class, BodyControl.MISSING);
         boolean ok = true;
@@ -716,7 +720,7 @@ final class AiCheckEntityView {
     private void livingOnly() {
         Body a = EntityBody.of(arrow), s = EntityBody.of(stand);
         check.check("entityview: on the arrow (not living) the living ones throw", throwsOn(a::climbing) && throwsOn(a::speed) && throwsOn(a::lying) && throwsOn(a::sleeping)
-                && throwsOn(a::leftHanded) && throwsOn(a::fallFlying) && throwsOn(a::health) && throwsOn(a::maxHealth) && throwsOn(a::lastHurtBy) && throwsOn(a::killCredit));
+                && throwsOn(a::leftHanded) && throwsOn(a::fallFlying) && throwsOn(a::health) && throwsOn(a::maxHealth) && throwsOn(a::lastHurtBy) && throwsOn(a::lastHurtTime) && throwsOn(a::killCredit));
         check.check("entityview: on the stand (living, no mob) leftHanded throws", throwsOn(s::leftHanded));
     }
 

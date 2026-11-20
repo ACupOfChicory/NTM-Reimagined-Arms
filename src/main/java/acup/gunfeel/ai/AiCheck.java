@@ -137,6 +137,8 @@ public final class AiCheck {
             AiCheckMarksman marksman = new AiCheckMarksman(check, check.level, Y);
             AiCheckGrenadier grenadier = new AiCheckGrenadier(check, check.level, Y);
             AiCheckMedic medic = new AiCheckMedic(check, check.level, Y);
+            AiMedicAlike medicAlike = new AiMedicAlike();
+            AiMedic.alike = medicAlike;
             AiCheckCommander commander = new AiCheckCommander(check, check.level, Y);
             AiCheckLeaves leaves = new AiCheckLeaves(check, check.level, Y);
             AiCheckHill hill = new AiCheckHill(check, check.level, Y, false), hillHeights = new AiCheckHill(check, check.level, Y, true);
@@ -230,6 +232,9 @@ public final class AiCheck {
                 if (!done) return;
                 AiBots.heardKeeps = true;
                 AiVoice.counting = false;
+                check.out("     medic alike (core's against the former code): " + medicAlike.info());
+                check.check("medic: core's AiMedicBase answers as the former code did", medicAlike.differ == 0);
+                AiMedic.alike = null;
                 out.add("     " + check.map.info());
                 out.add("     senses: " + Senses.info());
                 out.add("     " + StandSprint.info());
