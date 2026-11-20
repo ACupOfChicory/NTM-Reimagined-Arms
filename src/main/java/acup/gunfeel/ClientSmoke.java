@@ -116,7 +116,7 @@ public final class ClientSmoke {
                 GunFeel.LOGGER.info("[holebench] запуск phase={} screen={} world={}",phase,
                         mc.gui.screen()==null?"null":mc.gui.screen().getClass().getName(),mc.level!=null);
             }
-            if (!MobSmoke.review() && System.nanoTime() - START > (ParticleStand.ENABLED?2_400_000_000_000L:GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():ShapesStand.ENABLED?ShapesStand.timeout():MobBenchMetrics.ENABLED || BotStand.ENABLED || FireStand.ENABLED || BlastStand.ENABLED || HoleBenchMetrics.ENABLED || HudShots.ENABLED || Gl54Stand.ENABLED || Gl54ReflexStand.ENABLED || FenceSeamCheck.ENABLED || FenceAirStand.ENABLED || WaterFxStand.ENABLED || SmokeCloudStand.ENABLED || ChemStand.ENABLED || WpStand.ENABLED || MiniNukeStand.ENABLED || GunWallStand.ENABLED || GasStand.ENABLED || FragStand.ENABLED?900_000_000_000L:GlassBackCheck.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
+            if (!MobSmoke.review() && System.nanoTime() - START > (ParticleStand.ENABLED?2_400_000_000_000L:GlassStand.ENABLED?GlassStand.timeout():TraceScenario.enabled()?TraceScenario.timeout():ShapesStand.ENABLED?ShapesStand.timeout():MobBenchMetrics.ENABLED || BotStand.ENABLED || FireStand.ENABLED || BlastStand.ENABLED || HoleBenchMetrics.ENABLED || HudShots.ENABLED || Gl54Stand.ENABLED || Gl54ReflexStand.ENABLED || FenceSeamCheck.ENABLED || FenceAirStand.ENABLED || WaterFxStand.ENABLED || SmokeCloudStand.ENABLED || ChemStand.ENABLED || WpStand.ENABLED || MiniNukeStand.ENABLED || GunWallStand.ENABLED || GasStand.ENABLED || FragStand.ENABLED || LevelLeakStand.ENABLED?900_000_000_000L:GlassBackCheck.ENABLED?900_000_000_000L:MobSmoke.enabled() ? 3_600_000_000_000L : 180_000_000_000L)) {
                 check(false, "таймаут клиента; экран=" + mc.gui.screen());
                 finish();
                 return;
@@ -148,6 +148,7 @@ public final class ClientSmoke {
                 if(Gl54ReflexStand.ENABLED) { phase=63; mc.gui.setScreen(null); Gl54ReflexStand.start(); return; }
                 if(FragStand.ENABLED) { phase=66; mc.gui.setScreen(null); FragStand.start(); return; }
                 if(SpectatorStand.ENABLED) { phase=19; mc.gui.setScreen(null); SpectatorStand.start(); return; }
+                if(LevelLeakStand.ENABLED) { phase=20; mc.gui.setScreen(null); LevelLeakStand.start(); return; }
                 if(ProneStand.ENABLED) { phase=61; mc.gui.setScreen(null); ProneStand.start(); return; }
                 if(GasStand.ENABLED) { phase=65; mc.gui.setScreen(null); GasStand.start(); return; }
                 if(ProneFireStand.ENABLED) { phase=62; mc.gui.setScreen(null); ProneFireStand.start(); return; }
@@ -243,6 +244,7 @@ public final class ClientSmoke {
             if (phase == 41) WaterFxStand.frame();
             if (phase == 50) GlassBackCheck.frame();
             if (phase == 19) SpectatorStand.frame();
+            if (phase == 20) LevelLeakStand.frame();
             if (phase == 61) ProneStand.frame();
             if (phase == 62) ProneFireStand.frame();
             if (phase == 72) SuppressionStand.frame();
