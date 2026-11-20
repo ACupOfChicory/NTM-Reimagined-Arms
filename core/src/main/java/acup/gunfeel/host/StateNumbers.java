@@ -17,6 +17,7 @@ public final class StateNumbers<S> implements BlockTable {
     private final Function<S, BlockFacts> factsOf;
     private final Function<S, String> keyOf;
     private final java.util.function.Predicate<S> airOf;
+    private final java.util.function.Predicate<S> machineOf;
     // A new state is added under the lock: the arrays grow by a copy and are published through these volatiles (the
     // array before the number), so a reader holding an older, shorter array takes the slow way, never past its end.
     private volatile Object[] states = new Object[0];
@@ -26,13 +27,17 @@ public final class StateNumbers<S> implements BlockTable {
     private volatile String[] keys = new String[0];
     // air or not: 0 not known yet, 1 not air, 2 air
     private volatile byte[] airs = new byte[0];
+    // machine or partial (machineOrPartial), as airs; kept when the facts are forgotten (no tag goes into it)
+    private volatile byte[] machines = new byte[0];
     private int size;
 
     /** the table with {@code air} as {@link #AIR} */
-    public StateNumbers(S air, Function<S, BlockFacts> factsOf, Function<S, String> keyOf, java.util.function.Predicate<S> airOf) {
+    public StateNumbers(S air, Function<S, BlockFacts> factsOf, Function<S, String> keyOf, java.util.function.Predicate<S> airOf,
+            java.util.function.Predicate<S> machineOf) {
         this.factsOf = factsOf;
         this.keyOf = keyOf;
         this.airOf = airOf;
+        this.machineOf = machineOf;
         number(air);
     }
 
@@ -53,6 +58,7 @@ public final class StateNumbers<S> implements BlockTable {
             facts = Arrays.copyOf(facts, cap);
             keys = Arrays.copyOf(keys, cap);
             airs = Arrays.copyOf(airs, cap);
+            machines = Arrays.copyOf(machines, cap);
             states = s;
         } else {
             states[k] = state;
@@ -106,6 +112,16 @@ public final class StateNumbers<S> implements BlockTable {
         boolean made = airOf.test(state(state));
         a = airs;
         if (state < a.length) a[state] = made ? (byte) 2 : (byte) 1;
+        return made;
+    }
+
+    @Override
+    public boolean machineOrPartial(int state) {
+        byte[] m = machines;
+        if (state < m.length && m[state] != 0) return m[state] == 2;
+        boolean made = machineOf.test(state(state));
+        m = machines;
+        if (state < m.length) m[state] = (byte) (made ? 2 : 1);
         return made;
     }
 

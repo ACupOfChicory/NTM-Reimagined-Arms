@@ -445,6 +445,26 @@ public final class BulletCheck {
         check("world: air is the game's: plain and cave, not stone or a fence", "true true false false",
                 w.air(acup.gunfeel.host.BlockTable.AIR) + " " + w.air(cave) + " " + w.air(s) + " " + w.air(f));
         check("world: stone's destroy speed there", stoneState.getDestroySpeed(level, stone), w.destroySpeed(s, stone.getX(), stone.getY(), stone.getZ()));
+        // %mod's test (BlockTable.machineOrPartial): stone is a full cube drawn as a model, a fence is not a full cube,
+        // air is drawn by none
+        check("world: machine or partial: not stone, a fence, air", "false true true",
+                w.machineOrPartial(s) + " " + w.machineOrPartial(f) + " " + w.machineOrPartial(acup.gunfeel.host.BlockTable.AIR));
+        // the entity types (EntityTypeTable): a type's id the same String each time, its tags the game's, a tag name
+        // that is no id in none, a number no type has throws
+        var types = acup.gunfeel.CoreServices.load(acup.gunfeel.host.EntityTypeTable.class, acup.gunfeel.host.EntityTypeTable.MISSING);
+        int zombie = EntityTypeNumbers.number(net.minecraft.world.entity.EntityTypes.ZOMBIE), pig = EntityTypeNumbers.number(net.minecraft.world.entity.EntityTypes.PIG);
+        check("world: a type's id, one String", "minecraft:zombie true", types.name(zombie) + " " + (types.name(zombie) == types.name(zombie)));
+        check("world: a type keeps its number", zombie, EntityTypeNumbers.number(net.minecraft.world.entity.EntityTypes.ZOMBIE));
+        check("world: type tags the game's: a zombie undead, a pig not, a bad name none", "true false false false",
+                types.tagged(zombie, "minecraft:undead") + " " + types.tagged(pig, "minecraft:undead") + " " + types.tagged(zombie, "minecraft:skeletons")
+                        + " " + types.tagged(zombie, "Not An Id!"));
+        boolean threw = false;
+        try {
+            types.name(1 << 20);
+        } catch (IllegalArgumentException e) {
+            threw = true;
+        }
+        check("world: a number no type has throws", true, threw);
     }
 
     // ---- the rules' file looked at by the game's ticks (BulletRuleText.tick), not by the clock at each question: a
@@ -787,7 +807,7 @@ public final class BulletCheck {
             one.addAll(r.selectors());
         }
         for (String s : one) lists.add(List.of(s));
-        int states = 0, asked = 0, yes = 0, wrong = 0, facts = 0, threw = 0;
+        int states = 0, asked = 0, yes = 0, wrong = 0, facts = 0, threw = 0, machine = 0, kept = 0;
         String first = null, thrown = null;
         java.util.Set<String> mods = new java.util.TreeSet<>();
         for (Block b : net.minecraft.core.registries.BuiltInRegistries.BLOCK) {
@@ -797,6 +817,9 @@ public final class BulletCheck {
                 try {
                     // the facts made here as the selectors make them: one that throws would be a bullet's
                     if (BlockStates.factsOf(BlockStates.number(st)).machineOrPartial() != OldMatch.machineOrPartial(st)) facts++;
+                    // the table's %mod (BlockTable.machineOrPartial) is the game's; its kept facts (material) are made anew
+                    if (Wiring.world(level).machineOrPartial(BlockStates.number(st)) != OldMatch.machineOrPartial(st)) machine++;
+                    if (!BlockStates.factsOf(BlockStates.number(st)).equals(BlockFactsOf.of(st))) kept++;
                 } catch (RuntimeException e) {
                     threw++;
                     if (thrown == null) thrown = st + ": " + e;
@@ -816,6 +839,8 @@ public final class BulletCheck {
         lines.add("     selectors: " + states + " states of " + mods.size() + " namespaces " + mods + ", " + lists.size() + " selector lists, "
                 + asked + " asked, " + yes + " taken");
         check("selectors: every state's facts made" + (thrown == null ? "" : " (first: " + thrown + ")"), 0, threw);
+        check("selectors: the table's machine-or-partial the game's on every state", 0, machine);
+        check("selectors: the table's kept facts as made now on every state", 0, kept);
         lines.add("     selectors: the facts' machine-or-partial unlike the game's own (%mod asks the game's) on " + facts + " states");
         check("selectors: every state, every selector, as before" + (first == null ? "" : " (first: " + first + ")"), 0, wrong);
         check("selectors: enough of them taken and not", true, yes > 1000 && asked - yes > 1000);

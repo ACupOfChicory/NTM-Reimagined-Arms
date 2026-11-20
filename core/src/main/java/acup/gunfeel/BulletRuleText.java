@@ -55,8 +55,9 @@ public class BulletRuleText {
      * key are looked at again at the next use. The clock is read here, once a tick, not by each question to the
      * rules (two of them a pierced block, each a clock read dearer than the rest of the question). 26.2's caller:
      * BulletRules' own listener on every level's tick, both sides (no other one is needed, not in GunFeelMod either).
-     * The listener is set up by BulletRules' class initialisation, and load() is called only from BulletRules.rules():
-     * another way to load() must touch BulletRules first, or the file is never looked at again.
+     * The listener is set up by BulletRules' class initialisation, and load() is called only from BulletRulesBase.rules(),
+     * reached through BulletRules' own declared entries: another way to load() must touch BulletRules first, or the file
+     * is never looked at again.
      */
     public static synchronized void tick(long nowMillis) {
         if (nowMillis - lastPoll > 1000L) {

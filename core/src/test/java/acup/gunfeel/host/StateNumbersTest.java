@@ -42,11 +42,16 @@ class StateNumbersTest {
         return new BlockFacts(id, List.of(), "stone", 1F, 1F, false, true, 1, false, true, Set.of());
     }
 
+    // a fake %mod: air (drawn by none), a fence and a slab (not one full cube) are; stone is not
+    static boolean machine(FakeState s) {
+        return s.key.endsWith("air") || s.key.contains("fence") || s.key.contains("slab");
+    }
+
     static final FakeState AIR_STATE = new FakeState("minecraft:air", 0);
 
     // the contract on a world of fake states: air at 0 0 0, stone at 1 0 0, a fence with properties at 2 0 0
     static final class FakeWorld implements WorldView {
-        final StateNumbers<FakeState> table = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key, s -> s.key.endsWith("air"));
+        final StateNumbers<FakeState> table = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key, s -> s.key.endsWith("air"), StateNumbersTest::machine);
         final Map<Long, FakeState> blocks = new HashMap<>();
 
         FakeWorld() {
@@ -188,11 +193,16 @@ class StateNumbersTest {
         public String key(int state) {
             return table.key(state);
         }
+
+        @Override
+        public boolean machineOrPartial(int state) {
+            return table.machineOrPartial(state);
+        }
     }
 
     @Test
     void numbersByFirstSightNotTheGamesNumber() {
-        StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key, s -> s.key.endsWith("air"));
+        StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key, s -> s.key.endsWith("air"), StateNumbersTest::machine);
         FakeState a = new FakeState("minecraft:stone", 5), b = new FakeState("minecraft:dirt", 3);
         assertEquals(BlockTable.AIR, t.number(AIR_STATE));
         assertEquals(1, t.number(a));
@@ -222,7 +232,7 @@ class StateNumbersTest {
         StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, st -> {
             made[0]++;
             return new BlockFacts(st.key, java.util.List.of(), "stone", 1F, 1F, false, true, 1, false, true, new java.util.TreeSet<>(tags));
-        }, st -> st.key, st -> st.key.endsWith("air"));
+        }, st -> st.key, st -> st.key.endsWith("air"), StateNumbersTest::machine);
         FakeState stone = new FakeState("minecraft:stone", 1);
         int n = t.number(stone);
         BlockFacts before = t.facts(n);
@@ -248,7 +258,7 @@ class StateNumbersTest {
     @Test
     void manyThreadsOneNumberEach() throws Exception {
         for (int round = 0; round < 20; round++) {
-            StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key, s -> s.key.endsWith("air"));
+            StateNumbers<FakeState> t = new StateNumbers<>(AIR_STATE, StateNumbersTest::factsOf, s -> s.key, s -> s.key.endsWith("air"), StateNumbersTest::machine);
             int n = 5_000, threads = 8;
             List<FakeState> states = new ArrayList<>();
             for (int i = 0; i < n; i++) states.add(new FakeState("mod:block_" + i, i));
