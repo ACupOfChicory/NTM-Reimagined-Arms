@@ -8,7 +8,6 @@ import com.hbm.util.DamageResistanceHandler;
 
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
@@ -233,8 +232,6 @@ public final class BalanceFinal extends BalanceFinalBase {
         return projectile == null ? null : PAIR.get(projectile);
     }
 
-    private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
-
     // ---------------------------------------------------------------- a hit
 
     /**
@@ -307,28 +304,11 @@ public final class BalanceFinal extends BalanceFinalBase {
     }
 
     private static BalanceFinalRule.Armor armorOf0(LivingEntity target, State s) {
-        BalanceFinalRule.Armor[] slots = new BalanceFinalRule.Armor[4];
-        String first = null;
-        boolean same = true, any = false;
-        for (int i = 0; i < 4; i++) {
-            String set = BalanceArmor.setOf(target.getItemBySlot(SLOTS[i]), i);
-            var a = set == null ? null : s.sets().get(set);
-            slots[i] = a;
-            if (a != null) any = true;
-            if (i == 0) first = set;
-            if (a == null || set == null || !set.equals(first)) same = false;
-        }
-        if (!any) return target instanceof Player ? BalanceFinalRule.MODEL_SETS.get("none") : null;
-        if (same) return slots[0].pool() > 0 && !pooled(target, first) ? new BalanceFinalRule.Armor(slots[0].kind(), slots[0].tier(), slots[0].hours(), slots[0].en(), 0) : slots[0];
-        return BalanceFinalRule.mix(slots, s.weights(), s.empty());
+        return armorOfWorn(EntityBody.of(target), s, BALANCE_ON);
     }
 
-    /** the full set's pool is there: a player's, its kit in the mode pool (balance.immune*.mode) */
-    private static boolean pooled(LivingEntity target, String set) {
-        if (!(target instanceof Player)) return false;
-        for (var kit : EuphImmunity.Kit.values()) if (kit.set.equals(set)) return EuphImmunity.on(kit);
-        return false;
-    }
+    /** the balance's feature is on (EuphImmunity.on's first question): asked where it was, as a supplier (one object) */
+    private static final java.util.function.BooleanSupplier BALANCE_ON = () -> acup.gunfeel.compat.Feature.BALANCE.on();
 
     /**
      * what the scheme leaves of a hit on {@code target} (in place of NTM's threshold and resistance and formula C), or
