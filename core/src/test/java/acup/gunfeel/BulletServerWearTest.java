@@ -164,7 +164,7 @@ class BulletServerWearTest {
                 case 1 -> { core.wearBy(LEVEL, b.view, pos, pos.x(), pos.y(), pos.z(), null, 17, null, b.damage, HIT); yield null; }
                 case 2 -> { core.passed(LEVEL, b.view, pos, pos.x(), pos.y(), pos.z(), BULLET, 17, null, b.damage, HIT); yield null; }
                 case 4 -> core.blockHit(LEVEL, b.view, pos, pos.x(), pos.y(), pos.z(), null, 17, null, b.damage, HIT);
-                default -> core.wear(LEVEL, b.view, BULLET, pos, pos.x(), pos.y(), pos.z(), b.state, b.rule, b.k);
+                default -> core.wearShot(LEVEL, b.view, BULLET, pos, pos.x(), pos.y(), pos.z(), b.state, b.rule, b.k);
             });
         }
 

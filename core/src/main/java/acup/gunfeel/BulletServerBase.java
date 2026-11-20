@@ -45,7 +45,7 @@ public final class BulletServerBase {
         if (rule == null || rule.mode() == 0) return 0;
         float k = bullet == null ? 1F : blocks.water(bullet, hit);
         boolean broke = bullet == null ? wear(level, world, new Shooter(id, owner, damage), pos, x, y, z, state, rule, k)
-                : wear(level, world, bullet, pos, x, y, z, state, rule, k);
+                : wearShot(level, world, bullet, pos, x, y, z, state, rule, k);
         if (!broke) return 0;
         if (TestLog.server) TestLog.s(bullet == null ? id : blocks.shotId(bullet), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", blocks.stateObject(state), "pos", pos, "at", blocks.location(hit));
         return rule.pass() ? 2 : 1;
@@ -58,7 +58,7 @@ public final class BulletServerBase {
         BulletRuleText.Break rule = blocks.rule(state);
         if (rule == null || rule.mode() == 0) return;
         if (bullet == null) wear(level, world, new Shooter(id, owner, damage), pos, x, y, z, state, rule, 1F);
-        else wear(level, world, bullet, pos, x, y, z, state, rule, 1F);
+        else wearShot(level, world, bullet, pos, x, y, z, state, rule, 1F);
     }
 
     public void passed(Object level, WorldView world, Object pos, int x, int y, int z, @Nullable Object bullet,
@@ -69,10 +69,10 @@ public final class BulletServerBase {
         if (rule == null || rule.mode() == 0) return;
         float k = bullet == null ? 1F : blocks.water(bullet, hit);
         if (bullet == null) wear(level, world, new Shooter(id, owner, damage), pos, x, y, z, state, rule, k);
-        else wear(level, world, bullet, pos, x, y, z, state, rule, k);
+        else wearShot(level, world, bullet, pos, x, y, z, state, rule, k);
     }
 
-    public boolean wear(Object level, WorldView world, Object bullet, Object pos, int x, int y, int z,
+    public boolean wearShot(Object level, WorldView world, Object bullet, Object pos, int x, int y, int z,
             int state, BulletRuleText.Break rule, float k) {
         return wear(level, world, blocks.shooter(bullet), pos, x, y, z, state, rule, k);
     }

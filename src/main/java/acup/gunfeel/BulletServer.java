@@ -245,7 +245,7 @@ public final class BulletServer {
 
     // Used by Shot.pierce until the path moves to core too.
     private static boolean wear(ServerLevel level, EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, BulletRuleText.Break rule, float k) {
-        return BLOCKS.wear(level, acup.gunfeel.host.Worlds.of(level), bullet, pos,
+        return BLOCKS.wearShot(level, acup.gunfeel.host.Worlds.of(level), bullet, pos,
                 pos.getX(), pos.getY(), pos.getZ(), BlockStates.number(state), rule, k);
     }
 
