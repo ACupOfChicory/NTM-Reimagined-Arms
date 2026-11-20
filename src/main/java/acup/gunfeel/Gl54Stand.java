@@ -455,6 +455,10 @@ final class Gl54Stand {
 
     // a frame of the corner HUD with the block and one without (the difference is the block), by name
     private static void hudShot(String name) {
+        // the gun still from its last shot or reload (its animation, behind the corner HUD), 3 s
+        long[] until = {0L};
+        run(() -> until[0] = System.nanoTime() + 3_000_000_000L);
+        TODO.add(() -> System.nanoTime() >= until[0]);
         run(() -> Config.cornerHud = true);
         sleep(6);
         run(() -> shot(name + ".png"));

@@ -133,6 +133,27 @@ public interface NtmGuns {
     /** The barrel's heat now (the game's tick now): Overheat.heat, 0 off or for no gun of OverheatBase.Gun. */
     float heat(Body holder, int hand, long now);
 
+    /** {@link #hudBlocks}'s kinds of a block: the GL-54's, a magazine of single rounds of one type, a belt off an infinite bag, another */
+    int HUD_GL54 = 0, HUD_SINGLE = 1, HUD_BELT_INFINITE = 2, HUD_OTHER = 3;
+
+    /**
+     * {@link #hudBlocks}'s places in a block: its ints (kind, rounds in it, its capacity, the rounds it may yet load or
+     * {@link #INFINITE_ROUNDS}, the ammo lock 1 or 0), floats (the config's wear, its durability), objects (the icon, a
+     * version's own; the GL-54's {@code acup.gunfeel.gl54.Gl54Hud.Model}) and its one text (NTM's own words for another)
+     */
+    int H_KIND = 0, H_AMOUNT = 1, H_CAPACITY = 2, H_RESERVE = 3, H_LOCKED = 4, H_INTS = 5;
+    int H_WEAR = 0, H_DURABILITY = 1, H_FLOATS = 2;
+    int H_ICON = 0, H_GL54 = 1, H_OBJECTS = 2;
+
+    /**
+     * The corner HUD's blocks, read once a frame: one per magazine, configs from the last down, each config's receivers
+     * from the last down, a receiver with no magazine skipped (its magazine found once). Each is read in the HUD's own
+     * order (wear, durability, the icon, its kind's numbers, the lock) into its places, block i at i x H_INTS, i x
+     * H_FLOATS, i x H_OBJECTS and i of {@code texts}; what a kind has no number for is left as it was. Gives how many
+     * blocks there are: more than {@code texts} holds are counted, not read past the magazine. Not caught.
+     */
+    int hudBlocks(Body holder, int hand, int[] ints, float[] floats, Object[] objects, String[] texts);
+
     // --- 2. writes, each one of NTM's, in the caller's order
 
     /**
@@ -221,6 +242,11 @@ public interface NtmGuns {
         @Override
         public int menuRounds(Body holder, int hand, int[] out) {
             return -1;
+        }
+
+        @Override
+        public int hudBlocks(Body holder, int hand, int[] ints, float[] floats, Object[] objects, String[] texts) {
+            return 0;
         }
 
         @Override
