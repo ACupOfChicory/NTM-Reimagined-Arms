@@ -121,6 +121,10 @@ public final class EntityBody implements Body {
     }
     @Override public boolean alive() { return e.isAlive(); }
     @Override public boolean removed() { return e.isRemoved(); }
+    @Override public float health() { return ((LivingEntity) e).getHealth(); }
+    @Override public float maxHealth() { return ((LivingEntity) e).getMaxHealth(); }
+    @Override public boolean spectator() { return e instanceof Player p && p.isSpectator(); }
+    @Override public boolean creative() { return e instanceof Player p && p.isCreative(); }
     @Override public boolean leftHanded() { return ((Mob) e).isLeftHanded(); }
     @Override
     public int held(int hand) {

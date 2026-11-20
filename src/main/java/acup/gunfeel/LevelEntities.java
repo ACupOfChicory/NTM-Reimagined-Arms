@@ -37,6 +37,15 @@ public final class LevelEntities implements EntityView {
     }
 
     @Override
+    public int players(Body[] out) {
+        var found = level.players();
+        int n = found.size();
+        if (n > out.length) return -n;
+        for (int i = 0; i < n; i++) out[i] = EntityBody.of(found.get(i));
+        return n;
+    }
+
+    @Override
     public int near(int kind, double x0, double y0, double z0, double x1, double y1, double z1, Body[] out) {
         // the game's two-argument getEntitiesOfClass: spectators left out (EntitySelector.NO_SPECTATORS)
         List<? extends Entity> found = level.getEntitiesOfClass(kind(kind), new AABB(x0, y0, z0, x1, y1, z1));

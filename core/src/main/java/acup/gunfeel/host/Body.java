@@ -132,6 +132,18 @@ public interface Body {
 
     boolean removed();
 
+    /** its health (getHealth); living */
+    float health();
+
+    /** its maximum health (getMaxHealth); living */
+    float maxHealth();
+
+    /** a player watching only (isSpectator); false for any other */
+    boolean spectator();
+
+    /** a player in creative (isCreative); false for any other */
+    boolean creative();
+
     /** left-handed; a mob only */
     boolean leftHanded();
 
