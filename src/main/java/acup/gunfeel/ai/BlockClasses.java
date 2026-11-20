@@ -1,5 +1,6 @@
 package acup.gunfeel.ai;
 
+import acup.gunfeel.BlockStates;
 import acup.gunfeel.BulletRules;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -43,8 +44,9 @@ public final class BlockClasses {
             rulesGeneration = generation;
             values = new int[0];
         }
-        int id = Block.BLOCK_STATE_REGISTRY.getId(state);
-        if (id < 0) return classify(state) & 0xFF | veil(state);
+        // by our number for the state (BlockStates), not the game's: NeoForge renumbers the game's states when a client
+        // joins a server, ours stay the same all the game's run
+        int id = BlockStates.number(state);
         if (id >= values.length) values = java.util.Arrays.copyOf(values, Math.max(id + 1, Math.max(1024, values.length * 2)));
         int v = values[id];
         if (v == 0) values[id] = v = classify(state) & 0xFF | veil(state) | KNOWN;
