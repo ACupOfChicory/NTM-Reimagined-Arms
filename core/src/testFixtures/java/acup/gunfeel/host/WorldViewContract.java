@@ -200,4 +200,20 @@ public abstract class WorldViewContract {
         assertTrue(world().free(null, a[0] + .25, a[1] + .25, a[2] + .25, a[0] + .75, a[1] + .75, a[2] + .75));
         assertFalse(world().free(null, s[0] + .25, s[1] + .25, s[2] + .25, s[0] + .75, s[1] + .75, s[2] + .75));
     }
+
+    // the level's tops: over the stone in its column by every heightmap (stone counts in each), never under the lowest
+    // y; a heightmap the game has not: IllegalArgumentException; the stone's chunk loaded
+    @Test
+    void theTopsOverTheStone() {
+        int[] s = stone();
+        for (int kind = WorldView.HEIGHT_WORLD_SURFACE_WG; kind <= WorldView.HEIGHT_MOTION_BLOCKING_NO_LEAVES; kind++) {
+            int h = world().height(s[0], s[2], kind);
+            assertTrue(h >= s[1] + 1, "kind " + kind + ": " + h + " over the stone at " + s[1]);
+            assertTrue(h >= world().minY());
+        }
+        assertTrue(world().minY() <= s[1]);
+        assertThrows(IllegalArgumentException.class, () -> world().height(s[0], s[2], -1));
+        assertThrows(IllegalArgumentException.class, () -> world().height(s[0], s[2], WorldView.HEIGHT_MOTION_BLOCKING_NO_LEAVES + 1));
+        assertTrue(world().hasChunk(s[0] >> 4, s[2] >> 4));
+    }
 }
