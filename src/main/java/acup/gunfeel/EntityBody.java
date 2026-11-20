@@ -136,6 +136,15 @@ public final class EntityBody implements Body {
     }
     @Override public double speed() { return ((LivingEntity) e).getAttributeValue(Attributes.MOVEMENT_SPEED); }
     @Override public float maxHealth() { return ((LivingEntity) e).getMaxHealth(); }
+    @Override
+    public int effectAmplifier(int which) {
+        var effect = ((LivingEntity) e).getEffect(switch (which) {
+            case EFFECT_REGENERATION -> net.minecraft.world.effect.MobEffects.REGENERATION;
+            case EFFECT_RESISTANCE -> net.minecraft.world.effect.MobEffects.RESISTANCE;
+            default -> throw new IllegalArgumentException("no effect " + which);
+        });
+        return effect == null ? -1 : effect.getAmplifier();
+    }
     @Override public java.util.UUID uuid() { return e.getUUID(); }
 
     @Override

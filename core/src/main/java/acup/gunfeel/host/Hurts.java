@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
  */
 public interface Hurts {
     /** {@link #is}'s questions: the game's tags (bypasses_effects, is_fire, is_fall), NTM's damage types */
-    int BYPASSES_EFFECTS = 0, FIRE = 1, FALL = 2, NTM_NUCLEAR_BLAST = 3, NTM_DIGAMMA = 4, NTM_RADIATION = 5, NTM_FIRE = 6, NTM_ELECTRIC = 7;
+    int BYPASSES_EFFECTS = 0, FIRE = 1, FALL = 2, NTM_NUCLEAR_BLAST = 3, NTM_DIGAMMA = 4, NTM_RADIATION = 5, NTM_FIRE = 6, NTM_ELECTRIC = 7, BYPASSES_INVULNERABILITY = 8;
 
     /** {@link #directKind}'s bits: the direct entity is living; it is NTM's beam (EntityBulletBeamBase) */
     int LIVING = 1, NTM_BEAM = 2;

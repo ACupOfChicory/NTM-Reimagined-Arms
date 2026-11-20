@@ -159,6 +159,11 @@ public interface Body {
     /** its most health (the game's getMaxHealth); living */
     float maxHealth();
 
+    int EFFECT_REGENERATION = 0, EFFECT_RESISTANCE = 1;
+
+    /** the effect's amplifier, -1 without it; living */
+    int effectAmplifier(int which);
+
     /** its id that outlives a respawn (the game's getUUID): the same object each call */
     java.util.UUID uuid();
 

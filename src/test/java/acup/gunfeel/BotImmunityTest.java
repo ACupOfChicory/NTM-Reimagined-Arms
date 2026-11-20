@@ -39,7 +39,10 @@ class BotImmunityTest {
                 .contains("if (!b.player() && a.fullSet(b, acup.gunfeel.host.ArmorSuits.EUPHEMIUM))"), "euphemium: a soldier's only");
         assertTrue(imm.contains("case acup.gunfeel.host.ArmorSuits.EUPHEMIUM -> com.hbm.items.armor.ModArmorItem.Suit.EUPHEMIUM;"));
         // the window's message: a player's only
-        assertTrue(imm.contains("if (player instanceof net.minecraft.server.level.ServerPlayer sp) sp.sendSystemMessage(Component.translatable(kit.message"));
+        assertTrue(Files.readString(Path.of("core/src/main/java/acup/gunfeel/EuphImmunityBase.java"), StandardCharsets.UTF_8)
+                .contains("control.tellBar(b, kit.message, p.window() / 20);"), "the window's message: core's through BodyControl");
+        assertTrue(src("EntityBodyControl.java").contains("if (EntityBody.entity(b) instanceof net.minecraft.server.level.ServerPlayer sp)"),
+                "the message goes to a player only");
 
         String hooks = src("mixin/MixinBalanceImmunity.java");
         assertFalse(hooks.contains("instanceof Player"), "no player-only gate left in the pool's hooks");

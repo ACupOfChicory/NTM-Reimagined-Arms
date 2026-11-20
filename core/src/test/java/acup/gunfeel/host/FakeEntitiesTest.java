@@ -91,6 +91,11 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public int worn(int slot) { livingOnly(); return 0; }
         @Override public double speed() { livingOnly(); return 0.25; }
         @Override public float maxHealth() { livingOnly(); return 20; }
+        @Override public int effectAmplifier(int which) {
+            livingOnly();
+            if (which != EFFECT_REGENERATION && which != EFFECT_RESISTANCE) throw new IllegalArgumentException("no effect " + which);
+            return -1;
+        }
         @Override public @Nullable String team() { return null; }
         @Override public boolean tagged(String tag) { return false; }
         @Override public Object level() { return this; }
@@ -150,6 +155,8 @@ class FakeEntitiesTest extends EntityViewContract {
 
     /** the fakes' control: a walk is the cells given, done once stopped; the point wanted kept; never stuck */
     static final class FakeControl implements BodyControl {
+        @Override public void removeEffect(Body b, int which) { ((Fake) b).livingOnly(); }
+        @Override public void tellBar(Body b, String key, int arg) { }
         long @Nullable [] walking;
         double modifier, wantX, wantY, wantZ;
 

@@ -9,6 +9,12 @@ import net.minecraft.world.entity.LivingEntity;
 
 /** The game's current hit for core; EuphImmunity.Reads makes NTM's reads. */
 final class HurtNowPort implements HurtNow {
+    @Override public boolean gas() { return acup.gunfeel.gas.GasServer.gasNow(); }
+    @Override public int reach(Object hurt) { return EuphImmunity.reach((DamageSource) hurt); }
+    @Override public float schemeDrain(Body b, Object hurt) {
+        return BalanceFinal.drain((LivingEntity) EntityBody.entity(b), (DamageSource) hurt);
+    }
+
     @Override
     public boolean onHead(Body b) {
         return HeadDamage.onHead((LivingEntity) ((EntityBody) b).entity());

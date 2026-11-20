@@ -10,6 +10,7 @@ import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
 
 import acup.gunfeel.host.Body;
+import acup.gunfeel.host.BodyControl;
 import acup.gunfeel.host.HurtNow;
 import acup.gunfeel.host.Hurts;
 import acup.gunfeel.host.Worlds;
@@ -30,6 +31,93 @@ public class EuphImmunityBase {
 
     static {
         for (Kit k : Kit.values()) STATES.put(k, new HashMap<>());
+    }
+
+    private record Decided(int source, long tick, boolean off) {
+    }
+
+    private static final Map<UUID, Decided> DECIDED = new HashMap<>();
+
+    static final class ControlPort {
+        static final BodyControl CONTROL = CoreServices.load(BodyControl.class, BodyControl.MISSING);
+    }
+
+    static boolean absorbsOf(Kit kit, Body b, Object hurt, float amount) {
+        return absorbsOf(kit, b, hurt, amount, BalanceFinalBase::on);
+    }
+
+    static boolean absorbsOf(Kit kit, Body b, Object hurt, float amount, BooleanSupplier balanceOn) {
+        return absorbsOf(kit, b, hurt, amount, NowPort.NOW, BalanceArmorBase.HurtPort.HURTS, Worlds::of, ControlPort.CONTROL, balanceOn);
+    }
+
+    static boolean absorbsOf(Kit kit, Body b, Object hurt, float amount, HurtNow now, Hurts hurts,
+            Worlds.Port worlds, BodyControl control, BooleanSupplier balanceOn) {
+        // a soldier is not called off what nothing may be (the void, /kill): a player has its own ways out, it has none
+        if (!b.player() && hurts.is(hurt, Hurts.BYPASSES_INVULNERABILITY)) return false;
+        long tick = worlds.world(b.level()).gameTime();
+        if (radonOf(b, tick)) {
+            // the set's tick takes them off too, but not before this hit
+            if (kit == Kit.EUPHEMIUM) dropSetEffects(b, control);
+            return false;
+        }
+        // the gas's damage takes the pool HP for HP, as a shot (Fable №2, 2.4)
+        boolean gas = now.gas() && balanceOn.getAsBoolean();
+        // DNS and FAU: shots and blasts only; euphemium calls off every hit, its pool drained by melee as before
+        String cat = kit == Kit.EUPHEMIUM ? BalanceArmorBase.categoryAnyOf(hurts, hurt) : BalanceArmorBase.categoryOf(hurts, hurt);
+        if (kit != Kit.EUPHEMIUM && cat == null && !gas) return false;
+        State s = stateOf(kit, b, tick);
+        Pool p = pool(kit);
+        float drain = gas ? amount * (float) BalanceFinalRule.HP / b.maxHealth() : (cat == null ? 0F : drainOf(now, hurts, kit, b, hurt, amount, cat, now.schemeDrain(b, hurt)));
+        // only a shot, an IR beam, a blast or the gas holds the window: for euphemium cat takes melee and the rest too
+        boolean keeps = gas || (kit == Kit.EUPHEMIUM ? BalanceArmorBase.categoryOf(hurts, hurt) != null : cat != null);
+        Phase before;
+        boolean off;
+        synchronized (EuphImmunityBase.class) {
+            before = phase(s, tick);
+            off = hit(s, tick, drain, gas || cat != null, keeps, p, keeps && !gas ? now.reach(hurt) : 0);
+        }
+        if (before == Phase.POOL && phase(s, tick + 1) == Phase.WINDOW) {
+            if (kit == Kit.EUPHEMIUM) dropSetEffects(b, control);
+            control.tellBar(b, kit.message, p.window() / 20);
+        }
+        return off;
+    }
+
+    static void dropSetEffects(Body b) {
+        dropSetEffects(b, ControlPort.CONTROL);
+    }
+
+    static void dropSetEffects(Body b, BodyControl control) {
+        int regen = b.effectAmplifier(Body.EFFECT_REGENERATION), res = b.effectAmplifier(Body.EFFECT_RESISTANCE);
+        if (regen >= 100) control.removeEffect(b, Body.EFFECT_REGENERATION);
+        if (res >= 100) control.removeEffect(b, Body.EFFECT_RESISTANCE);
+    }
+
+    static boolean earlyOf(Kit kit, Body b, Object hurt, float amount, BooleanSupplier balanceOn) {
+        return earlyOf(kit, b, hurt, amount, NowPort.NOW, BalanceArmorBase.HurtPort.HURTS, Worlds::of, ControlPort.CONTROL, balanceOn);
+    }
+
+    static boolean earlyOf(Kit kit, Body b, Object hurt, float amount, HurtNow now, Hurts hurts,
+            Worlds.Port worlds, BodyControl control, BooleanSupplier balanceOn) {
+        boolean off = absorbsOf(kit, b, hurt, amount, now, hurts, worlds, control, balanceOn);
+        synchronized (EuphImmunityBase.class) {
+            DECIDED.put(b.uuid(), new Decided(System.identityHashCode(hurt), worlds.world(b.level()).gameTime(), off));
+        }
+        return off;
+    }
+
+    static boolean acceptedOf(Kit kit, Body b, Object hurt, float amount, BooleanSupplier balanceOn) {
+        return acceptedOf(kit, b, hurt, amount, NowPort.NOW, BalanceArmorBase.HurtPort.HURTS, Worlds::of, ControlPort.CONTROL, balanceOn);
+    }
+
+    static boolean acceptedOf(Kit kit, Body b, Object hurt, float amount, HurtNow now, Hurts hurts,
+            Worlds.Port worlds, BodyControl control, BooleanSupplier balanceOn) {
+        Decided d;
+        synchronized (EuphImmunityBase.class) {
+            d = DECIDED.get(b.uuid());
+        }
+        if (d != null && d.source() == System.identityHashCode(hurt) && d.tick() == worlds.world(b.level()).gameTime()) return d.off();
+        return absorbsOf(kit, b, hurt, amount, now, hurts, worlds, control, balanceOn);
     }
 
     /** the kit each player's pool was last of (balance.immune.shared) */
@@ -113,12 +201,14 @@ public class EuphImmunityBase {
 
     static synchronized void forgetOf(Body b) {
         for (Map<UUID, State> m : STATES.values()) m.remove(b.uuid());
+        DECIDED.remove(b.uuid());
         LAST_KIT.remove(b.uuid());
     }
 
     static synchronized void clearAll() {
         for (Map<UUID, State> m : STATES.values()) m.clear();
         IN_RADON.clear();
+        DECIDED.clear();
         LAST_KIT.clear();
     }
 

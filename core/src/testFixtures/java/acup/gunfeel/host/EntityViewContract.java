@@ -63,6 +63,8 @@ public abstract class EntityViewContract {
         assertSame(a, view().byId(mob()));
         assertEquals(mob(), a.id());
         assertTrue(a.living());
+        assertTrue(a.effectAmplifier(Body.EFFECT_REGENERATION) >= -1);
+        assertTrue(a.effectAmplifier(Body.EFFECT_RESISTANCE) >= -1);
         assertTrue(a.alive());
         assertFalse(a.removed());
     }
@@ -215,6 +217,8 @@ public abstract class EntityViewContract {
         assertThrows(RuntimeException.class, p::climbing);
         assertThrows(RuntimeException.class, p::speed);
         assertThrows(RuntimeException.class, p::maxHealth);
+        assertThrows(RuntimeException.class, () -> p.effectAmplifier(Body.EFFECT_REGENERATION));
+        assertThrows(RuntimeException.class, () -> p.effectAmplifier(Body.EFFECT_RESISTANCE));
         assertThrows(RuntimeException.class, p::lying);
         assertThrows(RuntimeException.class, () -> p.held(Body.MAIN_HAND));
         assertThrows(RuntimeException.class, () -> p.worn(Body.CHEST));
