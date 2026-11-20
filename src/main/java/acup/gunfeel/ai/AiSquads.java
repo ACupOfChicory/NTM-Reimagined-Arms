@@ -40,22 +40,17 @@ public final class AiSquads extends AiSquadsBase {
         }
     };
 
-    /** the stands' comparison with the former code (AiSquadsAlike), null but on a stand */
-    static @Nullable AiSquadsAlike alike;
-
     private AiSquads() {
     }
 
     /** squads made again on the next tick (the stands); a level unloaded, or with no AI mob left, is let go */
     public static void forget(ServerLevel level) {
         forgetLevel(level);
-        if (alike != null) AiSquadsOld.forget(level);
     }
 
     /** every server tick, from AiBots.tick: squads made again every EVERY ticks */
     static void tick(ServerLevel level, java.util.Collection<AiBot> all) {
         make(STAFF, level, acup.gunfeel.Wiring.world(level), all);
-        if (alike != null) alike.tick(level, all);
     }
 
     /** how far apart two are for the squads, squared: as they stand, or BASE_REACH times nearer with a base of fire */

@@ -3,8 +3,6 @@ package acup.gunfeel.ai;
 import java.util.List;
 import java.util.Map;
 
-import org.jspecify.annotations.Nullable;
-
 import acup.gunfeel.LevelEntities;
 import net.minecraft.server.level.ServerLevel;
 
@@ -15,9 +13,6 @@ public final class AiIntel extends AiIntelBase {
         @Override public boolean allAwake() { return AiBots.awake; }
     };
 
-    /** the stands' comparison with the former code, null but on a stand */
-    static @Nullable AiIntelAlike alike;
-
     private AiIntel() {
     }
 
@@ -27,7 +22,6 @@ public final class AiIntel extends AiIntelBase {
     public static void forget(ServerLevel level) {
         VIEWS.remove(level);
         forgetLevel(level);
-        if (alike != null) AiIntelOld.forget(level);
     }
 
     static List<Group> groups(ServerLevel level, String team) { return groupsOf(level, team); }
@@ -36,13 +30,10 @@ public final class AiIntel extends AiIntelBase {
 
     static void lost(ServerLevel level, String team, int id, long tick) {
         lostTo(level, team, id, tick);
-        if (alike != null) AiIntelOld.lost(level, team, id, tick);
     }
 
     static long tick(ServerLevel level, Map<String, List<AiBot>> sides, long now) {
-        long soonest = tickSides(level, VIEWS.computeIfAbsent(level, l -> new LevelEntities(level)), SCOUT, sides, now);
-        if (alike != null) alike.tick(level, sides, now, soonest);
-        return soonest;
+        return tickSides(level, VIEWS.computeIfAbsent(level, l -> new LevelEntities(level)), SCOUT, sides, now);
     }
 
     /** /armsai info */

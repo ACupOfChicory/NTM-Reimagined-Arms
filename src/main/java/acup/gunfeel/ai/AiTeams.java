@@ -17,33 +17,14 @@ public final class AiTeams {
     private AiTeams() {
     }
 
-    /**
-     * the stands' comparison with the former code (AiTeamsOld): {asked, differed, then asked of: itself, a player of no
-     * team, a player of a team, a tagged target, an AI mob, any other}; null but on a stand
-     */
-    static long @org.jspecify.annotations.Nullable [] alike;
-
     /** whether the AI mob fights t (AiTeamsBase.enemy) */
     public static boolean enemy(LivingEntity mob, LivingEntity t) {
-        boolean r = AiTeamsBase.enemy(EntityBody.of(mob), EntityBody.of(t));
-        if (alike != null) same(r, AiTeamsOld.enemy(mob, t), mob, t);
-        return r;
+        return AiTeamsBase.enemy(EntityBody.of(mob), EntityBody.of(t));
     }
 
     /** whether a shot of the AI mob's must not go through o (AiTeamsBase.own) */
     static boolean own(LivingEntity mob, LivingEntity o) {
-        boolean r = AiTeamsBase.own(EntityBody.of(mob), EntityBody.of(o));
-        if (alike != null) same(r, AiTeamsOld.own(mob, o), mob, o);
-        return r;
-    }
-
-    private static void same(boolean now, boolean was, LivingEntity mob, LivingEntity t) {
-        long[] a = alike;
-        if (a == null) return;
-        a[0]++;
-        if (now != was) a[1]++;
-        a[t == mob ? 2 : t instanceof net.minecraft.world.entity.player.Player ? t.getTeam() == null ? 3 : 4
-                : t.entityTags().contains(AiBots.TARGET_TAG) ? 5 : AiBots.get(t) != null ? 6 : 7]++;
+        return AiTeamsBase.own(EntityBody.of(mob), EntityBody.of(o));
     }
 
     /** puts the mob in the level's team of that name, made if there is none */
