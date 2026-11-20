@@ -34,6 +34,8 @@ val testGroups = setOf("org.junit", "org.junit.jupiter", "org.junit.platform", "
 
 dependencies {
     for (lib in coreLibraries) implementation(lib) { isTransitive = false }
+    // the fixtures implement the port's interfaces, whose signatures name JOML's matrices (ParamsWriter)
+    testFixturesImplementation("org.joml:joml:1.10.8") { isTransitive = false }
     testFixturesApi(platform("org.junit:junit-bom:5.13.4"))
     testFixturesApi("org.junit.jupiter:junit-jupiter-api")
     testImplementation(platform("org.junit:junit-bom:5.13.4"))

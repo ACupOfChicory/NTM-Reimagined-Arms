@@ -37,6 +37,28 @@ public interface RenderPort {
     /** where in a params buffer a draw's parameters may begin: offsets are multiples of it */
     int paramsAlignment();
 
+    /**
+     * A params buffer written in place this frame ({@code length} bytes from its start into the version's own memory,
+     * no copy of core's): the writer until {@link ParamsWriter#done}. Mapped again before done, or a buffer written by
+     * {@link RenderSink#upload} mapped (or the other way round): IllegalStateException. The version binds what was
+     * written in its own passes; {@link #free} lets its memory go (made again by the next map).
+     * Exactly length bytes must be written before done (otherwise IllegalStateException); an element beyond length
+     * throws IndexOutOfBoundsException before any of that element is written.
+     */
+    ParamsWriter map(int params, int length);
+
+    /** a texture of RGBA bytes, {@code width} × {@code height}, written by {@link #texels}; until {@link #free} */
+    int texture(String name, int width, int height);
+
+    /**
+     * Texels written into a texture now (not in a frame: whenever core has them): {@code data} from its position to its
+     * limit, {@code width} × {@code height} RGBA texels from ({@code x}, {@code y})
+     */
+    void texels(int texture, int x, int y, int width, int height, java.nio.ByteBuffer data);
+
+    /** a texture still as written: false when freed, or the version lost it (closed under it); then make it again */
+    boolean live(int texture);
+
     /** where no version gives one (core's own tests): each method throws */
     RenderPort MISSING = new RenderPort() {
         @Override
@@ -76,6 +98,26 @@ public interface RenderPort {
 
         @Override
         public int paramsAlignment() {
+            throw new UnsupportedOperationException("no RenderPort here");
+        }
+
+        @Override
+        public ParamsWriter map(int params, int length) {
+            throw new UnsupportedOperationException("no RenderPort here");
+        }
+
+        @Override
+        public int texture(String name, int width, int height) {
+            throw new UnsupportedOperationException("no RenderPort here");
+        }
+
+        @Override
+        public void texels(int texture, int x, int y, int width, int height, java.nio.ByteBuffer data) {
+            throw new UnsupportedOperationException("no RenderPort here");
+        }
+
+        @Override
+        public boolean live(int texture) {
             throw new UnsupportedOperationException("no RenderPort here");
         }
     };

@@ -12,7 +12,6 @@ import org.joml.Vector4f;
 import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.pipeline.BindGroupLayout;
 import com.mojang.blaze3d.pipeline.BlendFunction;
 import com.mojang.blaze3d.pipeline.ColorTargetState;
@@ -33,7 +32,6 @@ import acup.gunfeel.smoke.SmokeClouds;
 import acup.gunfeel.smoke.SmokeGrid;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BindGroupLayouts;
-import net.minecraft.client.renderer.MappableRingBuffer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
@@ -216,13 +214,12 @@ public final class SmokeRender {
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .build();
 
-    // the matrix, four vec4 and the inverse of the projection times the view, then per cloud (SmokeAtlas.SLOTS of them) four vec4: origin, box min, box max, colour;
-    // then per group (as many at most) two: its box's min and max. Clouds[] in smoke_info.glsl must be SLOTS * 4 long,
-    // Groups[] SLOTS * 2 (SmokeShaderLinkTest checks)
-    static final int UBO_SIZE = 64 + 16 * 4 + 64 + SmokeAtlas.SLOTS * 4 * 16 + SmokeAtlas.SLOTS * 2 * 16;
-    /** The noise is laid from a world point on a lattice this many blocks apart (the shader's PERIOD is 0.9 of it). */
-    static final int ANCHOR = 1000;
-    private static MappableRingBuffer ubo;
+    // SmokeInfo's bytes and the noise's lattice: core's (SmokeMarch)
+    static final int UBO_SIZE = SmokeMarch.INFO_SIZE;
+    static final int ANCHOR = SmokeMarch.ANCHOR;
+    // SmokeInfo: a params buffer of the port, written in place each frame that marches (a ring of mappable buffers)
+    private static int params = acup.gunfeel.host.render.RenderPort.NONE;
+    private static final SmokeMarch.Frame FRAME = new SmokeMarch.Frame();
     private static GpuTexture depth, target;
     private static GpuTextureView depthView, targetView;
     private static int depthW, depthH, targetW, targetH;
@@ -392,10 +389,10 @@ public final class SmokeRender {
     }
 
     // the drawn clouds whose box is in the view this frame
-    private static final List<SmokeAtlas.Slot> VISIBLE = new ArrayList<>();
+    private static final List<SmokeAtlasSlots.Slot> VISIBLE = new ArrayList<>();
 
     // whether any of the cloud's box (the shader's: the occupied cells and one around them) is inside the view frustum
-    private static boolean inView(SmokeClouds.Cloud c, net.minecraft.client.renderer.culling.Frustum frustum) {
+    private static boolean inView(acup.gunfeel.smoke.SmokeCloud c, net.minecraft.client.renderer.culling.Frustum frustum) {
         int[] b = c.grid.box();
         return frustum.isVisible(new net.minecraft.world.phys.AABB(c.baseX() + b[0] - 1, c.baseY() + b[1] - 1, c.baseZ() + b[2] - 1,
                 c.baseX() + b[3] + 2, c.baseY() + b[4] + 2, c.baseZ() + b[5] + 2));
@@ -565,7 +562,7 @@ public final class SmokeRender {
         var camera = e.getLevelRenderState().cameraRenderState;
         // the frustum is the camera's own unless the F4 frustum capture froze it
         boolean cull = camera.initialized && !camera.isFrustumCaptured;
-        for (SmokeAtlas.Slot s : SmokeAtlas.drawn()) if (!cull || inView(s.cloud(), camera.cullFrustum)) VISIBLE.add(s);
+        for (SmokeAtlasSlots.Slot s : SmokeAtlas.drawn()) if (!cull || inView(s.cloud(), camera.cullFrustum)) VISIBLE.add(s);
         if (VISIBLE.isEmpty()) return;
         long t0 = System.nanoTime();
         try {
@@ -574,7 +571,7 @@ public final class SmokeRender {
             GpuTexture src = main.getDepthTexture();
             if (src == null) return;
             projView = camera.initialized ? projView(camera, e.getModelViewMatrix()) : null;
-            rect = (standOld & OLD_RECT) != 0 || projView == null ? null : screenRect(VISIBLE, projView, camera.pos, main.width, main.height, divisor(quality()));
+            rect = (standOld & OLD_RECT) != 0 || projView == null ? null : SmokeMarch.screenRect(VISIBLE, projView, camera.pos.x, camera.pos.y, camera.pos.z, main.width, main.height, divisor(quality()));
             if (depth == null || depthW != main.width || depthH != main.height || depthFormat != src.getFormat()) {
                 closeDepth();
                 depthW = main.width;
@@ -635,7 +632,7 @@ public final class SmokeRender {
         glassMode = "none";
         if (!copied || !wanted()) return;
         copied = false;
-        List<SmokeAtlas.Slot> slots = VISIBLE;
+        List<SmokeAtlasSlots.Slot> slots = VISIBLE;
         if (slots.isEmpty() || SmokeAtlas.view() == null) return;
         long t0 = System.nanoTime();
         try {
@@ -644,7 +641,8 @@ public final class SmokeRender {
             int div = divisor(q);
             // with the camera in a cloud's box the smoke fills the screen and is soft all over: marched a step coarser
             // (high: at a third of the screen, ultra: a half) and laid over the frame upscaled by depth
-            boolean lowInside = div <= 2 && cameraInBox(slots, e.getLevelRenderState().cameraRenderState.pos);
+            Vec3 eye = e.getLevelRenderState().cameraRenderState.pos;
+            boolean lowInside = div <= 2 && SmokeMarch.cameraInBox(slots, eye.x, eye.y, eye.z);
             if (lowInside) div++;
             int w = Math.max(1, main.width / div), h = Math.max(1, main.height / div);
             if (target == null || targetW != w || targetH != h) {
@@ -686,21 +684,21 @@ public final class SmokeRender {
                 }
                 FRONT.ensure(GpuFormat.RGBA8_UNORM, w, h);
             }
-            if (ubo == null) ubo = new MappableRingBuffer(() -> "Smoke info", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_MAP_WRITE, UBO_SIZE);
+            var port = acup.gunfeel.RenderPort26.INSTANCE;
+            if (params == acup.gunfeel.host.render.RenderPort.NONE) params = port.params("Smoke info");
+            port.prepareMap(params, UBO_SIZE);
             Vec3 cam = e.getLevelRenderState().cameraRenderState.pos;
-            // the clouds whose boxes meet go in one group, marched as one smoke; the groups far to near, each over the
-            // ones behind it
-            double[][] boxes = new double[slots.size()][];
-            for (int i = 0; i < boxes.length; i++) boxes[i] = worldBox(slots.get(i).cloud());
-            int[][] groups = groups(boxes, cam.x, cam.y, cam.z);
-            List<SmokeAtlas.Slot> order = new ArrayList<>(slots.size());
-            for (int[] g : groups) for (int i : g) order.add(slots.get(i));
+            SmokeMarch.prepare(FRAME, slots, cam.x, cam.y, cam.z);
             boolean held = !Float.isNaN(standSeconds);
             float partial = held ? 1F : Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
             float seconds = held ? standSeconds : (float) ((System.nanoTime() / 1_000_000L) % 3_600_000L) / 1000F;
             boolean zeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
-            try (var view = ubo.currentBuffer().map(false, true)) {
-                info(view.data(), e.getModelViewMatrix(), depthW, depthH, w, h, zeroToOne, seconds, q, partial, groups, lowInside, projView, order, boxes, cam);
+            SmokeMarch.Frame f = frame(FRAME, e.getModelViewMatrix(), cam, depthW, w, depthH, h, q, lowInside, partial, seconds, zeroToOne, standOld, projView);
+            int groups;
+            try {
+                groups = SmokeMarch.write(port, params, f);
+            } finally {
+                f.view = f.projView = null;
             }
             var device = RenderSystem.getDevice();
             var sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
@@ -713,11 +711,11 @@ public final class SmokeRender {
                         null, OptionalDouble.empty())) {
                     pass.setPipeline(MARCH_FRONT);
                     RenderSystem.bindDefaultUniforms(pass);
-                    pass.setUniform("SmokeInfo", ubo.currentBuffer());
+                    pass.setUniform("SmokeInfo", acup.gunfeel.RenderPort26.INSTANCE.mapped(params));
                     pass.bindTexture("SmokeAtlas", SmokeAtlas.view(), sampler);
                     pass.bindTexture("SceneDepth", postDepthView, nearest);
                     pass.bindTexture("OpaqueDepth", depthView, nearest);
-                    pass.draw(36 * groups.length, 1, 0, 0);
+                    pass.draw(36 * groups, 1, 0, 0);
                 }
             }
             mark(4);
@@ -725,10 +723,10 @@ public final class SmokeRender {
                     null, OptionalDouble.empty())) {
                 pass.setPipeline(MARCH);
                 RenderSystem.bindDefaultUniforms(pass);
-                pass.setUniform("SmokeInfo", ubo.currentBuffer());
+                pass.setUniform("SmokeInfo", acup.gunfeel.RenderPort26.INSTANCE.mapped(params));
                 pass.bindTexture("SmokeAtlas", SmokeAtlas.view(), sampler);
                 pass.bindTexture("SceneDepth", depthView, nearest);
-                pass.draw(36 * groups.length, 1, 0, 0);
+                pass.draw(36 * groups, 1, 0, 0);
             }
             mark(5);
             SmokeStats.add(SmokeStats.MARCH, System.nanoTime() - tm);
@@ -769,9 +767,9 @@ public final class SmokeRender {
             alphaCleared = false;
             SmokeStats.add(SmokeStats.COMPOSITE, System.nanoTime() - tc);
             mark(6);
-            ubo.rotate();
-            drawnLast = order.size();
-            groupsLast = groups.length;
+            acup.gunfeel.RenderPort26.INSTANCE.rotate(params);
+            drawnLast = slots.size();
+            groupsLast = groups;
             // a pass that failed once and has drawn well for a minute since is forgiven
             if (failures > 0 && failures < RETRIES && System.nanoTime() - failedAt > HEALED_NANOS) failures = 0;
         } catch (RuntimeException ex) {
@@ -779,22 +777,34 @@ public final class SmokeRender {
         }
     }
 
+    // SmokeInfo's numbers from the frame, worked out as marchAndLay worked them out before the port (SmokeMarchBitTest)
+    static SmokeMarch.Frame frame(SmokeMarch.Frame f, org.joml.Matrix4fc view, Vec3 cam, int depthW, int w, int depthH, int h, int q,
+            boolean lowInside, float partial, float seconds, boolean zeroToOne, int standOld, Matrix4f projView) {
+        f.view = view;
+        f.depthAcross = (float) depthW / w;
+        f.depthUp = (float) depthH / h;
+        f.partial = partial;
+        f.seconds = seconds;
+        f.zeroToOne = zeroToOne;
+        f.maxSteps = maxSteps(q);
+        f.stepLength = stepLength(q);
+        f.lowInside = lowInside;
+        f.front = !((standOld & OLD_FRONT) != 0 || projView == null);
+        f.through = (standOld & OLD_THROUGH) != 0 ? 0.01F : THROUGH_MIN;
+        f.camX = cam.x;
+        f.camY = cam.y;
+        f.camZ = cam.z;
+        f.projView = projView;
+        return f;
+    }
+
     // the two marches, the depths and the smoke info the glass composites read
     private static void bindSmoke(RenderPass pass, com.mojang.blaze3d.textures.GpuSampler linear, com.mojang.blaze3d.textures.GpuSampler nearest) {
-        pass.setUniform("SmokeInfo", ubo.currentBuffer());
+        pass.setUniform("SmokeInfo", acup.gunfeel.RenderPort26.INSTANCE.mapped(params));
         pass.bindTexture("SmokeFront", FRONT.view, linear);
         pass.bindTexture("SmokeFull", targetView, linear);
         pass.bindTexture("Depth0", depthView, nearest);
         pass.bindTexture("Depth1", postDepthView, nearest);
-    }
-
-    // whether the camera is in one of the drawn clouds' boxes
-    private static boolean cameraInBox(List<SmokeAtlas.Slot> slots, Vec3 cam) {
-        for (SmokeAtlas.Slot s : slots) {
-            double[] b = worldBox(s.cloud());
-            if (cam.x >= b[0] && cam.x <= b[3] && cam.y >= b[1] && cam.y <= b[4] && cam.z >= b[2] && cam.z <= b[5]) return true;
-        }
-        return false;
     }
 
     // this frame's depth with glass: the target's own, or the copy (standOld)
@@ -806,14 +816,8 @@ public final class SmokeRender {
         RenderSystem.getDevice().createCommandEncoder().copyTextureToTexture(from, to, 0, 0, 0, 0, 0, c[0], c[1]);
     }
 
-    /**
-     * How far a copy of rect reaches from the bottom left corner. Always from 0, 0: the OpenGL backend (GlCommandEncoder)
-     * hands copyTextureToTexture's width and height to glBlitNamedFramebuffer as the far corner, not the size, so a copy
-     * from x, y took the part between (x, y) and (width, height) there and left rect itself as an earlier frame had it
-     * (Vulkan copies the size). From 0 both read the same.
-     */
     static int[] copyCorner(int[] rect, int width, int height) {
-        return rect == null ? new int[] {width, height} : new int[] {Math.min(width, rect[0] + rect[2]), Math.min(height, rect[1] + rect[3])};
+        return SmokeMarch.copyCorner(rect, width, height);
     }
 
     private static void scissor(RenderPass pass) {
@@ -838,40 +842,6 @@ public final class SmokeRender {
         renderer.gunfeel$bobHurt(camera, bob);
         if (mc.gameRenderer.gameRenderState().optionsRenderState.bobView) renderer.gunfeel$bobView(camera, bob);
         return new Matrix4f(camera.projectionMatrix).mul(bob.last().pose()).mul(view);
-    }
-
-    /**
-     * The part of the screen the drawn clouds' boxes can colour: their corners through {@code pv}, widened by two of the
-     * march's pixels and one more (its texels are filtered over their neighbours). x, y from the bottom left, width,
-     * height in the screen's pixels; null: all of it, when a corner is at or behind the eye or the part is most of the
-     * screen anyway.
-     */
-    static int[] screenRect(List<SmokeAtlas.Slot> slots, Matrix4f pv, Vec3 cam, int width, int height, int div) {
-        float lx = Float.MAX_VALUE, ly = Float.MAX_VALUE, hx = -Float.MAX_VALUE, hy = -Float.MAX_VALUE;
-        Vector4f v = new Vector4f();
-        for (SmokeAtlas.Slot s : slots) {
-            double[] b = worldBox(s.cloud());
-            for (int k = 0; k < 8; k++) {
-                v.set((float) ((k & 1) == 0 ? b[0] - cam.x : b[3] - cam.x), (float) ((k & 2) == 0 ? b[1] - cam.y : b[4] - cam.y),
-                        (float) ((k & 4) == 0 ? b[2] - cam.z : b[5] - cam.z), 1F);
-                pv.transform(v);
-                if (!(v.w > 0.05F)) return null;
-                float x = v.x / v.w, y = v.y / v.w;
-                lx = Math.min(lx, x);
-                hx = Math.max(hx, x);
-                ly = Math.min(ly, y);
-                hy = Math.max(hy, y);
-            }
-        }
-        int pad = 2 * div + 2;
-        int x0 = clampPx((lx * 0.5F + 0.5F) * width - pad, width), x1 = clampPx((hx * 0.5F + 0.5F) * width + pad + 1, width);
-        int y0 = clampPx((ly * 0.5F + 0.5F) * height - pad, height), y1 = clampPx((hy * 0.5F + 0.5F) * height + pad + 1, height);
-        if (x1 <= x0 || y1 <= y0 || (long) (x1 - x0) * (y1 - y0) > (long) width * height * 9 / 10) return null;
-        return new int[] {x0, y0, x1 - x0, y1 - y0};
-    }
-
-    private static int clampPx(float v, int size) {
-        return (int) Math.max(0F, Math.min(size, Math.floor(v)));
     }
 
     // the card's own time on each pass: MARKS timestamps a frame in a ring of 8 frames, a frame's read back the next
@@ -929,125 +899,13 @@ public final class SmokeRender {
         }
     }
 
-    // SmokeInfo's matrices, kept: the JIT's C2 of JDK 25 (25.0.1, 25.0.4.1) crashed (SIGSEGV in
-    // LoadNode::can_split_through_phi_base) compiling a JOML Matrix4f.get(ByteBuffer) of either of two new matrices
-    // (projView != null ? new Matrix4f(projView).invert() : new Matrix4f()); one matrix set either way is no such phi
-    // (notes/ports-base/bugs.md). The render thread's only.
-    private static final Matrix4f VIEW = new Matrix4f(), INVERSE = new Matrix4f();
-
-    /** SmokeInfo's bytes for a frame: the march's numbers, the clouds in their groups' order, the groups' boxes. */
-    static void info(java.nio.ByteBuffer data, org.joml.Matrix4fc modelView, int depthW, int depthH, int w, int h, boolean zeroToOne, float seconds, int q,
-            float partial, int[][] groups, boolean lowInside, Matrix4f projView, List<SmokeAtlas.Slot> order, double[][] boxes, Vec3 cam) {
-        Std140Builder b = Std140Builder.intoBuffer(data);
-        b.putMat4f(VIEW.set(modelView));
-        b.putVec4((float) depthW / w, zeroToOne ? 1F : 0F, seconds, maxSteps(q));
-        b.putVec4(1F / SmokeAtlas.WIDTH, 1F / SmokeAtlas.HEIGHT, partial, stepLength(q));
-        b.putVec4(groups.length, lowInside ? 1F : 0F, (float) depthH / h, (standOld & OLD_FRONT) != 0 || projView == null ? 0F : 1F);
-        b.putVec4((float) (Math.floor(cam.x / ANCHOR) * ANCHOR - cam.x), (float) (Math.floor(cam.y / ANCHOR) * ANCHOR - cam.y),
-                (float) (Math.floor(cam.z / ANCHOR) * ANCHOR - cam.z), (standOld & OLD_THROUGH) != 0 ? 0.01F : THROUGH_MIN);
-        b.putMat4f(projView != null ? INVERSE.set(projView).invert() : INVERSE.identity());
-        for (int i = 0; i < SmokeAtlas.SLOTS; i++) {
-            if (i >= order.size()) {
-                for (int k = 0; k < 4; k++) b.putVec4(0F, 0F, 0F, 0F);
-                continue;
-            }
-            SmokeAtlas.Slot s = order.get(i);
-            SmokeClouds.Cloud c = s.cloud();
-            int[] cells = cells(c);
-            b.putVec4((float) (c.baseX() - cam.x), (float) (c.baseY() - cam.y), (float) (c.baseZ() - cam.z), s.index());
-            b.putVec4(cells[0], cells[1], cells[2], c.kind().look());
-            b.putVec4(cells[3], cells[4], cells[5], 0F);
-            int rgb = c.kind().rgb();
-            b.putVec4((rgb >> 16 & 255) / 255F, (rgb >> 8 & 255) / 255F, (rgb & 255) / 255F, 1F);
-        }
-        for (int i = 0, first = 0; i < SmokeAtlas.SLOTS; i++) {
-            if (i >= groups.length) {
-                b.putVec4(0F, 0F, 0F, 0F);
-                b.putVec4(0F, 0F, 0F, 0F);
-                continue;
-            }
-            double[] u = union(boxes, groups[i]);
-            b.putVec4((float) (u[0] - cam.x), (float) (u[1] - cam.y), (float) (u[2] - cam.z), first);
-            b.putVec4((float) (u[3] - cam.x), (float) (u[4] - cam.y), (float) (u[5] - cam.z), groups[i].length);
-            first += groups[i].length;
-        }
-    }
-
-    // the cells the shader marches a cloud through: one around the occupied box, which the edge cells fade out into and
-    // the cloud grows into; min x, y, z and max x, y, z in the grid's cells
-    static int[] cells(SmokeClouds.Cloud c) {
-        int[] box = c.grid.box();
-        return new int[] {Math.max(-1, box[0] - 1), Math.max(-1, box[1] - 1), Math.max(-1, box[2] - 1),
-                Math.min(SmokeGrid.SX + 1, box[3] + 2), Math.min(SmokeGrid.SY + 1, box[4] + 2), Math.min(SmokeGrid.SZ + 1, box[5] + 2)};
-    }
-
-    // the same in the world
-    static double[] worldBox(SmokeClouds.Cloud c) {
-        int[] k = cells(c);
-        return new double[] {c.baseX() + k[0], c.baseY() + k[1], c.baseZ() + k[2], c.baseX() + k[3], c.baseY() + k[4], c.baseZ() + k[5]};
-    }
-
-    /**
-     * The boxes (world min x, y, z, max x, y, z) in groups: two whose boxes meet or come within {@link #MEET} of each
-     * other are in one, and one that meets either of them too. The groups far to near (by their box's middle), each
-     * one's boxes in the order given. A group is marched as one smoke, so where clouds overlap their smoke is one; the
-     * groups lie apart and far to near is their right order.
-     */
+    // the groups and their box: core's (SmokeMarch); here for the tests that set them
     static int[][] groups(double[][] boxes, double cx, double cy, double cz) {
-        int n = boxes.length;
-        int[] root = new int[n];
-        for (int i = 0; i < n; i++) root[i] = i;
-        for (int i = 0; i < n; i++) for (int j = i + 1; j < n; j++) if (meet(boxes[i], boxes[j])) {
-            int a = find(root, i), b = find(root, j);
-            if (a != b) root[Math.max(a, b)] = Math.min(a, b);
-        }
-        List<List<Integer>> by = new ArrayList<>();
-        int[] slot = new int[n];
-        java.util.Arrays.fill(slot, -1);
-        for (int i = 0; i < n; i++) {
-            int r = find(root, i);
-            if (slot[r] < 0) {
-                slot[r] = by.size();
-                by.add(new ArrayList<>());
-            }
-            by.get(slot[r]).add(i);
-        }
-        int[][] out = new int[by.size()][];
-        for (int g = 0; g < out.length; g++) out[g] = by.get(g).stream().mapToInt(Integer::intValue).toArray();
-        double[] far = new double[out.length];
-        for (int g = 0; g < out.length; g++) {
-            double[] u = union(boxes, out[g]);
-            double x = (u[0] + u[3]) * 0.5 - cx, y = (u[1] + u[4]) * 0.5 - cy, z = (u[2] + u[5]) * 0.5 - cz;
-            far[g] = x * x + y * y + z * z;
-        }
-        Integer[] idx = new Integer[out.length];
-        for (int g = 0; g < idx.length; g++) idx[g] = g;
-        java.util.Arrays.sort(idx, Comparator.comparingDouble((Integer g) -> -far[g]));
-        int[][] sorted = new int[out.length][];
-        for (int g = 0; g < idx.length; g++) sorted[g] = out[idx[g]];
-        return sorted;
-    }
-
-    /** Boxes this near each other are one group: the far to near order of two boxes side by side can be wrong. */
-    static final double MEET = 1.0;
-
-    private static boolean meet(double[] a, double[] b) {
-        for (int k = 0; k < 3; k++) if (a[k] > b[k + 3] + MEET || b[k] > a[k + 3] + MEET) return false;
-        return true;
-    }
-
-    private static int find(int[] root, int i) {
-        while (root[i] != i) i = root[i] = root[root[i]];
-        return i;
+        return SmokeMarch.groups(boxes, cx, cy, cz);
     }
 
     static double[] union(double[][] boxes, int[] which) {
-        double[] u = {Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE, -Double.MAX_VALUE};
-        for (int i : which) for (int k = 0; k < 3; k++) {
-            u[k] = Math.min(u[k], boxes[i][k]);
-            u[k + 3] = Math.max(u[k + 3], boxes[i][k + 3]);
-        }
-        return u;
+        return SmokeMarch.union(boxes, which);
     }
 
     // A pass that threw: for ten seconds the slices and the screen layer stand in, then the volume is tried again with
@@ -1080,8 +938,8 @@ public final class SmokeRender {
         NEAR_DEPTH.close();
         NO_LAYER.close();
         FRONT.close();
-        if (ubo != null) ubo.close();
-        ubo = null;
+        // its handle stays: the next map makes the ring again
+        if (params != acup.gunfeel.host.render.RenderPort.NONE) acup.gunfeel.RenderPort26.INSTANCE.free(params);
         if (timer != null) timer.close();
         timer = null;
         java.util.Arrays.fill(marked, 0);
