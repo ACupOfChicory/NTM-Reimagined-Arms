@@ -4,7 +4,9 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.host.Body;
 import acup.gunfeel.host.Hurts;
+import acup.gunfeel.host.ItemTable;
 
 /**
  * What BalanceArmor knows without the game: NTM's combat sets the balance has numbers for (rating, tau, tier), the
@@ -268,5 +270,72 @@ public class BalanceArmorBase {
     static boolean shotTypeOf(Hurts h, Object hurt) {
         String name = h.typeName(hurt);
         return name != null && BalanceArmorRule.shotName(name, (h.directKind(hurt) & Hurts.LIVING) != 0);
+    }
+    // ---------------------------------------------------------------- the sets worn (Body.worn, ItemTable)
+
+    /**
+     * The set of an item worn in each slot, by the item's number (ItemTable), worked out once: the answer is
+     * {@link #setOfName}'s of the item's id, which hangs on the id and the slot alone (setName reads no key and no table
+     * read again), and an item's id is the same for its number while the game runs. A race is harmless: a null cell is
+     * "not worked out yet" (worked out again); "no set" is {@link #NO_SET}, never null; the answers are Strings
+     * (immutable, safe to see through a race). A row grown is a copy put in place of the old one: a reader of the new
+     * row before its copy is done sees null and works it out again, never a wrong answer.
+     */
+    static final class SetsOf {
+        /** the mark of "no set" (setOfName's null) */
+        private static final String NO_SET = new String("no set");
+        private final ItemTable items;
+        private final String[][] rows = {new String[0], new String[0], new String[0], new String[0]};
+
+        SetsOf(ItemTable items) {
+            this.items = items;
+        }
+
+        /** the set of the item numbered {@code item} worn in slot {@code slot} (0 head .. 3 feet), or null */
+        @Nullable String of(int item, int slot) {
+            String[] row = rows[slot];
+            String got = item >= 0 && item < row.length ? row[item] : null;
+            if (got == null) {
+                got = setOfName(items.name(item), slot);
+                if (got == null) got = NO_SET;
+                remember(slot, item, got);
+            }
+            return got == NO_SET ? null : got;
+        }
+
+        private synchronized void remember(int slot, int item, String set) {
+            String[] row = rows[slot];
+            if (item >= row.length) rows[slot] = row = java.util.Arrays.copyOf(row, Math.max(item + 1, row.length * 2 + 16));
+            row[item] = set;
+        }
+    }
+
+    /** the game's items (ItemTable), asked the first time a set is */
+    static final class WornPort {
+        static final SetsOf SETS_OF = new SetsOf(CoreServices.load(ItemTable.class, ItemTable.MISSING));
+    }
+
+    /** the set of an item by its registry id {@code name} worn in slot {@code slot}: NTM's piece by its path (setName), else null */
+    static @Nullable String setOfName(String name, int slot) {
+        return name.startsWith("hbm:") ? setName(name.substring(4), slot) : null;
+    }
+
+    /** the set of the item numbered {@code item} (ItemTable) worn in slot {@code slot} (0 head .. 3 feet), or null */
+    static @Nullable String setOfItem(int item, int slot) {
+        return WornPort.SETS_OF.of(item, slot);
+    }
+
+    /** the set of what {@code b} wears in slot {@code slot} (Body.worn), or null */
+    static @Nullable String setOfWorn(Body b, int slot) {
+        return setOfItem(b.worn(slot), slot);
+    }
+
+    /** {@code b} wears a piece of a set with a rating, or of the joke set: the balance's armour takes the hit (covers) */
+    static boolean wearsRated(Body b) {
+        for (int i = 0; i < 4; i++) {
+            String set = setOfWorn(b, i);
+            if (set != null && (rofl(set) || rating(set) > 0F)) return true;
+        }
+        return false;
     }
 }

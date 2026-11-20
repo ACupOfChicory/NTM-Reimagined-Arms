@@ -208,6 +208,7 @@ public abstract class EntityViewContract {
         assertThrows(RuntimeException.class, p::speed);
         assertThrows(RuntimeException.class, p::lying);
         assertThrows(RuntimeException.class, () -> p.held(Body.MAIN_HAND));
+        assertThrows(RuntimeException.class, () -> p.worn(Body.CHEST));
         assertThrows(RuntimeException.class, p::sleeping);
         assertThrows(RuntimeException.class, p::fallFlying);
         // what any entity answers: no projectile crawls or flies as a player
