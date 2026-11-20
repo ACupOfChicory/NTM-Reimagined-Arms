@@ -97,6 +97,85 @@ public final class AiBot extends AiBotBase {
     }
 
     @Override
+    public AiRole role() {
+        return AiRoles.of(this);
+    }
+
+    @Override
+    public boolean soldier() {
+        return brain instanceof AiSoldier;
+    }
+
+    @Override
+    public boolean onTheMove() {
+        if (!(brain instanceof AiSoldier s)) return false;
+        AiSoldier.Mode m = s.mode();
+        return m == AiSoldier.Mode.TO_COVER || m == AiSoldier.Mode.SEARCH;
+    }
+
+    @Override
+    public boolean inCover() {
+        if (!(brain instanceof AiSoldier s)) return false;
+        AiSoldier.Mode m = s.mode();
+        return (m == AiSoldier.Mode.COVER || m == AiSoldier.Mode.PEEK || m == AiSoldier.Mode.HOLD) && s.spot() != null;
+    }
+
+    @Override
+    public boolean searching() {
+        return brain instanceof AiSoldier o && o.mode() == AiSoldier.Mode.SEARCH && !o.wayUpStuck();
+    }
+
+    @Override
+    public boolean fightsFallen(int target) {
+        return AiSoldier.fights(this, target);
+    }
+
+    @Override
+    public boolean fallingBack() {
+        return brain instanceof AiSoldier o && o.fallingBack();
+    }
+
+    @Override
+    public boolean marksman() {
+        return AiMarksman.is(this);
+    }
+
+    @Override
+    public boolean perched() {
+        return AiMarksman.perched(this);
+    }
+
+    @Override
+    public boolean atPerch() {
+        return AiMarksman.there(this);
+    }
+
+    @Override
+    public boolean grenadier() {
+        return AiGrenadier.is(this);
+    }
+
+    @Override
+    public @Nullable Object serverLevel() {
+        return mob.level() instanceof net.minecraft.server.level.ServerLevel level ? level : null;
+    }
+
+    /** its level for core, made again only when its level is another */
+    private acup.gunfeel.host.@Nullable WorldView world;
+    private net.minecraft.world.level.@Nullable Level worldOf;
+
+    @Override
+    public acup.gunfeel.host.@Nullable WorldView world() {
+        net.minecraft.world.level.Level level = mob.level();
+        if (!(level instanceof net.minecraft.server.level.ServerLevel)) return null;
+        if (level != worldOf) {
+            world = acup.gunfeel.Wiring.world(level);
+            worldOf = level;
+        }
+        return world;
+    }
+
+    @Override
     public AiMover mover() {
         return mover;
     }
