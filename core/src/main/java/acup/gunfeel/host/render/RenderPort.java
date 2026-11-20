@@ -28,6 +28,15 @@ public interface RenderPort {
     /** a drawer of an intent ({@link Intent}): the version runs it at the place its table gives that intent */
     void drawer(int intent, Drawer drawer);
 
+    /**
+     * a buffer of a draw's parameters (the version's uniform buffer), written whole each frame it is used
+     * ({@link RenderSink#upload}) and read by {@link RenderSink#drawInstanced} from an offset; until {@link #free}
+     */
+    int params(String name);
+
+    /** where in a params buffer a draw's parameters may begin: offsets are multiples of it */
+    int paramsAlignment();
+
     /** where no version gives one (core's own tests): each method throws */
     RenderPort MISSING = new RenderPort() {
         @Override
@@ -57,6 +66,16 @@ public interface RenderPort {
 
         @Override
         public void drawer(int intent, Drawer drawer) {
+            throw new UnsupportedOperationException("no RenderPort here");
+        }
+
+        @Override
+        public int params(String name) {
+            throw new UnsupportedOperationException("no RenderPort here");
+        }
+
+        @Override
+        public int paramsAlignment() {
             throw new UnsupportedOperationException("no RenderPort here");
         }
     };
