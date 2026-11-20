@@ -83,6 +83,7 @@ final class AiCheckEntityView {
             arrow.setNoGravity(true);
             arrow.setDeltaMovement(Vec3.ZERO);
             level.addFreshEntity(arrow);
+            river();
             return false;
         }
         if (t < SETTLE) return false;
@@ -176,6 +177,7 @@ final class AiCheckEntityView {
         check.check("entityview: BodyControl.place is the game's setPos, on a mob and on an arrow; the Body reads the place and its box at once", placed);
         spawnPlaces();
         worldReads();
+        groundAlike();
         // ItemTable: the item in hand by its number is the registry's id, the same String each time; air 0; no item for
         // a number none has
         acup.gunfeel.host.ItemTable items = CoreServices.load(acup.gunfeel.host.ItemTable.class, acup.gunfeel.host.ItemTable.MISSING);
@@ -284,6 +286,197 @@ final class AiCheckEntityView {
         check.out("     entityview: the water's port on a source, flowing water, lava, a waterlogged slab, air, stone: " + seen);
         check.check("entityview: LevelFluids.at is getFluidState: none where it is empty, water where the game's water tag is", same
                 && seen.toString().equals("WATER, WATER, LAVA, WATER, none, none"));
+    }
+
+    /** the staff's ground (StaffGround) checked over a river east of the floor: RX its middle line, its banks' top y */
+    private static final int RX = X + 24, GROUND = 12;
+
+    /**
+     * Stone ground over GROUND blocks each way of (RX, Z), its top at y; a river along z at RX - 1 to RX + 1, two blocks of
+     * water (y and y - 1) but a ford at Z + 3 (y only); stone towers on the bank, 4 high at RX - 6 (more than a sleeping
+     * soldier climbs a step) and 3 high at RX + 6; the tactical map wanted over it all. No updates: the water stays put.
+     */
+    private void river() {
+        for (int cx = (RX - GROUND - 1) >> 4; cx <= (RX + GROUND + 1) >> 4; cx++)
+            for (int cz = (Z - GROUND - 1) >> 4; cz <= (Z + GROUND + 1) >> 4; cz++) level.setChunkForced(cx, cz, true);
+        var stone = Blocks.STONE.defaultBlockState();
+        var water = Blocks.WATER.defaultBlockState();
+        var air = Blocks.AIR.defaultBlockState();
+        for (int x = RX - GROUND; x <= RX + GROUND; x++)
+            for (int z = Z - GROUND; z <= Z + GROUND; z++) {
+                boolean river = Math.abs(x - RX) <= 1, ford = river && z == Z + 3;
+                int tower = x == RX - 6 && Math.abs(z - Z + 5) <= 1 ? 4 : x == RX + 6 && Math.abs(z - Z - 6) <= 1 ? 3 : 0;
+                level.setBlock(new BlockPos(x, y - 2, z), stone, 2 | 16);
+                level.setBlock(new BlockPos(x, y - 1, z), river && !ford ? water : stone, 2 | 16);
+                level.setBlock(new BlockPos(x, y, z), river ? water : stone, 2 | 16);
+                for (int up = 1; up <= 6; up++) level.setBlock(new BlockPos(x, y + up, z), up <= tower ? stone : air, 2 | 16);
+            }
+        TacticalMap.of(level).want(RX, y + 1, Z, GROUND - 4, 3);
+    }
+
+    /**
+     * StaffGround's detour and stand against AiCommander's own former code (d927fbe, below), on the river: detour from
+     * starts all over it to points across the river, along the bank and back on dry ground, its way the same block for
+     * block (or null alike); stand over every column round the river, at three heights of the soldier's own, by the map
+     * as far as it is built now (built cells and not yet built alike)
+     */
+    private void groundAlike() {
+        acup.gunfeel.host.WorldView w = acup.gunfeel.Wiring.world(level);
+        var fluids = acup.gunfeel.water.LevelFluids.of(level);
+        TacticalMap map = TacticalMap.of(level);
+        int ways = 0, nulls = 0, detours = 0, alike = 0, edge = 0;
+        for (int sx = RX - 10; sx <= RX + 10; sx += 2)
+            for (int sz = Z - 10; sz <= Z + 10; sz += 4) {
+                int y0 = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sx, sz);
+                for (int r = (sx - AiCommander.DETOUR) >> 4; r <= (sx + AiCommander.DETOUR) >> 4; r++)
+                    for (int q = (sz - AiCommander.DETOUR) >> 4; q <= (sz + AiCommander.DETOUR) >> 4; q++)
+                        if (!level.hasChunk(r, q)) {
+                            edge++;
+                            r = Integer.MAX_VALUE - 1;
+                            break;
+                        }
+                for (double[] to : new double[][] {{RX + 20.5, sz + 0.5}, {sx + 0.5, Z + 20.5}, {RX - 20.5, sz + 0.5}}) {
+                    long[] was = gameDetour(level, sx, sz, y0, to[0], to[1]);
+                    long[] now = StaffGround.detour(w, fluids, sx, sz, y0, to[0], to[1]);
+                    detours++;
+                    if (java.util.Arrays.equals(was, now)) alike++;
+                    if (was == null) nulls++;
+                    else ways++;
+                }
+            }
+        // at the edge of the loaded chunks east of the floor (the first one not loaded, the one before it loaded): from
+        // its last loaded blocks to points round them
+        int border = Integer.MIN_VALUE;
+        for (int cx = (X >> 4) + 1; cx < (X >> 4) + 400 && border == Integer.MIN_VALUE; cx++)
+            if (!level.hasChunk(cx, Z >> 4) && level.hasChunk(cx - 1, Z >> 4)) border = cx << 4;
+        boolean lone = border != Integer.MIN_VALUE;
+        int[][] edges = {{border - 1, Z}, {border - 3, Z + 5}, {border - 8, Z - 6}, {border - 12, Z + 2}, {border - 1, Z - 11}};
+        if (lone)
+            for (int[] e : edges) {
+                int y0 = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, e[0], e[1]);
+                edge++;
+                for (double[] to : new double[][] {{e[0] + 20.5, e[1] + 0.5}, {e[0] - 20.5, e[1] + 3.5}, {e[0] + 0.5, e[1] + 20.5}, {e[0] + 4.5, e[1] - 20.5}}) {
+                    long[] was = gameDetour(level, e[0], e[1], y0, to[0], to[1]);
+                    long[] now = StaffGround.detour(w, fluids, e[0], e[1], y0, to[0], to[1]);
+                    detours++;
+                    if (java.util.Arrays.equals(was, now)) alike++;
+                    if (was == null) nulls++;
+                    else ways++;
+                }
+            }
+        check.out(String.format(Locale.ROOT, "     entityview: StaffGround.detour and AiCommander's own: %d of %d alike, %d of them a way, %d none; %d starts with a chunk not loaded in reach",
+                alike, detours, ways, nulls, edge));
+        check.check("entityview: StaffGround.detour finds AiCommander's own way round the river, block for block", alike == detours && ways > 0 && nulls > 0 && lone);
+        int stands = 0, standAlike = 0, cells = 0, tops = 0, none = 0;
+        for (int bx = RX - 10; bx <= RX + 10; bx++)
+            for (int bz = Z - 10; bz <= Z + 10; bz++)
+                for (int own : new int[] {y + 1, y + 5, y - 3}) {
+                    long was = gameStand(level, bx, bz, own), now = StaffGround.stand(w, map, bx, bz, own);
+                    stands++;
+                    if (was == now) standAlike++;
+                    if (was == Long.MIN_VALUE) none++;
+                    else if (map.cellsAt(bx, BlockPos.getY(was), bz) == null) tops++;
+                    else cells++;
+                }
+        // at the lone chunk's edges: the columns beside it not loaded
+        if (lone)
+            for (int[] e : edges)
+                for (int own : new int[] {0, 64, 200}) {
+                    long was = gameStand(level, e[0], e[1], own), now = StaffGround.stand(w, map, e[0], e[1], own);
+                    stands++;
+                    if (was == now) standAlike++;
+                    if (was == Long.MIN_VALUE) none++;
+                    else tops++;
+                }
+        for (int cx = (RX - GROUND - 1) >> 4; cx <= (RX + GROUND + 1) >> 4; cx++)
+            for (int cz = (Z - GROUND - 1) >> 4; cz <= (Z + GROUND + 1) >> 4; cz++) level.setChunkForced(cx, cz, false);
+        check.out(String.format(Locale.ROOT, "     entityview: StaffGround.stand and AiCommander's own: %d of %d alike (%d a cell, %d the top where the map is not built, %d none)",
+                standAlike, stands, cells, tops, none));
+        check.check("entityview: StaffGround.stand picks AiCommander's own cell to stand in", standAlike == stands && cells > 0);
+    }
+
+    private static long @org.jspecify.annotations.Nullable [] gameDetour(ServerLevel level, int x0, int z0, int y0, double tx, double tz) {
+        int side = AiCommander.DETOUR * 2 + 1;
+        int[] from = new int[side * side], ys = new int[side * side];
+        java.util.Arrays.fill(from, -2);
+        int start = AiCommander.DETOUR * side + AiCommander.DETOUR;
+        from[start] = -1;
+        ys[start] = y0;
+        int[] queue = new int[side * side];
+        int head = 0, tail = 0, best = start;
+        queue[tail++] = start;
+        double bestD = Math.hypot(x0 + 0.5 - tx, z0 + 0.5 - tz);
+        double startD = bestD;
+        while (head < tail) {
+            int c = queue[head++];
+            int cx = c % side, cz = c / side;
+            for (int d = 0; d < 4; d++) {
+                int nx = cx + (d == 0 ? 1 : d == 1 ? -1 : 0), nz = cz + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                if (nx < 0 || nz < 0 || nx >= side || nz >= side) continue;
+                int n = nz * side + nx;
+                if (from[n] != -2) continue;
+                int bx = x0 + nx - AiCommander.DETOUR, bz = z0 + nz - AiCommander.DETOUR;
+                from[n] = -3;
+                if (!level.hasChunk(bx >> 4, bz >> 4)) continue;
+                int ny = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+                if (Math.abs(ny - ys[c]) > AiCommander.DRIFT_CLIMB) continue;
+                var fluid = level.getFluidState(new BlockPos(bx, ny - 1, bz));
+                if (!fluid.isEmpty() && (!fluid.is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(new BlockPos(bx, ny - 2, bz)).isEmpty())) continue;
+                from[n] = c;
+                ys[n] = ny;
+                queue[tail++] = n;
+                double dd = Math.hypot(bx + 0.5 - tx, bz + 0.5 - tz);
+                if (dd < bestD) {
+                    bestD = dd;
+                    best = n;
+                }
+            }
+        }
+        if (best == start || startD - bestD < 2) return null;
+        int len = 0;
+        for (int c = best; c != start; c = from[c]) len++;
+        long[] path = new long[len];
+        for (int c = best, i = len - 1; c != start; c = from[c], i--)
+            path[i] = (long) (x0 + c % side - AiCommander.DETOUR) << 32 | (z0 + c / side - AiCommander.DETOUR) & 0xFFFFFFFFL;
+        return path;
+    }
+
+    private static long gameStand(ServerLevel level, int bx, int bz, int ownY) {
+        TacticalMap map = TacticalMap.of(level);
+        int top0 = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+        boolean unknown = false;
+        // at about its own height (a step up or down: a house's floor, the ground round a wall) the nearest across;
+        // else the nearest across at any height (a hill's top), nearest its own height
+        long near = Long.MIN_VALUE, any = Long.MIN_VALUE;
+        double nearD = Double.MAX_VALUE, anyD = Double.MAX_VALUE;
+        for (int dx = -AiCommander.SNAP; dx <= AiCommander.SNAP; dx++)
+            for (int dz = -AiCommander.SNAP; dz <= AiCommander.SNAP; dz++) {
+                int x = bx + dx, z = bz + dz;
+                if (!level.hasChunk(x >> 4, z >> 4)) continue;
+                int top = dx == 0 && dz == 0 ? top0 : level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                double across = dx * dx + dz * dz;
+                for (int y = top, low = Math.max(level.getMinY(), Math.min(top, ownY) - AiCommander.DOWN); y >= low; y--) {
+                    SectionCells c = map.cellsAt(x, y, z);
+                    if (c == null) {
+                        unknown = true;
+                        break;
+                    }
+                    if (c.find(x & 15, y & 15, z & 15) < 0) continue;
+                    int dy = Math.abs(y - ownY);
+                    if (dy <= AiCommander.LEVEL && across < nearD) {
+                        nearD = across;
+                        near = BlockPos.asLong(x, y, z);
+                    }
+                    double d = across * 1000 + dy;
+                    if (d < anyD) {
+                        anyD = d;
+                        any = BlockPos.asLong(x, y, z);
+                    }
+                }
+            }
+        if (near != Long.MIN_VALUE) return near;
+        if (any != Long.MIN_VALUE) return any;
+        return unknown ? BlockPos.asLong(bx, top0, bz) : Long.MIN_VALUE;
     }
 
     /** AiSpawn.place as it was before core's SpawnPlace (589b844), for the comparison above */
