@@ -110,6 +110,32 @@ public abstract class EntityViewContract {
         control().xRot(a, x0);
     }
 
+    @Test
+    void attributionKeepsBodyIdentity() {
+        Body b = view().byId(mob());
+        assertSame(b.lastHurtBy(), b.lastHurtBy());
+        assertSame(b.killCredit(), b.killCredit());
+        Body by = b.lastHurtBy();
+        if (by != null) assertSame(by, view().byId(by.id()));
+        by = b.killCredit();
+        if (by != null) assertSame(by, view().byId(by.id()));
+    }
+
+    @Test
+    void snapSetsPlaceAndTurn() {
+        for (Body b : new Body[] {view().byId(mob()), view().byId(projectile())}) {
+            double x = b.x(), y = b.y(), z = b.z();
+            float yaw = b.yRot(), pitch = b.xRot();
+            control().snap(b, x + 3, y + 2, z - 1, 35F, 17F);
+            assertEquals(x + 3, b.x());
+            assertEquals(y + 2, b.y());
+            assertEquals(z - 1, b.z());
+            assertEquals(35F, b.yRot());
+            assertEquals(17F, b.xRot());
+            control().snap(b, x, y, z, yaw, pitch);
+        }
+    }
+
     // place: the Body reads the new place and its box there at once; put back after
     @Test
     void placeSetIsPlaceRead() {
@@ -226,6 +252,8 @@ public abstract class EntityViewContract {
         assertThrows(RuntimeException.class, p::fallFlying);
         assertThrows(RuntimeException.class, p::health);
         assertThrows(RuntimeException.class, p::maxHealth);
+        assertThrows(RuntimeException.class, p::lastHurtBy);
+        assertThrows(RuntimeException.class, p::killCredit);
         // a player's only: false on another
         assertFalse(p.spectator());
         assertFalse(p.creative());

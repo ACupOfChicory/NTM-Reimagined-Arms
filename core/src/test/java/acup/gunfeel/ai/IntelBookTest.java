@@ -104,7 +104,8 @@ class IntelBookTest {
         Path dir = Path.of("src/main/java/acup/gunfeel/ai");
         if (!Files.isDirectory(dir)) dir = Path.of("../../src/main/java/acup/gunfeel/ai");
         assertTrue(Files.isDirectory(dir), "sources at " + dir.toAbsolutePath());
-        List<String> may = List.of("AiCommander.java", "AiIntel.java", "AiIntelBase.java", "AiIntelOld.java", "AiIntelAlike.java",
+        List<String> may = List.of("AiCommander.java", "AiCommanderBase.java", "AiCommanderOld.java", "AiCommanderAlike.java",
+                "AiIntel.java", "AiIntelBase.java", "AiIntelOld.java", "AiIntelAlike.java",
                 "IntelBook.java", "AiHqMap.java", "HqGrid.java", "StaffPlan.java", "StaffMove.java");
         int read = 0;
         Path core = dir.resolve("../../../../../../core/src/main/java/acup/gunfeel/ai").normalize();

@@ -163,6 +163,7 @@ public final class AiCheck {
             // core's squads against the former code on every stage's mobs
             AiSquads.alike = new AiSquadsAlike();
             AiIntel.alike = new AiIntelAlike();
+            AiCommander.alike = new AiCommanderAlike();
             // core's teams against the former code at every call
             AiTeams.alike = new long[8];
             List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves", "hill", "hillheights", "war", "trench", "crossing", "alert", "bunker", "bunkerntm", "hatch", "bypass", "fought", "wall", "folly", "corner", "heard", "slice", "sliceside", "overheat", "entityview");
@@ -257,6 +258,12 @@ public final class AiCheck {
                 if (intelAlike != null) {
                     out.add("     " + intelAlike.info());
                     check.check("intel: core's AiIntelBase reports as the former code did", intelAlike.differ == 0);
+                }
+                AiCommanderAlike commanderAlike = AiCommander.alike;
+                AiCommander.alike = null;
+                if (commanderAlike != null) {
+                    out.add("     " + commanderAlike.info());
+                    check.check("commander: core's AiCommanderBase answers as the former code did", commanderAlike.differ == 0);
                 }
                 out.add(check.ok ? "ALL OK" : "FAILED");
                 finish(file, out, check.ok ? 0 : 1);

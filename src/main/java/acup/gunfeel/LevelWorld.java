@@ -29,6 +29,7 @@ final class LevelWorld implements WorldView {
     private static final ClipContext.Fluid[] FLUIDS = ClipContext.Fluid.values();
     private static final net.minecraft.world.level.levelgen.Heightmap.Types[] HEIGHTS = net.minecraft.world.level.levelgen.Heightmap.Types.values();
     private final Level level;
+    private @Nullable GameRandom random;
 
     LevelWorld(Level level) {
         this.level = level;
@@ -56,6 +57,12 @@ final class LevelWorld implements WorldView {
     @Override
     public long gameTime() {
         return level.getGameTime();
+    }
+
+    @Override
+    public GameRandom random() {
+        if (random == null) random = GameRandoms.of(level.getRandom());
+        return random;
     }
 
     @Override

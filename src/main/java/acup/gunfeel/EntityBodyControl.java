@@ -104,6 +104,11 @@ final class EntityBodyControl implements BodyControl {
     }
 
     @Override
+    public void snap(Body b, double x, double y, double z, float yRot, float xRot) {
+        EntityBody.entity(b).snapTo(x, y, z, yRot, xRot);
+    }
+
+    @Override
     public void place(Body b, double x, double y, double z) {
         EntityBody.entity(b).setPos(x, y, z);
     }

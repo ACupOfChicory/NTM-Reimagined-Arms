@@ -29,6 +29,7 @@ public interface BodyControl {
         @Override public void face(Body b, float yaw) { throw none(); }
         @Override public boolean turned(Body b) { throw none(); }
         @Override public void lookAt(Body b, double x, double y, double z, float yMax, float xMax) { throw none(); }
+        @Override public void snap(Body b, double x, double y, double z, float yRot, float xRot) { throw none(); }
         @Override public void place(Body b, double x, double y, double z) { throw none(); }
     };
 
@@ -97,4 +98,7 @@ public interface BodyControl {
      * and {@code box} read the new place
      */
     void place(Body b, double x, double y, double z);
+
+    /** Entity.snapTo: sets position, yaw and pitch, and the old position to that same place. Any body. */
+    void snap(Body b, double x, double y, double z, float yRot, float xRot);
 }

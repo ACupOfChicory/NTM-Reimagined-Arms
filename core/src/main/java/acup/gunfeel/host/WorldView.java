@@ -21,6 +21,9 @@ public interface WorldView extends BlockTable {
     /** the level's game tick (the game's Level.getGameTime: the overworld's, as the game keeps it for every dimension) */
     long gameTime();
 
+    /** The level's generator (getRandom), shared by all wrappers of this level: each draw advances that one sequence. */
+    acup.gunfeel.GameRandom random();
+
     /** this is the client's copy of the level (the game's Level.isClientSide) */
     boolean client();
 

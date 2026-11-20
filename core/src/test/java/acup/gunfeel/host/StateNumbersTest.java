@@ -62,6 +62,18 @@ class StateNumbersTest {
         }
 
         long time = 1000;
+        final java.util.Random rng = new java.util.Random(123);
+
+        @Override
+        public acup.gunfeel.GameRandom random() {
+            return new acup.gunfeel.GameRandom() {
+                @Override public int nextInt(int bound) { return rng.nextInt(bound); }
+                @Override public double nextDouble() { return rng.nextDouble(); }
+                @Override public boolean nextBoolean() { return rng.nextBoolean(); }
+                @Override public float nextFloat() { return rng.nextFloat(); }
+                @Override public double nextGaussian() { return rng.nextGaussian(); }
+            };
+        }
 
         // a fake level's shapes: stone a whole block, a bottom slab its lower half, else nothing
         private static double[][] shape(FakeState s) {

@@ -49,6 +49,24 @@ public abstract class WorldViewContract {
     /** the level goes on one game tick */
     protected abstract void tick();
 
+    /** Reset the level's one generator. */
+    protected abstract void randomSeed(long seed);
+
+    /** A fresh wrapper of that same level. */
+    protected abstract acup.gunfeel.GameRandom anotherRandom();
+
+    @Test
+    void wrappersShareTheLevelsSequence() {
+        randomSeed(783L);
+        acup.gunfeel.GameRandom a = world().random(), b = anotherRandom();
+        int first = a.nextInt(41), second = b.nextInt(41), third = a.nextInt(41);
+        randomSeed(783L);
+        acup.gunfeel.GameRandom straight = world().random();
+        assertEquals(first, straight.nextInt(41));
+        assertEquals(second, straight.nextInt(41));
+        assertEquals(third, straight.nextInt(41));
+    }
+
     private int at(int[] p) {
         return world().state(p[0], p[1], p[2]);
     }
