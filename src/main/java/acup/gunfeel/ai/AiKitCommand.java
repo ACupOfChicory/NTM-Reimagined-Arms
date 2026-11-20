@@ -11,11 +11,7 @@ import java.util.concurrent.CompletableFuture;
 import org.jspecify.annotations.Nullable;
 
 import com.hbm.items.armor.ModArmorItem;
-import com.hbm.items.weapon.sedna.BulletConfig;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
-import com.hbm.items.weapon.sedna.mags.IMagazine;
-import com.hbm.items.weapon.sedna.mags.MagazineBelt;
-import com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -26,7 +22,6 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 
 import acup.gunfeel.AmmoLock;
-import acup.gunfeel.BalanceGuns;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -83,7 +78,7 @@ public final class AiKitCommand {
     private static CompletableFuture<Suggestions> suggest(CommandContext<CommandSourceStack> c, SuggestionsBuilder b, String word, boolean team, Guns guns) {
         Collection<String> rounds = new TreeSet<>();
         try {
-            for (ItemStack gun : guns.of(c)) rounds.addAll(rounds(gun).keySet());
+            for (ItemStack gun : guns.of(c)) rounds.addAll(rounds(gun));
         } catch (CommandSyntaxException | RuntimeException e) {
             // no gun to go by (no such targets, no such item): no rounds offered
         }
@@ -220,60 +215,35 @@ public final class AiKitCommand {
 
     /**
      * the rounds a gun's first magazine takes (the one a mob fires), by the balance's names, in NTM's order; none for
-     * what is no NTM gun, a gun with no rounds of kinds (energy, fuel) and the GL-54 (its magazines hold the grenades)
+     * what is no NTM gun, a gun with no rounds of kinds (energy, fuel) and the GL-54 (its magazines hold the grenades);
+     * read off the stack as a mob's hand is (AiGunner.Guns.rounds), for a gun no mob holds yet too
      */
-    static Map<String, BulletConfig> rounds(ItemStack gun) {
-        Map<String, BulletConfig> out = new LinkedHashMap<>();
-        if (!(gun.getItem() instanceof ItemGunBaseNT)) return out;
-        IMagazine<?> mag;
-        try {
-            mag = AmmoLock.primary(gun);
-        } catch (RuntimeException e) {
-            return out;
+    static java.util.Set<String> rounds(ItemStack gun) {
+        return named(gun).keySet();
+    }
+
+    private static Map<String, Integer> named(ItemStack gun) {
+        int[] r = new int[64];
+        int n = AiGunner.Guns.rounds(gun, r);
+        if (n > r.length) {
+            r = new int[n];
+            n = AiGunner.Guns.rounds(gun, r);
         }
-        if (mag == null || mag instanceof acup.gunfeel.gl54.GrenadeMagazine) return out;
-        for (BulletConfig b : AmmoLock.accepted(mag)) out.putIfAbsent(BalanceGuns.ammoName(b), b);
-        return out;
+        return AiKitBase.named(r, n);
     }
 
-    /** a round as typed: the balance's name, or the ammo item's id (hbm:ammo_standard_r556_ap) */
-    private static String roundName(String typed) {
-        String p = typed.startsWith("hbm:") ? typed.substring(4) : typed;
-        if (p.startsWith("ammo_standard_")) return p.substring("ammo_standard_".length());
-        return p.startsWith("ammo_") ? p.substring(5) : p;
-    }
-
-    /** why the gun cannot load the round, in words, or null when it can */
+    /** why the gun cannot load the round, in words, or null when it can (AiKitBase's words, on this stack) */
     static @Nullable String cannotLoad(ItemStack gun, String round) {
-        String name = BuiltInRegistries.ITEM.getKey(gun.getItem()).toString();
-        if (!(gun.getItem() instanceof ItemGunBaseNT)) return (gun.isEmpty() ? "an empty hand" : name) + " is no NTM gun: no round to choose";
-        Map<String, BulletConfig> rounds = rounds(gun);
-        if (rounds.isEmpty()) return name + " has no rounds to choose from";
-        if (!rounds.containsKey(roundName(round))) return name + " does not take " + round + "; it takes: " + String.join(", ", rounds.keySet());
-        return null;
+        boolean ntmGun = gun.getItem() instanceof ItemGunBaseNT;
+        return AiKitBase.cannotLoad(BuiltInRegistries.ITEM.getKey(gun.getItem()).toString(), gun.isEmpty(), ntmGun,
+                ntmGun ? named(gun) : Map.of(), round);
     }
 
     /**
      * The mob's gun loads this round from now on, and is full of it now (from nothing, not from its reserve). What
-     * went wrong in words, or null.
+     * went wrong in words, or null (AiKitBase.load).
      */
-    @SuppressWarnings({"rawtypes", "unchecked"})
     static @Nullable String load(AiBot bot, String round) {
-        ItemStack stack = bot.mob.getMainHandItem();
-        String why = cannotLoad(stack, round);
-        if (why != null) return why;
-        BulletConfig type = rounds(stack).get(roundName(round));
-        IMagazine mag = AmmoLock.primary(stack);
-        int id = BulletConfig.configs.indexOf(type);
-        if (id < 0) return BuiltInRegistries.ITEM.getKey(stack.getItem()) + " cannot be told to load " + round + " (NTM does not list the round)";
-        if (mag instanceof MagazineBelt) {
-            // a belt feeds its first type from nothing; locked, the type it has alone (MixinAmmoLockBelt)
-            MagazineBelt.setMagType(stack, id);
-            ItemGunBaseNT.setValueInt(stack, AmmoLock.KEY, 1);
-        } else if (mag instanceof MagazineSingleTypeBase) {
-            mag.setType(stack, type);
-        } else return BuiltInRegistries.ITEM.getKey(stack.getItem()) + " has no rounds to choose from";
-        bot.gunner.loadFree();
-        return null;
+        return AiKitBase.load(bot.gunner, round);
     }
 }

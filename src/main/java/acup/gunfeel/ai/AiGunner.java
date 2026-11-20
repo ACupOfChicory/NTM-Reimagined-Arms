@@ -404,6 +404,51 @@ public final class AiGunner extends AiGunnerBase {
             if ((mask & 1 << R_COCK_ON_EMPTY_POST) != 0) out[R_COCK_ON_EMPTY_POST] = r.getReloadCockOnEmptyPost(stack);
         }
 
+        @Override
+        public int rounds(Body holder, int hand, int[] out) {
+            return rounds(stack(holder, hand), out);
+        }
+
+        /**
+         * NtmGuns.rounds of any stack, the hand's or a fresh one (AiKitCommand: a gun no mob holds yet): AiKitCommand.rounds
+         * as it was, its magazine found once (AmmoLock.primary), caught as it caught
+         */
+        static int rounds(ItemStack stack, int[] out) {
+            if (!(stack.getItem() instanceof ItemGunBaseNT)) return -1;
+            IMagazine<?> mag;
+            try {
+                mag = acup.gunfeel.AmmoLock.primary(stack);
+            } catch (RuntimeException e) {
+                return -1;
+            }
+            if (mag == null || mag instanceof acup.gunfeel.gl54.GrenadeMagazine) return -1;
+            java.util.List<BulletConfig> accepted = acup.gunfeel.AmmoLock.accepted(mag);
+            int n = accepted.size();
+            for (int i = 0; i < n && i < out.length; i++) out[i] = acup.gunfeel.RoundNumbers.number(accepted.get(i));
+            return n;
+        }
+
+        // AiKitCommand.load's writes as they were: its magazine found once (AmmoLock.primary), NTM's id, the type
+        @Override
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        public int loadRound(Body holder, int hand, int round) {
+            ItemStack stack = stack(holder, hand);
+            BulletConfig type = acup.gunfeel.RoundNumbers.round(round);
+            IMagazine mag = acup.gunfeel.AmmoLock.primary(stack);
+            int id = BulletConfig.configs.indexOf(type);
+            if (id < 0) return LOAD_UNLISTED;
+            if (mag instanceof com.hbm.items.weapon.sedna.mags.MagazineBelt) {
+                // a belt feeds its first type from nothing; locked, the type it has alone (MixinAmmoLockBelt)
+                com.hbm.items.weapon.sedna.mags.MagazineBelt.setMagType(stack, id);
+                ItemGunBaseNT.setValueInt(stack, acup.gunfeel.AmmoLock.KEY, 1);
+                return LOAD_BELT;
+            } else if (mag instanceof MagazineSingleTypeBase) {
+                mag.setType(stack, type);
+                return LOAD_SINGLE;
+            }
+            return LOAD_OTHER;
+        }
+
         // AiRole.byFire's reads as they were, its receiver and magazine found once in its try
         @Override
         @SuppressWarnings("rawtypes")
