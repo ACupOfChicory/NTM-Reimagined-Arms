@@ -63,6 +63,7 @@ public final class EntityBody implements Body {
         return EntityTypeNumbers.number(type);
     }
 
+    @Override public int age() { return e.tickCount; }
     @Override public boolean living() { return e instanceof LivingEntity; }
     @Override public boolean player() { return e instanceof Player; }
     @Override public double x() { return e.getX(); }
@@ -129,6 +130,7 @@ public final class EntityBody implements Body {
     @Override public boolean alive() { return e.isAlive(); }
     @Override public boolean removed() { return e.isRemoved(); }
     @Override public float health() { return ((LivingEntity) e).getHealth(); }
+    @Override public int lastHurtTime() { return ((LivingEntity) e).getLastHurtByMobTimestamp(); }
     @Override public @Nullable Body lastHurtBy() {
         LivingEntity by = ((LivingEntity) e).getLastHurtByMob();
         return by == null ? null : of(by);
