@@ -1,5 +1,7 @@
 package acup.gunfeel.host;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * NTM's guns (sedna's ItemGunBaseNT) in a living body's hand ({@link Body#MAIN_HAND}, {@link Body#OFF_HAND}), read
  * live: each call looks at the stack in that hand now, the port keeps nothing. The gun's config 0 and its receiver 0,
@@ -298,5 +300,13 @@ public interface NtmGuns {
         public int fill(Body holder, int hand) {
             return NO_ROUNDS;
         }
+
+        @Override
+        public @Nullable Shell grenadeShell(Body holder) {
+            return null;
+        }
     };
+
+    /** 26.2: AiGrenadier.shell in the main hand, its velocity, gravity and expires. */
+    @Nullable Shell grenadeShell(Body holder);
 }

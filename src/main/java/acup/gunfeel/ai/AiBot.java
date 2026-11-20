@@ -26,8 +26,6 @@ public final class AiBot extends AiBotBase {
     @Nullable AiBot supplyTo;
     /** a marksman's perch and shots (AiMarksman); null till it is one in a fight */
     AiMarksman.@Nullable State marksman;
-    /** a grenadier's lobs (AiGrenadier); null till it is one in a fight */
-    AiGrenadier.@Nullable State grenadier;
     /** a medic's kits and run (AiMedic); null till it is one */
     AiMedic.@Nullable State medic;
     /** its side's commander's order: an area to go to and look through (AiCommander), null: none */
