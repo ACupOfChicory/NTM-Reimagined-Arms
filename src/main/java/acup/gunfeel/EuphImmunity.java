@@ -56,12 +56,12 @@ public final class EuphImmunity extends EuphImmunityBase {
     }
 
     public static boolean on(Kit kit) {
-        return acup.gunfeel.compat.Feature.BALANCE.on() && kit.mode().equals("pool");
+        return onOf(kit, BalanceOn.ON);
     }
 
     /** NTM's own DNS checks (every hit but a blast called off, blasts down to 0.001) are off: modes formula and pool */
     public static boolean dnsFormula() {
-        return acup.gunfeel.compat.Feature.BALANCE.on() && !Kit.DNS.mode().equals("ntm");
+        return dnsFormulaOf(BalanceOn.ON);
     }
 
     static State state(Kit kit, LivingEntity player, long now) {
