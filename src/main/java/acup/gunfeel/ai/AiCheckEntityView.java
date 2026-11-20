@@ -83,6 +83,7 @@ final class AiCheckEntityView {
             arrow.setNoGravity(true);
             arrow.setDeltaMovement(Vec3.ZERO);
             level.addFreshEntity(arrow);
+            river();
             return false;
         }
         if (t < SETTLE) return false;
@@ -156,6 +157,27 @@ final class AiCheckEntityView {
         net.minecraft.world.entity.ai.control.LookControl lc = dummy.getLookControl();
         turnSet &= lc.getWantedX() == cx + 0.5 && lc.getWantedY() == cy + 1.25 && lc.getWantedZ() == cz + 5.5;
         check.check("entityview: BodyControl turns the body, head and look by the game's setters, the Body reads them back", turnSet);
+        // BodyControl.place: the game's setPos on a mob and on what is no mob (the arrow); the Body reads the place and
+        // the box there at once, as the game's getters do; each put back after
+        boolean placed = true;
+        for (Entity e : List.of(dummy, arrow)) {
+            Body eb = EntityBody.of(e);
+            double x0 = e.getX(), y0 = e.getY(), z0 = e.getZ();
+            control.place(eb, x0 + 0.75, y0 + 0.5, z0 - 0.25);
+            double[] box = new double[6];
+            eb.box(box);
+            net.minecraft.world.phys.AABB bb = e.getBoundingBox();
+            placed &= eb.x() == x0 + 0.75 && e.getX() == x0 + 0.75 && eb.y() == y0 + 0.5 && e.getY() == y0 + 0.5 && eb.z() == z0 - 0.25 && e.getZ() == z0 - 0.25
+                    && box[0] == bb.minX && box[1] == bb.minY && box[2] == bb.minZ && box[3] == bb.maxX && box[4] == bb.maxY && box[5] == bb.maxZ
+                    && bb.minY == y0 + 0.5;
+            same("placed by BodyControl: " + name(e), e);
+            control.place(eb, x0, y0, z0);
+            placed &= eb.x() == x0 && e.getX() == x0;
+        }
+        check.check("entityview: BodyControl.place is the game's setPos, on a mob and on an arrow; the Body reads the place and its box at once", placed);
+        spawnPlaces();
+        worldReads();
+        groundAlike();
         // ItemTable: the item in hand by its number is the registry's id, the same String each time; air 0; no item for
         // a number none has
         acup.gunfeel.host.ItemTable items = CoreServices.load(acup.gunfeel.host.ItemTable.class, acup.gunfeel.host.ItemTable.MISSING);
@@ -183,6 +205,298 @@ final class AiCheckEntityView {
         level.getScoreboard().removePlayerTeam(level.getScoreboard().getPlayerTeam(TEAM));
         level.setChunkForced(X >> 4, Z >> 4, false);
         return true;
+    }
+
+    /**
+     * core's SpawnPlace against the game's code it was moved from (AiSpawn.place as it was, below), on this level: from
+     * the same seed, over the floor, at its edge and high in the air, for one, four and nine mobs, each mob put the same
+     * way to the bit (the place, its turns, free or not)
+     */
+    private void spawnPlaces() {
+        var type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.fromNamespaceAndPath("hbm", "entity_test_dummy"));
+        Vec3[] points = {new Vec3(X + 0.5, y + 1, Z + 0.5), new Vec3(X + 4.5, y + 1.3, Z - 3.5), new Vec3(X + 0.5, y + 24, Z + 0.5)};
+        int tried = 0, same = 0, free = 0;
+        for (Vec3 at : points)
+            for (int count : new int[] {1, 4, 9})
+                for (long seed = 1; seed <= 12; seed++) {
+                    Mob was = (Mob) type.create(level, EntitySpawnReason.COMMAND), now = (Mob) type.create(level, EntitySpawnReason.COMMAND);
+                    // the same start (a mob is made turned a random way): one never put keeps it
+                    for (Mob m : new Mob[] {was, now}) {
+                        m.setYRot(0);
+                        m.setYHeadRot(0);
+                        m.setYBodyRot(0);
+                    }
+                    boolean a = gamePlace(level, was, at, net.minecraft.util.RandomSource.create(seed), count);
+                    boolean b = SpawnPlace.place(acup.gunfeel.Wiring.world(level), EntityBody.of(now), at.x, at.y, at.z,
+                            acup.gunfeel.GameRandoms.of(net.minecraft.util.RandomSource.create(seed)), count);
+                    tried++;
+                    if (a) free++;
+                    if (a == b && was.getX() == now.getX() && was.getY() == now.getY() && was.getZ() == now.getZ() && was.getYRot() == now.getYRot()
+                            && was.getYHeadRot() == now.getYHeadRot() && was.yBodyRot == now.yBodyRot) same++;
+                    else if (tried - same <= 3) check.out(String.format(Locale.ROOT, "     entityview: unlike at %s count %d seed %d: game %b %.4f %.4f %.4f %.3f/%.3f/%.3f, core %b %.4f %.4f %.4f %.3f/%.3f/%.3f", at, count, seed,
+                            a, was.getX(), was.getY(), was.getZ(), was.getYRot(), was.getYHeadRot(), was.yBodyRot, b, now.getX(), now.getY(), now.getZ(), now.getYRot(), now.getYHeadRot(), now.yBodyRot));
+                    was.discard();
+                    now.discard();
+                }
+        check.out(String.format(Locale.ROOT, "     entityview: SpawnPlace and the game's code: %d of %d alike, %d of them free", same, tried, free));
+        check.check("entityview: SpawnPlace puts a mob as AiSpawn's own code did, to the bit, from the same seed", same == tried && free > 0 && free < tried);
+    }
+
+    /**
+     * WorldView's tops, chunks and lowest y as the game's own (every heightmap, by the stand's floor and off it; a kind
+     * the game has not throws), and the water's port (LevelFluids, StaffGround's liquids) as getFluidState: none where
+     * there is none, water where the game's water tag is, on a source, flowing water, lava and a slab with water in it
+     */
+    private void worldReads() {
+        acup.gunfeel.host.WorldView w = acup.gunfeel.Wiring.world(level);
+        var kinds = net.minecraft.world.level.levelgen.Heightmap.Types.values();
+        boolean tops = kinds.length == 6;
+        for (int[] c : new int[][] {{X, Z}, {X + 3, Z - 2}, {X - 40, Z + 25}})
+            for (int k = 0; k < kinds.length; k++) tops &= w.height(c[0], c[1], k) == level.getHeight(kinds[k], c[0], c[1]);
+        for (int k : new int[] {-1, kinds.length}) {
+            try {
+                w.height(X, Z, k);
+                tops = false;
+            } catch (IllegalArgumentException e) {
+                // the game has no such heightmap
+            }
+        }
+        tops &= w.hasChunk(X >> 4, Z >> 4) == level.hasChunk(X >> 4, Z >> 4) && w.hasChunk(X >> 4, Z >> 4)
+                && w.hasChunk(100_000 >> 4, 100_000 >> 4) == level.hasChunk(100_000 >> 4, 100_000 >> 4) && !w.hasChunk(100_000 >> 4, 100_000 >> 4)
+                && w.minY() == level.getMinY();
+        check.check("entityview: WorldView's tops by every heightmap, its chunks loaded and its lowest y are the game's", tops);
+        // a row of liquids on the floor, each alone (no updates: none flows meanwhile), then air again
+        var water = Blocks.WATER.defaultBlockState();
+        net.minecraft.world.level.block.state.BlockState[] row = {water, water.setValue(net.minecraft.world.level.block.LiquidBlock.LEVEL, 3),
+                Blocks.LAVA.defaultBlockState(), Blocks.OAK_SLAB.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED, true),
+                Blocks.AIR.defaultBlockState(), Blocks.STONE.defaultBlockState()};
+        var fluids = acup.gunfeel.water.LevelFluids.of(level);
+        boolean same = true;
+        StringBuilder seen = new StringBuilder();
+        for (int i = 0; i < row.length; i++) {
+            BlockPos p = new BlockPos(X - 4 + i, y + 1, Z + 4);
+            level.setBlock(p, row[i], 2 | 16);
+            var fs = level.getFluidState(p);
+            var cell = fluids.at(p.getX(), p.getY(), p.getZ());
+            boolean empty = cell == null, wet = cell != null && cell.liquid() == acup.gunfeel.water.LiquidEvents.Liquid.WATER;
+            same &= empty == fs.isEmpty() && wet == fs.is(net.minecraft.tags.FluidTags.WATER);
+            seen.append(i == 0 ? "" : ", ").append(empty ? "none" : cell.liquid());
+            level.setBlock(p, Blocks.AIR.defaultBlockState(), 2 | 16);
+        }
+        check.out("     entityview: the water's port on a source, flowing water, lava, a waterlogged slab, air, stone: " + seen);
+        check.check("entityview: LevelFluids.at is getFluidState: none where it is empty, water where the game's water tag is", same
+                && seen.toString().equals("WATER, WATER, LAVA, WATER, none, none"));
+    }
+
+    /** the staff's ground (StaffGround) checked over a river east of the floor: RX its middle line, its banks' top y */
+    private static final int RX = X + 24, GROUND = 12;
+
+    /**
+     * Stone ground over GROUND blocks each way of (RX, Z), its top at y; a river along z at RX - 1 to RX + 1, two blocks of
+     * water (y and y - 1) but a ford at Z + 3 (y only); stone towers on the bank, 4 high at RX - 6 (more than a sleeping
+     * soldier climbs a step) and 3 high at RX + 6; the tactical map wanted over it all. No updates: the water stays put.
+     */
+    private void river() {
+        for (int cx = (RX - GROUND - 1) >> 4; cx <= (RX + GROUND + 1) >> 4; cx++)
+            for (int cz = (Z - GROUND - 1) >> 4; cz <= (Z + GROUND + 1) >> 4; cz++) level.setChunkForced(cx, cz, true);
+        var stone = Blocks.STONE.defaultBlockState();
+        var water = Blocks.WATER.defaultBlockState();
+        var air = Blocks.AIR.defaultBlockState();
+        for (int x = RX - GROUND; x <= RX + GROUND; x++)
+            for (int z = Z - GROUND; z <= Z + GROUND; z++) {
+                boolean river = Math.abs(x - RX) <= 1, ford = river && z == Z + 3;
+                int tower = x == RX - 6 && Math.abs(z - Z + 5) <= 1 ? 4 : x == RX + 6 && Math.abs(z - Z - 6) <= 1 ? 3 : 0;
+                level.setBlock(new BlockPos(x, y - 2, z), stone, 2 | 16);
+                level.setBlock(new BlockPos(x, y - 1, z), river && !ford ? water : stone, 2 | 16);
+                level.setBlock(new BlockPos(x, y, z), river ? water : stone, 2 | 16);
+                for (int up = 1; up <= 6; up++) level.setBlock(new BlockPos(x, y + up, z), up <= tower ? stone : air, 2 | 16);
+            }
+        TacticalMap.of(level).want(RX, y + 1, Z, GROUND - 4, 3);
+    }
+
+    /**
+     * StaffGround's detour and stand against AiCommander's own former code (d927fbe, below), on the river: detour from
+     * starts all over it to points across the river, along the bank and back on dry ground, its way the same block for
+     * block (or null alike); stand over every column round the river, at three heights of the soldier's own, by the map
+     * as far as it is built now (built cells and not yet built alike)
+     */
+    private void groundAlike() {
+        acup.gunfeel.host.WorldView w = acup.gunfeel.Wiring.world(level);
+        var fluids = acup.gunfeel.water.LevelFluids.of(level);
+        TacticalMap map = TacticalMap.of(level);
+        int ways = 0, nulls = 0, detours = 0, alike = 0, edge = 0;
+        for (int sx = RX - 10; sx <= RX + 10; sx += 2)
+            for (int sz = Z - 10; sz <= Z + 10; sz += 4) {
+                int y0 = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sx, sz);
+                for (int r = (sx - AiCommander.DETOUR) >> 4; r <= (sx + AiCommander.DETOUR) >> 4; r++)
+                    for (int q = (sz - AiCommander.DETOUR) >> 4; q <= (sz + AiCommander.DETOUR) >> 4; q++)
+                        if (!level.hasChunk(r, q)) {
+                            edge++;
+                            r = Integer.MAX_VALUE - 1;
+                            break;
+                        }
+                for (double[] to : new double[][] {{RX + 20.5, sz + 0.5}, {sx + 0.5, Z + 20.5}, {RX - 20.5, sz + 0.5}}) {
+                    long[] was = gameDetour(level, sx, sz, y0, to[0], to[1]);
+                    long[] now = StaffGround.detour(w, fluids, sx, sz, y0, to[0], to[1]);
+                    detours++;
+                    if (java.util.Arrays.equals(was, now)) alike++;
+                    if (was == null) nulls++;
+                    else ways++;
+                }
+            }
+        // at the edge of the loaded chunks east of the floor (the first one not loaded, the one before it loaded): from
+        // its last loaded blocks to points round them
+        int border = Integer.MIN_VALUE;
+        for (int cx = (X >> 4) + 1; cx < (X >> 4) + 400 && border == Integer.MIN_VALUE; cx++)
+            if (!level.hasChunk(cx, Z >> 4) && level.hasChunk(cx - 1, Z >> 4)) border = cx << 4;
+        boolean lone = border != Integer.MIN_VALUE;
+        int[][] edges = {{border - 1, Z}, {border - 3, Z + 5}, {border - 8, Z - 6}, {border - 12, Z + 2}, {border - 1, Z - 11}};
+        if (lone)
+            for (int[] e : edges) {
+                int y0 = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, e[0], e[1]);
+                edge++;
+                for (double[] to : new double[][] {{e[0] + 20.5, e[1] + 0.5}, {e[0] - 20.5, e[1] + 3.5}, {e[0] + 0.5, e[1] + 20.5}, {e[0] + 4.5, e[1] - 20.5}}) {
+                    long[] was = gameDetour(level, e[0], e[1], y0, to[0], to[1]);
+                    long[] now = StaffGround.detour(w, fluids, e[0], e[1], y0, to[0], to[1]);
+                    detours++;
+                    if (java.util.Arrays.equals(was, now)) alike++;
+                    if (was == null) nulls++;
+                    else ways++;
+                }
+            }
+        check.out(String.format(Locale.ROOT, "     entityview: StaffGround.detour and AiCommander's own: %d of %d alike, %d of them a way, %d none; %d starts with a chunk not loaded in reach",
+                alike, detours, ways, nulls, edge));
+        check.check("entityview: StaffGround.detour finds AiCommander's own way round the river, block for block", alike == detours && ways > 0 && nulls > 0 && lone);
+        int stands = 0, standAlike = 0, cells = 0, tops = 0, none = 0;
+        for (int bx = RX - 10; bx <= RX + 10; bx++)
+            for (int bz = Z - 10; bz <= Z + 10; bz++)
+                for (int own : new int[] {y + 1, y + 5, y - 3}) {
+                    long was = gameStand(level, bx, bz, own), now = StaffGround.stand(w, map, bx, bz, own);
+                    stands++;
+                    if (was == now) standAlike++;
+                    if (was == Long.MIN_VALUE) none++;
+                    else if (map.cellsAt(bx, BlockPos.getY(was), bz) == null) tops++;
+                    else cells++;
+                }
+        // at the lone chunk's edges: the columns beside it not loaded
+        if (lone)
+            for (int[] e : edges)
+                for (int own : new int[] {0, 64, 200}) {
+                    long was = gameStand(level, e[0], e[1], own), now = StaffGround.stand(w, map, e[0], e[1], own);
+                    stands++;
+                    if (was == now) standAlike++;
+                    if (was == Long.MIN_VALUE) none++;
+                    else tops++;
+                }
+        for (int cx = (RX - GROUND - 1) >> 4; cx <= (RX + GROUND + 1) >> 4; cx++)
+            for (int cz = (Z - GROUND - 1) >> 4; cz <= (Z + GROUND + 1) >> 4; cz++) level.setChunkForced(cx, cz, false);
+        check.out(String.format(Locale.ROOT, "     entityview: StaffGround.stand and AiCommander's own: %d of %d alike (%d a cell, %d the top where the map is not built, %d none)",
+                standAlike, stands, cells, tops, none));
+        check.check("entityview: StaffGround.stand picks AiCommander's own cell to stand in", standAlike == stands && cells > 0);
+    }
+
+    private static long @org.jspecify.annotations.Nullable [] gameDetour(ServerLevel level, int x0, int z0, int y0, double tx, double tz) {
+        int side = AiCommander.DETOUR * 2 + 1;
+        int[] from = new int[side * side], ys = new int[side * side];
+        java.util.Arrays.fill(from, -2);
+        int start = AiCommander.DETOUR * side + AiCommander.DETOUR;
+        from[start] = -1;
+        ys[start] = y0;
+        int[] queue = new int[side * side];
+        int head = 0, tail = 0, best = start;
+        queue[tail++] = start;
+        double bestD = Math.hypot(x0 + 0.5 - tx, z0 + 0.5 - tz);
+        double startD = bestD;
+        while (head < tail) {
+            int c = queue[head++];
+            int cx = c % side, cz = c / side;
+            for (int d = 0; d < 4; d++) {
+                int nx = cx + (d == 0 ? 1 : d == 1 ? -1 : 0), nz = cz + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                if (nx < 0 || nz < 0 || nx >= side || nz >= side) continue;
+                int n = nz * side + nx;
+                if (from[n] != -2) continue;
+                int bx = x0 + nx - AiCommander.DETOUR, bz = z0 + nz - AiCommander.DETOUR;
+                from[n] = -3;
+                if (!level.hasChunk(bx >> 4, bz >> 4)) continue;
+                int ny = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+                if (Math.abs(ny - ys[c]) > AiCommander.DRIFT_CLIMB) continue;
+                var fluid = level.getFluidState(new BlockPos(bx, ny - 1, bz));
+                if (!fluid.isEmpty() && (!fluid.is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(new BlockPos(bx, ny - 2, bz)).isEmpty())) continue;
+                from[n] = c;
+                ys[n] = ny;
+                queue[tail++] = n;
+                double dd = Math.hypot(bx + 0.5 - tx, bz + 0.5 - tz);
+                if (dd < bestD) {
+                    bestD = dd;
+                    best = n;
+                }
+            }
+        }
+        if (best == start || startD - bestD < 2) return null;
+        int len = 0;
+        for (int c = best; c != start; c = from[c]) len++;
+        long[] path = new long[len];
+        for (int c = best, i = len - 1; c != start; c = from[c], i--)
+            path[i] = (long) (x0 + c % side - AiCommander.DETOUR) << 32 | (z0 + c / side - AiCommander.DETOUR) & 0xFFFFFFFFL;
+        return path;
+    }
+
+    private static long gameStand(ServerLevel level, int bx, int bz, int ownY) {
+        TacticalMap map = TacticalMap.of(level);
+        int top0 = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+        boolean unknown = false;
+        // at about its own height (a step up or down: a house's floor, the ground round a wall) the nearest across;
+        // else the nearest across at any height (a hill's top), nearest its own height
+        long near = Long.MIN_VALUE, any = Long.MIN_VALUE;
+        double nearD = Double.MAX_VALUE, anyD = Double.MAX_VALUE;
+        for (int dx = -AiCommander.SNAP; dx <= AiCommander.SNAP; dx++)
+            for (int dz = -AiCommander.SNAP; dz <= AiCommander.SNAP; dz++) {
+                int x = bx + dx, z = bz + dz;
+                if (!level.hasChunk(x >> 4, z >> 4)) continue;
+                int top = dx == 0 && dz == 0 ? top0 : level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                double across = dx * dx + dz * dz;
+                for (int y = top, low = Math.max(level.getMinY(), Math.min(top, ownY) - AiCommander.DOWN); y >= low; y--) {
+                    SectionCells c = map.cellsAt(x, y, z);
+                    if (c == null) {
+                        unknown = true;
+                        break;
+                    }
+                    if (c.find(x & 15, y & 15, z & 15) < 0) continue;
+                    int dy = Math.abs(y - ownY);
+                    if (dy <= AiCommander.LEVEL && across < nearD) {
+                        nearD = across;
+                        near = BlockPos.asLong(x, y, z);
+                    }
+                    double d = across * 1000 + dy;
+                    if (d < anyD) {
+                        anyD = d;
+                        any = BlockPos.asLong(x, y, z);
+                    }
+                }
+            }
+        if (near != Long.MIN_VALUE) return near;
+        if (any != Long.MIN_VALUE) return any;
+        return unknown ? BlockPos.asLong(bx, top0, bz) : Long.MIN_VALUE;
+    }
+
+    /** AiSpawn.place as it was before core's SpawnPlace (589b844), for the comparison above */
+    private static boolean gamePlace(ServerLevel level, Mob mob, Vec3 at, net.minecraft.util.RandomSource rng, int count) {
+        double reach = 2 + Math.sqrt(count) * 1.5;
+        for (int attempt = 0; attempt <= 16; attempt++) {
+            double a = rng.nextDouble() * Math.PI * 2, r = attempt == 16 ? 0 : 1.5 + rng.nextDouble() * reach;
+            double x = Math.floor(at.x + Math.cos(a) * r) + 0.5, z = Math.floor(at.z + Math.sin(a) * r) + 0.5;
+            for (int dy = 3; dy >= -4; dy--) {
+                BlockPos feet = BlockPos.containing(x, at.y + dy, z);
+                if (level.getBlockState(feet.below()).getCollisionShape(level, feet.below()).isEmpty()) continue;
+                mob.setPos(x, feet.getY(), z);
+                float yaw = rng.nextFloat() * 360F;
+                mob.setYRot(yaw);
+                mob.setYHeadRot(yaw);
+                mob.setYBodyRot(yaw);
+                if (level.noCollision(mob)) return true;
+            }
+        }
+        return false;
     }
 
     private static String name(Entity e) {

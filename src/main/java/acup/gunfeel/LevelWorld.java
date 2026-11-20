@@ -27,6 +27,7 @@ final class LevelWorld implements WorldView {
     private static final BlockStates TABLE = new BlockStates();
     private static final ClipContext.Block[] SHAPES = ClipContext.Block.values();
     private static final ClipContext.Fluid[] FLUIDS = ClipContext.Fluid.values();
+    private static final net.minecraft.world.level.levelgen.Heightmap.Types[] HEIGHTS = net.minecraft.world.level.levelgen.Heightmap.Types.values();
     private final Level level;
 
     LevelWorld(Level level) {
@@ -128,5 +129,21 @@ final class LevelWorld implements WorldView {
     @Override
     public boolean machineOrPartial(int state) {
         return TABLE.machineOrPartial(state);
+    }
+
+    @Override
+    public int height(int x, int z, int kind) {
+        if (kind < 0 || kind >= HEIGHTS.length) throw new IllegalArgumentException("no heightmap of kind " + kind);
+        return level.getHeight(HEIGHTS[kind], x, z);
+    }
+
+    @Override
+    public boolean hasChunk(int cx, int cz) {
+        return level.hasChunk(cx, cz);
+    }
+
+    @Override
+    public int minY() {
+        return level.getMinY();
     }
 }

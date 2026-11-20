@@ -104,14 +104,14 @@ public final class AiCommander {
     static final int DRIFT = 20;
     /** a pair's one going round looked at for a fight this often, ticks (C4) */
     static final int COUPLE = 10;
-    static final double DRIFT_STEP = 4, DRIFT_CLIMB = 3, DRIFT_STOP = 48;
+    static final double DRIFT_STEP = 4, DRIFT_CLIMB = StaffGround.CLIMB, DRIFT_STOP = 48;
     /**
      * asleep: a point of its way in water, or before a stretch over water, reached this near only (not REACHED: it
      * would cut across beside the ford); no spread of the squad within DRIFT_WET of water; blocks
      */
     static final double DRIFT_AT_WATER = 1.5, DRIFT_WET = 8;
     /** asleep, a step into deep water: a way round looked for over the blocks within DETOUR, DETOUR_AGAIN ticks apart at most */
-    static final int DETOUR = 12, DETOUR_AGAIN = 100;
+    static final int DETOUR = StaffGround.DETOUR, DETOUR_AGAIN = 100;
     /** new ways a side asks for at most each time it gives its orders (the rest keep theirs or go straight till the next) */
     static final int WAYS = 3;
     static final int ROUTE_FAILS = 3;
@@ -880,49 +880,7 @@ public final class AiCommander {
      * The blocks it goes by after its own, x << 32 | z.
      */
     static long @Nullable [] detour(ServerLevel level, int x0, int z0, int y0, double tx, double tz) {
-        int side = DETOUR * 2 + 1;
-        int[] from = new int[side * side], ys = new int[side * side];
-        java.util.Arrays.fill(from, -2);
-        int start = DETOUR * side + DETOUR;
-        from[start] = -1;
-        ys[start] = y0;
-        int[] queue = new int[side * side];
-        int head = 0, tail = 0, best = start;
-        queue[tail++] = start;
-        double bestD = Math.hypot(x0 + 0.5 - tx, z0 + 0.5 - tz);
-        double startD = bestD;
-        while (head < tail) {
-            int c = queue[head++];
-            int cx = c % side, cz = c / side;
-            for (int d = 0; d < 4; d++) {
-                int nx = cx + (d == 0 ? 1 : d == 1 ? -1 : 0), nz = cz + (d == 2 ? 1 : d == 3 ? -1 : 0);
-                if (nx < 0 || nz < 0 || nx >= side || nz >= side) continue;
-                int n = nz * side + nx;
-                if (from[n] != -2) continue;
-                int bx = x0 + nx - DETOUR, bz = z0 + nz - DETOUR;
-                from[n] = -3;
-                if (!level.hasChunk(bx >> 4, bz >> 4)) continue;
-                int ny = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
-                if (Math.abs(ny - ys[c]) > DRIFT_CLIMB) continue;
-                var fluid = level.getFluidState(new BlockPos(bx, ny - 1, bz));
-                if (!fluid.isEmpty() && (!fluid.is(net.minecraft.tags.FluidTags.WATER) || !level.getFluidState(new BlockPos(bx, ny - 2, bz)).isEmpty())) continue;
-                from[n] = c;
-                ys[n] = ny;
-                queue[tail++] = n;
-                double dd = Math.hypot(bx + 0.5 - tx, bz + 0.5 - tz);
-                if (dd < bestD) {
-                    bestD = dd;
-                    best = n;
-                }
-            }
-        }
-        if (best == start || startD - bestD < 2) return null;
-        int len = 0;
-        for (int c = best; c != start; c = from[c]) len++;
-        long[] path = new long[len];
-        for (int c = best, i = len - 1; c != start; c = from[c], i--)
-            path[i] = (long) (x0 + c % side - DETOUR) << 32 | (z0 + c / side - DETOUR) & 0xFFFFFFFFL;
-        return path;
+        return StaffGround.detour(acup.gunfeel.Wiring.world(level), acup.gunfeel.water.LevelFluids.of(level), x0, z0, y0, tx, tz);
     }
 
     /**
@@ -1778,9 +1736,9 @@ public final class AiCommander {
     }
 
     /** a place to stand looked for this far round x, z, blocks; this far down from the top the sky sees */
-    static final int SNAP = 2, DOWN = 4;
+    static final int SNAP = StaffGround.SNAP, DOWN = StaffGround.DOWN;
     /** a place this much over or under the soldier is at about its height, blocks */
-    static final int LEVEL = 2;
+    static final int LEVEL = StaffGround.LEVEL;
     /** off only for the stands' "before" (AiCheckWall): the top the sky sees taken as it is */
     static boolean snap = true;
     /** off only for the stands' "before" (AiCheckWall): a leg's time out with no way made is no leg failed */
@@ -1815,41 +1773,7 @@ public final class AiCommander {
      * Long.MIN_VALUE where it has and there is none.
      */
     static long stand(ServerLevel level, int bx, int bz, int ownY) {
-        TacticalMap map = TacticalMap.of(level);
-        int top0 = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
-        boolean unknown = false;
-        // at about its own height (a step up or down: a house's floor, the ground round a wall) the nearest across;
-        // else the nearest across at any height (a hill's top), nearest its own height
-        long near = Long.MIN_VALUE, any = Long.MIN_VALUE;
-        double nearD = Double.MAX_VALUE, anyD = Double.MAX_VALUE;
-        for (int dx = -SNAP; dx <= SNAP; dx++)
-            for (int dz = -SNAP; dz <= SNAP; dz++) {
-                int x = bx + dx, z = bz + dz;
-                if (!level.hasChunk(x >> 4, z >> 4)) continue;
-                int top = dx == 0 && dz == 0 ? top0 : level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-                double across = dx * dx + dz * dz;
-                for (int y = top, low = Math.max(level.getMinY(), Math.min(top, ownY) - DOWN); y >= low; y--) {
-                    SectionCells c = map.cellsAt(x, y, z);
-                    if (c == null) {
-                        unknown = true;
-                        break;
-                    }
-                    if (c.find(x & 15, y & 15, z & 15) < 0) continue;
-                    int dy = Math.abs(y - ownY);
-                    if (dy <= LEVEL && across < nearD) {
-                        nearD = across;
-                        near = BlockPos.asLong(x, y, z);
-                    }
-                    double d = across * 1000 + dy;
-                    if (d < anyD) {
-                        anyD = d;
-                        any = BlockPos.asLong(x, y, z);
-                    }
-                }
-            }
-        if (near != Long.MIN_VALUE) return near;
-        if (any != Long.MIN_VALUE) return any;
-        return unknown ? BlockPos.asLong(bx, top0, bz) : Long.MIN_VALUE;
+        return StaffGround.stand(acup.gunfeel.Wiring.world(level), TacticalMap.of(level), bx, bz, ownY);
     }
 
     /** a leg (not a bound's) set to x, z: its end and how far off it, for the next leg to tell whether it made way */

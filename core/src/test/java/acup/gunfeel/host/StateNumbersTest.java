@@ -170,6 +170,30 @@ class StateNumbersTest {
             return table.state(state).key.equals("minecraft:stone") ? 1.5F : 0F;
         }
 
+        /** the fake level's lowest y; its chunks loaded: those round 0 0 */
+        static final int MIN_Y = -16;
+
+        // the column's top: over its highest block that is not air, every heightmap alike (no leaves, no liquids here)
+        @Override
+        public int height(int x, int z, int kind) {
+            if (kind < HEIGHT_WORLD_SURFACE_WG || kind > HEIGHT_MOTION_BLOCKING_NO_LEAVES) throw new IllegalArgumentException("no heightmap of kind " + kind);
+            int top = MIN_Y;
+            for (var e : blocks.entrySet())
+                for (int y = MIN_Y; y < 64; y++)
+                    if (e.getKey() == key(x, y, z) && !e.getValue().key.endsWith("air")) top = Math.max(top, y + 1);
+            return top;
+        }
+
+        @Override
+        public boolean hasChunk(int cx, int cz) {
+            return Math.abs(cx) <= 1 && Math.abs(cz) <= 1;
+        }
+
+        @Override
+        public int minY() {
+            return MIN_Y;
+        }
+
         @Override
         public boolean air(int state) {
             return table.air(state);

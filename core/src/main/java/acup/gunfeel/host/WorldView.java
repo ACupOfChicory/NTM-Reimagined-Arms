@@ -52,4 +52,20 @@ public interface WorldView extends BlockTable {
      * block's collision shape, no hard entity in it, the world border not crossed.
      */
     boolean free(@Nullable Body by, double x0, double y0, double z0, double x1, double y1, double z1);
+
+    /** The heightmaps {@link #height} reads, as the game's Heightmap.Types by its ordinal. */
+    int HEIGHT_WORLD_SURFACE_WG = 0, HEIGHT_WORLD_SURFACE = 1, HEIGHT_OCEAN_FLOOR_WG = 2, HEIGHT_OCEAN_FLOOR = 3, HEIGHT_MOTION_BLOCKING = 4,
+            HEIGHT_MOTION_BLOCKING_NO_LEAVES = 5;
+
+    /**
+     * The game's Level.getHeight(kind, x, z): the y over the column's highest block that heightmap counts (the level's
+     * lowest y with none; a chunk not loaded is loaded by the game to answer). Another kind: IllegalArgumentException.
+     */
+    int height(int x, int z, int kind);
+
+    /** The game's hasChunk(cx, cz): the chunk is loaded now (asking never loads it). Not {@code loaded(x, y, z)}: no height here. */
+    boolean hasChunk(int cx, int cz);
+
+    /** The level's lowest block's y (the game's getMinY). */
+    int minY();
 }

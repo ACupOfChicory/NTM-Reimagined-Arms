@@ -48,7 +48,7 @@ public final class Wiring implements Ports {
         // ---- water (its world comes per level: liquids below)
         // ---- other: hitboxes, GL-54, HUD, tacz, NTM's guns, items
         put(acup.gunfeel.host.GamePause.class, new ClientPause());
-        put(acup.gunfeel.host.NtmGuns.class, new acup.gunfeel.ai.AiGunner.Guns());
+        put(acup.gunfeel.host.NtmGuns.class, new NtmGunsPort());
         put(acup.gunfeel.host.ItemTable.class, new ItemNames());
         put(acup.gunfeel.host.EntityTypeTable.class, new EntityTypeNames());
         put(acup.gunfeel.host.Hurts.class, new HurtsPort());
