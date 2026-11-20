@@ -6,6 +6,9 @@ package acup.gunfeel;
  * and the game's sequence goes on as before; core keeps no generator of its own.
  */
 public interface GameRandom {
+    /** RandomSource.nextInt(bound), in the same sequence as the other draws. */
+    int nextInt(int bound);
+
     /** RandomSource.nextDouble */
     double nextDouble();
 

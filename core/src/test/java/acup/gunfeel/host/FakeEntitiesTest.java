@@ -92,6 +92,7 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public acup.gunfeel.GameRandom random() {
             java.util.Random r = new java.util.Random(id);
             return new acup.gunfeel.GameRandom() {
+                @Override public int nextInt(int bound) { return r.nextInt(bound); }
                 @Override public double nextDouble() { return r.nextDouble(); }
                 @Override public boolean nextBoolean() { return r.nextBoolean(); }
                 @Override public float nextFloat() { return r.nextFloat(); }
@@ -111,6 +112,8 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public boolean flying() { return false; }
         @Override public boolean alive() { return !removed; }
         @Override public boolean removed() { return removed; }
+        @Override public Body lastHurtBy() { livingOnly(); return player ? null : this; }
+        @Override public Body killCredit() { livingOnly(); return player ? null : this; }
         @Override public float health() { livingOnly(); return 20; }
         @Override public float maxHealth() { livingOnly(); return 20; }
         @Override public boolean spectator() { return player && spectator; }
@@ -226,6 +229,13 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public void face(Body b, float yaw) { }
         @Override public boolean turned(Body b) { return false; }
         @Override public void lookAt(Body b, double x, double y, double z, float yMax, float xMax) { }
+
+        @Override
+        public void snap(Body b, double x, double y, double z, float yaw, float pitch) {
+            place(b, x, y, z);
+            yRot(b, yaw);
+            xRot(b, pitch);
+        }
 
         @Override
         public void place(Body b, double x, double y, double z) {

@@ -74,6 +74,9 @@ class PierceTest {
     private static WorldView world(Fake b) {
         return new WorldView() {
             @Override
+            public acup.gunfeel.GameRandom random() { throw new AssertionError("not asked"); }
+
+            @Override
             public int state(int x, int y, int z) {
                 assertEquals(4 + " " + 5 + " " + 6, x + " " + y + " " + z);
                 return 7;

@@ -135,6 +135,12 @@ public interface Body {
     /** its health (getHealth); living */
     float health();
 
+    /** Last attacker (getLastHurtByMob); living only, null if none. The attacker's one Body, also on repeated calls. */
+    @Nullable Body lastHurtBy();
+
+    /** Credited killer (getKillCredit); living only, null if none. The entity's one Body, also on repeated calls. */
+    @Nullable Body killCredit();
+
     /** its maximum health (getMaxHealth); living */
     float maxHealth();
 

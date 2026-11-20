@@ -10,6 +10,11 @@ public final class GameRandoms {
     public static GameRandom of(RandomSource r) {
         return new GameRandom() {
             @Override
+            public int nextInt(int bound) {
+                return r.nextInt(bound);
+            }
+
+            @Override
             public double nextDouble() {
                 return r.nextDouble();
             }
