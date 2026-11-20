@@ -12,6 +12,7 @@ import acup.gunfeel.BulletRuleText.Rule;
 import acup.gunfeel.BulletRuleText.Sound;
 import acup.gunfeel.BulletRuleText.Whizz;
 import acup.gunfeel.host.BlockTable;
+import acup.gunfeel.host.Body;
 import acup.gunfeel.host.EntityTypeTable;
 
 /**
@@ -80,6 +81,16 @@ public class BulletRulesBase extends BulletRuleText {
     // the game's, each asked only for its selector
     static boolean matches(List<String> sel, int number) {
         return BlockSelectors.matches(sel, BLOCKS.facts(number), () -> material(number).material(), () -> BLOCKS.machineOrPartial(number));
+    }
+
+    // The live reads stay ordered; only the collision question used to catch a failing shape.
+    static boolean machineOrPartial(int number) {
+        if (BLOCKS.blockEntity(number) || !BLOCKS.model(number)) return true;
+        try {
+            return !BLOCKS.fullCollision(number);
+        } catch (RuntimeException e) {
+            return true;
+        }
     }
 
     // which creatures: by their type's id ("*", an id or a mask) or a type tag ("#namespace:path")
@@ -194,6 +205,10 @@ public class BulletRulesBase extends BulletRuleText {
     }
 
     // a creature hit ("entity") or killed ("kill") by a bullet, by its type's number
+    static Effect entity(String kind, Body b) {
+        return entity(kind, b.typeNumber());
+    }
+
     static synchronized Effect entity(String kind, int type) {
         Rule r = last(kind, x -> entityMatches(x.selectors(), type));
         return r == null ? BulletRuleText.NO_EFFECT : BulletRuleText.effect(r);

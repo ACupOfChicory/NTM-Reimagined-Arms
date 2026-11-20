@@ -29,6 +29,10 @@ class DrainTest {
     }
 
     private static final class Reads implements HurtNow, ArmorSuits {
+        @Override public float headMultiplier() { throw new UnsupportedOperationException(); }
+        @Override public float floorOf(Object direct, int tier) { throw new UnsupportedOperationException(); }
+        @Override public float[] underOf(Object direct, int tier) { throw new UnsupportedOperationException(); }
+        @Override public float corrosion(Body b) { throw new UnsupportedOperationException(); }
         @Override public boolean gas() { throw new UnsupportedOperationException(); }
         @Override public int reach(Object hurt) { throw new UnsupportedOperationException(); }
         @Override public float schemeDrain(Body b, Object hurt) { throw new UnsupportedOperationException(); }

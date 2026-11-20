@@ -24,10 +24,6 @@ public final class AiBot extends AiBotBase {
     public final AiDash dash = new AiDash();
     /** a supplier: the one it runs to with supplies, since when; no look for one in need before this tick */
     @Nullable AiBot supplyTo;
-    /** a marksman's perch and shots (AiMarksman); null till it is one in a fight */
-    AiMarksman.@Nullable State marksman;
-    /** a medic's kits and run (AiMedic); null till it is one */
-    AiMedic.@Nullable State medic;
     /** its side's commander's order: an area to go to and look through (AiCommander), null: none */
     AiCommander.@Nullable Order order;
     /** the fallen supplier's stock it goes for (AiSupply) */

@@ -42,6 +42,7 @@ class FakeEntitiesTest extends EntityViewContract {
         final int id;
         final boolean living, player, spectator;
         final int kind;
+        int age = 300, lastHurtTime = 201;
         double x, y, z;
         boolean removed;
         byte stance = Stance.STAND;
@@ -63,6 +64,8 @@ class FakeEntitiesTest extends EntityViewContract {
         }
 
         @Override public int id() { return id; }
+        @Override public int typeNumber() { return player ? 3 : kind + 10; }
+        @Override public int age() { return age; }
         @Override public java.util.UUID uuid() { return uuid; }
         @Override public boolean living() { return living; }
         @Override public boolean player() { return player; }
@@ -113,6 +116,7 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public boolean alive() { return !removed; }
         @Override public boolean removed() { return removed; }
         @Override public Body lastHurtBy() { livingOnly(); return player ? null : this; }
+        @Override public int lastHurtTime() { livingOnly(); return lastHurtTime; }
         @Override public Body killCredit() { livingOnly(); return player ? null : this; }
         @Override public float health() { livingOnly(); return 20; }
         @Override public float maxHealth() { livingOnly(); return 20; }
@@ -190,6 +194,21 @@ class FakeEntitiesTest extends EntityViewContract {
     @Override
     protected EntityView view() {
         return level;
+    }
+
+    @Override
+    protected int typeNumber(int entity) {
+        return entity == 3 ? 3 : entity == 2 ? EntityView.PROJECTILE + 10 : EntityView.MOB + 10;
+    }
+
+    @Override
+    protected void tick() {
+        for (Fake f : level.byId.values()) f.age++;
+    }
+
+    @Override
+    protected int lastHurtTime(int id) {
+        return level.byId.get(id).lastHurtTime;
     }
 
     /** the fakes' control: a walk is the cells given, done once stopped; the point wanted kept; never stuck */

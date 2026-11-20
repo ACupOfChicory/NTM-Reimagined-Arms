@@ -109,10 +109,15 @@ public final class EuphImmunity extends EuphImmunityBase {
      */
     static int reach(DamageSource source) {
         if (!(source.getEntity() instanceof net.minecraft.world.entity.LivingEntity hitter)) return 0;
-        return reachOf(hitter.getMainHandItem());
+        return GunsPort.GUNS.reach(EntityBody.of(hitter), acup.gunfeel.host.Body.MAIN_HAND);
     }
 
-    /** the same of a gun's stack (0: not an NTM gun) */
+    /** the NtmGuns port, its reach in the hitter's hand */
+    private static final class GunsPort {
+        static final acup.gunfeel.host.NtmGuns GUNS = CoreServices.load(acup.gunfeel.host.NtmGuns.class, acup.gunfeel.host.NtmGuns.NONE);
+    }
+
+    /** the same of a gun's stack (0: not an NTM gun); NtmGunsPort.reach reads it so (NTM's reads stay in this class) */
     static int reachOf(net.minecraft.world.item.ItemStack stack) {
         if (!(stack.getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) return 0;
         int most = 0;

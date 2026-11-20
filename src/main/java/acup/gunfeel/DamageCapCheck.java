@@ -8,13 +8,21 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import acup.gunfeel.host.Body;
+import acup.gunfeel.host.NtmBullets;
+import acup.gunfeel.host.NtmGuns;
+
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
+import com.hbm.entity.projectile.EntityBulletBeamBase;
+import com.hbm.entity.projectile.EntityThrowableNT;
 import com.hbm.extprop.HbmPlayerProps;
 import com.hbm.handler.HbmKeybinds.EnumKeybind;
 import com.hbm.items.ModItems;
 import com.hbm.items.armor.ModArmorItem;
 import com.hbm.items.weapon.sedna.BulletConfig;
+import com.hbm.items.weapon.sedna.GunConfig;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
+import com.hbm.items.weapon.sedna.Receiver;
 import com.hbm.items.weapon.sedna.factory.XFactory10ga;
 import com.hbm.items.weapon.sedna.factory.XFactory12ga;
 import com.hbm.items.weapon.sedna.factory.XFactory50;
@@ -22,9 +30,11 @@ import com.hbm.items.weapon.sedna.factory.XFactory762mm;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -32,6 +42,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.decoration.Mannequin;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.arrow.Arrow;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
@@ -182,6 +194,8 @@ public final class DamageCapCheck {
     }
 
     private static void plan() {
+        STEPS.add(DamageCapCheck::ntmBullets);
+        STEPS.add(DamageCapCheck::maxDelay);
         // the server's file is read once a second
         STEPS.add(() -> keys("damageCap", "true"));
         wait(30);
@@ -210,6 +224,187 @@ public final class DamageCapCheck {
     }
 
     // ---------------------------------------------------------------- the cases
+
+    private static void ntmBullets() {
+        NtmBullets port = CoreServices.load(NtmBullets.class, NtmBullets.MISSING);
+        List<String> differences = new ArrayList<>();
+        Entity other = EntityTypes.MARKER.create(level, EntitySpawnReason.COMMAND);
+        Mob mob = EntityTypes.HUSK.create(level, EntitySpawnReason.COMMAND);
+        EntityBulletBaseMK4 owned = new EntityBulletBaseMK4(shooter, XFactory12ga.g12_slug, 0F, 0F, 0D, 0D, 0D);
+        EntityBulletBaseMK4 unowned = new EntityBulletBaseMK4(level, XFactory12ga.g12_slug, 0F, 0F, 0F, 0F);
+        BulletsBeam beam = new BulletsBeam(shooter);
+        BulletsBeam emptyBeam = new BulletsBeam(null);
+        BulletsThrown thrown = new BulletsThrown(shooter, shooter);
+        BulletsThrown emptyThrown = new BulletsThrown((LivingEntity) null);
+        BulletsThrown changedThrown = new BulletsThrown(shooter, gunner);
+        BulletsThrown clearedThrown = new BulletsThrown(shooter, null);
+        BulletsThrown fallbackThrown = new BulletsThrown((LivingEntity) null);
+        ((Projectile) fallbackThrown).setOwner(mob);
+        Arrow arrow = new Arrow(EntityTypes.ARROW, level);
+        arrow.setOwner(mob);
+        Arrow otherArrow = new Arrow(EntityTypes.ARROW, level);
+        otherArrow.setOwner(other);
+        Arrow emptyArrow = new Arrow(EntityTypes.ARROW, level);
+        String[] names = {"null", "living mannequin", "non-projectile", "MK4 owner", "MK4 no owner",
+                "beam thrower + owner", "beam null thrower + living owner", "throwable thrower", "throwable no thrower",
+                "throwable A then B", "throwable A then null", "throwable null then living owner",
+                "arrow mob owner", "arrow nonliving owner", "arrow no owner"};
+        Entity[] entities = {null, shooter, other, owned, unowned, beam, emptyBeam, thrown, emptyThrown,
+                changedThrown, clearedThrown, fallbackThrown, arrow, otherArrow, emptyArrow};
+        int count = 0;
+        for (int i = 0; i < entities.length; i++) {
+            bulletsCase(port, names[i], entities[i], differences);
+            count++;
+        }
+        owned.config = null;
+        beam.config = null;
+        bulletsCase(port, "MK4 null config", owned, differences);
+        bulletsCase(port, "beam null config", beam, differences);
+        count += 2;
+        BulletConfig config = XFactory12ga.g12_slug;
+        int before = config.projectilesMax;
+        try {
+            owned.config = config;
+            beam.config = config;
+            for (int max : new int[] {Integer.MIN_VALUE, 0, 1, 2, Integer.MAX_VALUE}) {
+                config.projectilesMax = max;
+                bulletsCase(port, "MK4 projectilesMax=" + max, owned, differences);
+                bulletsCase(port, "beam projectilesMax=" + max, beam, differences);
+                count += 2;
+            }
+        } finally {
+            config.projectilesMax = before;
+        }
+        for (int i = 0; i < Math.min(3, differences.size()); i++) LINES.add("#\tNtmBullets: " + differences.get(i));
+        check(differences.isEmpty(), "NtmBullets: " + count + " случаев, расхождений " + differences.size());
+    }
+
+    private static void bulletsCase(NtmBullets port, String name, Entity e, List<String> differences) {
+        resetBulletReads(e);
+        LivingEntity old = oldShooter(e);
+        Body expected = old == null ? null : EntityBody.of(old);
+        String reads = bulletReads(e);
+        boolean pellet = oldPellet(e), capped = oldCapProjectile(e);
+        resetBulletReads(e);
+        Body actual = port.shooter(e);
+        String actualReads = bulletReads(e);
+        boolean actualPellet = port.pellet(e), actualCapped = port.capProjectile(e);
+        resetBulletReads(e);
+        LivingEntity facade = DamageCap.shooter(e);
+        String facadeReads = bulletReads(e);
+        if (expected != actual || old != facade || pellet != actualPellet || pellet != DamageCap.pellet(e)
+                || capped != actualCapped || !reads.equals(actualReads) || !reads.equals(facadeReads)) {
+            differences.add(name + ": shooter=" + old + "/" + EntityBody.entity(actual) + "/" + facade
+                    + ", reads=" + reads + "/" + actualReads + "/" + facadeReads
+                    + ", pellet=" + pellet + "/" + actualPellet + ", capProjectile=" + capped + "/" + actualCapped);
+        }
+    }
+
+    private static void resetBulletReads(Entity e) {
+        if (e instanceof BulletsThrown thrown) thrown.at = 0;
+        if (e instanceof BulletsBeam beam) beam.throwerReads = beam.ownerReads = 0;
+    }
+
+    private static String bulletReads(Entity e) {
+        if (e instanceof BulletsThrown thrown) return "thrower=" + thrown.at;
+        if (e instanceof BulletsBeam beam) return "thrower=" + beam.throwerReads + ", owner=" + beam.ownerReads;
+        return "";
+    }
+
+    // Real NTM entities with repeatable reads; none are added to the world.
+    private static final class BulletsThrown extends EntityBulletBaseMK4 {
+        private final LivingEntity[] replies;
+        private int at;
+
+        BulletsThrown(LivingEntity... replies) {
+            super(level, XFactory12ga.g12_slug, 0F, 0F, 0F, 0F);
+            this.replies = replies;
+        }
+
+        @Override public LivingEntity getThrower() {
+            return replies[Math.min(at++, replies.length - 1)];
+        }
+    }
+
+    static final class BulletsBeam extends EntityBulletBeamBase {
+        private final LivingEntity reply;
+        private int throwerReads, ownerReads;
+
+        BulletsBeam(LivingEntity reply) {
+            super(shooter, XFactory12ga.g12_slug, 0F, 0F, 0D, 0D, 0D);
+            this.reply = reply;
+        }
+
+        @Override protected void performHitscan() {}
+
+        @Override public LivingEntity getThrower() {
+            throwerReads++;
+            return reply;
+        }
+
+        // Beams have no MC owner; this available owner must never be consulted.
+        public Entity getOwner() {
+            ownerReads++;
+            return shooter;
+        }
+    }
+
+    private static LivingEntity oldShooter(Entity e) {
+        if (e == null) return null;
+        if (e instanceof LivingEntity living) return living;
+        if (e instanceof EntityBulletBeamBase beam) return beam.getThrower();
+        if (e instanceof EntityThrowableNT thrown && thrown.getThrower() != null) return thrown.getThrower();
+        if (e instanceof Projectile p && p.getOwner() instanceof LivingEntity owner) return owner;
+        return null;
+    }
+
+    private static boolean oldPellet(Entity entity) {
+        com.hbm.items.weapon.sedna.BulletConfig c = entity instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b ? b.config
+                : entity instanceof EntityBulletBeamBase beam ? beam.config : null;
+        return c != null && c.projectilesMax > 1;
+    }
+
+    private static boolean oldCapProjectile(Entity entity) {
+        return entity instanceof Projectile || entity instanceof EntityBulletBeamBase;
+    }
+
+    private static void maxDelay() {
+        NtmGuns guns = CoreServices.load(NtmGuns.class, NtmGuns.NONE);
+        ItemStack before = shooter.getMainHandItem();
+        int count = 0, mismatches = 0;
+        try {
+            for (Item item : BuiltInRegistries.ITEM) {
+                if (!(item instanceof ItemGunBaseNT)) continue;
+                count++;
+                shooter.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(item));
+                String why = null;
+                try {
+                    int old = oldGunDelay(shooter);
+                    int port = guns.maxDelay(EntityBody.of(shooter), Body.MAIN_HAND);
+                    int facade = DamageCap.gunDelay(shooter);
+                    if (old != port || old != facade) why = "old=" + old + ", port=" + port + ", facade=" + facade;
+                } catch (RuntimeException e) {
+                    why = e.toString();
+                }
+                if (why != null && ++mismatches <= 3) LINES.add("#\tmaxDelay: " + BuiltInRegistries.ITEM.getKey(item) + ": " + why);
+            }
+        } finally {
+            shooter.setItemSlot(EquipmentSlot.MAINHAND, before);
+        }
+        check(count > 0 && mismatches == 0, "maxDelay: " + count + " ружей, расхождений " + mismatches);
+    }
+
+    private static int oldGunDelay(LivingEntity shooter) {
+        int out = 0;
+        ItemStack stack = shooter.getMainHandItem();
+        if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return 0;
+        for (int i = 0; i < gun.getConfigCount(); i++) {
+            GunConfig config = gun.getConfig(stack, i);
+            if (config == null) continue;
+            for (Receiver r : config.getReceivers(stack)) out = Math.max(out, r.getDelayAfterFire(stack));
+        }
+        return out;
+    }
 
     private static void spas(String n, boolean hev, BulletConfig ammo, float shield) {
         oneClick(n, hev, ModItems.GUN_SPAS12::get, ammo, EnumKeybind.GUN_SECONDARY, shield);

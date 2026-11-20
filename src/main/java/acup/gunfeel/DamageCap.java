@@ -1,13 +1,11 @@
 package acup.gunfeel;
 
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.UUID;
-import java.util.WeakHashMap;
-
 import org.jspecify.annotations.Nullable;
+
+import acup.gunfeel.host.Body;
+import acup.gunfeel.host.CapNow;
+import acup.gunfeel.host.NtmBullets;
+import acup.gunfeel.host.NtmGuns;
 
 import com.hbm.entity.projectile.EntityBulletBeamBase;
 import com.hbm.entity.projectile.EntityThrowableNT;
@@ -56,88 +54,49 @@ public final class DamageCap extends DamageCapBase {
     private DamageCap() {
     }
 
-    /** one projectile: the tick it was fired, its gun waiting {@code sniperDelay} or more between shots */
-    private record Shot(long tick, boolean sniper) {
-    }
-
-    private static final Map<Entity, Shot> SHOTS = new WeakHashMap<>();
-    private static final Map<UUID, Map<UUID, DamageCapRule.Ledger>> LEDGERS = new HashMap<>();
-    /** NTM's shield of each target being hurt, before the hurt, and the tick it was read */
-    private record Before(long tick, float shield) {
-    }
-
-    private static final Map<LivingEntity, Before> SHIELD_BEFORE = new IdentityHashMap<>();
-
-    /** the stand: what the last capped hit was (its click, head, sniper, the damage before and after) */
-    static volatile String last = "";
-    /** the stand: hits capped so far */
-    static volatile long cut;
-
     public static void register() {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, EntityJoinLevelEvent.class, DamageCap::joined);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, LivingIncomingDamageEvent.class, DamageCap::incoming);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, LivingDamageEvent.Pre.class, DamageCap::damage);
         NeoForge.EVENT_BUS.addListener(ServerTickEvent.Post.class, e -> {
-            if (e.getServer().getTickCount() % 200 == 0) sweep(e.getServer().overworld().getGameTime());
+            if (sweepTickOf(e.getServer().getTickCount())) sweepOf(e.getServer().overworld().getGameTime());
         });
         // another world in the same game starts its ticks anew
         NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.server.ServerStoppingEvent.class, e -> forget());
     }
 
     static boolean on() {
-        return ReaimTimes.flag("damageCap", true);
+        return onOf();
     }
 
     static DamageCapRule.Limits limits() {
-        var d = DamageCapRule.Limits.DEFAULT;
-        return new DamageCapRule.Limits(share("damageCapClick", d.click()), share("damageCapHead", d.head()), share("damageCapWindow", d.window()),
-                ticks("damageCapWindowTicks", d.windowTicks()), share("damageCapSniperHead", d.sniperHead()), ticks("damageCapSniperDelay", d.sniperDelay()));
-    }
-
-    /** a share of max health: above 0, a number (else the default) */
-    private static float share(String key, float def) {
-        float v = ReaimTimes.number(key, def);
-        return Float.isFinite(v) && v > 0F ? v : def;
-    }
-
-    /** ticks: 1 or more (else the default) */
-    private static int ticks(String key, int def) {
-        float v = ReaimTimes.number(key, def);
-        return Float.isFinite(v) && v >= 1F ? Math.round(v) : def;
+        return limitsOf();
     }
 
     // ---------------------------------------------------------------- who fired it
 
     /** the living entity that fired {@code e}, or {@code e} itself when it is living */
     static @Nullable LivingEntity shooter(@Nullable Entity e) {
-        if (e == null) return null;
-        if (e instanceof LivingEntity living) return living;
-        if (e instanceof EntityBulletBeamBase beam) return beam.getThrower();
-        if (e instanceof EntityThrowableNT thrown && thrown.getThrower() != null) return thrown.getThrower();
-        if (e instanceof Projectile p && p.getOwner() instanceof LivingEntity owner) return owner;
-        return null;
+        return (LivingEntity) EntityBody.entity(BulletsPort.BULLETS.shooter(e));
     }
 
     /** the wait between shots of the gun in the shooter's main hand (NTM's guns fire from there; akimbo guns are one item) */
     static int gunDelay(LivingEntity shooter) {
-        int out = 0;
-        ItemStack stack = shooter.getMainHandItem();
-        if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return 0;
-        for (int i = 0; i < gun.getConfigCount(); i++) {
-            GunConfig config = gun.getConfig(stack, i);
-            if (config == null) continue;
-            for (Receiver r : config.getReceivers(stack)) out = Math.max(out, r.getDelayAfterFire(stack));
-        }
-        return out;
+        return GunsPort.GUNS.maxDelay(EntityBody.of(shooter), Body.MAIN_HAND);
+    }
+
+    private static final class GunsPort {
+        static final NtmGuns GUNS = CoreServices.load(NtmGuns.class, NtmGuns.NONE);
+    }
+
+    private static final class BulletsPort {
+        static final NtmBullets BULLETS = CoreServices.load(NtmBullets.class, NtmBullets.MISSING);
     }
 
     private static void joined(EntityJoinLevelEvent e) {
         if (!(e.getLevel() instanceof ServerLevel level) || e.getEntity() instanceof LivingEntity) return;
         Entity entity = e.getEntity();
-        if (!(entity instanceof Projectile || entity instanceof EntityBulletBeamBase)) return;
-        LivingEntity shooter = shooter(entity);
-        if (shooter == null) return;
-        SHOTS.put(entity, new Shot(level.getGameTime(), gunDelay(shooter) >= limits().sniperDelay() && !pellet(entity)));
+        joinedOf(level, entity);
     }
 
     /**
@@ -145,9 +104,7 @@ public final class DamageCap extends DamageCapBase {
      * one pellet in the head would lift the whole click's cap to the sniper's
      */
     static boolean pellet(Entity entity) {
-        com.hbm.items.weapon.sedna.BulletConfig c = entity instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b ? b.config
-                : entity instanceof EntityBulletBeamBase beam ? beam.config : null;
-        return c != null && c.projectilesMax > 1;
+        return BulletsPort.BULLETS.pellet(entity);
     }
 
     // ---------------------------------------------------------------- the hurt
@@ -157,9 +114,45 @@ public final class DamageCap extends DamageCapBase {
         return exemptOf(source);
     }
 
-    /** NTM's reads of a hurt for core (HurtsPort): the cap's (CORE), the types it exempts */
-    static final class Reads {
-        private Reads() {
+    /** The cap's live reads for core (CapNow, NtmBullets and HurtsPort); NTM probes count them as CORE. */
+    static final class Reads implements CapNow, NtmBullets {
+        Reads() {
+        }
+
+        @Override public @Nullable Body shooter(@Nullable Object e) {
+            if (e == null) return null;
+            if (e instanceof LivingEntity living) return EntityBody.of(living);
+            if (e instanceof EntityBulletBeamBase beam) {
+                Entity by = beam.getThrower();
+                return by == null ? null : EntityBody.of(by);
+            }
+            if (e instanceof EntityThrowableNT thrown && thrown.getThrower() != null) {
+                Entity by = thrown.getThrower();
+                return by == null ? null : EntityBody.of(by);
+            }
+            if (e instanceof Projectile p && p.getOwner() instanceof LivingEntity owner) return EntityBody.of(owner);
+            return null;
+        }
+
+        @Override public boolean capProjectile(Object e) {
+            return e instanceof Projectile || e instanceof EntityBulletBeamBase;
+        }
+
+        @Override public boolean pellet(Object entity) {
+            com.hbm.items.weapon.sedna.BulletConfig c = entity instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b ? b.config
+                    : entity instanceof EntityBulletBeamBase beam ? beam.config : null;
+            return c != null && c.projectilesMax > 1;
+        }
+
+        static int maxDelay(ItemStack stack) {
+            int out = 0;
+            if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return 0;
+            for (int i = 0; i < gun.getConfigCount(); i++) {
+                GunConfig config = gun.getConfig(stack, i);
+                if (config == null) continue;
+                for (Receiver r : config.getReceivers(stack)) out = Math.max(out, r.getDelayAfterFire(stack));
+            }
+            return out;
         }
 
         static boolean is(DamageSource source, int what) {
@@ -169,6 +162,23 @@ public final class DamageCap extends DamageCapBase {
                 case acup.gunfeel.host.Hurts.NTM_RADIATION -> source.is(ModDamageTypes.RADIATION);
                 default -> throw new IllegalArgumentException("not the cap's question " + what);
             };
+        }
+
+        @Override public Object entity(Body target) { return EntityBody.entity(target); }
+        @Override public boolean client(Body target) { return EntityBody.entity(target).level().isClientSide(); }
+        @Override public long time(Body target) { return EntityBody.entity(target).level().getGameTime(); }
+        @Override public float shield(Body target) { return HbmPlayerProps.getData((Player) EntityBody.entity(target)).shield; }
+        @Override public <T> T withShield(Body target, ShieldUse<T> use) {
+            var props = HbmPlayerProps.getData((Player) EntityBody.entity(target));
+            var back = use.take(props, props.shield);
+            if (back.give()) props.shield += back.amount();
+            return back.value();
+        }
+        @Override public float takeAmount(Body target, float fallback) { return BalanceArmor.takeAmount((LivingEntity) EntityBody.entity(target), fallback); }
+        @Override public boolean schemeHit(Body target, Object hurt) { return BalanceFinal.hit((LivingEntity) EntityBody.entity(target), (DamageSource) hurt) != null; }
+
+        static boolean ntmExplosion(DamageSource source) {
+            return source.is(DamageTypeTags.IS_EXPLOSION) && source.typeHolder().unwrapKey().map(k -> k.identifier().getNamespace().equals("hbm")).orElse(false);
         }
     }
 
@@ -181,11 +191,11 @@ public final class DamageCap extends DamageCapBase {
     }
 
     private static boolean capped(LivingEntity target) {
-        return target instanceof Player || ReaimTimes.flag("damageCapMobs", false);
+        return cappedOf(EntityBody.of(target));
     }
 
     private static void incoming(LivingIncomingDamageEvent e) {
-        if (e.getEntity() instanceof Player p && !p.level().isClientSide() && on()) SHIELD_BEFORE.put(p, new Before(p.level().getGameTime(), HbmPlayerProps.getData(p).shield));
+        incomingOf(EntityBody.of(e.getEntity()));
     }
 
     /**
@@ -194,14 +204,12 @@ public final class DamageCap extends DamageCapBase {
      * squeeze by the same limit) takes it, after NTM's shield.
      */
     static boolean blastFree(float raw) {
-        if (!ReaimTimes.flag("damageCapBlasts", true)) return true;
-        // an explosive bullet's blast is capped at any raw damage
-        return raw > BalanceArmor.explRawLimit() && !BalanceArmor.bulletBlastNow();
+        return blastFreeOf(raw);
     }
 
     private static void damage(LivingDamageEvent.Pre e) {
         LivingEntity target = e.getEntity();
-        Before shieldBefore = SHIELD_BEFORE.remove(target);
+        Before shieldBefore = removeBeforeOf(target);
         if (!(target.level() instanceof ServerLevel level) || !on() || !capped(target)) return;
         DamageSource source = e.getSource();
         LivingEntity shooter = shooter(source.getEntity());
@@ -211,58 +219,32 @@ public final class DamageCap extends DamageCapBase {
         // NTM's blasts from a bullet or a grenade name the shooter alone (ExplosionVNT's exploder): NTM's blast is capped
         // with no projectile, as a click of this tick (a creeper's, vanilla's, is not)
         // and any NTM blast's hit whatever its class: the Tesla Cannon's is electric (BalanceArmor.vntBlastNow)
-        boolean blast = (source.is(DamageTypeTags.IS_EXPLOSION) && source.typeHolder().unwrapKey().map(k -> k.identifier().getNamespace().equals("hbm")).orElse(false))
+        boolean blast = BalanceArmorBase.HurtPort.HURTS.ntmExplosion(source)
                 || (BalanceArmor.vntBlastNow() && ReaimTimes.flag("damageCapAnyBlast", true));
         if (projectile == null && !blast) return;
         long now = level.getGameTime();
         // the hurt's raw damage as NTM's armour took it (after NTM's shield), else the hurt's own
-        float raw = BalanceArmor.takeAmount(target, e.getOriginalDamage());
+        float raw = takeAmountOf(EntityBody.of(target), e.getOriginalDamage());
         if (blast && blastFree(raw)) return;
-        Shot shot = projectile == null ? null : SHOTS.get(projectile);
+        Shot shot = projectile == null ? null : shotOf(projectile);
         if (shot == null) shot = new Shot(projectile == null ? now : now - projectile.tickCount,
                 gunDelay(shooter) >= limits().sniperDelay() && (projectile == null || !pellet(projectile)));
-        boolean head = HeadDamage.onHead(target);
+        boolean head = headOf(EntityBody.of(target));
         // the final scheme's hits on the head (owner 2026-11-12: no one-shots on the head): the plain head cap, whatever
         // the gun waits
-        if (head && shot.sniper() && BalanceFinal.hit(target, source) != null) shot = new Shot(shot.tick(), false);
-        float shield = 0F;
-        HbmPlayerProps props = null;
-        // read before this hurt, in this tick: an older one was left by a hurt that stopped short
-        if (target instanceof Player p && shieldBefore != null && shieldBefore.tick() == now) {
-            props = HbmPlayerProps.getData(p);
-            shield = Math.max(0F, shieldBefore.shield() - props.shield);
-        }
-        var ledger = LEDGERS.computeIfAbsent(target.getUUID(), k -> new HashMap<>()).computeIfAbsent(shooter.getUUID(),
-                k -> new DamageCapRule.Ledger());
-        float before = e.getNewDamage();
-        var result = DamageCapRule.take(ledger, limits(), now, shot.tick(), head, shot.sniper(), target.getMaxHealth(), shield, before);
-        if (result.shield() > 0F && props != null) props.shield += result.shield();
-        if (result.damage() < before) {
-            e.setNewDamage(result.damage());
-            cut++;
-        }
-        last = "click=" + shot.tick() + " head=" + head + " sniper=" + shot.sniper() + " shield=" + shield + " damage=" + before + "->"
-                + result.damage() + " shieldBack=" + result.shield();
-    }
-
-    private static void sweep(long now) {
-        SHIELD_BEFORE.clear();
-        for (Iterator<Map<UUID, DamageCapRule.Ledger>> it = LEDGERS.values().iterator(); it.hasNext();) {
-            var byShooter = it.next();
-            byShooter.values().removeIf(l -> l.idle(now));
-            if (byShooter.isEmpty()) it.remove();
-        }
+        if (!sniperOf(EntityBody.of(target), source, head, shot.sniper()) && shot.sniper()) shot = new Shot(shot.tick(), false);
+        var hit = applyOf(EntityBody.of(target), EntityBody.of(shooter), shieldBefore, now, shot.tick(), head, shot.sniper(), e::getNewDamage);
+        if (hit.result().damage() < hit.before()) e.setNewDamage(hit.result().damage());
+        finishOf(hit);
     }
 
     /** the stand: what was taken off {@code target} forgotten (its ledgers, by every shooter) */
     static void forget(LivingEntity target) {
-        LEDGERS.remove(target.getUUID());
-        SHIELD_BEFORE.remove(target);
+        forgetOf(EntityBody.of(target));
     }
 
     /** the stand: everything forgotten */
     static void forget() {
-        LEDGERS.clear();
-        SHIELD_BEFORE.clear();
+        forgetOf();
     }
 }

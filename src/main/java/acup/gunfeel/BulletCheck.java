@@ -449,6 +449,18 @@ public final class BulletCheck {
         // air is drawn by none
         check("world: machine or partial: not stone, a fence, air", "false true true",
                 w.machineOrPartial(s) + " " + w.machineOrPartial(f) + " " + w.machineOrPartial(acup.gunfeel.host.BlockTable.AIR));
+        // the registered table answers %mod's three reads as the game does (BlockTable's defaults throw: a table put in
+        // its place must answer them too): stone, a fence, air, a chest (a block entity)
+        var table = acup.gunfeel.CoreServices.load(acup.gunfeel.host.BlockTable.class, null);
+        StringBuilder want = new StringBuilder(), got = new StringBuilder();
+        for (BlockState st : List.of(stoneState, net.minecraft.world.level.block.Blocks.OAK_FENCE.defaultBlockState(),
+                net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), net.minecraft.world.level.block.Blocks.CHEST.defaultBlockState())) {
+            int n = BlockStates.number(st);
+            want.append(st.hasBlockEntity()).append(st.getRenderShape() == net.minecraft.world.level.block.RenderShape.MODEL)
+                    .append(net.minecraft.world.level.block.Block.isShapeFullBlock(st.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO))).append(' ');
+            got.append(table.blockEntity(n)).append(table.model(n)).append(table.fullCollision(n)).append(' ');
+        }
+        check("world: the registered block table's block entity, model, full collision", want.toString(), got.toString());
         // the entity types (EntityTypeTable): a type's id the same String each time, its tags the game's, a tag name
         // that is no id in none, a number no type has throws
         var types = acup.gunfeel.CoreServices.load(acup.gunfeel.host.EntityTypeTable.class, acup.gunfeel.host.EntityTypeTable.MISSING);
@@ -494,6 +506,11 @@ public final class BulletCheck {
                 int kind = (direct instanceof net.minecraft.world.entity.LivingEntity ? acup.gunfeel.host.Hurts.LIVING : 0)
                         | (direct instanceof com.hbm.entity.projectile.EntityBulletBeamBase ? acup.gunfeel.host.Hurts.NTM_BEAM : 0);
                 if (hurts.directKind(s) != kind) wrong.add(at + " directKind");
+                if (hurts.direct(s) != (direct == null ? null : EntityBody.of(direct))) wrong.add(at + " direct");
+                if (hurts.cause(s) != (cause == null ? null : EntityBody.of(cause))) wrong.add(at + " cause");
+                boolean ntmExplosion = s.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)
+                        && s.typeHolder().unwrapKey().map(k -> k.identifier().getNamespace().equals("hbm")).orElse(false);
+                if (hurts.ntmExplosion(s) != ntmExplosion) wrong.add(at + " ntmExplosion");
                 if (!java.util.Objects.equals(hurts.ntmCategory(s), com.hbm.util.DamageResistanceHandler.typeToCategory(s))) wrong.add(at + " ntmCategory");
                 String name = hurts.typeName(s);
                 if (!holder.key().identifier().toString().equals(name) || name != hurts.typeName(s)) wrong.add(at + " typeName");
@@ -506,6 +523,7 @@ public final class BulletCheck {
         // each question true somewhere: the NTM types and the tags the registry has
         check("world: each question yes on some source", true, java.util.Arrays.stream(yes).allMatch(n -> n > 0));
         check("world: a type with no key has no name", null, hurts.typeName(keyless));
+        check("world: a type with no key is no NTM explosion", false, hurts.ntmExplosion(keyless));
         boolean threw = false;
         try {
             hurts.is(keyless, 99);

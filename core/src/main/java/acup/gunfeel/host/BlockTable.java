@@ -34,4 +34,19 @@ public interface BlockTable {
      * Block.isShapeFullBlock; a shape that throws: true). Worked out once a state; the game's tags change nothing here.
      */
     boolean machineOrPartial(int state);
+
+    /** the state has a block entity (26.2: BlockState.hasBlockEntity) */
+    default boolean blockEntity(int state) {
+        throw new UnsupportedOperationException("no block entity read here");
+    }
+
+    /** the state is drawn as a model (26.2: BlockState.getRenderShape == RenderShape.MODEL) */
+    default boolean model(int state) {
+        throw new UnsupportedOperationException("no render shape read here");
+    }
+
+    /** its collision is a full cube (26.2: Block.isShapeFullBlock(getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO))) */
+    default boolean fullCollision(int state) {
+        throw new UnsupportedOperationException("no collision shape read here");
+    }
 }
