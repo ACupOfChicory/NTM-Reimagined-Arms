@@ -30,7 +30,13 @@ public final class Worlds {
     }
 
     static synchronized WorldView of(Port port, Object level) {
-        return WORLDS.computeIfAbsent(level, port::world);
+        // get first: computeIfAbsent's port::world would be a new object on every call, and this is read every tick
+        WorldView v = WORLDS.get(level);
+        if (v == null) {
+            v = port.world(level);
+            WORLDS.put(level, v);
+        }
+        return v;
     }
 
     public static synchronized void forget(Object level) {
