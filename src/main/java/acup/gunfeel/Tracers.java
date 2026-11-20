@@ -48,11 +48,8 @@ public final class Tracers {
     // that do something on impact), picked by the hit block's decal rule. A scratch lies along the texture's u, at any
     // angle (turn = SCRATCH_TURN + degrees)
     // A hole's variant (its cell on its style's texture, Decals.cell) rides in the turn's bits from VARIANT_SHIFT up
-    private static final int KINDS = Decals.COUNT, SCRATCH_TURN = 1000, VARIANT_SHIFT = 11, TURN_MASK = (1 << VARIANT_SHIFT) - 1;
-    private static final Identifier[] TEXTURES = new Identifier[KINDS];
-    static {
-        for (int i = 0; i < KINDS; i++) TEXTURES[i] = Identifier.fromNamespaceAndPath("ntmgunfeel", "textures/effect/" + Decals.file(i) + ".png");
-    }
+    private static final int KINDS = HoleDecals.KINDS, SCRATCH_TURN = HoleDecals.SCRATCH_TURN, VARIANT_SHIFT = HoleDecals.VARIANT_SHIFT,
+            TURN_MASK = HoleDecals.TURN_MASK;
 
     // the texture for a hole on this block: its scorch for explosive and incendiary rounds, else a hole of its style
     private static int holeKind(BlockState state, BulletConfig config) {
@@ -205,10 +202,8 @@ public final class Tracers {
     // mask = which 1/16-block cells of the face show the block's pixels (null = all): cells mask.w x mask.h from
     // cell (u0, v0) on the face's two axes, in 1/16 blocks
     private record Hole(Vec3 pos, Direction face, int turn, long born, int light, int kind, float size, double[] rect, Mask mask, double plane, boolean late, boolean cull,
-            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine,int shot,
-            Batch[] batch) {
-        // batch: the one batch this hole is drawn in now (null: none), kept with the hole instead of looked up
-        // in a map for every hole every frame
+            float[] mesh, boolean front, BlockPos block, BlockState state, boolean drawn, Follow follow, Vec3 hit, boolean machine,int shot) {
+        // drawn as its HoleDecal (in HoleDecals.HOLES, this record its host)
     }
 
     // a new mark's turn with a random variant in it
@@ -382,7 +377,8 @@ public final class Tracers {
     private static void follow(ClientLevel level, long now) {
         if (!following) return;
         boolean[] any = {false};
-        HOLES.removeIf(h -> {
+        HOLES.removeIf(d -> {
+            Hole h = (Hole) d.host;
             Follow f = h.follow();
             if (f == null) return false;
             var poses = RenderedMesh.poses(level, f.be, now);
@@ -391,7 +387,8 @@ public final class Tracers {
             if (pp == null) return true;
             // moved: its batch is built again (a door standing still costs nothing)
             if (f.place(level, pp)) {
-                Batch b = h.batch()[0];
+                d.moved(f.pos.x, f.pos.y, f.pos.z, f.mesh, f.light);
+                HoleDecals.Batch b = d.batch;
                 if (b != null) b.dirty = true;
             }
             any[0] = true;
@@ -417,7 +414,7 @@ public final class Tracers {
         var recent = found >= 0 ? pieces.get(found) : RECENT_SHOTS.get(packet.shot());
         if(recent!=null){
             PENDING.removeIf(p->p.shot()==packet.shot() && p.hit().getLocation().subtract(packet.point()).dot(recent.v)>1e-5);
-            HOLES.removeIf(h->h.shot()==packet.shot() && (h.hit()==null?h.pos():h.hit()).subtract(packet.point()).dot(recent.v)>1e-5);
+            HOLES.removeIf(d->{Hole h=(Hole)d.host;return h.shot()==packet.shot() && (h.hit()==null?h.pos():h.hit()).subtract(packet.point()).dot(recent.v)>1e-5;});
         }
         // none begun by then (the first already gone from SHOTS): all of those left are past the stop
         if (recent != null) for (var shot : pieces) if (found < 0 || shot.born > recent.born) {
@@ -433,7 +430,8 @@ public final class Tracers {
         }
     }
     private static final List<Shot> BOUNCED = new ArrayList<>(); // bullets that bounced off this frame, flown from the next
-    private static final ArrayDeque<Hole> HOLES = new ArrayDeque<>();
+    // every hole (core's list, drawn there: HoleDecals), each with its Hole as host
+    private static final ArrayDeque<HoleDecal> HOLES = HoleDecals.HOLES;
     private static boolean serverAnnounces;
     private static double lastFrame = Double.NaN;
     private static final BulletClock FLIGHT_CLOCK = new BulletClock();
@@ -634,9 +632,7 @@ public final class Tracers {
         int n = HOLES.size() + PENDING.size();
         HOLES.clear();
         PENDING.clear();
-        for (Batch b : BATCHES) b.close();
-        BATCHES.clear();
-        OPEN.clear();
+        HoleDecals.clear();
         return n;
     }
 
@@ -647,9 +643,7 @@ public final class Tracers {
         HitReports.clear();
         HOLES.clear();
         PENDING.clear();
-        for (Batch b : BATCHES) b.close();
-        BATCHES.clear();
-        OPEN.clear();
+        HoleDecals.clear();
         RenderedMesh.clear();
         FLIGHT_CLOCK.reset();
         lastFrame = Double.NaN;
@@ -1164,11 +1158,15 @@ public final class Tracers {
         PENDING.addLast(new Pending(level,hit,config,packet.direction(),null,packet.shot(),0));
     }
     static int pendingHoles() { return PENDING.size(); }
+    // the hole frames' stand (HoleFrameStand): a hole as a bullet's, its marks from the shot's number, no particles or sound
+    static void standHole(ClientLevel level, BlockHitResult hit, BulletConfig config, Vec3 dir, int shot) {
+        PENDING.addLast(new Pending(level, hit, config, dir, null, shot, 0));
+    }
     static int holeCount() { return HOLES.size(); }
     // dev (NpcShotSmoke): the holes on this block
     static int holesOn(BlockPos pos) {
         int n = 0;
-        for (Hole h : HOLES) if (pos.equals(h.block())) n++;
+        for (HoleDecal d : HOLES) if (pos.equals(((Hole) d.host).block())) n++;
         return n;
     }
 
@@ -1182,9 +1180,10 @@ public final class Tracers {
     // terrain), under (once more under the glass), batched, batched under. The block's layer: translucent
     static Map<Direction, int[]> holeFaces() {
         Map<Direction, int[]> out = new java.util.EnumMap<>(Direction.class);
-        for (Hole h : HOLES) {
-            int[] c = out.computeIfAbsent(h.face(), d -> new int[5]);
-            Batch b = h.batch()[0];
+        for (HoleDecal d : HOLES) {
+            Hole h = (Hole) d.host;
+            int[] c = out.computeIfAbsent(h.face(), x -> new int[5]);
+            HoleDecals.Batch b = d.batch;
             c[0]++;
             if (h.late()) c[1]++;
             if (under(h)) c[2]++;
@@ -1205,7 +1204,8 @@ public final class Tracers {
 
     static List<HoleView> holeViews() {
         List<HoleView> out = new ArrayList<>();
-        for (Hole h : HOLES) {
+        for (HoleDecal d : HOLES) {
+            Hole h = (Hole) d.host;
             List<List<Vec3>> polys = null;
             float[] m = h.mesh();
             if (m != null) {
@@ -1324,9 +1324,9 @@ public final class Tracers {
                 scratch = null;
             }
             if (TestLog.client) logHole(p, holesMade != before);
-            if(holesMade!=before)ExplosiveSmoke.hole(p.config(),HOLES.peekLast().size());
+            if(holesMade!=before)ExplosiveSmoke.hole(p.config(),((Hole) HOLES.peekLast().host).size());
             if (p.fx() != 0) {
-                Hole h = holesMade != before ? HOLES.peekLast() : null;
+                Hole h = holesMade != before ? (Hole) HOLES.peekLast().host : null;
                 if (h != null) {
                     Vec3 at = h.hit() != null ? h.hit() : h.pos();
                     // where the bullet went into the drawn model, flying off the hitbox's face (off the model's they
@@ -1355,8 +1355,20 @@ public final class Tracers {
 
     private static void addMade(Hole h) {
         holesMade++;
-        HOLES.addLast(h);
+        HOLES.addLast(decal(h));
         if (h.follow() != null) following = true;
+    }
+
+    // the hole as core draws it (HoleDecals), this record its host
+    private static HoleDecal decal(Hole h) {
+        Mask m = h.mask();
+        Direction f = h.face();
+        Follow follow = h.follow();
+        HoleDecal d = new HoleDecal(h.pos().x, h.pos().y, h.pos().z, f.getAxis().ordinal(), f.getAxisDirection().getStep(), h.turn(), h.born(),
+                h.light(), h.kind(), h.size(), h.rect(), m == null ? 0 : m.u0(), m == null ? 0 : m.v0(), m == null ? 0 : m.w(), m == null ? 0 : m.h(),
+                m == null ? null : m.solid(), h.plane(), h.late(), h.cull(), h.mesh(), h.front(), h.drawn(), h.machine(), follow != null, h);
+        if (follow != null) d.moved(follow.pos.x, follow.pos.y, follow.pos.z, follow.mesh, follow.light);
+        return d;
     }
 
     // the test log: a hole made or given up, its style by the rules, whether it lies on a drawn board of NTM's wooden
@@ -1365,7 +1377,7 @@ public final class Tracers {
         ClientLevel level = p.level();
         BlockPos pos = p.hit().getBlockPos();
         BlockState state = level.getBlockState(pos);
-        Hole h = placed ? HOLES.peekLast() : null;
+        Hole h = placed ? (Hole) HOLES.peekLast().host : null;
         Vec3 at = h != null ? h.pos() : p.hit().getLocation();
         Object onBoard = "-";
         long[] boards = WoodBoxes.cells(level, pos, state);
@@ -1376,7 +1388,7 @@ public final class Tracers {
             onBoard = ShapeCells.cell(boards, x, y, z);
         }
         int machines = 0;
-        for (Hole o : HOLES) if (o.machine()) machines++;
+        for (HoleDecal o : HOLES) if (o.machine) machines++;
         String[] style = BulletRules.hole(state);
         TestLog.c(p.shot(), "hole", "block", state, "pos", pos, "at", at, "placed", placed, "drawn", style[0], "how", style[1],
                 "glass", glassLike(state),
@@ -1443,7 +1455,7 @@ public final class Tracers {
                 && !glassLike(level.getBlockState(hit.getBlockPos()));
         addMade(new Hole(hit.getLocation(), hit.getDirection(), turn, holeBorn(), light, kind, size, rect, mask, plane,
                 translucent(level.getBlockState(hit.getBlockPos())) || glassLike(level.getBlockState(hit.getBlockPos())),
-                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false,makingShot, new Batch[1]));
+                cull, null, false, hit.getBlockPos().immutable(), level.getBlockState(hit.getBlockPos()), false, null, null, false,makingShot));
         trimHoles();
     }
 
@@ -1579,7 +1591,7 @@ public final class Tracers {
         int light = LightCoordsUtil.getLightCoords(level, pos);
         addMade(new Hole(world, hit.getDirection(), turn, holeBorn(), light, kind, size, null, null, Double.NaN,
                 translucent(level.getBlockState(pos)) || glassLike(level.getBlockState(pos)), false, mesh,
-                !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false,makingShot, new Batch[1]));
+                !glassLike(level.getBlockState(pos)), pos.immutable(), level.getBlockState(pos), false, null, null, false,makingShot));
         trimHoles();
     }
 
@@ -1927,7 +1939,7 @@ public final class Tracers {
             Follow follow = first.anchor() == null ? null : new Follow(first.anchor(), at, mesh, light);
             // counted by holeMaxMachines when it is on what a renderer draws (a machine, a door: no block), else by holeMax
             addMade(new Hole(new Vec3(at.x, at.y, at.z), hit.getDirection(), turn, born, light, kind, size, null, null, Double.NaN, late, false, mesh,
-                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null,makingShot, new Batch[1]));
+                    front, on.immutable(), state, first.moving() && first.anchor() == null, follow, hitAt, first.block() == null,makingShot));
             dbg("  hole group: {} polygons at {} on {} tex={} front={} late={} follows={} moving={}", g.polys().size(), v(at), on,
                     RenderedMesh.texName(first.tex()), front, late, follow != null, first.moving());
         }
@@ -1948,8 +1960,8 @@ public final class Tracers {
     private static void trimHoles() {
         trimmedMax = Config.holeMax;
         trimmedMachines = Config.holeMaxMachines;
-        HoleLimits.trim(HOLES, Hole::machine, Hole::born, false, Config.holeMax);
-        HoleLimits.trim(HOLES, Hole::machine, Hole::born, true, Config.holeMaxMachines);
+        HoleLimits.trim(HOLES, d -> d.machine, d -> d.born, false, Config.holeMax);
+        HoleLimits.trim(HOLES, d -> d.machine, d -> d.born, true, Config.holeMaxMachines);
     }
 
     // glass: by the block's material, as its piercing, hit sounds and decals (a copper grate is metal: its holes
@@ -2459,44 +2471,6 @@ public final class Tracers {
         polys.add(out);
     }
 
-    private static void meshQuads(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 cam, int alpha) {
-        Follow f = h.follow();
-        float[] m = f != null ? f.mesh : h.mesh();
-        if (m == null) return;
-        Vec3 pos = f != null ? f.pos : h.pos();
-        int light = f != null ? f.light : h.light();
-        float nx = m[0], ny = m[1], nz = m[2];
-        // towards the camera, as in quad(); a one-sided hole seen from behind is not drawn
-        if ((cam.x - pos.x) * nx + (cam.y - pos.y) * ny + (cam.z - pos.z) * nz < 0) {
-            if (h.front()) return;
-            nx = -nx;
-            ny = -ny;
-            nz = -nz;
-        }
-        // on the faces themselves, only pulled towards the camera along each vertex's own line of sight (a tenth of a
-        // percent of the distance): it stays on the same screen pixels, so the parts on two faces of an edge still
-        // meet, yet lies in front of the face (a two-sided hole on bars seen from behind). Lifted along the normal
-        // instead, each face's part stood off its face and an edge showed a strip of the block between them
-        float bx = (float) (pos.x - cam.x), by = (float) (pos.y - cam.y), bz = (float) (pos.z - cam.z);
-        final float toward = 0.999F;
-        int color = (alpha << 24) | 0xFFFFFF;
-        int k = 3;
-        while (k < m.length) {
-            int n = (int) m[k++];
-            int base = k;
-            // a fan of quads (the last vertex twice where a triangle is left)
-            for (int i = 1; i + 1 < n; i += 2) {
-                int[] idx = {0, i, i + 1, Math.min(i + 2, n - 1)};
-                for (int j : idx) {
-                    int o = base + j * 6;
-                    vc.addVertex(p, (bx + m[o]) * toward, (by + m[o + 1]) * toward, (bz + m[o + 2]) * toward).setColor(m[o + 5] >= 1F ? color : ((int) (alpha * m[o + 5]) << 24) | 0xFFFFFF).setUv(m[o + 3], m[o + 4])
-                            .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, nx, ny, nz);
-                }
-            }
-            k = base + n * 6;
-        }
-    }
-
     // a block drawn with the translucent terrain (glass): its holes are drawn after it
     private static final Map<BlockState, Boolean> TRANSLUCENT = new java.util.IdentityHashMap<>();
     private static Object translucentOf;
@@ -2711,9 +2685,10 @@ public final class Tracers {
     private static long blocksChecked;
 
     private static void holes(SubmitCustomGeometryEvent event, Vec3 cam, long now) {
-        if (HOLES.isEmpty() && BATCHES.isEmpty()) return;
-        long life = (long) (Math.max(0.1F, Config.holeLife) * 1e9);
-        while (!HOLES.isEmpty() && now - HOLES.peekFirst().born() > life) HOLES.removeFirst();
+        decals();
+        if (!HoleDecals.any()) return;
+        long life = HoleDecals.life();
+        HoleDecals.expire(now, life);
         // the limits changed (/gunfeel quality, the config file): applied now, not when the next hole is made
         if (Config.holeMax != trimmedMax || Config.holeMaxMachines != trimmedMachines) trimHoles();
         // the block it was made on was broken, replaced or changed its shape (a door opened): gone with it. Not on
@@ -2723,7 +2698,8 @@ public final class Tracers {
         long pc = Perf.start();
         boolean checkBlocks = lvl != null && now - blocksChecked > 250_000_000L;
         if (checkBlocks) blocksChecked = now;
-        if (checkBlocks) HOLES.removeIf(h -> {
+        if (checkBlocks) HOLES.removeIf(d -> {
+            Hole h = (Hole) d.host;
             BlockState st = lvl.getBlockState(h.block());
             if (st == h.state()) return false;
             if (st.getBlock() != h.state().getBlock()) return true;
@@ -2735,47 +2711,18 @@ public final class Tracers {
         // holes on what a renderer draws (a door's leaf): gone when it is no longer drawn there (the door opened)
         if (lvl != null && now - drawnChecked > 300_000_000L) {
             drawnChecked = now;
-            HOLES.removeIf(h -> h.drawn() && h.follow() == null && !stillDrawn(lvl, h));
+            HOLES.removeIf(d -> {
+                Hole h = (Hole) d.host;
+                return h.drawn() && h.follow() == null && !stillDrawn(lvl, h);
+            });
         }
         Perf.add(Perf.CHECKS, pc);
         long pf = Perf.start();
         if (lvl != null) follow(lvl, now);
         Perf.add(Perf.FOLLOW, pf);
-        long ps = Perf.start();
-        batch(now, life);
-        if (HOLES.isEmpty() || !Config.bulletHoles) return;
-        // the rest (fading, on moving parts, on glass, holeCache off) sent this frame, sorted in one pass
-        @SuppressWarnings("unchecked")
-        List<Hole>[] groups = new List[4 * KINDS];
-        for (Hole h : UNBATCHED) {
-            int g = h.kind() + KINDS * ((h.late() ? 1 : 0) | (h.cull() ? 2 : 0));
-            if (groups[g] == null) groups[g] = new ArrayList<>();
-            groups[g].add(h);
-            // a late hole drawn early too: a copy under the translucent glass (HolePasses), as the batches have it,
-            // when the camera is behind it
-            if (h.late() && HolePasses.underCopy(under(h), towardCamera(h, cam))) {
-                int e = h.kind() + KINDS * (h.cull() ? 2 : 0);
-                if (groups[e] == null) groups[e] = new ArrayList<>();
-                groups[e].add(h);
-            }
-        }
-        Perf.add(Perf.SORT, ps);
-        for (int group = 0; group < 4 * KINDS; group++) {
-            int kind = group % KINDS;
-            boolean late = (group / KINDS & 1) != 0, cull = (group / KINDS & 2) != 0;
-            List<Hole> list = groups[group];
-            if (list == null) continue;
-            RenderType type = HoleRender.type(TEXTURES[kind], late, cull);
-            net.minecraft.client.renderer.SubmitNodeCollector.CustomGeometryRenderer draw = drawer(list, cam, now, life);
-            // holes on glass: drawn after the clouds and rain (afterWeather), which show through the glass behind
-            // them. With improved transparency (clouds and rain in targets of their own) after the translucent terrain
-            // instead, before the translucent particles drawn there (an order before 0 runs first)
-            if (late && !shaderTransparency()) continue;
-            if (late && event.getSubmitNodeCollector() instanceof net.minecraft.client.renderer.SubmitNodeStorage storage)
-                storage.order(-1).submitCustomGeometry(event.getPoseStack(), type, draw);
-            else
-                event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), type, draw);
-        }
+        // which holes are in which batch, and the ones sent this frame (HoleDecals, at the place for QUEUE: here; and
+        // under the transparency chain for OVER_GLASS: here as well, after them)
+        RenderPort26.submit(event, cam, now);
     }
 
     // a late hole on a block of the translucent terrain: drawn under the glass as well (HolePasses)
@@ -2783,138 +2730,40 @@ public final class Tracers {
         return h.late() && h.block() != null && translucent(h.state());
     }
 
-    // how far the camera is in front of the hole, along its normal: below 0 behind it, looking through its block
-    private static double towardCamera(Hole h, Vec3 cam) {
-        Follow f = h.follow();
-        float[] m = f != null ? f.mesh : h.mesh();
-        if (m != null) {
-            Vec3 pos = f != null ? f.pos : h.pos();
-            return (cam.x - pos.x) * m[0] + (cam.y - pos.y) * m[1] + (cam.z - pos.z) * m[2];
-        }
-        int axis = h.face().getAxis().ordinal();
-        double base = Double.isNaN(h.plane()) ? comp(h.pos(), axis) : h.plane();
-        return (comp(cam, axis) - base) * h.face().getAxisDirection().getStep();
-    }
-
-    private static boolean shaderTransparency() {
-        return Minecraft.getInstance().gameRenderer.gameRenderState().useShaderTransparency();
-    }
-
-    private static final Map<Integer, com.mojang.blaze3d.buffers.GpuBuffer> LATE_BUFFERS = new HashMap<>();
-
-    // holes on glass, drawn at once after the clouds and rain (RenderLevelStageEvent.AfterWeather): drawn before
-    // them, the clouds and rain behind the glass would cover the hole
+    // holes on glass without the transparency chain: drawn after the clouds and rain (RenderLevelStageEvent.AfterWeather),
+    // which show through the glass behind them (HoleDecals, at the place for OVER_GLASS)
     public static void afterWeather(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event) {
-        if (HOLES.isEmpty() || !Config.bulletHoles || shaderTransparency()) return;
-        long pl = Perf.start();
-        try {
-            if(HoleBenchMetrics.CHECK_MOTION && HoleBenchmark.wantPixelProbe()) try {
-                HoleVisualProbe.capture(() -> lateHoles(event,true),() -> {
-                    drawBatches(true,event.getLevelRenderState().cameraRenderState.pos,new Matrix4f(event.getModelViewMatrix()));
-                    lateHoles(event);
-                });
-            } catch(RuntimeException ex) { HoleBenchMetrics.failure="Проверка изображения: "+ex; }
-            long cached=Perf.start();
-            drawBatches(true,event.getLevelRenderState().cameraRenderState.pos,new Matrix4f(event.getModelViewMatrix()));
-            Perf.add(Perf.HOLE_DRAW,cached);
-            lateHoles(event);
-        } finally {
-            Perf.add(Perf.LATE, pl);
-        }
+        decals();
+        RenderPort26.afterWeather(event);
     }
 
-    private static void lateHoles(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event) {
-        lateHoles(event,false);
-    }
-    private static void lateHoles(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterWeather event,boolean reference) {
-        Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;
-        long now = GunClock.nanos();
-        long life = (long) (Math.max(0.1F, Config.holeLife) * 1e9);
-        PoseStack.Pose pose = new PoseStack().last();
-        @SuppressWarnings("unchecked")
-        List<Hole>[] groups = new List[2 * KINDS];
-        for (Hole h : HOLES) {
-            if (!h.late() || !reference && h.batch()[0] != null) continue;
-            int g = h.kind() + (h.cull() ? KINDS : 0);
-            if (groups[g] == null) groups[g] = new ArrayList<>();
-            groups[g].add(h);
-        }
-        for (int group = 0; group < 2 * KINDS; group++) {
-            int kind = group % KINDS;
-            boolean cull = group >= KINDS;
-            List<Hole> list = groups[group];
-            if (list == null) continue;
-            RenderType type = HoleRender.type(TEXTURES[kind], true, cull);
-            int vertices = 0;
-            for (Hole h : list) vertices += h.mesh() != null ? h.mesh().length / 2 + 8 : 4 * 256;
-            try (var bytes = new com.mojang.blaze3d.vertex.ByteBufferBuilder(Math.max(64, vertices) * type.format().getVertexSize())) {
-                var builder = new com.mojang.blaze3d.vertex.BufferBuilder(bytes, type.primitiveTopology(), type.format());
-                drawer(list, cam, now, life).render(pose, builder);
-                try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-                    if (mesh == null) continue;
-                    var device = com.mojang.blaze3d.systems.RenderSystem.getDevice();
-                    java.nio.ByteBuffer data = mesh.vertexBuffer();
-                    com.mojang.blaze3d.buffers.GpuBuffer vb = LATE_BUFFERS.get(group);
-                    if (vb == null || vb.size() < data.remaining()) {
-                        if (vb != null) vb.close();
-                        vb = device.createBuffer(() -> "Bullet hole vertices", 40, data.remaining());
-                        LATE_BUFFERS.put(group, vb);
-                    }
-                    device.createCommandEncoder().writeToBuffer(vb.slice(), data);
-                    var indices = com.mojang.blaze3d.systems.RenderSystem.getSequentialBuffer(mesh.drawState().primitiveTopology());
-                    int count = mesh.drawState().indexCount();
-                    type.prepare().drawFromBuffer(vb, indices.getBuffer(count), indices.type(), 0, 0, count);
-                }
+    // the drawing of the holes: core's (HoleDecals), through the render port, once before the first frame drawn
+    private static boolean decalsReady;
+
+    private static void decals() {
+        if (decalsReady) return;
+        decalsReady = true;
+        HoleDecals.init(CoreServices.load(acup.gunfeel.host.render.RenderPort.class, acup.gunfeel.host.render.RenderPort.MISSING), new HoleDecals.Host() {
+            @Override
+            public boolean under(HoleDecal d) {
+                return Tracers.under((Hole) d.host);
             }
-        }
-    }
 
-    private static net.minecraft.client.renderer.SubmitNodeCollector.CustomGeometryRenderer drawer(List<Hole> list, Vec3 cam, long now, long life) {
-        return (p, vc) -> {
-            long pd = Perf.start();
-            drawHoles(p, vc, list, cam, now, life);
-            Perf.add(Perf.HOLE_DRAW, pd);
-            Perf.add(Perf.ONE, pd);
-            double fadeFrom = Math.max(0.0, life / 1e9 - 3.0);
-            for (Hole h : list) Perf.oneByOne(h.late() ? Perf.ON_GLASS : (now - h.born()) / 1e9 >= fadeFrom ? Perf.FADING : h.follow() != null ? Perf.MOVING : Perf.OTHER);
-        };
-    }
-
-    private static void drawHoles(com.mojang.blaze3d.vertex.PoseStack.Pose p, VertexConsumer vc, List<Hole> list, Vec3 cam, long now, long life) {
-        {
-            for (Hole h : list) {
-                double age = (now - h.born()) / 1e9;
-                double fadeFrom = Math.max(0.0, life / 1e9 - 3.0);
-                int alpha = (int) (255 * Math.clamp(1.0 - (age - fadeFrom) / 3.0, 0.0, 1.0));
-                if (alpha <= 0) continue;
-                float half = h.size() * 0.5F;
-                if (h.mesh() != null) {
-                    meshQuads(p, vc, h, cam, alpha);
-                    continue;
-                }
-                cells(h, cell -> quad(p, vc, h, cam, half, alpha, cell));
+            @Override
+            public void batchDrawn() {
+                ClientSmoke.holeDrawn();
             }
-        }
-    }
 
-    // the parts of the face a flat hole covers: its rect, or the runs of shown cells of its mask, row by row
-    private static void cells(Hole h, java.util.function.Consumer<double[]> out) {
-        Mask m = h.mask();
-        if (m == null) {
-            out.accept(h.rect());
-            return;
-        }
-        for (int j = 0; j < m.h(); j++) {
-            for (int i = 0; i < m.w(); i++) {
-                if (!m.solid()[j * m.w() + i]) continue;
-                int e = i;
-                while (e + 1 < m.w() && m.solid()[j * m.w() + e + 1]) e++;
-                double[] r = h.rect();
-                out.accept(new double[] {Math.max(r[0], (m.u0() + i) / 16.0), Math.min(r[1], (m.u0() + e + 1) / 16.0),
-                        Math.max(r[2], (m.v0() + j) / 16.0), Math.min(r[3], (m.v0() + j + 1) / 16.0)});
-                i = e;
+            @Override
+            public boolean wantProbe() {
+                return HoleBenchmark.wantPixelProbe();
             }
-        }
+
+            @Override
+            public void probe(Runnable reference, Runnable cached) {
+                HoleVisualProbe.capture(reference, cached);
+            }
+        });
     }
 
     // the face's two axes: u, v as world axis indices (0 x, 1 y, 2 z)
@@ -2965,276 +2814,9 @@ public final class Tracers {
         return shape.isEmpty() ? new AABB(pos) : shape.bounds().move(pos);
     }
 
-    // the hole as a square on the face, cut to its rect; turned and mirrored by h.turn (0..7)
-    private static void quad(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 cam, float size, int alpha, double[] clip) {
-        Direction f = h.face();
-        int normalAxis = f.getAxis().ordinal();
-        double base = Double.isNaN(h.plane()) ? comp(h.pos(), normalAxis) : h.plane();
-        // lifted off the face towards the camera: a two-sided hole (iron bars) seen from behind would otherwise lie
-        // behind the bars' own pixels and show only where the depth bias wins, cut off along a straight line
-        int side = f.getAxisDirection().getStep();
-        if (!h.cull()) {
-            double d = comp(cam, normalAxis) - base;
-            if (d != 0) side = d > 0 ? 1 : -1;
-        }
-        quadAt(p, vc, h, cam, size, alpha, clip, side, false, side != f.getAxisDirection().getStep());
-    }
-
-    // the hole's square lifted to `side` of its face, positions from `origin`; reverse = wound the other way (seen
-    // from that side through a culling pipeline), flipNormal = its normal turned to the other side
-    private static void quadAt(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 cam, float size, int alpha, double[] clip, int side, boolean reverse,
-            boolean flipNormal) {
-        Direction f = h.face();
-        int[] ax = axes(f);
-        double pu = comp(h.pos(), ax[0]), pv = comp(h.pos(), ax[1]);
-        double u0 = Math.max(pu - size, clip[0]), u1 = Math.min(pu + size, clip[1]);
-        double v0 = Math.max(pv - size, clip[2]), v1 = Math.min(pv + size, clip[3]);
-        if (u0 >= u1 || v0 >= v1) return;
-        int normalAxis = f.getAxis().ordinal();
-        double base = Double.isNaN(h.plane()) ? comp(h.pos(), normalAxis) : h.plane();
-        double plane = base + 0.002 * side;
-        Vector3f n = new Vector3f(f.getStepX(), f.getStepY(), f.getStepZ());
-        if (flipNormal) n.negate();
-        int color = (alpha << 24) | 0xFFFFFF;
-        double[][] corners = {{u0, v0}, {u1, v0}, {u1, v1}, {u0, v1}};
-        // counter-clockwise seen from outside the face (its front for a one-sided hole): the face's u, v axes turn
-        // the other way on east / west and up / down faces
-        boolean flip = (f.getAxis() == Direction.Axis.Z ? 1 : -1) * f.getAxisDirection().getStep() < 0;
-        {
-            for (int j = 0; j < 4; j++) {
-                double[] c = corners[flip != reverse ? 3 - j : j];
-                // where this corner falls on the hole's texture, 0..1, then turned / mirrored
-                float[] uv = holeUv(h.turn(), (float) ((c[0] - (pu - size)) / (2 * size)), (float) ((c[1] - (pv - size)) / (2 * size)));
-                float tu = uv[0], tv = uv[1];
-                double[] w = new double[3];
-                w[ax[0]] = c[0];
-                w[ax[1]] = c[1];
-                w[normalAxis] = plane;
-                vc.addVertex(p, (float) (w[0] - cam.x), (float) (w[1] - cam.y), (float) (w[2] - cam.z)).setColor(color).setUv(tu, 1F - tv)
-                        .setOverlay(OverlayTexture.NO_OVERLAY).setLight(h.light()).setNormal(p, n.x, n.y, n.z);
-            }
-        }
-    }
-
-    // Holes kept on the graphics card (holeCache): in batches of up to BATCH_HOLES of one texture, flat or cut, made
-    // in a row; a batch is built again only when a hole joins or leaves it, not every frame. Its positions are from
-    // an origin of its own (the shader adds ModelOffset = origin - camera), and it is drawn both ways round through
-    // the culling pipeline, so nothing in it depends on where the camera is. Not in a batch: holes fading out, on
-    // glass (drawn late). Holes on moving parts are in batches too: their batch is built again on the frames the part
-    // moves.
-    private static final class Batch {
-        final int kind;
-        final boolean mesh,late,under;
-        List<Hole> holes = new ArrayList<>();
-        List<Hole> now = new ArrayList<>();
-        boolean dirty = true;
-        // vb: every hole as drawn after the glass (late) or with the rest (early); back: an under batch's holes once
-        // more, only their backs, drawn early under the glass
-        com.mojang.blaze3d.buffers.GpuBuffer vb, back;
-        int count, backCount;
-        double ox, oy, oz;
-
-        Batch(int kind, boolean mesh,boolean late,boolean under) {
-            this.kind = kind;
-            this.mesh = mesh;
-            this.late = late;
-            this.under = under;
-        }
-
-        int key() {
-            return HolePasses.batchKey(kind, under, late, mesh);
-        }
-
-        void close() {
-            if (vb != null) vb.close();
-            if (back != null) back.close();
-        }
-    }
-
-    private static final int BATCH_HOLES = 128;
-    private static final List<Batch> BATCHES = new ArrayList<>();
-    private static final Map<Integer, Batch> OPEN = new HashMap<>();
-
-    // the holes left out of the batches this frame, in the order made (the same pass sorts them, not a second
-    // look at every hole)
-    private static final List<Hole> UNBATCHED = new ArrayList<>();
-
-    // which holes are in which batch this frame
-    private static void batch(long now, long life) {
-        boolean on = Config.holeCache && Config.bulletHoles;
-        double fadeFrom = Math.max(0.0, life / 1e9 - 3.0);
-        boolean lateApart = HoleBenchMetrics.legacy() || shaderTransparency();
-        for (Batch b : BATCHES) b.now.clear();
-        UNBATCHED.clear();
-        if (!on) UNBATCHED.addAll(HOLES);
-        else for (Hole h : HOLES) {
-            if (h.late() && lateApart || (now - h.born()) / 1e9 >= fadeFrom) { UNBATCHED.add(h); continue; }
-            Batch b = h.batch()[0];
-            // (a hole on glass changes batch when the models loaded anew draw its block otherwise)
-            if (b != null && b.late && b.under != under(h)) b = h.batch()[0] = null;
-            if (b == null) {
-                boolean under = under(h);
-                int key = HolePasses.batchKey(h.kind(), under, h.late(), h.mesh() != null);
-                b = OPEN.get(key);
-                // (holes go in the order made: the open batch's older ones are counted already)
-                if (b == null || b.now.size() >= BATCH_HOLES) {
-                    b = new Batch(h.kind(), h.mesh() != null,h.late(),under);
-                    BATCHES.add(b);
-                    OPEN.put(key, b);
-                }
-                h.batch()[0] = b;
-                b.dirty = true;
-            }
-            b.now.add(h);
-        }
-        Iterator<Batch> it = BATCHES.iterator();
-        while (it.hasNext()) {
-            Batch b = it.next();
-            if (b.now.size() != b.holes.size()) b.dirty = true;
-            if (!b.dirty && b.now.size() == b.holes.size()) continue;
-            java.util.Set<Hole> keep = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-            keep.addAll(b.now);
-            for (Hole h : b.holes) if (!keep.contains(h) && h.batch()[0] == b) h.batch()[0] = null;
-            List<Hole> was = b.holes;
-            b.holes = b.now;
-            b.now = was;
-            if (b.holes.isEmpty()) {
-                b.close();
-                it.remove();
-                OPEN.remove(b.key(), b);
-            }
-        }
-    }
-
-    // the batches, drawn after the solid features (entities and the like) and before the translucent ones, where the
-    // holes sent each frame are drawn. The late ones on translucent glass (under) once here as well, under the glass
+    // the batches, drawn after the solid features (HoleDecals, at the place for AFTER_OPAQUE)
     public static void afterOpaqueFeatures(net.neoforged.neoforge.client.event.RenderLevelStageEvent.AfterOpaqueFeatures event) {
-        if (BATCHES.isEmpty() || !Config.bulletHoles) return;
-        long pd = Perf.start();
-        Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;
-        Matrix4f mv = new Matrix4f(event.getModelViewMatrix());
-        drawBatches(false,cam,mv);
-        Perf.add(Perf.HOLE_DRAW,pd);
-    }
-
-    private static void drawBatches(boolean late,Vec3 cam,Matrix4f mv) {
-        long pd=Perf.start();
-        // cut holes pulled towards the camera by a tenth of a percent of the distance, as meshQuads() does
-        Matrix4f mvMesh = new Matrix4f(mv).scale(0.999F);
-        for (Batch b : BATCHES) {
-            // early: the batches not late, and the late ones under the translucent glass once more
-            if(late ? !b.late : !HolePasses.early(b.late, b.under)) continue;
-            if (b.dirty) {
-                long pb = Perf.start();
-                bake(b);
-                Perf.add(Perf.HOLE_BAKE, pb);
-            }
-            // under the glass only the holes' backs: from in front the late copy is enough, and the two laid on each
-            // other darken its half-clear edges twice
-            boolean back = !late && b.late;
-            com.mojang.blaze3d.buffers.GpuBuffer vb = back ? b.back : b.vb;
-            int count = back ? b.backCount : b.count;
-            if (count == 0 || vb == null) continue;
-            RenderType type = HoleRender.type(TEXTURES[b.kind], b.late, true);
-            net.minecraft.client.renderer.rendertype.PreparedRenderType pr = type.prepare();
-            var transforms = com.mojang.blaze3d.systems.RenderSystem.getDynamicUniforms().writeTransform(b.mesh ? mvMesh : mv,
-                    new org.joml.Vector4f(1F, 1F, 1F, 1F), new Vector3f((float) (b.ox - cam.x), (float) (b.oy - cam.y), (float) (b.oz - cam.z)), new Matrix4f());
-            var indices = com.mojang.blaze3d.systems.RenderSystem.getSequentialBuffer(type.primitiveTopology());
-            new net.minecraft.client.renderer.rendertype.PreparedRenderType(pr.pipeline(), pr.outputTarget(), transforms, pr.scissorState(), pr.textures())
-                    .drawFromBuffer(vb, indices.getBuffer(count), indices.type(), 0, 0, count);
-            ClientSmoke.holeDrawn();
-            Perf.batched(b.holes.size());
-        }
-        Perf.add(Perf.BATCHES, pd);
-    }
-
-    private static void bake(Batch b) {
-        b.dirty = false;
-        b.count = b.backCount = 0;
-        if (b.holes.isEmpty()) return;
-        Vec3 o = b.holes.get(0).pos();
-        b.ox = o.x;
-        b.oy = o.y;
-        b.oz = o.z;
-        b.vb = bake(b, o, false, b.vb, n -> b.count = n);
-        if (b.under) b.back = bake(b, o, true, b.back, n -> b.backCount = n);
-    }
-
-    // the batch's holes into the buffer (made anew when too small), all of them or (back) only their backs
-    private static com.mojang.blaze3d.buffers.GpuBuffer bake(Batch b, Vec3 o, boolean back, com.mojang.blaze3d.buffers.GpuBuffer vb,
-            java.util.function.IntConsumer count) {
-        RenderType type = HoleRender.type(TEXTURES[b.kind], b.late, true);
-        int vertices = 0;
-        for (Hole h : b.holes) vertices += h.mesh() != null ? h.mesh().length + 16 : 64;
-        try (var bytes = new com.mojang.blaze3d.vertex.ByteBufferBuilder(Math.max(64, vertices) * type.format().getVertexSize())) {
-            var builder = new com.mojang.blaze3d.vertex.BufferBuilder(bytes, type.primitiveTopology(), type.format());
-            PoseStack.Pose pose = new PoseStack().last();
-            for (Hole h : b.holes) {
-                if (h.mesh() != null) {
-                    bakeMesh(pose, builder, h, o, back);
-                    continue;
-                }
-                float half = h.size() * 0.5F;
-                int step = h.face().getAxisDirection().getStep();
-                cells(h, cell -> {
-                    if (!back) quadAt(pose, builder, h, o, half, 255, cell, step, false, false);
-                    // two-sided (iron bars): its back as well, lifted to the back and wound the other way. The same
-                    // normal on both: lit as the hole sent each frame is from either side
-                    if (!h.cull()) quadAt(pose, builder, h, o, half, 255, cell, -step, true, false);
-                });
-            }
-            try (com.mojang.blaze3d.vertex.MeshData mesh = builder.build()) {
-                if (mesh == null) return vb;
-                var device = com.mojang.blaze3d.systems.RenderSystem.getDevice();
-                java.nio.ByteBuffer data = mesh.vertexBuffer();
-                if (vb == null || vb.size() < data.remaining()) {
-                    if (vb != null) vb.close();
-                    // room to grow: the open batch gets a hole at a time
-                    vb = device.createBuffer(() -> "Bullet hole batch", 40, data.remaining() * 3L / 2L + 1024L);
-                }
-                device.createCommandEncoder().writeToBuffer(vb.slice(0, data.remaining()), data);
-                count.accept(mesh.drawState().indexCount());
-                return vb;
-            }
-        }
-    }
-
-    // a cut hole for a batch: each polygon wound so it is seen from the side its normal points to, and (two-sided)
-    // once more the other way round. The normal is turned as the polygon winds, so it is lit as meshQuads() lights it
-    private static void bakeMesh(PoseStack.Pose p, VertexConsumer vc, Hole h, Vec3 origin, boolean back) {
-        Follow f = h.follow();
-        float[] m = f != null ? f.mesh : h.mesh();
-        if (m == null) return;
-        Vec3 pos = f != null ? f.pos : h.pos();
-        int light = f != null ? f.light : h.light();
-        float nx = m[0], ny = m[1], nz = m[2];
-        float bx = (float) (pos.x - origin.x), by = (float) (pos.y - origin.y), bz = (float) (pos.z - origin.z);
-        int copies = h.front() || h.cull() ? 1 : 2;
-        int k = 3;
-        while (k < m.length) {
-            int n = (int) m[k++];
-            int base = k;
-            k = base + n * 6;
-            float sign = 0F;
-            for (int i = 1; i + 1 < n && sign == 0F; i++) {
-                int a = base, q = base + i * 6, r = base + (i + 1) * 6;
-                float ux = m[q] - m[a], uy = m[q + 1] - m[a + 1], uz = m[q + 2] - m[a + 2];
-                float wx = m[r] - m[a], wy = m[r + 1] - m[a + 1], wz = m[r + 2] - m[a + 2];
-                float d = (uy * wz - uz * wy) * nx + (uz * wx - ux * wz) * ny + (ux * wy - uy * wx) * nz;
-                if (Math.abs(d) > 1e-12F) sign = Math.signum(d);
-            }
-            if (sign == 0F) continue;
-            for (int copy = back ? 1 : 0; copy < copies; copy++) {
-                boolean rev = (sign < 0F) != (copy == 1);
-                for (int i = 1; i + 1 < n; i += 2) {
-                    int[] idx = {0, i, i + 1, Math.min(i + 2, n - 1)};
-                    for (int t = 0; t < 4; t++) {
-                        int o = base + idx[rev ? (4 - t) % 4 : t] * 6;
-                        vc.addVertex(p, bx + m[o], by + m[o + 1], bz + m[o + 2]).setColor(((int) (255 * m[o + 5]) << 24) | 0xFFFFFF).setUv(m[o + 3], m[o + 4])
-                                .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(p, sign * nx, sign * ny, sign * nz);
-                    }
-                }
-            }
-        }
+        decals();
+        RenderPort26.afterOpaque(event);
     }
 }
