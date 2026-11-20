@@ -32,6 +32,15 @@ public final class Wiring implements Ports {
 
     // Each system's ports in its own block: a new port is a line in its system's block (notes/ports-base/RULES.md).
     public Wiring() {
+        this(client());
+    }
+
+    /**
+     * The ports of a client ({@code client}: its classes there) or of a dedicated server. A port of the client's is
+     * named through a holder of its own called only on the client (RenderPortClient): a class of the client's named
+     * here would be loaded on the server too, which has none of them, and the server would not start (ServerLoadTest).
+     */
+    Wiring(boolean client) {
         // ---- core's nodes: folders, the test log, the settings' rereads, the versions
         put(GameDirs.class, new FmlGameDirs());
         put(TestLog.Printer.class, new TestLogPrint());
@@ -54,7 +63,15 @@ public final class Wiring implements Ports {
         put(acup.gunfeel.host.Hurts.class, new HurtsPort());
         put(acup.gunfeel.host.ArmorSuits.class, new ArmorSuitsPort());
         put(acup.gunfeel.host.RoundTable.class, new RoundNames());
-        put(acup.gunfeel.host.render.RenderPort.class, RenderPort26.INSTANCE);
+        // ---- the client's only (render: the bullet holes)
+        if (client) put(acup.gunfeel.host.render.RenderPort.class, RenderPortClient.port());
+    }
+
+    // the side FML runs: a client, unless it is a dedicated server; no FML (the tests) a client's, whose classes the
+    // tests have
+    static boolean client() {
+        var fml = net.neoforged.fml.loading.FMLLoader.getCurrentOrNull();
+        return fml == null || fml.getDist().isClient();
     }
 
     // one implementation each: a second for the same port is a mistake of this file
