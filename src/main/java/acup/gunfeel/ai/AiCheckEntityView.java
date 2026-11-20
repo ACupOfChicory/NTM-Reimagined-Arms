@@ -142,6 +142,24 @@ final class AiCheckEntityView {
         net.minecraft.world.entity.ai.control.LookControl lc = dummy.getLookControl();
         turnSet &= lc.getWantedX() == cx + 0.5 && lc.getWantedY() == cy + 1.25 && lc.getWantedZ() == cz + 5.5;
         check.check("entityview: BodyControl turns the body, head and look by the game's setters, the Body reads them back", turnSet);
+        // BodyControl.place: the game's setPos on a mob and on what is no mob (the arrow); the Body reads the place and
+        // the box there at once, as the game's getters do; each put back after
+        boolean placed = true;
+        for (Entity e : List.of(dummy, arrow)) {
+            Body eb = EntityBody.of(e);
+            double x0 = e.getX(), y0 = e.getY(), z0 = e.getZ();
+            control.place(eb, x0 + 0.75, y0 + 0.5, z0 - 0.25);
+            double[] box = new double[6];
+            eb.box(box);
+            net.minecraft.world.phys.AABB bb = e.getBoundingBox();
+            placed &= eb.x() == x0 + 0.75 && e.getX() == x0 + 0.75 && eb.y() == y0 + 0.5 && e.getY() == y0 + 0.5 && eb.z() == z0 - 0.25 && e.getZ() == z0 - 0.25
+                    && box[0] == bb.minX && box[1] == bb.minY && box[2] == bb.minZ && box[3] == bb.maxX && box[4] == bb.maxY && box[5] == bb.maxZ
+                    && bb.minY == y0 + 0.5;
+            same("placed by BodyControl: " + name(e), e);
+            control.place(eb, x0, y0, z0);
+            placed &= eb.x() == x0 && e.getX() == x0;
+        }
+        check.check("entityview: BodyControl.place is the game's setPos, on a mob and on an arrow; the Body reads the place and its box at once", placed);
         // ItemTable: the item in hand by its number is the registry's id, the same String each time; air 0; no item for
         // a number none has
         acup.gunfeel.host.ItemTable items = CoreServices.load(acup.gunfeel.host.ItemTable.class, acup.gunfeel.host.ItemTable.MISSING);

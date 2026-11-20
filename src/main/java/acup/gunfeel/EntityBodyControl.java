@@ -102,4 +102,9 @@ final class EntityBodyControl implements BodyControl {
     public void lookAt(Body b, double x, double y, double z, float yMax, float xMax) {
         mob(b).getLookControl().setLookAt(x, y, z, yMax, xMax);
     }
+
+    @Override
+    public void place(Body b, double x, double y, double z) {
+        EntityBody.entity(b).setPos(x, y, z);
+    }
 }
