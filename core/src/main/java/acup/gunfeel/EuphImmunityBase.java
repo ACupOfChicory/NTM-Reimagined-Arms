@@ -446,6 +446,11 @@ public class EuphImmunityBase {
         return balanceOn.getAsBoolean() && kit.mode().equals("pool");
     }
 
+    /** DNS's own immunity is off (26.2: dnsFormula), with the balance asked first. */
+    static boolean dnsFormulaOf(java.util.function.BooleanSupplier balanceOn) {
+        return balanceOn.getAsBoolean() && !Kit.DNS.mode().equals("ntm");
+    }
+
     /**
      * the full set of DNS or FAU (charged, as NTM counts it) with its pool on, or null; a soldier's (not a player's)
      * euphemium too. {@code balanceOn}: the balance's feature, asked first and again by the kit found (onOf)
