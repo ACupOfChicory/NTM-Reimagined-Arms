@@ -67,6 +67,7 @@ public final class AiCheck {
             }
             List<String> out = new ArrayList<>();
             AiCheck check = new AiCheck();
+            AiMarksman.alike = new AiMarksmanAlike();
             try {
                 check.run(out, e.getServer());
             } catch (Throwable t) {
@@ -235,6 +236,13 @@ public final class AiCheck {
                 check.out("     medic alike (core's against the former code): " + medicAlike.info());
                 check.check("medic: core's AiMedicBase answers as the former code did", medicAlike.differ == 0);
                 AiMedic.alike = null;
+                AiMarksmanAlike marksmanAlike = AiMarksman.alike;
+                if (marksmanAlike != null) {
+                    check.out(marksmanAlike.info());
+                    long differ = marksmanAlike.differ;
+                    check.check("marksman: core's AiMarksmanBase answers as the former code did", differ == 0);
+                    AiMarksman.alike = null;
+                }
                 out.add("     " + check.map.info());
                 out.add("     senses: " + Senses.info());
                 out.add("     " + StandSprint.info());

@@ -27,6 +27,8 @@ public abstract class AiBotBase {
     @Nullable AiRole assigned;
     /** a medic's kits and run (AiMedic); null till it is one */
     AiMedicBase.@Nullable State medic;
+    /** a marksman's perch and shots (AiMarksman); null till it is one in a fight */
+    AiMarksmanBase.@Nullable State marksman;
     /** a supplier's stock to hand out {magazines, grenades, smoke grenades} (AiSupply), null till it is one */
     int @Nullable [] supply;
     /** the group of enemies it gave up looking for (its members' ids), not again before this tick */
