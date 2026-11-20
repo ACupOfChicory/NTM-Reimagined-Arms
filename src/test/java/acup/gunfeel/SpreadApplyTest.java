@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.SplittableRandom;
 import java.util.TreeSet;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import acup.gunfeel.host.Body;
 
@@ -202,6 +204,30 @@ class SpreadApplyTest {
             }
         }
         assertTrue(airs > n / 20 && blooms > n / 20, "airs " + airs + " blooms " + blooms + " of " + n);
+    }
+
+    @Test
+    void noBloomAtZero(@TempDir Path config) {
+        // spreadBloom = 0 (a server's "no bloom"; the shipped keys have none at 0): the version's bloom is not asked.
+        // The keys come as a server's (ServerSettings); the shapes that follow them read the jar's here, no config folder
+        ShapeTable.load0(config);
+        ServerSettings.useRemote(new ServerSettings.Snapshot("", Map.of("test:no_bloom.spreadBloom", "0"), Map.of(), ""));
+        try {
+            assertEquals(0F, LivingSpread.key("test:no_bloom", "spreadBloom", 0F));
+            float[] a = new float[7], b = new float[7];
+            for (int shot = 0; shot < 4; shot++) {
+                Shooter old = new Shooter(), now = new Shooter();
+                old.time = now.time = shot * 3L;
+                float ot = oldApply(old, "test:no_bloom", shot % 2 == 0, 0.05F, a);
+                float nt = LivingSpread.apply(body(now), "test:no_bloom", shot % 2 == 0, 0.05F, SHOOTER, b);
+                assertEquals(Float.floatToRawIntBits(ot), Float.floatToRawIntBits(nt));
+                assertEquals(old.reads, now.reads);
+                assertTrue(!now.reads.contains("bloom") && now.reads.contains("armor"), now.reads.toString());
+                assertEquals(0F, b[4]);
+            }
+        } finally {
+            ServerSettings.useRemote(null);
+        }
     }
 
     @Test
