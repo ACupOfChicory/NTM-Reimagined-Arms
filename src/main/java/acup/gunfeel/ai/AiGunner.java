@@ -472,6 +472,35 @@ public final class AiGunner extends AiGunnerBase {
             if ((mask & 1 << R_COCK_ON_EMPTY_POST) != 0) out[R_COCK_ON_EMPTY_POST] = r.getReloadCockOnEmptyPost(stack);
         }
 
+        // AiRole.byFire's reads as they were, its receiver and magazine found once in its try
+        @Override
+        @SuppressWarnings("rawtypes")
+        public int fireTraits(Body holder, int hand, float[] out) {
+            ItemStack stack = stack(holder, hand);
+            try {
+                Receiver rec = receiver(stack);
+                IMagazine mag = rec.getMagazine(stack);
+                if (mag == null) return NO_ROUNDS;
+                out[T_REFIRE] = rec.getRefireOnHold(stack) ? 1F : 0F;
+                out[T_DELAY] = rec.getDelayAfterFire(stack);
+                if (mag.getType(stack, null) instanceof BulletConfig b) {
+                    out[T_BULLET] = 1F;
+                    out[T_VELOCITY] = b.velocity;
+                    out[T_LASER] = acup.gunfeel.BeamLasers.laser(b) ? 1F : 0F;
+                } else {
+                    out[T_BULLET] = 0F;
+                    out[T_VELOCITY] = 0F;
+                    out[T_LASER] = 0F;
+                }
+                boolean single = mag instanceof MagazineSingleTypeBase;
+                out[T_SINGLE] = single ? 1F : 0F;
+                return single ? mag.getCapacity(stack) : 0;
+            } catch (RuntimeException e) {
+                // a magazine that wants an inventory
+                return NO_ROUNDS;
+            }
+        }
+
         @Override
         public boolean muzzle(Body holder, int hand, boolean scoped, double[] out) {
             ItemStack stack = stack(holder, hand);

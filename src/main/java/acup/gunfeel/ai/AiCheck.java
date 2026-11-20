@@ -697,4 +697,26 @@ public final class AiCheck {
         out.add((good ? "OK   " : "FAIL ") + what);
         ok &= good;
     }
+
+    /**
+     * The stands: the role a gun makes (AiRole.by), the stack held a moment in the main hand of {@code holder} (a mob
+     * made for it, silent, not in the world) and the hand given back.
+     */
+    static AiRole role(net.minecraft.world.entity.Mob holder, net.minecraft.world.item.ItemStack stack) {
+        net.minecraft.world.item.ItemStack before = holder.getMainHandItem();
+        holder.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, stack);
+        try {
+            return AiRole.by(acup.gunfeel.EntityBody.of(holder), stack);
+        } finally {
+            holder.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, before);
+        }
+    }
+
+    /** a mob to hold a stack for {@link #role}: silent, never added to the level */
+    static net.minecraft.world.entity.Mob holder(ServerLevel level) {
+        net.minecraft.world.entity.Mob m = net.minecraft.world.entity.EntityTypes.HUSK.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        m.setSilent(true);
+        return m;
+    }
+
 }

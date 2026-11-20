@@ -126,13 +126,14 @@ final class AiCheckMarksman {
     /** the gun for the marksman: a scoped one that makes it a marksman (AiRole), the preferred first */
     private Item scoped() {
         List<String> found = new ArrayList<>();
+        net.minecraft.world.entity.Mob holder = AiCheck.holder(level);
         Item first = null;
         for (Item item : BuiltInRegistries.ITEM) {
             Identifier id = BuiltInRegistries.ITEM.getKey(item);
             if (!id.getNamespace().equals("hbm") || !id.getPath().startsWith("gun_")) continue;
             ItemStack stack = new ItemStack(item);
             try {
-                if (AiRole.by(stack) != AiRole.MARKSMAN) continue;
+                if (AiCheck.role(holder, stack) != AiRole.MARKSMAN) continue;
             } catch (RuntimeException e) {
                 continue;
             }
