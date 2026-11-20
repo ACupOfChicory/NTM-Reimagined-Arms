@@ -1,10 +1,6 @@
 package acup.gunfeel;
 
-import java.util.Collections;
 import java.util.Map;
-import java.util.WeakHashMap;
-
-import com.hbm.util.DamageResistanceHandler;
 
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
@@ -64,23 +60,6 @@ public final class BalanceFinal extends BalanceFinalBase {
         return Reads.ammoName0(ammo);
     }
 
-    private static boolean againThisTick(LivingEntity target, DamageSource source) {
-        boolean irSub = BalanceFinalBase.irSub(source, ShotsPort.READS);
-        // the Tesla Cannon's arc (a beam's class, not an explosion): an explosive shell's pellets each have their own blast
-        if (!(BalanceArmor.vntBlastNow() || irSub) || source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)
-                || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(BalanceArmor.category(source))) return false;
-        long now = target.level().getGameTime();
-        BlastHit was = BLAST_HITS.get(target);
-        int id = System.identityHashCode(source);
-        int shooter = source.getEntity() == null ? Integer.MIN_VALUE : source.getEntity().getId();
-        if (was != null && was.tick() == now && was.shooter() == shooter && was.source() != id) return true;
-        BLAST_HITS.put(target, new BlastHit(id, shooter, now));
-        return false;
-    }
-
-    private record BlastHit(int source, int shooter, long tick) {}
-    private static final Map<Entity, BlastHit> BLAST_HITS = Collections.synchronizedMap(new WeakHashMap<>());
-
     // ---------------------------------------------------------------- a hit
 
     /**
@@ -136,191 +115,26 @@ public final class BalanceFinal extends BalanceFinalBase {
 
     // ---------------------------------------------------------------- blasts (balance.final.blast; Fable 11.2, 12.3)
 
-    /** a blast of the ladder's under way on one target: what one hit of it takes (of 20 HP and the pool), its pair */
-    private record BlastNow(LivingEntity target, double take, String id, double tier, Entity projectile) {
-    }
-
-    private static final ThreadLocal<BlastNow> BLAST_NOW = new ThreadLocal<>();
-
-    /** a hand grenade going off (ItemGrenadeFilling.explode): its filling's name */
-    private static final ThreadLocal<String> GRENADE = new ThreadLocal<>();
-
-    /** a hand grenade goes off: its blasts are dealt with its filling known */
     public static void grenade(com.hbm.entity.grenade.EntityGrenadeUniversal grenade, Runnable explode) {
-        if (grenade.level().isClientSide() || !on()) {
-            explode.run();
-            return;
-        }
-        String was = GRENADE.get(), filling;
-        try {
-            filling = grenade.getFilling().name().toLowerCase(java.util.Locale.ROOT);
-        } catch (RuntimeException e) {
-            filling = null;
-        }
-        if (filling != null) GRENADE.set(filling);
-        else GRENADE.remove();
-        try {
-            explode.run();
-        } finally {
-            if (was != null) GRENADE.set(was);
-            else GRENADE.remove();
-        }
+        BalanceFinalBase.grenade(grenade, explode, ShotsPort.READS, BalanceFinalBase::on);
     }
 
-    /**
-     * an NTM blast's hit on {@code target} (MixinExplosiveProcessor): with a launcher's round's or a hand grenade's blast
-     * on a target of the scheme, the hurt deals the ladder's share instead (BalanceArmor.apply, EuphImmunity.drain)
-     */
     public static boolean blastAt(com.hbm.explosion.vanillant.ExplosionVNT explosion, ExplosiveDamage.Blast blast, LivingEntity target, boolean struck,
             boolean explosive, java.util.function.Supplier<Boolean> hurt) {
-        if (!explosive || explosion == null || target == null || target.level().isClientSide() || !on()) return hurt.get();
-        BlastNow b;
-        try {
-            b = blastOf(explosion, blast, target, struck);
-        } catch (RuntimeException e) {
-            b = null;
-        }
-        if (b == null) return hurt.get();
-        BlastNow was = BLAST_NOW.get();
-        BLAST_NOW.set(b);
-        try {
-            return hurt.get();
-        } finally {
-            if (was != null) BLAST_NOW.set(was);
-            else BLAST_NOW.remove();
-        }
+        return BalanceFinalBase.blastAt(explosion, blast, target == null ? null : EntityBody.of(target), struck, explosive, hurt,
+                ShotsPort.READS, BalanceFinalBase::on, EuphImmunityBase.NowPort.NOW);
     }
 
-    /** the blast's hurt under way on {@code target} is the ladder's (no part's multiplier on it, NTM's early check passed) */
     public static boolean blastNow(LivingEntity target) {
-        BlastNow b = BLAST_NOW.get();
-        return b != null && b.target() == target;
+        return BalanceFinalBase.blastNow(target == null ? null : EntityBody.of(target), ShotsPort.READS);
     }
 
-    /** a hit the scheme takes, a blast's or a GL-54 fragment's among them (BalanceArmor.covers) */
     static boolean takes(LivingEntity target, DamageSource source) {
-        return hit(target, source) != null || blastNow(target) && expl(source) || !Float.isNaN(frag(target, source, false));
+        return BalanceFinalBase.takes(EntityBody.of(target), source, ShotsPort.READS, BalanceFinalBase::on, EuphImmunityBase.NowPort.NOW);
     }
 
-    private static boolean expl(DamageSource source) {
-        return DamageResistanceHandler.CATEGORY_EXPLOSION.equals(BalanceArmor.category(source));
-    }
-
-    private static BlastNow blastOf(com.hbm.explosion.vanillant.ExplosionVNT explosion, ExplosiveDamage.Blast blast, LivingEntity target, boolean struck) {
-        State s = state();
-        var r = s.blast();
-        // balanceArmorBlasts off: the blast is NTM's (BalanceArmor.category), so not the ladder's either
-        if (!r.on() || !ReaimTimes.flag("balanceArmorBlasts", true)) return null;
-        var armor = armorOf(target, s);
-        if (armor == null) return null;
-        String id;
-        double tier, near;
-        Entity owner, projectile;
-        if (blast != null) {
-            // a launcher's round (its gun in balance.final.blast.launchers): its pair by the shot
-            var bullet = ExplosiveDamage.bulletOf(blast);
-            id = pairOf(bullet);
-            int dot = id == null ? -1 : id.indexOf('.');
-            if (dot <= 0) return null;
-            var l = r.launchers().get(id.substring(0, dot));
-            Double round = r.rounds().get(id.substring(dot + 1));
-            if (l == null || round == null) return null;
-            tier = BalanceBlastRule.pairTier(l, round, r.cap());
-            double t = tier;
-            near = s.cache().computeIfAbsent(new CacheKey("blast " + id, armor), k -> (double) BalanceBlastRule.nearLauncher(l, BalanceBlastRule.target(t, armor, s.params(), r)));
-            owner = bullet.getOwner();
-            projectile = bullet;
-        } else {
-            // a hand grenade (its filling in balance.final.blast.grenades), not inside a shot's impact
-            String filling = GRENADE.get();
-            Double t = filling == null || ExplosiveDamage.current() != null ? null : r.grenades().get(filling);
-            if (t == null) return null;
-            id = "grenade." + filling;
-            tier = t;
-            near = s.cache().computeIfAbsent(new CacheKey("blast " + id, armor), k -> BalanceBlastRule.nearGrenade(BalanceBlastRule.target(t, armor, s.params(), r), s.params(), r));
-            owner = explosion.exploder;
-            // a mob's or a machine's grenade: NTM's numbers, as their shots
-            if (owner != null && !(owner instanceof net.minecraft.world.entity.player.Player)) return null;
-            projectile = null;
-        }
-        // where the target is: struck, or its box's distance from the blast against NTM's reach (twice the size)
-        var box = target.getBoundingBox();
-        double dx = Math.max(Math.max(box.minX - explosion.posX, 0), explosion.posX - box.maxX);
-        double dy = Math.max(Math.max(box.minY - explosion.posY, 0), explosion.posY - box.maxY);
-        double dz = Math.max(Math.max(box.minZ - explosion.posZ, 0), explosion.posZ - box.maxZ);
-        double where = BalanceBlastRule.where(struck, Math.sqrt(dx * dx + dy * dy + dz * dz), 2.0 * explosion.size, r.hits());
-        double share = BalanceBlastRule.share(near, where);
-        // one's own blast: half
-        if (owner == target) share *= 0.5;
-        return new BlastNow(target, share * (BalanceFinalRule.HP + armor.pool()), id, tier, projectile);
-    }
-
-    /**
-     * balance.final.mobArmor (player; own: X949): a hit of the scheme on a mob meets the vanilla armour a player in
-     * the same pieces would have, the pieces' own; the mob's own armour (the FBI agent's 20 and balance.fbiArmor) took
-     * the scheme's damage a second time (an FBI agent in Security lived through 24 hits of the STG-77 its table kills
-     * with 9 in the head). The armour and toughness to take off what the mob has, {0, 0} for none
-     */
     public static float[] mobOwnArmor(LivingEntity target, DamageSource source) {
-        if (target instanceof Player || target.level().isClientSide() || BalanceArmor.category(source) == null || !on()
-                || !ReaimTimes.text("balance.final.mobArmor", "player").trim().equalsIgnoreCase("player"))
-            return NO_OWN;
-        try {
-            if (!takes(target, source)) return NO_OWN;
-        } catch (RuntimeException e) {
-            return NO_OWN;
-        }
-        return new float[] {own(target, net.minecraft.world.entity.ai.attributes.Attributes.ARMOR),
-                own(target, net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS)};
-    }
-
-    private static final float[] NO_OWN = {0F, 0F};
-
-    /** the mob's own share of an attribute: its base and balance.fbiArmor's modifier */
-    private static float own(LivingEntity target, net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> attribute) {
-        var a = target.getAttribute(attribute);
-        if (a == null) return 0F;
-        var fbi = a.getModifier(BalanceKit.FBI_ARMOR);
-        return (float) Math.max(0, a.getBaseValue() + (fbi == null ? 0 : fbi.amount()));
-    }
-
-    /** a blast's or a GL-54 fragment's take of 20 HP and the pool, or NaN when the hit is neither (the log counts it) */
-    private static float blastOrFrag(LivingEntity target, DamageSource source) {
-        BlastNow b = BLAST_NOW.get();
-        if (b != null && b.target() == target && expl(source)) {
-            if (BalanceLog.on()) BalanceLog.hit(target, source, b.projectile(), b.id(), b.tier(), false);
-            return (float) b.take();
-        }
-        return frag(target, source, true);
-    }
-
-    /**
-     * a GL-54 fragment's (airburst, AP, incendiary; Fable 12.3) take of 20 HP and the pool: a burst whose cone's
-     * fragments all hit takes BalanceBlastRule.fragClick; NaN when the hit is not one
-     */
-    private static float frag(LivingEntity target, DamageSource source, boolean log) {
-        if (target.level().isClientSide() || !on()) return Float.NaN;
-        String cat = BalanceArmor.category(source);
-        if (cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return Float.NaN;
-        Entity projectile = source.getDirectEntity();
-        String id = pairOf(projectile);
-        if (id == null || !id.startsWith("gl54.")) return Float.NaN;
-        State s = state();
-        var r = s.blast();
-        String kind = id.substring(5);
-        var f = r.frags().get(kind);
-        var l = r.launchers().get("gl54");
-        Double round = r.rounds().get(kind);
-        var spec = acup.gunfeel.gl54.frag.FragSpec.of(acup.gunfeel.gl54.GrenadeKind.of(kind));
-        if (!r.on() || f == null || l == null || round == null || spec == null) return Float.NaN;
-        var armor = armorOf(target, s);
-        if (armor == null) return Float.NaN;
-        double tier = BalanceBlastRule.pairTier(l, round, r.cap());
-        double role = s.params().roles().getOrDefault("airburst", 1.2);
-        double click = s.cache().computeIfAbsent(new CacheKey("frag " + id, armor), k -> BalanceBlastRule.fragClick(l, f, tier, armor, s.params(), role));
-        if (log && BalanceLog.on()) BalanceLog.hit(target, source, projectile, id, tier, false);
-        // the click is a burst whose cone all hits (the ring's fragments are the side spray, each the same)
-        return (float) (click / Math.max(1, spec.cone()));
+        return BalanceFinalBase.mobOwnArmor(EntityBody.of(target), source, ShotsPort.READS, BalanceFinalBase::on, EuphImmunityBase.NowPort.NOW);
     }
 
     /** The version's live reads; the pair state is core's. */
@@ -340,20 +154,7 @@ public final class BalanceFinal extends BalanceFinalBase {
         @Override public Object direct(Object source) { return ((DamageSource) source).getDirectEntity(); }
         @Override public Object entity(Object source) { return ((DamageSource) source).getEntity(); }
         @Override public String category(Object source) { return BalanceArmor.category((DamageSource) source); }
-        @Override public Object hitProjectile(acup.gunfeel.host.Body b, Object source, String cat) {
-            if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) {
-                if (!BalanceArmor.bulletBlastNow() || ExplosiveDamage.struckNow() != living(b)) return NO_PROJECTILE;
-                return ExplosiveDamage.bulletNow();
-            }
-            return ((DamageSource) source).getDirectEntity();
-        }
-        @Override public String fallbackPair(Object source, String cat) {
-            return BalanceArmor.vntBlastNow() && !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)
-                    ? BalanceFinalBase.blastPair(source, this) : null;
-        }
         @Override public boolean vnt() { return BalanceArmor.vntBlastNow(); }
-        @Override public boolean again(acup.gunfeel.host.Body b, Object source) { return againThisTick(living(b), (DamageSource) source); }
-        @Override public float blastOrFrag(acup.gunfeel.host.Body b, Object source) { return BalanceFinal.blastOrFrag(living(b), (DamageSource) source); }
         @Override public boolean mobShooter(Object source) { return ((DamageSource) source).getEntity() instanceof LivingEntity shooter && !(shooter instanceof Player); }
         @Override public double distance(acup.gunfeel.host.Body b, Object source) { return ((DamageSource) source).getEntity().position().distanceTo(living(b).position()); }
         @Override public boolean logOn() { return BalanceLog.on(); }
@@ -366,6 +167,32 @@ public final class BalanceFinal extends BalanceFinalBase {
         @Override public float headCap() { return DamageCap.limits().head(); }
         @Override public boolean balanceOn() { return BalanceOn.ON.getAsBoolean(); }
         @Override public String worn(acup.gunfeel.host.Body b, int slot) { return BalanceArmorBase.setOfWorn(b, slot); }
+        @Override public boolean bulletBlast() { return BalanceArmor.bulletBlastNow(); }
+        @Override public Object struckNow() { return ExplosiveDamage.struckNow(); }
+        @Override public Object bulletNow() { return ExplosiveDamage.bulletNow(); }
+        @Override public boolean explosion(Object source) { return ((DamageSource) source).is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION); }
+        @Override public int entityId(Object entity) { return ((Entity) entity).getId(); }
+        @Override public boolean rawClient(Object entity) { return ((Entity) entity).level().isClientSide(); }
+        @Override public String grenadeFilling(Object grenade) { return ((com.hbm.entity.grenade.EntityGrenadeUniversal) grenade).getFilling().name().toLowerCase(java.util.Locale.ROOT); }
+        @Override public Object boundBullet(Object blast) { return ExplosiveDamage.bulletOf((ExplosiveDamage.Blast) blast); }
+        @Override public Object projectileOwner(Object bullet) { return ((com.hbm.entity.projectile.EntityBulletBaseMK4) bullet).getOwner(); }
+        @Override public Object currentImpact() { return ExplosiveDamage.current(); }
+        @Override public Object exploder(Object explosion) { return ((com.hbm.explosion.vanillant.ExplosionVNT) explosion).exploder; }
+        @Override public boolean playerEntity(Object entity) { return entity instanceof Player; }
+        @Override public double boxDistance(acup.gunfeel.host.Body target, Object value) {
+            var explosion = (com.hbm.explosion.vanillant.ExplosionVNT) value;
+            var box = living(target).getBoundingBox();
+            double dx = Math.max(Math.max(box.minX - explosion.posX, 0), explosion.posX - box.maxX);
+            double dy = Math.max(Math.max(box.minY - explosion.posY, 0), explosion.posY - box.maxY);
+            double dz = Math.max(Math.max(box.minZ - explosion.posZ, 0), explosion.posZ - box.maxZ);
+            return Math.sqrt(dx * dx + dy * dy + dz * dz);
+        }
+        @Override public double blastSize(Object explosion) { return ((com.hbm.explosion.vanillant.ExplosionVNT) explosion).size; }
+        @Override public Object ownAttribute(acup.gunfeel.host.Body target, int which) { return living(target).getAttribute(which == 0 ? net.minecraft.world.entity.ai.attributes.Attributes.ARMOR : net.minecraft.world.entity.ai.attributes.Attributes.ARMOR_TOUGHNESS); }
+        @Override public Object ownModifier(Object attribute) { return ((net.minecraft.world.entity.ai.attributes.AttributeInstance) attribute).getModifier(BalanceKit.FBI_ARMOR); }
+        @Override public double attributeBase(Object attribute) { return ((net.minecraft.world.entity.ai.attributes.AttributeInstance) attribute).getBaseValue(); }
+        @Override public double modifierAmount(Object modifier) { return ((net.minecraft.world.entity.ai.attributes.AttributeModifier) modifier).amount(); }
+        @Override public void logBlastHit(acup.gunfeel.host.Body b, Object source, Object projectile, String id, double tier, boolean head) { BalanceLog.hit(living(b), (DamageSource) source, (Entity) projectile, id, tier, head); }
     static String gunName0(net.minecraft.world.item.Item item) {
         String g = BalanceGuns.gunName(item);
         if (g != null) return g;

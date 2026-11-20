@@ -28,7 +28,7 @@ class BalanceFinalStep2Test {
         } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
     }
 
-    static final class Reads implements FinalShots, HurtNow {
+    static class Reads implements FinalShots, HurtNow {
         final List<Object> calls = new ArrayList<>();
         final Map<Body, Object> entities = new IdentityHashMap<>();
         final Map<Object, Integer> count = new HashMap<>();
@@ -69,20 +69,10 @@ class BalanceFinalStep2Test {
         @Override public Object entity(Object s) { calls.add("entity"); return ((Source) s).shooter(); }
         @Override public String category(Object s) { calls.add("category"); return ((Source) s).cat(); }
         @Override public boolean vnt() { calls.add("vnt"); return vnt; }
-        boolean bulletBlast() { calls.add("bulletBlast"); return explosionHit; }
+        @Override public boolean bulletBlast() { calls.add("bulletBlast"); return explosionHit; }
         boolean struck(Body b) { calls.add("struck"); return explosionHit; }
         Object bullet() { calls.add("bullet"); return BULLET; }
-        @Override public Object hitProjectile(Body b, Object s, String cat) {
-            if ("EXPL".equals(cat)) {
-                if (!bulletBlast() || !struck(b)) return NO_PROJECTILE;
-                return bullet();
-            }
-            return direct(s);
-        }
-        @Override public String fallbackPair(Object s, String cat) {
-            return vnt() && !"EXPL".equals(cat) ? (legacy == null ? BalanceFinalBase.blastPair(s, this) : legacy.blastPair(s)) : null;
-        }
-        @Override public boolean again(Body b, Object s) {
+        boolean again(Body b, Object s) {
             boolean ir = legacy == null ? BalanceFinalBase.irSub(s, this) : legacy.irSub(s);
             if (!(vnt() || ir) || explosion(s) || "EXPL".equals(category(s))) return false;
             long now = time(raw(b));
@@ -94,8 +84,39 @@ class BalanceFinalStep2Test {
             hits.put(raw(b), List.of(id, shooter, now));
             return false;
         }
-        boolean explosion(Object s) { calls.add("isExplosion"); return ((Source) s).explosion(); }
-        @Override public float blastOrFrag(Body b, Object s) { calls.add("blastOrFrag"); return blast; }
+        @Override public boolean explosion(Object s) { calls.add("isExplosion"); return ((Source) s).explosion(); }
+        float blastOrFrag(Body b, Object s) {
+            if (!Float.isNaN(blast) && "EXPL".equals(category(s))) {
+                if (logOn()) logBlastHit(b, s, null, "test", 0, false);
+                return blast;
+            }
+            if (client(b) || !enabled()) return Float.NaN;
+            String cat = category(s);
+            if (cat == null || "EXPL".equals(cat)) return Float.NaN;
+            Object projectile = direct(s);
+            String id = legacy.pairOf(projectile);
+            if (id == null || !id.startsWith("gl54.")) return Float.NaN;
+            throw new AssertionError("step 2 has no fragments");
+        }
+        @Override public Object struckNow() { calls.add("struck"); return explosionHit ? TARGET : null; }
+        @Override public Object bulletNow() { return bullet(); }
+        @Override public int entityId(Object entity) { return ((Entity) entity).id(); }
+        @Override public boolean rawClient(Object entity) { throw new AssertionError(); }
+        @Override public String grenadeFilling(Object grenade) { throw new AssertionError(); }
+        @Override public Object boundBullet(Object blast) { throw new AssertionError(); }
+        @Override public Object projectileOwner(Object bullet) { throw new AssertionError(); }
+        @Override public Object currentImpact() { throw new AssertionError(); }
+        @Override public Object exploder(Object explosion) { throw new AssertionError(); }
+        @Override public boolean playerEntity(Object entity) { throw new AssertionError(); }
+        @Override public double boxDistance(Body target, Object explosion) { throw new AssertionError(); }
+        @Override public double blastSize(Object explosion) { throw new AssertionError(); }
+        @Override public Object ownAttribute(Body target, int which) { throw new AssertionError(); }
+        @Override public Object ownModifier(Object attribute) { throw new AssertionError(); }
+        @Override public double attributeBase(Object attribute) { throw new AssertionError(); }
+        @Override public double modifierAmount(Object modifier) { throw new AssertionError(); }
+        @Override public void logBlastHit(Body b, Object source, Object projectile, String id, double tier, boolean head) {
+            calls.add(Arrays.asList("logHit", raw(b), source, projectile, id, Double.doubleToRawLongBits(tier), head));
+        }
         @Override public boolean mobShooter(Object s) { entity(s); calls.add("mobShooterType"); return mob; }
         @Override public double distance(Body b, Object s) { entity(s); calls.add("position.shooter"); calls.add("position.target"); return distance; }
         @Override public boolean logOn() { calls.add("logOn"); return logging; }
@@ -116,7 +137,7 @@ class BalanceFinalStep2Test {
     }
 
     // Copied from 0d4b482; game reads alone are replaced by the fake's live getters.
-    static final class Legacy {
+    static class Legacy {
         final Reads reads;
         final Map<Object, String> PAIR = Collections.synchronizedMap(new WeakHashMap<>());
         final Map<Object, Float> SHARE = Collections.synchronizedMap(new WeakHashMap<>());
@@ -308,7 +329,7 @@ class BalanceFinalStep2Test {
         final Reads old = new Reads(), now = new Reads();
         final Legacy ref = new Legacy(old);
         final Map<CacheKey, Double> oldCache = new HashMap<>(), newCache = new HashMap<>();
-        Compare() { for (String name : MAPS) map(name).clear(); state().cache().clear(); }
+        Compare() { for (String name : MAPS) map(name).clear(); map("BLAST_HITS").clear(); state().cache().clear(); }
         void step(Supplier<Object> expected, Supplier<Object> actual) {
             old.calls.clear(); now.calls.clear();
             State s = state();
@@ -331,7 +352,14 @@ class BalanceFinalStep2Test {
             Map<Object, String> current = new HashMap<>();
             map("LAST").forEach((k, v) -> current.put(k, v.toString()));
             assertEquals(last, current, "LAST");
-            assertEquals(old.hits, now.hits, "BLAST_HITS callback state");
+            Map<Object, List<Object>> hits = new HashMap<>();
+            map("BLAST_HITS").forEach((k, v) -> {
+                try {
+                    var type = v.getClass();
+                    hits.put(k, List.of(type.getDeclaredMethod("source").invoke(v), type.getDeclaredMethod("shooter").invoke(v), type.getDeclaredMethod("tick").invoke(v)));
+                } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
+            });
+            assertEquals(old.hits, hits, "BLAST_HITS state");
             assertEquals(old.count, now.count, "standShots callback state");
         }
         void fire(Object p, Body a, Body b) {
@@ -339,10 +367,28 @@ class BalanceFinalStep2Test {
         }
         void fire() { fire(BULLET, old.shooter, now.shooter); }
         void hit(Source s) {
-            step(() -> ref.hit(old.target, s), () -> BalanceFinalBase.hit(now.target, s, now, now::enabled, now));
-            step(() -> ref.damage(old.target, s), () -> BalanceFinalBase.damage(now.target, s, now, now::enabled, now));
-            step(() -> ref.drain(old.target, s), () -> BalanceFinalBase.drain(now.target, s, now, now::enabled, now));
-            step(() -> ref.ntmShot(old.target, s), () -> BalanceFinalBase.ntmShot(now.target, s, now, now::enabled));
+            Source source = Float.isNaN(now.blast) ? s : new Source(s.direct(), s.shooter(), "EXPL", true);
+            try {
+                if (!Float.isNaN(now.blast)) {
+                    Class<?> type = Class.forName("acup.gunfeel.BalanceFinalBase$BlastNow");
+                    var ctor = type.getDeclaredConstructor(Object.class, double.class, String.class, double.class, Object.class);
+                    ctor.setAccessible(true);
+                    var field = BalanceFinalBase.class.getDeclaredField("BLAST_NOW");
+                    field.setAccessible(true);
+                    ((ThreadLocal<Object>) field.get(null)).set(ctor.newInstance(TARGET, (double) now.blast, "test", 0.0, null));
+                }
+                step(() -> ref.hit(old.target, source), () -> BalanceFinalBase.hit(now.target, source, now, now::enabled, now));
+                step(() -> ref.damage(old.target, source), () -> BalanceFinalBase.damage(now.target, source, now, now::enabled, now));
+                step(() -> ref.drain(old.target, source), () -> BalanceFinalBase.drain(now.target, source, now, now::enabled, now));
+                step(() -> ref.ntmShot(old.target, source), () -> BalanceFinalBase.ntmShot(now.target, source, now, now::enabled));
+            } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
+            finally {
+                try {
+                    var field = BalanceFinalBase.class.getDeclaredField("BLAST_NOW");
+                    field.setAccessible(true);
+                    ((ThreadLocal<?>) field.get(null)).remove();
+                } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
+            }
         }
     }
     static Object bits(Object x) {
