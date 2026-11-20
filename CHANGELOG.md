@@ -1,5 +1,9 @@
 # Changelog
 
+## X2100
+
+- Fixed a possible game crash (JVM) while smoke is being drawn.
+
 ## X2082
 
 - Fixed the dedicated server failing to start with the mod.
