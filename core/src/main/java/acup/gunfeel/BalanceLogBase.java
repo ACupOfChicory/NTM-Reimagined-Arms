@@ -19,9 +19,13 @@ import java.util.WeakHashMap;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.host.Body;
+import acup.gunfeel.host.HurtNow;
+import acup.gunfeel.host.Worlds;
+
 /**
- * The fight log's count and its line without the game (BalanceLog on each version reads the game and NTM: who is a
- * player, the magazine, the sets, the names, the distance). A shooter and a projectile are the version's entities as
+ * The fight log without the game (BalanceLog on each version reads the magazine, the source and the distance).
+ * A shooter and a projectile are the version's entities as
  * they are, keys of weak maps by their own equals (on 26.2 and 1.7.10 the entity's number), never wrapped: a wrapper
  * would key them by identity. A fight is by the players' UUIDs.
  */
@@ -32,6 +36,90 @@ class BalanceLogBase {
     static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("ntm-gunfeel");
     static final String FILE = "logs/ntmgunfeel-fights.log";
     static final String HEADER = "# time\tkiller\tvictim\tgun\tammo\tpair tier\tkiller set\tkiller tier\tvictim set\tvictim tier\tdistance\tttk s\tshots\thits\thead hits\treloads\n";
+
+    /** The version's reads and output; no fight state. */
+    interface Reads {
+        /** Magazine left (26.2: first receiver's magazine.getAmount with the player's inventory). */
+        int ammo(Body player, Object gun);
+        /** Causing entity (26.2: EntityBody.of(DamageSource.getEntity), null for none). */
+        @Nullable Body cause(Object source);
+        /** Direct entity (26.2: DamageSource.getDirectEntity). */
+        @Nullable Object direct(Object source);
+        /** Impact bullet (26.2: ExplosiveDamage.bulletNow). */
+        @Nullable Object bulletNow();
+        /** Raw map key (26.2: EntityBody.entity). */
+        Object raw(Body b);
+        /** Entity distance, float widened (26.2: Entity.distanceTo). */
+        double distance(Body killer, Body victim);
+        /** Log switch (26.2: BalanceLog.on). */
+        boolean on();
+        /** Wall clock (26.2: LocalDateTime.now). */
+        LocalDateTime time();
+        /** Append the line (26.2: BalanceLogBase.write). */
+        void write(String line);
+        /** Failed kill (26.2: LOGGER.warn). */
+        void failed(RuntimeException ex);
+        /** Live hurt port (26.2: EuphImmunityBase.NowPort.NOW). */
+        HurtNow hurt();
+        /** Balance supplier (26.2: BalanceOn.ON). */
+        java.util.function.BooleanSupplier balanceOn();
+    }
+
+    static void shot(Object projectile, @Nullable Body shooter, Object gun, Reads reads) {
+        if (shooter == null || !shooter.player()) return;
+        int ammo = reads.ammo(shooter, gun);
+        shot(projectile, reads.raw(shooter), Worlds.of(shooter.level()).gameTime(), ammo);
+    }
+
+    static void hit(@Nullable Body target, Object source, @Nullable Object projectile, String id, double tier, boolean head, Reads reads) {
+        if (target == null || !target.player()) return;
+        Body shooter = reads.cause(source);
+        if (shooter == null || !shooter.player()) return;
+        Long shot = projectile != null ? shotOf(projectile) : null;
+        if (shot == null) shot = shotOf(reads.direct(source));
+        if (shot == null) shot = reads.bulletNow() == null ? null : shotOf(reads.bulletNow());
+        count(target.uuid(), shooter.uuid(), reads.raw(shooter), shot, Worlds.of(target.level()).gameTime(), id, tier, head);
+    }
+
+    static void death(Body victim, java.util.function.Supplier<Object> source, Reads reads) {
+        death(victim, source, reads, BalanceArmorBase::setOfWorn);
+    }
+
+    /** The same with live armor slots supplied for core's tests. */
+    static void death(Body victim, java.util.function.Supplier<Object> source, Reads reads,
+            java.util.function.BiFunction<Body, Integer, String> worn) {
+        if (!victim.player() || Worlds.of(victim.level()).client()) return;
+        Map<UUID, Fight> of = forget(victim.uuid());
+        if (!reads.on()) return;
+        Body killer = reads.cause(source.get());
+        if (killer == null || !killer.player() || killer == victim) return;
+        try {
+            long now = Worlds.of(victim.level()).gameTime();
+            Fight f = fight(of, killer.uuid(), now);
+            String killerSet = set(killer, reads, worn);
+            double killerTier = tier(killer, reads, worn);
+            String victimSet = set(victim, reads, worn);
+            double victimTier = tier(victim, reads, worn);
+            reads.write(line(reads.time(), killer.profileName(), victim.profileName(), reads.raw(killer), f, now,
+                    killerSet, killerTier, victimSet, victimTier, reads.distance(killer, victim)));
+        } catch (RuntimeException ex) {
+            reads.failed(ex);
+        }
+    }
+
+    static void logout(Body player) {
+        forget(player.uuid());
+    }
+
+    private static String set(Body who, Reads reads, java.util.function.BiFunction<Body, Integer, String> worn) {
+        var a = BalanceFinalBase.armorOf(who, BalanceFinalBase.state(), reads.hurt(), reads.balanceOn(), worn);
+        return a == null ? "-" : a.kind();
+    }
+
+    private static double tier(Body who, Reads reads, java.util.function.BiFunction<Body, Integer, String> worn) {
+        var a = BalanceFinalBase.armorOf(who, BalanceFinalBase.state(), reads.hurt(), reads.balanceOn(), worn);
+        return a == null ? Double.NaN : a.tier();
+    }
 
     // ---------------------------------------------------------------- a shot
 

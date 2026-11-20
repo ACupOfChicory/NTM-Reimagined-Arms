@@ -69,6 +69,7 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public java.util.UUID uuid() { return uuid; }
         @Override public boolean living() { return living; }
         @Override public boolean player() { return player; }
+        @Override public String profileName() { return player ? "player" : null; }
         @Override public double x() { return x; }
         @Override public double y() { return y; }
         @Override public double z() { return z; }

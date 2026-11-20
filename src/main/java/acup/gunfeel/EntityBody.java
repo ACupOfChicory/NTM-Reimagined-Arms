@@ -66,6 +66,7 @@ public final class EntityBody implements Body {
     @Override public int age() { return e.tickCount; }
     @Override public boolean living() { return e instanceof LivingEntity; }
     @Override public boolean player() { return e instanceof Player; }
+    @Override public @Nullable String profileName() { return e instanceof Player p ? p.getGameProfile().name() : null; }
     @Override public double x() { return e.getX(); }
     @Override public double y() { return e.getY(); }
     @Override public double z() { return e.getZ(); }
