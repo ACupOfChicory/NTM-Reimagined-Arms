@@ -64,6 +64,22 @@ public abstract class EntityViewContract {
     /** the living entity's last attacker timestamp, read directly */
     protected abstract int lastHurtTime(int id);
 
+    /** the living entity's body yaw, read directly */
+    protected abstract float yBodyRot(int id);
+
+    @Test
+    void bodyYawOfTheLiving() {
+        for (int id : new int[] {mob(), spectator()}) {
+            Body b = view().byId(id);
+            assertEquals(yBodyRot(id), b.yBodyRot());
+            control().yBodyRot(b, 37F);
+            assertEquals(37F, yBodyRot(id));
+            assertEquals(37F, b.yBodyRot());
+            tick();
+            assertEquals(yBodyRot(id), b.yBodyRot());
+        }
+    }
+
     private int near(int kind, Body[] out) {
         double[] b = box();
         return view().near(kind, b[0], b[1], b[2], b[3], b[4], b[5], out);
@@ -306,6 +322,7 @@ public abstract class EntityViewContract {
         assertThrows(RuntimeException.class, p::maxHealth);
         assertThrows(RuntimeException.class, p::lastHurtBy);
         assertThrows(RuntimeException.class, p::lastHurtTime);
+        assertThrows(RuntimeException.class, p::yBodyRot);
         assertThrows(RuntimeException.class, p::killCredit);
         // a player's only: false on another
         assertFalse(p.spectator());

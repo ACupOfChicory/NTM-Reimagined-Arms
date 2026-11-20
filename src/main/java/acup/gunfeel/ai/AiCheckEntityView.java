@@ -617,6 +617,7 @@ final class AiCheckEntityView {
         eq(w + "tagged gunfeel_check", b.tagged("gunfeel_check"), e.entityTags().contains("gunfeel_check"));
         if (b.level() != e.level()) wrong.add(w + "level");
         if (e instanceof LivingEntity le) {
+            eq(w + "yBodyRot", b.yBodyRot(), le.yBodyRot);
             eq(w + "health", b.health(), le.getHealth());
             eq(w + "lastHurtTime", b.lastHurtTime(), le.getLastHurtByMobTimestamp());
             eq(w + "maxHealth", b.maxHealth(), le.getMaxHealth());
@@ -643,6 +644,10 @@ final class AiCheckEntityView {
                 r1 == level.getRandom().nextInt(41) && r2 == level.getRandom().nextInt(41) && r3 == level.getRandom().nextInt(41));
         dummy.setLastHurtByMob(stand);
         Body body = EntityBody.of(dummy);
+        float bodyYaw = dummy.yBodyRot;
+        dummy.yBodyRot = 37F;
+        check.check("lean ports: body yaw is read live", body.yBodyRot() == dummy.yBodyRot && body.yBodyRot() == 37F);
+        dummy.yBodyRot = bodyYaw;
         LivingEntity credited = dummy.getKillCredit();
         check.check("commander ports: last attacker and kill credit keep the entity's one Body",
                 body.lastHurtBy() == EntityBody.of(stand) && body.lastHurtBy() == body.lastHurtBy()
@@ -722,7 +727,7 @@ final class AiCheckEntityView {
     private void livingOnly() {
         Body a = EntityBody.of(arrow), s = EntityBody.of(stand);
         check.check("entityview: on the arrow (not living) the living ones throw", throwsOn(a::climbing) && throwsOn(a::speed) && throwsOn(a::lying) && throwsOn(a::sleeping)
-                && throwsOn(a::leftHanded) && throwsOn(a::fallFlying) && throwsOn(a::health) && throwsOn(a::maxHealth) && throwsOn(a::lastHurtBy) && throwsOn(a::lastHurtTime) && throwsOn(a::killCredit));
+                && throwsOn(a::leftHanded) && throwsOn(a::fallFlying) && throwsOn(a::health) && throwsOn(a::maxHealth) && throwsOn(a::lastHurtBy) && throwsOn(a::lastHurtTime) && throwsOn(a::killCredit) && throwsOn(a::yBodyRot));
         check.check("entityview: on the stand (living, no mob) leftHanded throws", throwsOn(s::leftHanded));
     }
 

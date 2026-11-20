@@ -4,8 +4,10 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.EntityBody;
 import acup.gunfeel.ModelBox;
 import acup.gunfeel.ModelHits;
+import acup.gunfeel.host.Body;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -18,42 +20,48 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class AiLean extends AiLeanBase {
     static @Nullable AiLeanAlike alike;
+    private static final Vec3Maker<Vec3> VECTOR = Vec3::new;
+    private static final Staff STAFF = new Staff() {
+        @Override public @Nullable LeanPose pose(Body b) { return AiPose.of((LivingEntity) EntityBody.entity(b)); }
+        @Override public long gameTime(Body b) { return EntityBody.entity(b).level().getGameTime(); }
+        @Override public boolean hitsEnabled() { return ModelHits.enabled(); }
+        @Override public long caught(Object level, Body b) { return ModelHits.caught((ServerLevel) level, (LivingEntity) EntityBody.entity(b)); }
+        @Override public void forget(Object level, Body b, long put) { ModelHits.forget((ServerLevel) level, (LivingEntity) EntityBody.entity(b), put); }
+        @Override public void put(Object level, Body b, float yaw, List<ModelBox> boxes) { ModelHits.put((ServerLevel) level, (LivingEntity) EntityBody.entity(b), yaw, boxes); }
+    };
 
     private AiLean() {
     }
 
     /** whether it may lean at all: shots at a leaned head need the model's boxes (else a step aside, as before) */
     static boolean may() {
-        return on && ModelHits.enabled();
+        return AiLeanBase.may(STAFF);
     }
 
     /** the lean now, −1 .. 1 (0 for any mob that does not lean) */
     public static float frac(net.minecraft.world.entity.Entity entity) {
-        if (!(entity instanceof LivingEntity e)) return 0F;
-        AiPose p = AiPose.of(e);
-        if (p.lean() == 0 && p.prevLean() == 0) return 0F;
-        return AiPoseGeometry.leanFrac(p, e.level().getGameTime(), 0F);
+        float answer = AiLeanBase.frac(STAFF, EntityBody.of(entity));
+        return alike == null ? answer : alike.frac(entity, answer);
     }
 
     /** where its eyes are: leaned, or the game's own */
     public static Vec3 eye(net.minecraft.world.entity.Entity entity) {
-        float f = frac(entity);
-        if (f == 0F || !(entity instanceof LivingEntity e)) return entity.getEyePosition();
-        return e.position().add(AiPoseGeometry.eyeOffset(AiPose.of(e).stance(), f, e.yBodyRot, e.getEyeHeight()));
+        Vec3 answer = AiLeanBase.eye(STAFF, EntityBody.of(entity), VECTOR);
+        if (answer == null) answer = entity.getEyePosition();
+        return alike == null ? answer : alike.eye(entity, answer);
     }
 
     /** how far its eyes are from where they would be upright (what NTM's bullet starts off by) */
     public static Vec3 eyeShift(LivingEntity e) {
-        float f = frac(e);
-        if (f == 0F) return Vec3.ZERO;
-        return AiPoseGeometry.eyeOffset(AiPose.of(e).stance(), f, e.yBodyRot, e.getEyeHeight()).subtract(0, e.getEyeHeight(), 0);
+        Vec3 answer = AiLeanBase.eyeShift(STAFF, EntityBody.of(e), VECTOR);
+        if (answer == null) answer = Vec3.ZERO;
+        return alike == null ? answer : alike.eyeShift(e, answer);
     }
 
     /** a point of its middle line, {@code up} blocks above its feet, where it is with the lean */
     public static Vec3 point(LivingEntity e, double up) {
-        float f = frac(e);
-        if (f == 0F) return new Vec3(e.getX(), e.getY() + up, e.getZ());
-        return e.position().add(AiPoseGeometry.leanPoint(0, up, 0, AiPose.of(e).stance(), f, e.yBodyRot));
+        Vec3 answer = AiLeanBase.point(STAFF, EntityBody.of(e), up, VECTOR);
+        return alike == null ? answer : alike.point(e, up, answer);
     }
 
     // ------------------------------------------------------------------ boxes for shots, with no client
@@ -62,28 +70,14 @@ public final class AiLean extends AiLeanBase {
 
     /** its own boxes taken back, if they are still the ones kept (a client's newer pose stays); returns none */
     static long drop(ServerLevel level, LivingEntity e, long put) {
-        if (put != Long.MIN_VALUE && ModelHits.caught(level, e) == put) ModelHits.forget(level, e, put);
-        return Long.MIN_VALUE;
+        return AiLeanBase.drop(STAFF, level, EntityBody.of(e), put);
     }
-
-    /** a client's pose this new or newer is the client's to keep, ticks */
-    static final int CLIENT_FRESH = 5;
 
     /**
      * Each tick: leaned, its boxes, unless a client drew it lately (a client's model is the real one); upright again,
      * the boxes it put taken back. {@code put} is the tick it last put its own (Long.MIN_VALUE: none); returns the new.
      */
     static long boxes(ServerLevel level, LivingEntity e, boolean aiming, long put, long tick) {
-        float f = frac(e);
-        if (put == Long.MIN_VALUE && f == 0F) return Long.MIN_VALUE;
-        long caught = ModelHits.caught(level, e);
-        boolean mine = put != Long.MIN_VALUE && caught == put;
-        if (f == 0F || !ModelHits.enabled() || AiPose.of(e).stance() != AiPose.STAND) {
-            if (mine) ModelHits.forget(level, e, put);
-            return Long.MIN_VALUE;
-        }
-        if (!mine && caught != Long.MIN_VALUE && tick - caught <= CLIENT_FRESH) return Long.MIN_VALUE;
-        ModelHits.put(level, e, e.yBodyRot, boxes(AiPose.STAND, aiming, f, e.yBodyRot));
-        return tick;
+        return AiLeanBase.boxes(STAFF, level, EntityBody.of(e), aiming, put, tick);
     }
 }
