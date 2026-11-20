@@ -8,13 +8,18 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import acup.gunfeel.host.Body;
+import acup.gunfeel.host.NtmGuns;
+
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 import com.hbm.extprop.HbmPlayerProps;
 import com.hbm.handler.HbmKeybinds.EnumKeybind;
 import com.hbm.items.ModItems;
 import com.hbm.items.armor.ModArmorItem;
 import com.hbm.items.weapon.sedna.BulletConfig;
+import com.hbm.items.weapon.sedna.GunConfig;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
+import com.hbm.items.weapon.sedna.Receiver;
 import com.hbm.items.weapon.sedna.factory.XFactory10ga;
 import com.hbm.items.weapon.sedna.factory.XFactory12ga;
 import com.hbm.items.weapon.sedna.factory.XFactory50;
@@ -22,6 +27,7 @@ import com.hbm.items.weapon.sedna.factory.XFactory762mm;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.SimpleContainer;
@@ -182,6 +188,7 @@ public final class DamageCapCheck {
     }
 
     private static void plan() {
+        STEPS.add(DamageCapCheck::maxDelay);
         // the server's file is read once a second
         STEPS.add(() -> keys("damageCap", "true"));
         wait(30);
@@ -210,6 +217,44 @@ public final class DamageCapCheck {
     }
 
     // ---------------------------------------------------------------- the cases
+
+    private static void maxDelay() {
+        NtmGuns guns = CoreServices.load(NtmGuns.class, NtmGuns.NONE);
+        ItemStack before = shooter.getMainHandItem();
+        int count = 0, mismatches = 0;
+        try {
+            for (Item item : BuiltInRegistries.ITEM) {
+                if (!(item instanceof ItemGunBaseNT)) continue;
+                count++;
+                shooter.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(item));
+                String why = null;
+                try {
+                    int old = oldGunDelay(shooter);
+                    int port = guns.maxDelay(EntityBody.of(shooter), Body.MAIN_HAND);
+                    int facade = DamageCap.gunDelay(shooter);
+                    if (old != port || old != facade) why = "old=" + old + ", port=" + port + ", facade=" + facade;
+                } catch (RuntimeException e) {
+                    why = e.toString();
+                }
+                if (why != null && ++mismatches <= 3) LINES.add("#\tmaxDelay: " + BuiltInRegistries.ITEM.getKey(item) + ": " + why);
+            }
+        } finally {
+            shooter.setItemSlot(EquipmentSlot.MAINHAND, before);
+        }
+        check(count > 0 && mismatches == 0, "maxDelay: " + count + " ружей, расхождений " + mismatches);
+    }
+
+    private static int oldGunDelay(LivingEntity shooter) {
+        int out = 0;
+        ItemStack stack = shooter.getMainHandItem();
+        if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return 0;
+        for (int i = 0; i < gun.getConfigCount(); i++) {
+            GunConfig config = gun.getConfig(stack, i);
+            if (config == null) continue;
+            for (Receiver r : config.getReceivers(stack)) out = Math.max(out, r.getDelayAfterFire(stack));
+        }
+        return out;
+    }
 
     private static void spas(String n, boolean hev, BulletConfig ammo, float shield) {
         oneClick(n, hev, ModItems.GUN_SPAS12::get, ammo, EnumKeybind.GUN_SECONDARY, shield);

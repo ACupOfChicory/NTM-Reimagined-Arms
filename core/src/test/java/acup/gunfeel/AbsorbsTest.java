@@ -31,6 +31,11 @@ class AbsorbsTest {
     }
 
     private static final class Reads implements HurtNow, Hurts {
+        @Override public float headMultiplier() { throw new UnsupportedOperationException(); }
+        @Override public Body direct(Object hurt) { throw new UnsupportedOperationException(); }
+        @Override public Body cause(Object hurt) { throw new UnsupportedOperationException(); }
+        @Override public boolean ntmExplosion(Object hurt) { throw new UnsupportedOperationException(); }
+        @Override public float corrosion(Body b) { throw new UnsupportedOperationException(); }
         final Input in;
         final List<String> calls = new ArrayList<>();
         final UUID id = UUID.randomUUID();

@@ -18,17 +18,24 @@ public interface HurtNow {
     /** whether this hit is on the target's head; one version read */
     boolean onHead(Body target);
 
+    /** the target's current acid corrosion; one version read */
+    float corrosion(Body b);
+
     /** the table's array as it is kept (BalanceGuns' cache), no new array: not to be written; one version read */
     float @Nullable [] floorExtra(Object hurt, boolean blast);
 
     /** NTM's piercing of this hit, DT or DR; one version read */
     float ntmPierce(Body target, int which);
 
+    /** The current head multiplier. */
+    float headMultiplier();
+
     /** where the version gives none: each method throws */
     HurtNow MISSING = new HurtNow() {
         @Override public boolean gas() { throw new UnsupportedOperationException("no HurtNow here"); }
         @Override public int reach(Object hurt) { throw new UnsupportedOperationException("no HurtNow here"); }
         @Override public float schemeDrain(Body b, Object hurt) { throw new UnsupportedOperationException("no HurtNow here"); }
+        @Override public float corrosion(Body b) { throw new UnsupportedOperationException("no HurtNow here"); }
         @Override
         public boolean onHead(Body target) {
             throw new UnsupportedOperationException("no HurtNow here");
@@ -43,5 +50,6 @@ public interface HurtNow {
         public float ntmPierce(Body target, int which) {
             throw new UnsupportedOperationException("no HurtNow here");
         }
+        @Override public float headMultiplier() { throw new UnsupportedOperationException("no HurtNow here"); }
     };
 }
