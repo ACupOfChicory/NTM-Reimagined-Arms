@@ -108,6 +108,45 @@ public abstract class AiBotBase {
         return cleared;
     }
 
+    /** what it is to its squad: the role given by word, else the one its gun makes it (the version's AiRoles.of) */
+    public abstract AiRole role();
+
+    /** it fights as a soldier (its brain the version's AiSoldier) */
+    public abstract boolean soldier();
+
+    /** a soldier on its way to cover or after a target (TO_COVER, SEARCH); its mode asked once */
+    public abstract boolean onTheMove();
+
+    /** a soldier in its cover, out at its peek or holding (COVER, PEEK, HOLD), with a spot; its mode asked once */
+    public abstract boolean inCover();
+
+    /** a soldier searching for a lost target itself (SEARCH), not one short of the way up a shaft (wayUpStuck) */
+    public abstract boolean searching();
+
+    /** a soldier going through the building this target fell in (AiSoldier.fights) */
+    public abstract boolean fightsFallen(int target);
+
+    /** a soldier falling back now (AiSoldier.fallingBack) */
+    public abstract boolean fallingBack();
+
+    /** a marksman that fights from perches (AiMarksman.is) */
+    public abstract boolean marksman();
+
+    /** a marksman with a perch it goes to or fires from (AiMarksman.perched) */
+    public abstract boolean perched();
+
+    /** a marksman at its perch (AiMarksman.there) */
+    public abstract boolean atPerch();
+
+    /** a grenadier that lobs (AiGrenadier.is) */
+    public abstract boolean grenadier();
+
+    /** its level, the version's object, where it is a server's; null elsewhere */
+    public abstract @Nullable Object serverLevel();
+
+    /** its level for core where it is a server's (Wiring.world on 26.2); null elsewhere */
+    public abstract acup.gunfeel.host.@Nullable WorldView world();
+
     /** where it goes (the version's AiMover) */
     public abstract AiMoverBase mover();
 

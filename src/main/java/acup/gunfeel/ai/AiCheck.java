@@ -160,6 +160,8 @@ public final class AiCheck {
             AiCheckEntityView entityView = new AiCheckEntityView(check, check.level, Y);
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
             // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed, took cover to fire from on a hill (and with height weighed), a side's staff in a war, went into a trench round its turns, crossed a river under fire by waves, took a bunker by its slit, went at NTM's underground bunker, went down a shaft through a hatch, went round a deep shaft held by another way in, sent by its staff into a house with no way in, the loudest shot among a hundred, went round the end of a wall at one holding it, looked into a house from round its way in
+            // core's squads against the former code on every stage's mobs
+            AiSquads.alike = new AiSquadsAlike();
             List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves", "hill", "hillheights", "war", "trench", "crossing", "alert", "bunker", "bunkerntm", "hatch", "bypass", "fought", "wall", "folly", "corner", "heard", "slice", "sliceside", "overheat", "entityview");
             List<java.util.function.BooleanSupplier> stages = List.of(ticks::tick, fight::tick, teams::tick, crowd::tick, spread::tick, prone::tick,
                     aim::tick, parts::tick, lean::tick, squad::tick, blind::tick, grenade::tick, idle::tick, exit::tick, unseen::tick, react::tick, battle::tick, duel::tick, retreat::tick, step::tick, base::tick, doors::tick, entry::tick, clearing::tick, supply::tick, kit::tick, terrain::tick, water::tick, marksman::tick, grenadier::tick, medic::tick, commander::tick, leaves::tick, hill::tick, hillHeights::tick, war::tick, trench::tick, crossing::tick, alert::tick, bunker::tick, bunkerNtm::tick, hatch::tick, bypass::tick, fought::tick, wall::tick, folly::tick, corner::tick, heard::tick, slice::tick, sliceSide::tick, overheat::tick, entityView::tick);
@@ -233,6 +235,12 @@ public final class AiCheck {
                 out.add("     " + check.map.info());
                 out.add("     senses: " + Senses.info());
                 out.add("     " + StandSprint.info());
+                AiSquadsAlike alike = AiSquads.alike;
+                AiSquads.alike = null;
+                if (alike != null && alike.asked > 0) {
+                    out.add("     " + alike.info());
+                    check.check("squads: core's AiSquadsBase makes the former code's squads and answers as it did", alike.alike());
+                }
                 out.add(check.ok ? "ALL OK" : "FAILED");
                 finish(file, out, check.ok ? 0 : 1);
             });

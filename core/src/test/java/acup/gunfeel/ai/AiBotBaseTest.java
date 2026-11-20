@@ -24,6 +24,71 @@ class AiBotBaseTest {
         }
 
         @Override
+        public AiRole role() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean soldier() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean onTheMove() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean inCover() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean searching() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean fightsFallen(int target) {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean fallingBack() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean marksman() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean perched() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean atPerch() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public boolean grenadier() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public Object serverLevel() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public acup.gunfeel.host.WorldView world() {
+            throw new AssertionError();
+        }
+
+        @Override
         public AiMoverBase mover() {
             throw new AssertionError();
         }
