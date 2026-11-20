@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -72,24 +71,9 @@ public final class AiSpawn {
 
     /**
      * somewhere free round the point, on a floor, within a few blocks (wider for more mobs); none free there (a
-     * cramped room's walls all round), the point itself
+     * cramped room's walls all round), the point itself: core's SpawnPlace
      */
     private static boolean place(ServerLevel level, Mob mob, Vec3 at, RandomSource rng, int count) {
-        double reach = 2 + Math.sqrt(count) * 1.5;
-        for (int attempt = 0; attempt <= 16; attempt++) {
-            double a = rng.nextDouble() * Math.PI * 2, r = attempt == 16 ? 0 : 1.5 + rng.nextDouble() * reach;
-            double x = Math.floor(at.x + Math.cos(a) * r) + 0.5, z = Math.floor(at.z + Math.sin(a) * r) + 0.5;
-            for (int dy = 3; dy >= -4; dy--) {
-                BlockPos feet = BlockPos.containing(x, at.y + dy, z);
-                if (level.getBlockState(feet.below()).getCollisionShape(level, feet.below()).isEmpty()) continue;
-                mob.setPos(x, feet.getY(), z);
-                float yaw = rng.nextFloat() * 360F;
-                mob.setYRot(yaw);
-                mob.setYHeadRot(yaw);
-                mob.setYBodyRot(yaw);
-                if (level.noCollision(mob)) return true;
-            }
-        }
-        return false;
+        return SpawnPlace.place(acup.gunfeel.Wiring.world(level), acup.gunfeel.EntityBody.of(mob), at.x, at.y, at.z, acup.gunfeel.GameRandoms.of(rng), count);
     }
 }

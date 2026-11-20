@@ -29,6 +29,7 @@ public interface BodyControl {
         @Override public void face(Body b, float yaw) { throw none(); }
         @Override public boolean turned(Body b) { throw none(); }
         @Override public void lookAt(Body b, double x, double y, double z, float yMax, float xMax) { throw none(); }
+        @Override public void place(Body b, double x, double y, double z) { throw none(); }
     };
 
     /**
@@ -90,4 +91,10 @@ public interface BodyControl {
 
     /** its LookControl to turn its head to this point, at most yMax and xMax degrees a tick (setLookAt) */
     void lookAt(Body b, double x, double y, double z, float yMax, float xMax);
+
+    /**
+     * setPos: the body (any, not only a mob) put there, its box with it; after it {@code b.x()}, {@code y()}, {@code z()}
+     * and {@code box} read the new place
+     */
+    void place(Body b, double x, double y, double z);
 }

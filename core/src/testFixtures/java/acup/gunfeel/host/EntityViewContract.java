@@ -98,6 +98,27 @@ public abstract class EntityViewContract {
         control().xRot(a, x0);
     }
 
+    // place: the Body reads the new place and its box there at once; put back after
+    @Test
+    void placeSetIsPlaceRead() {
+        for (Body a : new Body[] {view().byId(mob()), view().byId(projectile())}) {
+            double x0 = a.x(), y0 = a.y(), z0 = a.z();
+            double[] before = new double[6], after = new double[6];
+            a.box(before);
+            control().place(a, x0 + 0.75, y0 + 0.5, z0 - 0.25);
+            a.box(after);
+            assertEquals(x0 + 0.75, a.x());
+            assertEquals(y0 + 0.5, a.y());
+            assertEquals(z0 - 0.25, a.z());
+            assertEquals(before[0] + 0.75, after[0], 1e-9);
+            assertEquals(before[1] + 0.5, after[1], 1e-9);
+            assertEquals(before[2] - 0.25, after[2], 1e-9);
+            assertEquals(before[3] - before[0], after[3] - after[0], 1e-9);
+            control().place(a, x0, y0, z0);
+            assertEquals(x0, a.x());
+        }
+    }
+
     // a walk along three cells from the mob's: under way, at its first node; stopped, done; a mob standing, never stuck
     @Test
     void aWalkAndItsStop() {

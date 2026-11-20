@@ -156,6 +156,25 @@ final class AiCheckEntityView {
         net.minecraft.world.entity.ai.control.LookControl lc = dummy.getLookControl();
         turnSet &= lc.getWantedX() == cx + 0.5 && lc.getWantedY() == cy + 1.25 && lc.getWantedZ() == cz + 5.5;
         check.check("entityview: BodyControl turns the body, head and look by the game's setters, the Body reads them back", turnSet);
+        // BodyControl.place: the game's setPos on a mob and on what is no mob (the arrow); the Body reads the place and
+        // the box there at once, as the game's getters do; each put back after
+        boolean placed = true;
+        for (Entity e : List.of(dummy, arrow)) {
+            Body eb = EntityBody.of(e);
+            double x0 = e.getX(), y0 = e.getY(), z0 = e.getZ();
+            control.place(eb, x0 + 0.75, y0 + 0.5, z0 - 0.25);
+            double[] box = new double[6];
+            eb.box(box);
+            net.minecraft.world.phys.AABB bb = e.getBoundingBox();
+            placed &= eb.x() == x0 + 0.75 && e.getX() == x0 + 0.75 && eb.y() == y0 + 0.5 && e.getY() == y0 + 0.5 && eb.z() == z0 - 0.25 && e.getZ() == z0 - 0.25
+                    && box[0] == bb.minX && box[1] == bb.minY && box[2] == bb.minZ && box[3] == bb.maxX && box[4] == bb.maxY && box[5] == bb.maxZ
+                    && bb.minY == y0 + 0.5;
+            same("placed by BodyControl: " + name(e), e);
+            control.place(eb, x0, y0, z0);
+            placed &= eb.x() == x0 && e.getX() == x0;
+        }
+        check.check("entityview: BodyControl.place is the game's setPos, on a mob and on an arrow; the Body reads the place and its box at once", placed);
+        spawnPlaces();
         // ItemTable: the item in hand by its number is the registry's id, the same String each time; air 0; no item for
         // a number none has
         acup.gunfeel.host.ItemTable items = CoreServices.load(acup.gunfeel.host.ItemTable.class, acup.gunfeel.host.ItemTable.MISSING);
@@ -183,6 +202,61 @@ final class AiCheckEntityView {
         level.getScoreboard().removePlayerTeam(level.getScoreboard().getPlayerTeam(TEAM));
         level.setChunkForced(X >> 4, Z >> 4, false);
         return true;
+    }
+
+    /**
+     * core's SpawnPlace against the game's code it was moved from (AiSpawn.place as it was, below), on this level: from
+     * the same seed, over the floor, at its edge and high in the air, for one, four and nine mobs, each mob put the same
+     * way to the bit (the place, its turns, free or not)
+     */
+    private void spawnPlaces() {
+        var type = BuiltInRegistries.ENTITY_TYPE.getValue(Identifier.fromNamespaceAndPath("hbm", "entity_test_dummy"));
+        Vec3[] points = {new Vec3(X + 0.5, y + 1, Z + 0.5), new Vec3(X + 4.5, y + 1.3, Z - 3.5), new Vec3(X + 0.5, y + 24, Z + 0.5)};
+        int tried = 0, same = 0, free = 0;
+        for (Vec3 at : points)
+            for (int count : new int[] {1, 4, 9})
+                for (long seed = 1; seed <= 12; seed++) {
+                    Mob was = (Mob) type.create(level, EntitySpawnReason.COMMAND), now = (Mob) type.create(level, EntitySpawnReason.COMMAND);
+                    // the same start (a mob is made turned a random way): one never put keeps it
+                    for (Mob m : new Mob[] {was, now}) {
+                        m.setYRot(0);
+                        m.setYHeadRot(0);
+                        m.setYBodyRot(0);
+                    }
+                    boolean a = gamePlace(level, was, at, net.minecraft.util.RandomSource.create(seed), count);
+                    boolean b = SpawnPlace.place(acup.gunfeel.Wiring.world(level), EntityBody.of(now), at.x, at.y, at.z,
+                            acup.gunfeel.GameRandoms.of(net.minecraft.util.RandomSource.create(seed)), count);
+                    tried++;
+                    if (a) free++;
+                    if (a == b && was.getX() == now.getX() && was.getY() == now.getY() && was.getZ() == now.getZ() && was.getYRot() == now.getYRot()
+                            && was.getYHeadRot() == now.getYHeadRot() && was.yBodyRot == now.yBodyRot) same++;
+                    else if (tried - same <= 3) check.out(String.format(Locale.ROOT, "     entityview: unlike at %s count %d seed %d: game %b %.4f %.4f %.4f %.3f/%.3f/%.3f, core %b %.4f %.4f %.4f %.3f/%.3f/%.3f", at, count, seed,
+                            a, was.getX(), was.getY(), was.getZ(), was.getYRot(), was.getYHeadRot(), was.yBodyRot, b, now.getX(), now.getY(), now.getZ(), now.getYRot(), now.getYHeadRot(), now.yBodyRot));
+                    was.discard();
+                    now.discard();
+                }
+        check.out(String.format(Locale.ROOT, "     entityview: SpawnPlace and the game's code: %d of %d alike, %d of them free", same, tried, free));
+        check.check("entityview: SpawnPlace puts a mob as AiSpawn's own code did, to the bit, from the same seed", same == tried && free > 0 && free < tried);
+    }
+
+    /** AiSpawn.place as it was before core's SpawnPlace (589b844), for the comparison above */
+    private static boolean gamePlace(ServerLevel level, Mob mob, Vec3 at, net.minecraft.util.RandomSource rng, int count) {
+        double reach = 2 + Math.sqrt(count) * 1.5;
+        for (int attempt = 0; attempt <= 16; attempt++) {
+            double a = rng.nextDouble() * Math.PI * 2, r = attempt == 16 ? 0 : 1.5 + rng.nextDouble() * reach;
+            double x = Math.floor(at.x + Math.cos(a) * r) + 0.5, z = Math.floor(at.z + Math.sin(a) * r) + 0.5;
+            for (int dy = 3; dy >= -4; dy--) {
+                BlockPos feet = BlockPos.containing(x, at.y + dy, z);
+                if (level.getBlockState(feet.below()).getCollisionShape(level, feet.below()).isEmpty()) continue;
+                mob.setPos(x, feet.getY(), z);
+                float yaw = rng.nextFloat() * 360F;
+                mob.setYRot(yaw);
+                mob.setYHeadRot(yaw);
+                mob.setYBodyRot(yaw);
+                if (level.noCollision(mob)) return true;
+            }
+        }
+        return false;
     }
 
     private static String name(Entity e) {

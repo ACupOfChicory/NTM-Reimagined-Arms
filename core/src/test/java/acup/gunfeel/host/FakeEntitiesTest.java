@@ -177,6 +177,14 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public void face(Body b, float yaw) { }
         @Override public boolean turned(Body b) { return false; }
         @Override public void lookAt(Body b, double x, double y, double z, float yMax, float xMax) { }
+
+        @Override
+        public void place(Body b, double x, double y, double z) {
+            Fake f = (Fake) b;
+            f.x = x;
+            f.y = y;
+            f.z = z;
+        }
     }
 
     private final FakeControl control = new FakeControl();
