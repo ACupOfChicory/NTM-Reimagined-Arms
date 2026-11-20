@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Fixed the dedicated server failing to start with the mod.
+- Fixed a possible game crash (JVM) while smoke is being drawn.
 
 ## X2015
 

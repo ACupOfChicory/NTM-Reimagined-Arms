@@ -338,7 +338,7 @@ public final class SmokeRender {
         };
     }
 
-    private static float stepLength(int q) {
+    static float stepLength(int q) {
         return switch (q) {
             case 1 -> 0.6F;
             case 2 -> 0.45F;
@@ -347,7 +347,7 @@ public final class SmokeRender {
         };
     }
 
-    private static int maxSteps(int q) {
+    static int maxSteps(int q) {
         return switch (q) {
             case 1 -> 16;
             case 2 -> 28;
@@ -700,39 +700,7 @@ public final class SmokeRender {
             float seconds = held ? standSeconds : (float) ((System.nanoTime() / 1_000_000L) % 3_600_000L) / 1000F;
             boolean zeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
             try (var view = ubo.currentBuffer().map(false, true)) {
-                Std140Builder b = Std140Builder.intoBuffer(view.data());
-                b.putMat4f(new Matrix4f(e.getModelViewMatrix()));
-                b.putVec4((float) depthW / w, zeroToOne ? 1F : 0F, seconds, maxSteps(q));
-                b.putVec4(1F / SmokeAtlas.WIDTH, 1F / SmokeAtlas.HEIGHT, partial, stepLength(q));
-                b.putVec4(groups.length, lowInside ? 1F : 0F, (float) depthH / h, (standOld & OLD_FRONT) != 0 || projView == null ? 0F : 1F);
-                b.putVec4((float) (Math.floor(cam.x / ANCHOR) * ANCHOR - cam.x), (float) (Math.floor(cam.y / ANCHOR) * ANCHOR - cam.y),
-                        (float) (Math.floor(cam.z / ANCHOR) * ANCHOR - cam.z), (standOld & OLD_THROUGH) != 0 ? 0.01F : THROUGH_MIN);
-                b.putMat4f(projView != null ? new Matrix4f(projView).invert() : new Matrix4f());
-                for (int i = 0; i < SmokeAtlas.SLOTS; i++) {
-                    if (i >= order.size()) {
-                        for (int k = 0; k < 4; k++) b.putVec4(0F, 0F, 0F, 0F);
-                        continue;
-                    }
-                    SmokeAtlas.Slot s = order.get(i);
-                    SmokeClouds.Cloud c = s.cloud();
-                    int[] cells = cells(c);
-                    b.putVec4((float) (c.baseX() - cam.x), (float) (c.baseY() - cam.y), (float) (c.baseZ() - cam.z), s.index());
-                    b.putVec4(cells[0], cells[1], cells[2], c.kind().look());
-                    b.putVec4(cells[3], cells[4], cells[5], 0F);
-                    int rgb = c.kind().rgb();
-                    b.putVec4((rgb >> 16 & 255) / 255F, (rgb >> 8 & 255) / 255F, (rgb & 255) / 255F, 1F);
-                }
-                for (int i = 0, first = 0; i < SmokeAtlas.SLOTS; i++) {
-                    if (i >= groups.length) {
-                        b.putVec4(0F, 0F, 0F, 0F);
-                        b.putVec4(0F, 0F, 0F, 0F);
-                        continue;
-                    }
-                    double[] u = union(boxes, groups[i]);
-                    b.putVec4((float) (u[0] - cam.x), (float) (u[1] - cam.y), (float) (u[2] - cam.z), first);
-                    b.putVec4((float) (u[3] - cam.x), (float) (u[4] - cam.y), (float) (u[5] - cam.z), groups[i].length);
-                    first += groups[i].length;
-                }
+                info(view.data(), e.getModelViewMatrix(), depthW, depthH, w, h, zeroToOne, seconds, q, partial, groups, lowInside, projView, order, boxes, cam);
             }
             var device = RenderSystem.getDevice();
             var sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR);
@@ -961,16 +929,60 @@ public final class SmokeRender {
         }
     }
 
+    // SmokeInfo's matrices, kept: the JIT's C2 of JDK 25 (25.0.1, 25.0.4.1) crashed (SIGSEGV in
+    // LoadNode::can_split_through_phi_base) compiling a JOML Matrix4f.get(ByteBuffer) of either of two new matrices
+    // (projView != null ? new Matrix4f(projView).invert() : new Matrix4f()); one matrix set either way is no such phi
+    // (notes/ports-base/bugs.md). The render thread's only.
+    private static final Matrix4f VIEW = new Matrix4f(), INVERSE = new Matrix4f();
+
+    /** SmokeInfo's bytes for a frame: the march's numbers, the clouds in their groups' order, the groups' boxes. */
+    static void info(java.nio.ByteBuffer data, org.joml.Matrix4fc modelView, int depthW, int depthH, int w, int h, boolean zeroToOne, float seconds, int q,
+            float partial, int[][] groups, boolean lowInside, Matrix4f projView, List<SmokeAtlas.Slot> order, double[][] boxes, Vec3 cam) {
+        Std140Builder b = Std140Builder.intoBuffer(data);
+        b.putMat4f(VIEW.set(modelView));
+        b.putVec4((float) depthW / w, zeroToOne ? 1F : 0F, seconds, maxSteps(q));
+        b.putVec4(1F / SmokeAtlas.WIDTH, 1F / SmokeAtlas.HEIGHT, partial, stepLength(q));
+        b.putVec4(groups.length, lowInside ? 1F : 0F, (float) depthH / h, (standOld & OLD_FRONT) != 0 || projView == null ? 0F : 1F);
+        b.putVec4((float) (Math.floor(cam.x / ANCHOR) * ANCHOR - cam.x), (float) (Math.floor(cam.y / ANCHOR) * ANCHOR - cam.y),
+                (float) (Math.floor(cam.z / ANCHOR) * ANCHOR - cam.z), (standOld & OLD_THROUGH) != 0 ? 0.01F : THROUGH_MIN);
+        b.putMat4f(projView != null ? INVERSE.set(projView).invert() : INVERSE.identity());
+        for (int i = 0; i < SmokeAtlas.SLOTS; i++) {
+            if (i >= order.size()) {
+                for (int k = 0; k < 4; k++) b.putVec4(0F, 0F, 0F, 0F);
+                continue;
+            }
+            SmokeAtlas.Slot s = order.get(i);
+            SmokeClouds.Cloud c = s.cloud();
+            int[] cells = cells(c);
+            b.putVec4((float) (c.baseX() - cam.x), (float) (c.baseY() - cam.y), (float) (c.baseZ() - cam.z), s.index());
+            b.putVec4(cells[0], cells[1], cells[2], c.kind().look());
+            b.putVec4(cells[3], cells[4], cells[5], 0F);
+            int rgb = c.kind().rgb();
+            b.putVec4((rgb >> 16 & 255) / 255F, (rgb >> 8 & 255) / 255F, (rgb & 255) / 255F, 1F);
+        }
+        for (int i = 0, first = 0; i < SmokeAtlas.SLOTS; i++) {
+            if (i >= groups.length) {
+                b.putVec4(0F, 0F, 0F, 0F);
+                b.putVec4(0F, 0F, 0F, 0F);
+                continue;
+            }
+            double[] u = union(boxes, groups[i]);
+            b.putVec4((float) (u[0] - cam.x), (float) (u[1] - cam.y), (float) (u[2] - cam.z), first);
+            b.putVec4((float) (u[3] - cam.x), (float) (u[4] - cam.y), (float) (u[5] - cam.z), groups[i].length);
+            first += groups[i].length;
+        }
+    }
+
     // the cells the shader marches a cloud through: one around the occupied box, which the edge cells fade out into and
     // the cloud grows into; min x, y, z and max x, y, z in the grid's cells
-    private static int[] cells(SmokeClouds.Cloud c) {
+    static int[] cells(SmokeClouds.Cloud c) {
         int[] box = c.grid.box();
         return new int[] {Math.max(-1, box[0] - 1), Math.max(-1, box[1] - 1), Math.max(-1, box[2] - 1),
                 Math.min(SmokeGrid.SX + 1, box[3] + 2), Math.min(SmokeGrid.SY + 1, box[4] + 2), Math.min(SmokeGrid.SZ + 1, box[5] + 2)};
     }
 
     // the same in the world
-    private static double[] worldBox(SmokeClouds.Cloud c) {
+    static double[] worldBox(SmokeClouds.Cloud c) {
         int[] k = cells(c);
         return new double[] {c.baseX() + k[0], c.baseY() + k[1], c.baseZ() + k[2], c.baseX() + k[3], c.baseY() + k[4], c.baseZ() + k[5]};
     }
