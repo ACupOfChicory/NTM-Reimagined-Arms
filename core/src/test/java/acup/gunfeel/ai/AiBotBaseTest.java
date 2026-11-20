@@ -71,6 +71,16 @@ class AiBotBaseTest {
         assertEquals(Long.MIN_VALUE, b.stackUntil);
         assertEquals(Long.MIN_VALUE, b.holdAt);
         assertEquals(Long.MIN_VALUE, b.holdSince);
+        assertSame(AiRole.RIFLE, b.role);
+        assertEquals(null, b.assigned);
+    }
+
+    @Test
+    void rolesByWord() {
+        assertSame(AiRole.BASE, AiRole.named("Base"));
+        assertSame(AiRole.MEDIC, AiRole.named("medic"));
+        assertEquals(null, AiRole.named("sniper"));
+        assertEquals(java.util.List.of("rifle", "base", "supplier", "marksman", "grenadier", "medic", "auto"), AiRole.words());
     }
 
     @Test

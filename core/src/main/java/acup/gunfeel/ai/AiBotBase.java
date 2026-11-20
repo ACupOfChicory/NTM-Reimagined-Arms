@@ -21,6 +21,10 @@ public abstract class AiBotBase {
     private int clearedFor = Integer.MIN_VALUE;
     private long clearedLost = Long.MIN_VALUE;
     public final AiConfidence confidence = new AiConfidence();
+    /** what it is to its squad, worked out for the gun in its hands (the version's AiRoles.of) */
+    AiRole role = AiRole.RIFLE;
+    /** the role it was given by word (/armsai spawn … role, /armsai kit … role), null: by its gun */
+    @Nullable AiRole assigned;
     /** a supplier's stock to hand out {magazines, grenades, smoke grenades} (AiSupply), null till it is one */
     int @Nullable [] supply;
     /** the group of enemies it gave up looking for (its members' ids), not again before this tick */
