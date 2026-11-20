@@ -7,7 +7,6 @@ import com.hbm.util.DamageResistanceHandler;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -54,41 +53,46 @@ public final class BalanceArmor extends BalanceArmorBase {
         return setName(id.getPath(), i);
     }
 
-    /** the category the formula takes (PHYS, EN, EXPL), or null when the hit is NTM's */
+    /** the category the formula takes (PHYS, EN, EXPL), or null when the hit is NTM's (BalanceArmorBase.categoryOf) */
     static String category(DamageSource source) {
-        String cat = categoryAny(source);
-        // bullets and beams only: an NTM shot's damage type. Melee (a sword, the Crucible, a mob's blow), vanilla's
-        // arrows, spikes and the rest are NTM's numbers, as before the balance
-        return cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || shot(source) || irBeam(source) ? cat : null;
+        return categoryOf(source);
     }
 
     /** an infrared beam: a gun's beam of NTM's fire class, the formula's and the cap's as a beam */
     public static boolean irBeam(DamageSource source) {
-        return source.getDirectEntity() instanceof com.hbm.entity.projectile.EntityBulletBeamBase && source.is(ModDamageTypes.FIRE);
+        return irBeamOf(source);
     }
 
-    /**
-     * NTM's category of the hit as the balance reads it (PHYS, EN, EXPL), shot or not, or null: euphemium's pool is
-     * drained by any such hit (melee too), as the formula would take it
-     */
+    /** NTM's category of the hit as the balance reads it, shot or not, or null (BalanceArmorBase.categoryAnyOf) */
     static String categoryAny(DamageSource source) {
-        if (source.is(DamageTypeTags.BYPASSES_EFFECTS)) return null;
-        if (source.is(ModDamageTypes.NUCLEAR_BLAST) || source.is(ModDamageTypes.DIGAMMA) || source.is(ModDamageTypes.RADIATION)) return null;
-        String cat = DamageResistanceHandler.typeToCategory(source);
-        // an infrared beam (a gun's beam of NTM's fire class: the IR capacitors of the laser guns and Lacunae) is the
-        // formula's as a beam (EN), not NTM's fire numbers: they let it through the combat sets and the pool
-        if (DamageResistanceHandler.CATEGORY_FIRE.equals(cat) && irBeam(source)) return DamageResistanceHandler.CATEGORY_ENERGY;
-        // balanceArmorBlasts off: blasts take NTM's numbers, bullets and beams the formula's
-        if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return ReaimTimes.flag("balanceArmorBlasts", true) ? cat : null;
-        return DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) || DamageResistanceHandler.CATEGORY_PHYSICAL.equals(cat) ? cat : null;
+        return categoryAnyOf(source);
     }
 
-    /**
-     * the hit is an NTM shot's (BalanceArmorRule.shotType): its damage type and whether a creature dealt it itself
-     */
+    /** the hit is an NTM shot's (BalanceArmorRule.shotName) */
     static boolean shot(DamageSource source) {
-        var key = source.typeHolder().unwrapKey().orElse(null);
-        return key != null && BalanceArmorRule.shotType(key.identifier().getNamespace(), key.identifier().getPath(), source.getDirectEntity() instanceof LivingEntity);
+        return shotTypeOf(source);
+    }
+
+    /** NTM's reads of a hurt for core (HurtsPort): this system's (BALANCE) */
+    static final class Reads {
+        private Reads() {
+        }
+
+        /** NTM's fire type (an IR beam's) */
+        static boolean ntmFire(DamageSource source) {
+            return source.is(ModDamageTypes.FIRE);
+        }
+
+        /** the direct entity: living (Hurts.LIVING), NTM's beam (Hurts.NTM_BEAM) */
+        static int directKind(DamageSource source) {
+            var direct = source.getDirectEntity();
+            return (direct instanceof LivingEntity ? acup.gunfeel.host.Hurts.LIVING : 0)
+                    | (direct instanceof com.hbm.entity.projectile.EntityBulletBeamBase ? acup.gunfeel.host.Hurts.NTM_BEAM : 0);
+        }
+
+        static String ntmCategory(DamageSource source) {
+            return DamageResistanceHandler.typeToCategory(source);
+        }
     }
 
     /**
