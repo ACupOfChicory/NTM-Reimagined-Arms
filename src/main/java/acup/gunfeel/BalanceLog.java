@@ -1,8 +1,6 @@
 package acup.gunfeel;
 
 import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.UUID;
 
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -28,18 +26,37 @@ public final class BalanceLog extends BalanceLogBase {
 
     /** a player's shot of the scheme (BalanceFinal.fired, with the log on): its number on the projectile, a reload before it counted */
     static void shot(Entity projectile, LivingEntity shooter, net.minecraft.world.item.Item gunItem) {
-        if (!(shooter instanceof Player player)) return;
-        int ammo = ammo(player, gunItem);
-        shot(projectile, shooter, shooter.level().getGameTime(), ammo);
+        BalanceLogBase.shot(projectile, shooter == null ? null : EntityBody.of(shooter), gunItem, Reads.READS);
     }
 
-    private static int ammo(Player player, net.minecraft.world.item.Item gunItem) {
-        var stack = player.getMainHandItem().getItem() == gunItem ? player.getMainHandItem() : player.getOffhandItem();
-        if (!(stack.getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) return -1;
-        try {
-            return gun.getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack).getAmount(stack, player.getInventory());
-        } catch (RuntimeException e) {
-            return -1;
+    /** The game's reads; the first magazine, with its original exception boundary. */
+    static final class Reads implements BalanceLogBase.Reads {
+        static final Reads READS = new Reads();
+
+        @Override public int ammo(acup.gunfeel.host.Body player, Object gun) { return ammo0((Player) EntityBody.entity(player), (net.minecraft.world.item.Item) gun); }
+        @Override public acup.gunfeel.host.Body cause(Object source) {
+            Entity e = ((net.minecraft.world.damagesource.DamageSource) source).getEntity();
+            return e == null ? null : EntityBody.of(e);
+        }
+        @Override public Object direct(Object source) { return ((net.minecraft.world.damagesource.DamageSource) source).getDirectEntity(); }
+        @Override public Object bulletNow() { return ExplosiveDamage.bulletNow(); }
+        @Override public Object raw(acup.gunfeel.host.Body b) { return EntityBody.entity(b); }
+        @Override public double distance(acup.gunfeel.host.Body killer, acup.gunfeel.host.Body victim) { return EntityBody.entity(killer).distanceTo(EntityBody.entity(victim)); }
+        @Override public boolean on() { return BalanceLog.on(); }
+        @Override public LocalDateTime time() { return LocalDateTime.now(); }
+        @Override public void write(String line) { BalanceLogBase.write(line); }
+        @Override public void failed(RuntimeException ex) { LOGGER.warn("The fight log: a kill not written", ex); }
+        @Override public acup.gunfeel.host.HurtNow hurt() { return EuphImmunityBase.NowPort.NOW; }
+        @Override public java.util.function.BooleanSupplier balanceOn() { return BalanceOn.ON; }
+
+        private static int ammo0(Player player, net.minecraft.world.item.Item gunItem) {
+            var stack = player.getMainHandItem().getItem() == gunItem ? player.getMainHandItem() : player.getOffhandItem();
+            if (!(stack.getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) return -1;
+            try {
+                return gun.getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack).getAmount(stack, player.getInventory());
+            } catch (RuntimeException e) {
+                return -1;
+            }
         }
     }
 
@@ -50,33 +67,14 @@ public final class BalanceLog extends BalanceLogBase {
      * at {@code tier} (a blast's: the launcher's pair, "grenade.<filling>"): counted to the fight
      */
     static void hit(LivingEntity target, net.minecraft.world.damagesource.DamageSource source, Entity projectile, String id, double tier, boolean head) {
-        if (!(target instanceof Player) || !(source.getEntity() instanceof Player shooter)) return;
-        Long shot = projectile != null ? shotOf(projectile) : null;
-        if (shot == null) shot = shotOf(source.getDirectEntity());
-        if (shot == null) shot = ExplosiveDamage.bulletNow() == null ? null : shotOf(ExplosiveDamage.bulletNow());
-        count(target.getUUID(), shooter.getUUID(), shooter, shot, target.level().getGameTime(), id, tier, head);
+        BalanceLogBase.hit(target == null ? null : EntityBody.of(target), source, projectile, id, tier, head, Reads.READS);
     }
 
     // ---------------------------------------------------------------- a death
 
     /** a player died: a player's kill of it written down, its fights forgotten */
     static void death(net.neoforged.neoforge.event.entity.living.LivingDeathEvent e) {
-        if (!(e.getEntity() instanceof Player victim) || victim.level().isClientSide()) return;
-        Map<UUID, Fight> of = forget(victim.getUUID());
-        if (!on() || !(e.getSource().getEntity() instanceof Player killer) || killer == victim) return;
-        try {
-            long now = victim.level().getGameTime();
-            Fight f = fight(of, killer.getUUID(), now);
-            // the sets read the server's keys: in the order the line read them
-            String killerSet = set(killer);
-            double killerTier = tier(killer);
-            String victimSet = set(victim);
-            double victimTier = tier(victim);
-            write(line(LocalDateTime.now(), killer.getGameProfile().name(), victim.getGameProfile().name(), killer, f, now, killerSet, killerTier, victimSet,
-                    victimTier, killer.distanceTo(victim)));
-        } catch (RuntimeException ex) {
-            LOGGER.warn("The fight log: a kill not written", ex);
-        }
+        BalanceLogBase.death(EntityBody.of(e.getEntity()), e::getSource, Reads.READS);
     }
 
     public static void register() {
@@ -84,16 +82,6 @@ public final class BalanceLog extends BalanceLogBase {
                 net.neoforged.neoforge.event.entity.living.LivingDeathEvent.class, BalanceLog::death);
         // a player who leaves: the fights on them forgotten
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerEvent.PlayerLoggedOutEvent.class,
-                e -> forget(e.getEntity().getUUID()));
-    }
-
-    private static String set(LivingEntity who) {
-        var a = BalanceFinal.armorOf(who, BalanceFinal.state());
-        return a == null ? "-" : a.kind();
-    }
-
-    private static double tier(LivingEntity who) {
-        var a = BalanceFinal.armorOf(who, BalanceFinal.state());
-        return a == null ? Double.NaN : a.tier();
+                e -> logout(EntityBody.of(e.getEntity())));
     }
 }

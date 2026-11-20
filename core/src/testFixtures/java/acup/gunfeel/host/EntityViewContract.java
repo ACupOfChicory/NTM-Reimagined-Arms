@@ -96,6 +96,14 @@ public abstract class EntityViewContract {
         }
     }
 
+    @Test
+    void profileNameIsStoredAndNullForOthers() {
+        for (int id : new int[] {mob(), projectile()}) assertNull(view().byId(id).profileName());
+        Body player = view().byId(spectator());
+        assertNotNull(player.profileName());
+        assertSame(player.profileName(), player.profileName());
+    }
+
     // the stance BodyControl sets is the one the Body reads; the mob is left standing
     @Test
     void stanceSetIsStanceRead() {

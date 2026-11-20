@@ -26,6 +26,9 @@ public interface Body {
     /** whether it is a player */
     boolean player();
 
+    /** a player's profile name, the stored string, no copy; null for others (26.2: Player.getGameProfile().name()) */
+    @Nullable String profileName();
+
     double x();
 
     double y();
