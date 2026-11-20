@@ -240,4 +240,36 @@ public class BalanceFinalBase {
         if (a == null) a = BalanceFinalRule.MODEL_SETS.get(set);
         return a == null ? Double.NaN : s.acid().on() ? s.acid().tierOf(a.tier(), k) : a.tier();
     }
+
+    // ---------------------------------------------------------------- the set worn
+
+    /**
+     * the set the scheme takes on {@code b} as the slots have it (BalanceFinal.armorOf before the acid): a full set of
+     * one kind its own (with its pool), a mixed or incomplete one by the slots' weights (no pool), nothing of the table:
+     * bare (players only); null when not the scheme's. {@code balanceOn}: the balance's feature is on (the version's),
+     * asked where the old code asked it, only for a player's full set of a kit's
+     */
+    static BalanceFinalRule.Armor armorOfWorn(acup.gunfeel.host.Body b, State s, java.util.function.BooleanSupplier balanceOn) {
+        BalanceFinalRule.Armor[] slots = new BalanceFinalRule.Armor[4];
+        String first = null;
+        boolean same = true, any = false;
+        for (int i = 0; i < 4; i++) {
+            String set = BalanceArmorBase.setOfWorn(b, i);
+            var a = set == null ? null : s.sets().get(set);
+            slots[i] = a;
+            if (a != null) any = true;
+            if (i == 0) first = set;
+            if (a == null || set == null || !set.equals(first)) same = false;
+        }
+        if (!any) return b.player() ? BalanceFinalRule.MODEL_SETS.get("none") : null;
+        if (same) return slots[0].pool() > 0 && !pooledOf(b, first, balanceOn) ? new BalanceFinalRule.Armor(slots[0].kind(), slots[0].tier(), slots[0].hours(), slots[0].en(), 0) : slots[0];
+        return BalanceFinalRule.mix(slots, s.weights(), s.empty());
+    }
+
+    /** the full set's pool is there: a player's, its kit in the mode pool (balance.immune*.mode) with the balance on */
+    static boolean pooledOf(acup.gunfeel.host.Body b, String set, java.util.function.BooleanSupplier balanceOn) {
+        if (!b.player()) return false;
+        for (var kit : EuphImmunityBase.Kit.values()) if (kit.set.equals(set)) return balanceOn.getAsBoolean() && kit.mode().equals("pool");
+        return false;
+    }
 }
