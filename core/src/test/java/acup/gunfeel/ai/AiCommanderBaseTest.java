@@ -340,7 +340,19 @@ class AiCommanderBaseTest {
         final java.util.List<String> events = new java.util.ArrayList<>();
         final java.util.Map<Long, acup.gunfeel.water.LiquidPath.Cell> liquids = new java.util.HashMap<>();
         long now = 1000;
-        boolean loaded = true, supply;
+        boolean loaded = true, supply, emptyCells, traceStep;
+        Bot stepping;
+        acup.gunfeel.Vec3d aimed;
+        boolean crouched;
+        long heldAt = Long.MIN_VALUE;
+        int mapCalls;
+        final java.util.Map<Long, SectionCells> sections = new java.util.HashMap<>();
+        final SectionCells empty = new SectionCells(0, 1, new short[0], new int[0], new short[0], new short[257], 0);
+        final TacticalMapBase terrain = new TacticalMapBase(-4, 8) {
+            @Override public SectionCells cells(long key) { return emptyCells ? empty : sections.get(key); }
+            @Override public SectionCells cellsAt(int x, int y, int z) { return cells(acup.gunfeel.PosLong.section(x >> 4, y >> 4, z >> 4)); }
+            @Override protected SectionSnapshot copy(long key, int x, int y, int z, int stamp) { throw new AssertionError(); }
+        };
         int top = 64, draw = 7, draws, bound;
         HqGrid grid;
         final acup.gunfeel.GameRandom random = new acup.gunfeel.GameRandom() {
@@ -355,6 +367,7 @@ class AiCommanderBaseTest {
                     case "gameTime" -> now;
                     case "random" -> random;
                     case "hasChunk" -> loaded;
+                    case "minY" -> -64;
                     case "height" -> { assertEquals(acup.gunfeel.host.WorldView.HEIGHT_MOTION_BLOCKING_NO_LEAVES, a[2]); yield top; }
                     default -> throw new AssertionError("unexpected world call: " + m.getName());
                 });
@@ -391,6 +404,15 @@ class AiCommanderBaseTest {
             boolean alive = true, removed, player, spectator;
             Body hurt, credit;
             final Body body;
+            double[] numbers = {0.25, 0.25};
+            int randomDraws;
+            final acup.gunfeel.GameRandom ownRandom = new acup.gunfeel.GameRandom() {
+                @Override public double nextDouble() { return numbers[randomDraws++]; }
+                @Override public int nextInt(int n) { throw new AssertionError(); }
+                @Override public boolean nextBoolean() { throw new AssertionError(); }
+                @Override public float nextFloat() { throw new AssertionError(); }
+                @Override public double nextGaussian() { throw new AssertionError(); }
+            };
 
             Person(int id, String team, double x, double z) {
                 this.id = id; this.team = team; this.x = x; this.z = z;
@@ -415,7 +437,8 @@ class AiCommanderBaseTest {
                     case "lastHurtBy" -> hurt;
                     case "killCredit" -> credit;
                     case "level" -> level;
-                    case "random" -> random;
+                    case "random" -> ownRandom;
+                    case "eye" -> { double[] out = (double[]) a[0]; out[0] = this.x; out[1] = y + 1.6; out[2] = this.z; yield null; }
                     default -> throw new AssertionError("unexpected body call: " + m.getName());
                 });
                 people.add(this);
@@ -429,10 +452,12 @@ class AiCommanderBaseTest {
             float suppressed;
             final AiGunnerBase gun;
             final AiProneBase prone;
+            final Walk walk;
 
             Bot(Person person) {
                 super(person.body, SensesTest.P);
                 this.person = person;
+                walk = new Walk(body);
                 gun = new AiGunnerBase(body, new AiAmmo(120)) {
                     @Override public int capacity() { return capacity; }
                     @Override boolean swims() { throw new AssertionError(); }
@@ -464,7 +489,7 @@ class AiCommanderBaseTest {
             @Override public boolean grenadier() { return false; }
             @Override public Object serverLevel() { return level; }
             @Override public acup.gunfeel.host.WorldView world() { return world; }
-            @Override public AiMoverBase mover() { throw new AssertionError(); }
+            @Override public AiMoverBase mover() { return walk; }
             @Override public AiGunnerBase gunner() { return gun; }
             @Override public AiProneBase prone() { return prone; }
             @Override public AiStoopBase stoop() { throw new AssertionError(); }
@@ -472,17 +497,41 @@ class AiCommanderBaseTest {
             @Override void gesture(byte kind, int ticks, long tick) { super.gesture(kind, ticks, tick); events.add("couple"); }
         }
 
+        final class Walk extends AiMoverBase {
+            long goal = Long.MIN_VALUE;
+            boolean arrived, failed;
+            double radius, speed;
+            PathSearch.Cost cost;
+            Walk(Body b) { super(b); }
+            @Override public long goal() { return goal; }
+            @Override public boolean arrived() { return arrived; }
+            @Override public boolean failed() { return failed; }
+            @Override public void stop() { goal = Long.MIN_VALUE; events.add("stop"); }
+            @Override public void costs(PathSearch.Cost c) {
+                cost = c;
+                if (traceStep) {
+                    assertEquals(Double.MAX_VALUE, stepping.order.legD);
+                    assertEquals(now, stepping.order.moveAt);
+                    events.add("leg");
+                }
+            }
+            @Override public void goTo(long c, double r, double s) { goal = c; radius = r; speed = s; events.add("go"); }
+        }
+
         final class Task extends AiCommanderBase.Job<Bot, Task> {
             Task(StaffPlan.Kind kind, long since, List<Bot> bots, int[] ids) { super(kind, since, bots, ids); }
         }
 
         final AiCommanderBase.Staff<Bot, Task, AiCommanderBase.Order<Bot, Task>> staff = new AiCommanderBase.Staff<>() {
-            @Override public AiCommanderBase.Order<Bot, Task> order(Bot b) { return b.order; }
+            @Override public AiCommanderBase.Order<Bot, Task> order(Bot b) {
+                if (traceStep && b != stepping && stepping.order.fails == AiCommanderBase.FAILS - 1) events.add("mateIn");
+                return b.order;
+            }
             @Override public void order(Bot b, AiCommanderBase.Order<Bot, Task> o) { b.order = o; }
             @Override public AiCommanderBase.Order<Bot, Task> order() { return new AiCommanderBase.Order<>(); }
             @Override public Task job(StaffPlan.Kind kind, long since, List<Bot> bots, int[] ids) { return new Task(kind, since, bots, ids); }
             @Override public AiSquadsBase.Squad<Bot> squad() { return new AiSquadsBase.Squad<>(); }
-            @Override public HqGrid hq(Object l, String team) { assertSame(level, l); return grid; }
+            @Override public HqGrid hq(Object l, String team) { assertSame(level, l); if (traceStep) events.add("tail"); return grid; }
             @Override public void hqReport(Object l, String team, List<Bot> own, List<AiIntelBase.Group> groups) { events.add("hq"); }
             @Override public void report(Object l, String team, AiReportsBase.Report r) { reports.add(r); events.add("look"); }
             @Override public long intel(Object l, java.util.Map<String, List<Bot>> own, long tick) { events.add("intel"); return tick + 500; }
@@ -496,6 +545,14 @@ class AiCommanderBaseTest {
             @Override public acup.gunfeel.host.WorldView world(Object l) { assertSame(level, l); return world; }
             @Override public acup.gunfeel.host.EntityView entities(Object l) { assertSame(level, l); return entities; }
             @Override public acup.gunfeel.water.LiquidPath.Fluids fluids(Object l) { assertSame(level, l); return fluids; }
+            @Override public TacticalMapBase map(Object l) { assertSame(level, l); mapCalls++; return terrain; }
+            @Override public VoxelRay.Source voxels(Object l) { throw new AssertionError(); }
+            @Override public java.util.function.LongPredicate heldByOthers(Bot b) { throw new AssertionError(); }
+            @Override public void aim(Bot b, acup.gunfeel.Vec3d at) { aimed = at; events.add("aim"); }
+            @Override public void crouch(Bot b, boolean on) { crouched = on; events.add("crouch"); }
+            @Override public double speed(StaffMoveBase.Pace p) { return switch (p) { case WALK -> 1; case MARCH -> 1.5; case RUN -> 2; case CREEP -> 0.5; }; }
+            @Override public void held(Bot b, long tick) { heldAt = tick; events.add("held"); }
+            @Override public boolean movingHeld(Bot b) { throw new AssertionError(); }
         };
 
         @BeforeEach
@@ -508,6 +565,7 @@ class AiCommanderBaseTest {
             AiSquadsBase.forgetLevel(level);
             AiBotsBase.LEVELS.remove(level);
             AiCommanderBase.on = AiCommanderBase.tasks = AiCommanderBase.staff = AiCommanderBase.pairs = AiCommanderBase.help = true;
+            AiCommanderBase.snap = AiCommanderBase.unstuck = StaffMoveBase.on = true;
         }
 
         Bot bot(int id, String team, double x, double z) {
@@ -563,6 +621,371 @@ class AiCommanderBaseTest {
         AiCommanderBase.Side side() throws Exception {
             var map = this.<java.util.Map<String, AiCommanderBase.Side>>map(AiCommanderBase.class, "LEVELS");
             return map.computeIfAbsent(level, k -> new java.util.HashMap<>()).computeIfAbsent("a", k -> new AiCommanderBase.Side());
+        }
+
+        @Test
+        void stepRejectsMissingExpiredAndDisabledOrdersBeforeFire() {
+            Bot b = bot(1, "a", 0, 0);
+            b.gun.wantFire = true;
+            assertFalse(AiCommanderBase.stepOrder(staff, b, level, now));
+            var o = order(b, StaffPlan.Kind.HOLD, 0, 0);
+            o.until = now - 1;
+            assertFalse(AiCommanderBase.stepOrder(staff, b, level, now));
+            o.until = now;
+            AiCommanderBase.on = false;
+            assertFalse(AiCommanderBase.stepOrder(staff, b, level, now));
+            assertTrue(b.gun.wantFire);
+            assertTrue(events.isEmpty());
+        }
+
+        @Test
+        void stepChecksMateBeforeTailLegAndGo() {
+            Bot b = bot(1, "a", 0, 0), mate = bot(2, "a", 2, 0);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 80, 0);
+            var m = order(mate, StaffPlan.Kind.ADVANCE, 80, 0);
+            m.lastInside = now;
+            o.fails = AiCommanderBase.FAILS - 1;
+            o.failedAt = 80;
+            o.noRoute = true;
+            o.job.move.mode = StaffMoveBase.Mode.MARCH;
+            o.job.move.next = Long.MAX_VALUE;
+            b.walk.failed = true;
+            b.gun.wantFire = true;
+            grid = HqGrid.around(0, 0);
+            java.util.Arrays.fill(grid.known, true);
+            stepping = b; traceStep = true;
+            assertTrue(AiCommanderBase.stepOrder(staff, b, level, now));
+            assertFalse(b.gun.wantFire);
+            assertEquals(List.of("mateIn", "tail", "leg", "go", "aim"), events);
+            assertTrue(o.onTail);
+            assertSame(o.job.tail, o.route);
+            assertEquals(AiCommanderBase.FAILS - 1, o.fails);
+            assertEquals(now, o.moveAt);
+            assertFalse(o.moveHold);
+            assertTrue(o.moveLeg);
+            assertEquals(now + AiCommanderBase.LEG_AGAIN, o.nextLeg);
+            assertEquals(1, o.at);
+            assertEquals(acup.gunfeel.PosLong.block(53, 64, 0), b.walk.goal);
+            assertEquals(1.5, b.walk.speed);
+        }
+
+        @Test
+        void stepStraightLegAndFailedGoKeepTheirOrder() {
+            Bot b = bot(1, "a", 3, 4);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 103, 4);
+            o.job = null;
+            b.gun.wantFire = true;
+            emptyCells = true;
+            assertTrue(AiCommanderBase.stepOrder(staff, b, level, now));
+            assertFalse(b.gun.wantFire);
+            assertEquals(27, o.legTX, 1e-12);
+            assertEquals(4, o.legTZ, 1e-12);
+            assertEquals(24, o.legD, 1e-12);
+            assertEquals(1, o.fails);
+            assertEquals(now + 1, o.nextLeg);
+            assertEquals(Long.MIN_VALUE, b.walk.goal);
+            assertTrue(events.isEmpty());
+            emptyCells = false;
+            o.fails = 0; o.nextLeg = now;
+            assertTrue(AiCommanderBase.stepOrder(staff, b, level, now));
+            assertEquals(List.of("go", "aim"), events);
+            assertEquals(1, b.walk.speed);
+        }
+
+        @Test
+        void stepUsesEntityRandomForAreaSearchAndRecordsFailedPlace() {
+            Bot b = bot(1, "a", 10, 20);
+            b.person.numbers = new double[] {0.25, 0.5625};
+            var o = order(b, StaffPlan.Kind.ADVANCE, 10, 20);
+            o.job = null; o.r = 8;
+            b.walk.failed = true;
+            b.walk.goal = acup.gunfeel.PosLong.block(-2, 70, 9);
+            b.gun.wantFire = true;
+            assertTrue(AiCommanderBase.stepOrder(staff, b, level, now));
+            assertFalse(b.gun.wantFire);
+            assertEquals(2, b.person.randomDraws);
+            assertEquals(0, draws);
+            assertEquals(new acup.gunfeel.Vec3d(10, 65.5, 26), aimed);
+            assertEquals(acup.gunfeel.PosLong.block(10, 64, 26), b.walk.goal);
+            assertArrayEquals(new double[] {-1.5, 9.5}, o.badPlaces.get(0));
+            assertEquals(1, o.inside);
+            assertEquals(now, o.lastInside);
+            assertEquals(now + AiCommanderBase.LOOK_AGAIN, o.nextLeg);
+            assertEquals(o.nextLeg, o.lookUntil);
+        }
+
+        @Test
+        void stepRetriesRandomInPairsAndFallsBackToRoomMiddle() {
+            Bot b = bot(1, "a", 0, 0);
+            var o = order(b, StaffPlan.Kind.SCOUT, 0, 0);
+            o.job = null; o.r = 8;
+            o.roomX = o.roomZ = 0;
+            o.room = 0;
+            var cells = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+            cells.defaultReturnValue(AiRooms.OUTSIDE);
+            o.rooms = new AiRooms.Plan(new int[0], new long[0], new AiRooms.Way[0], false, cells, new byte[0], new long[0], new long[0], new AiRooms.Window[0]);
+            b.person.numbers = new double[2 * AiCommanderBase.PLACE_TRIES];
+            java.util.Arrays.fill(b.person.numbers, 0.25);
+            assertTrue(AiCommanderBase.stepOrder(staff, b, level, now));
+            assertEquals(2 * AiCommanderBase.PLACE_TRIES, b.person.randomDraws);
+            assertEquals(new acup.gunfeel.Vec3d(0, 65.5, 0), aimed);
+        }
+
+        @Test
+        void stepAtPlaceStopsOnceFacesAndKeepsHysteresis() {
+            Bot b = bot(1, "a", 2, 0);
+            var o = order(b, StaffPlan.Kind.HOLD, 0, 0);
+            o.job.faceX = 20; o.job.faceZ = 3;
+            assertTrue(AiCommanderBase.stepOrder(staff, b, level, now));
+            assertTrue(o.job.there);
+            assertTrue(o.stood);
+            assertEquals(List.of("stop", "aim"), events);
+            assertEquals(new acup.gunfeel.Vec3d(20, 65.6, 3), aimed);
+            events.clear();
+            b.person.x = 4;
+            assertTrue(AiCommanderBase.stepOrder(staff, b, level, ++now));
+            assertEquals(List.of("aim"), events);
+            assertEquals(0, o.inside);
+            assertEquals(0, b.person.randomDraws);
+            o.job.faceX = 4; o.job.faceZ = 0;
+            assertTrue(AiCommanderBase.stepOrder(staff, b, level, ++now));
+            assertNull(aimed);
+        }
+
+        @Test
+        void stepGivesUpBeforeTailWhenNoMateIsInside() {
+            Bot b = bot(1, "a", 0, 0);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 80, 0);
+            o.job = null; o.fails = AiCommanderBase.FAILS - 1;
+            o.failedAt = 80;
+            b.walk.failed = true;
+            assertFalse(AiCommanderBase.stepOrder(staff, b, level, now));
+            assertNull(b.order);
+            assertEquals(now + AiCommanderBase.AVOID, b.orderFailedUntil);
+            assertTrue(events.isEmpty());
+        }
+
+        @Test
+        void legHoldsCrouchesStopsAndFacesWithoutGoing() {
+            Bot b = bot(1, "a", 0, 0);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 80, 0);
+            o.job.move.foe = true; o.job.move.foeX = 50; o.job.move.foeZ = 2;
+            o.legD = 3;
+            b.walk.goal = 123;
+            AiCommanderBase.walkLeg(staff, b, level, o, new StaffMoveBase.Leg(3, 4, 123, 2, true, true, true, 7), false, false, now);
+            assertEquals(List.of("crouch", "held", "stop", "aim"), events);
+            assertTrue(crouched);
+            assertEquals(now, heldAt);
+            assertEquals(Double.MAX_VALUE, o.legD);
+            assertEquals(Long.MIN_VALUE, b.walk.goal);
+            assertEquals(new acup.gunfeel.Vec3d(50, 65.6, 2), aimed);
+            assertFalse(o.moveLeg);
+            assertEquals(Long.MIN_VALUE, o.nextLeg);
+        }
+
+        @Test
+        void legUsesCellHeightRadiusPaceAndFreshness() {
+            Bot b = bot(1, "a", 0, 0);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 80, 0);
+            long c = acup.gunfeel.PosLong.block(-3, -12, 9);
+            o.fails = 4; b.walk.arrived = true;
+            var leg = new StaffMoveBase.Leg(-2.5, 9.5, c, 0.5, false, true, true, 7);
+            AiCommanderBase.walkLeg(staff, b, level, o, leg, false, false, now);
+            assertEquals(List.of("crouch", "go", "aim"), events);
+            assertEquals(0, o.fails);
+            assertEquals(now + 7, o.nextLeg);
+            assertEquals(-2.5, o.legX); assertEquals(9.5, o.legZ);
+            assertTrue(o.moveLeg);
+            assertEquals(c, b.walk.goal);
+            assertEquals(0.35, b.walk.radius);
+            assertEquals(0.5, b.walk.speed);
+            assertSame(PathSearch.Cost.NONE, b.walk.cost);
+            assertEquals(new acup.gunfeel.Vec3d(-2.5, -10.5, 9.5), aimed);
+            events.clear();
+            leg = new StaffMoveBase.Leg(-2.5, 9.5, c, 0.5, false, false, false, 7);
+            AiCommanderBase.walkLeg(staff, b, level, o, leg, false, false, now);
+            assertTrue(events.isEmpty());
+            b.person.alive = false;
+            AiCommanderBase.walkLeg(staff, b, level, o, leg, true, false, now);
+            assertEquals(List.of("go"), events);
+        }
+
+        @Test
+        void legWithoutCellRetriesFailedStandSoon() {
+            Bot b = bot(1, "a", 0, 0);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 80, 0);
+            emptyCells = true;
+            AiCommanderBase.walkLeg(staff, b, level, o, new StaffMoveBase.Leg(3, 4, Long.MIN_VALUE, 2, false, false, true, 7), false, false, now);
+            assertEquals(now + 1, o.nextLeg);
+            assertTrue(o.moveLeg);
+            assertEquals(Long.MIN_VALUE, b.walk.goal);
+        }
+
+        @Test
+        void goUnloadedUsesOwnHeightAndFloorsNegativeCoordinates() {
+            Bot b = bot(1, "a", 0, 0);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 80, 0);
+            o.moveLeg = true;
+            loaded = false; b.person.y = -2.2; top = 99;
+            assertTrue(AiCommanderBase.goGround(staff, b, level, -16.2, -0.1, 1.75));
+            assertEquals(acup.gunfeel.PosLong.block(-17, -3, -1), b.walk.goal);
+            assertEquals(2, b.walk.radius); assertEquals(1.75, b.walk.speed);
+            assertSame(PathSearch.Cost.NONE, b.walk.cost);
+            assertFalse(o.moveLeg);
+            assertEquals(new acup.gunfeel.Vec3d(-16.2, -1.5, -0.1), aimed);
+            assertEquals(0, mapCalls);
+        }
+
+        @Test
+        void goLoadedUsesHeightOrStandAndLeavesFailureUntouched() {
+            Bot b = bot(1, "a", 0, 0);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 80, 0);
+            AiCommanderBase.snap = false; top = 73;
+            assertTrue(AiCommanderBase.goGround(staff, b, level, 8.2, 9.3, 1));
+            assertEquals(acup.gunfeel.PosLong.block(8, 73, 9), b.walk.goal);
+            assertEquals(new acup.gunfeel.Vec3d(8.2, 74.5, 9.3), aimed);
+            assertEquals(0, mapCalls);
+            AiCommanderBase.snap = true;
+            assertTrue(AiCommanderBase.goGround(staff, b, level, 8.2, 9.3, 2));
+            assertEquals(1, mapCalls);
+            emptyCells = true; o.moveLeg = true;
+            events.clear(); aimed = null;
+            assertFalse(AiCommanderBase.goGround(staff, b, level, 1, 2, 3));
+            assertTrue(events.isEmpty()); assertNull(aimed);
+            assertTrue(o.moveLeg);
+            assertEquals(acup.gunfeel.PosLong.block(8, 73, 9), b.walk.goal);
+            assertEquals(2, b.walk.speed);
+            emptyCells = false; b.person.alive = false; b.order = null;
+            assertTrue(AiCommanderBase.goGround(staff, b, level, 1, 2, 3));
+            assertEquals(List.of("go"), events);
+            assertNull(aimed);
+        }
+
+        @Test
+        void mateInsideUsesRecencyTeamLifeAndDestination() {
+            Bot b = bot(1, "a", 0, 0), m = bot(2, "a", 10, 0);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 80, 0);
+            var other = order(m, StaffPlan.Kind.HOLD, 81, -1);
+            assertFalse(AiCommanderBase.mateInside(staff, b, o, now));
+            other.lastInside = now - AiCommanderBase.MATE_IN;
+            assertTrue(AiCommanderBase.mateInside(staff, b, o, now));
+            assertFalse(AiCommanderBase.mateInside(staff, b, o, now + 1));
+            other.lastInside = now;
+            m.person.team = "b"; assertFalse(AiCommanderBase.mateInside(staff, b, o, now));
+            m.person.team = "a"; m.active = false; assertFalse(AiCommanderBase.mateInside(staff, b, o, now));
+            m.active = true; m.person.alive = false; assertFalse(AiCommanderBase.mateInside(staff, b, o, now));
+            m.person.alive = true; m.person.removed = true; assertFalse(AiCommanderBase.mateInside(staff, b, o, now));
+            m.person.removed = false; other.x = 81.001; assertFalse(AiCommanderBase.mateInside(staff, b, o, now));
+            other.x = 80; other.z = -1.001; assertFalse(AiCommanderBase.mateInside(staff, b, o, now));
+            m.order = null; assertFalse(AiCommanderBase.mateInside(staff, b, o, now));
+            o.lastInside = now - AiCommanderBase.MATE_IN;
+            assertTrue(AiCommanderBase.mateInside(staff, b, o, now));
+            assertFalse(AiCommanderBase.mateInside(staff, b, o, now + 1));
+        }
+
+        @Test
+        void roomRefreshesOnlyAfterMovingAndBadUsesStrictDistance() {
+            Bot b = bot(1, "a", 0, 0);
+            var o = order(b, StaffPlan.Kind.SCOUT, -0.1, 2.9);
+            b.person.y = 63.9;
+            AiCommanderBase.findRoom(staff, o, b, level);
+            assertEquals(-0.1, o.roomX); assertEquals(2.9, o.roomZ);
+            assertEquals(64, o.roomY); assertNull(o.rooms); assertEquals(AiRooms.OUTSIDE, o.room);
+            assertEquals(1, mapCalls);
+            assertTrue(AiCommanderBase.insideRoom(staff, o, 100, 200));
+            var cells = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+            cells.defaultReturnValue(AiRooms.OUTSIDE);
+            cells.put(acup.gunfeel.PosLong.block(-1, 64, 2), 3);
+            o.rooms = new AiRooms.Plan(new int[0], new long[0], new AiRooms.Way[0], false, cells, new byte[0], new long[0], new long[0], new AiRooms.Window[0]);
+            o.room = 3;
+            assertTrue(AiCommanderBase.insideRoom(staff, o, -0.01, 2.99));
+            assertFalse(AiCommanderBase.insideRoom(staff, o, 0, 2.99));
+            o.x += 1;
+            AiCommanderBase.findRoom(staff, o, b, level);
+            assertEquals(1, mapCalls); assertEquals(3, o.room);
+            o.x += 0.01;
+            AiCommanderBase.findRoom(staff, o, b, level);
+            assertEquals(2, mapCalls); assertNull(o.rooms); assertEquals(AiRooms.OUTSIDE, o.room);
+            o.badPlaces.add(new double[] {10, 20});
+            assertTrue(AiCommanderBase.badPlace(staff, o, 10, 20));
+            assertTrue(AiCommanderBase.badPlace(staff, o, 10 + AiCommanderBase.BAD_NEAR - 0.001, 20));
+            assertFalse(AiCommanderBase.badPlace(staff, o, 10 + AiCommanderBase.BAD_NEAR, 20));
+        }
+
+        @Test
+        void roomFindsRoofedCellsAtTheBodyHeight() {
+            Bot b = bot(1, "a", 5, 5);
+            var o = order(b, StaffPlan.Kind.SCOUT, 5.5, 5.5);
+            short[] positions = new short[16], flags = new short[16], columns = new short[257];
+            int n = 0;
+            for (int col = 0; col < 256; col++) {
+                columns[col] = (short) n;
+                int x = col & 15, z = col >> 4;
+                if (x >= 4 && x <= 7 && z >= 4 && z <= 7) {
+                    positions[n] = (short) col;
+                    flags[n++] = SectionCells.ROOF;
+                }
+            }
+            columns[256] = (short) n;
+            long key = acup.gunfeel.PosLong.section(0, 4, 0);
+            sections.put(key, new SectionCells(key, 1, positions, new int[16], flags, columns, 0));
+            boolean shell = AiRooms.shell;
+            try {
+                AiRooms.shell = false;
+                AiCommanderBase.findRoom(staff, o, b, level);
+                org.junit.jupiter.api.Assertions.assertNotNull(o.rooms);
+                assertTrue(o.room >= 0);
+                assertTrue(AiCommanderBase.insideRoom(staff, o, 6.5, 6.5));
+                assertFalse(AiCommanderBase.insideRoom(staff, o, 8, 6.5));
+            } finally {
+                AiRooms.shell = shell;
+            }
+        }
+
+        @Test
+        void tailUsesSquadMeanAndEvenPointsAndReusesAtBoundary() {
+            Bot b = bot(1, "a", 2, 4), m = bot(2, "a", 6, 8);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 84, 66);
+            order(m, StaffPlan.Kind.ADVANCE, 84, 66).job = o.job;
+            o.job.members = List.of(b, m);
+            grid = HqGrid.around(0, 0); java.util.Arrays.fill(grid.known, true);
+            int made = AiCommanderBase.tails;
+            var t = AiCommanderBase.tailRoute(staff, level, o.job, o, now);
+            org.junit.jupiter.api.Assertions.assertNotNull(t);
+            assertEquals(4, t.fromX()); assertEquals(6, t.fromZ());
+            assertEquals(84, t.toX()); assertEquals(66, t.toZ());
+            assertEquals(100, t.length()); assertEquals(4, t.size());
+            for (int k = 0; k < 4; k++) {
+                assertEquals(4 + 20 * (k + 1), t.x(k));
+                assertEquals(6 + 15 * (k + 1), t.z(k));
+            }
+            assertEquals(made + 1, AiCommanderBase.tails);
+            o.x += AiCommanderBase.REROUTE;
+            grid = null;
+            assertSame(t, AiCommanderBase.tailRoute(staff, level, o.job, o, now));
+            o.x += 0.001;
+            assertNull(AiCommanderBase.tailRoute(staff, level, o.job, o, now));
+            assertNull(o.job.tail); assertEquals(now, o.job.tailNot);
+        }
+
+        @Test
+        void tailFailureCooldownAndEmptySquadHaveNoExtraAttempts() {
+            Bot b = bot(1, "a", 0, 0);
+            var o = order(b, StaffPlan.Kind.ADVANCE, 80, 0);
+            int missed = AiCommanderBase.tailsNot;
+            assertNull(AiCommanderBase.tailRoute(staff, level, o.job, o, now));
+            assertEquals(missed + 1, AiCommanderBase.tailsNot);
+            grid = HqGrid.around(0, 0); java.util.Arrays.fill(grid.known, true);
+            assertNull(AiCommanderBase.tailRoute(staff, level, o.job, o, now + AiCommanderBase.TAIL_AGAIN - 1));
+            org.junit.jupiter.api.Assertions.assertNotNull(AiCommanderBase.tailRoute(staff, level, o.job, o, now + AiCommanderBase.TAIL_AGAIN));
+            o.job.tail = null; o.job.tailNot = Long.MIN_VALUE; o.job.members = List.of();
+            assertNull(AiCommanderBase.tailRoute(staff, level, o.job, o, now));
+            assertEquals(Long.MIN_VALUE, o.job.tailNot);
+            assertEquals(missed + 1, AiCommanderBase.tailsNot);
+            o.job.members = List.of(b);
+            grid.deep[HqGrid.index(grid.cellX(40), grid.cellZ(0))] = 1;
+            assertNull(AiCommanderBase.tailRoute(staff, level, o.job, o, now));
+            assertEquals(missed + 2, AiCommanderBase.tailsNot);
         }
 
         @Test

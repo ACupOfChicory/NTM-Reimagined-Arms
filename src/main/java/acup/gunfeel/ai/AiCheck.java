@@ -67,6 +67,8 @@ public final class AiCheck {
             }
             List<String> out = new ArrayList<>();
             AiCheck check = new AiCheck();
+            StaffMove.alike = new StaffMoveAlike();
+            AiCommander.alike2 = new AiCommanderStepAlike();
             try {
                 check.run(out, e.getServer());
             } catch (Throwable t) {
@@ -221,6 +223,8 @@ public final class AiCheck {
                         AiBots.heardKeeps = true;
                         clearShots(check.level);
                     } else if (counted) AiLegsLog.tick(check.level, AiBots.all(check.level));
+                    if (StaffMove.alike != null) StaffMove.alike.tick(AiBots.all(check.level));
+                    if (AiCommander.alike2 != null) AiCommander.alike2.tick(AiBots.all(check.level), check.level.getGameTime());
                     done = at[0] >= stages.size();
                 } catch (Throwable x) {
                     crashed(out, x);
@@ -232,6 +236,16 @@ public final class AiCheck {
                 AiVoice.counting = false;
                 out.add("     " + check.map.info());
                 out.add("     senses: " + Senses.info());
+                if (StaffMove.alike != null) {
+                    out.add("     " + StaffMove.alike.info());
+                    check.check("staffmove: core's StaffMoveBase answers as the former code did", StaffMove.alike.differ == 0);
+                    StaffMove.alike = null;
+                }
+                if (AiCommander.alike2 != null) {
+                    out.add("     " + AiCommander.alike2.info());
+                    check.check("commander step: core's AiCommanderBase answers as the former code did", AiCommander.alike2.differ == 0);
+                    AiCommander.alike2 = null;
+                }
                 out.add("     " + StandSprint.info());
                 out.add(check.ok ? "ALL OK" : "FAILED");
                 finish(file, out, check.ok ? 0 : 1);
