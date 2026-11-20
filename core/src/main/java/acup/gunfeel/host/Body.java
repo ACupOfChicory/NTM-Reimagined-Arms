@@ -156,6 +156,9 @@ public interface Body {
     /** its walking speed (the movement speed attribute); living */
     double speed();
 
+    /** its most health (the game's getMaxHealth); living */
+    float maxHealth();
+
     /** its team's name, null when it has none */
     @Nullable String team();
 

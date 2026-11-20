@@ -135,6 +135,7 @@ public final class EntityBody implements Body {
         return ItemNumbers.number(((LivingEntity) e).getItemBySlot(WORN[slot]).getItem());
     }
     @Override public double speed() { return ((LivingEntity) e).getAttributeValue(Attributes.MOVEMENT_SPEED); }
+    @Override public float maxHealth() { return ((LivingEntity) e).getMaxHealth(); }
 
     @Override
     public @Nullable String team() {

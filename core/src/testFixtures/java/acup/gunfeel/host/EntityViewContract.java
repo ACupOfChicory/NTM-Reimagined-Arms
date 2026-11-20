@@ -206,6 +206,7 @@ public abstract class EntityViewContract {
         assertFalse(p.living());
         assertThrows(RuntimeException.class, p::climbing);
         assertThrows(RuntimeException.class, p::speed);
+        assertThrows(RuntimeException.class, p::maxHealth);
         assertThrows(RuntimeException.class, p::lying);
         assertThrows(RuntimeException.class, () -> p.held(Body.MAIN_HAND));
         assertThrows(RuntimeException.class, () -> p.worn(Body.CHEST));

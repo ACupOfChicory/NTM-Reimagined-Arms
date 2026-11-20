@@ -1,5 +1,12 @@
 package acup.gunfeel;
 
+import static acup.gunfeel.host.HurtNow.PIERCE_DT;
+import static acup.gunfeel.host.HurtNow.PIERCE_DR;
+
+import acup.gunfeel.host.Body;
+import acup.gunfeel.host.HurtNow;
+import acup.gunfeel.host.Hurts;
+
 /**
  * What EuphImmunity knows without the game: the pool of euphemium, DNS and FAU (its numbers by the keys, a wearer's
  * state, the phase, the pool at a tick, a hit's drain and the window it opens or holds, the state carried to another
@@ -159,6 +166,52 @@ public class EuphImmunityBase {
         BalanceArmorBase.SetOf def = BalanceArmorBase.SETS.get(kit.set);
         float s = BalanceArmorBase.rating(kit.set);
         return new float[] {s > 0F ? s : def.s(), BalanceArmorBase.tau(kit.set)};
+    }
+
+    /** the version's current hit, asked the first time one is */
+    static final class NowPort {
+        static final HurtNow NOW = CoreServices.load(HurtNow.class, HurtNow.MISSING);
+    }
+
+    /**
+     * what a hit of category {@code cat} (not null) takes from the pool of {@code kit} worn by {@code b}: EuphImmunity.drain
+     * after the final scheme's own drain {@code scheme} (NaN: not the scheme's), which the version works out first. The
+     * hurt under way read by HurtNow (the head, the shot's floor, NTM's piercing), each where and as often as the old
+     * code read it
+     */
+    static float drainOf(Kit kit, Body b, Object hurt, float amount, String cat, float scheme) {
+        return drainOf(NowPort.NOW, BalanceArmorBase.HurtPort.HURTS, kit, b, hurt, amount, cat, scheme);
+    }
+
+    static float drainOf(HurtNow now, Hurts hurts, Kit kit, Body b, Object hurt, float amount, String cat, float scheme) {
+        return drainOf(now, hurts, kit, b, hurt, amount, cat, scheme, null);
+    }
+
+    /** the same with the reads given (core's tests); {@code powered} null: the game's (poweredChest) */
+    static float drainOf(HurtNow now, Hurts hurts, Kit kit, Body b, Object hurt, float amount, String cat, float scheme, PoweredOf powered) {
+        if (!Float.isNaN(scheme)) {
+            float click = ReaimTimes.number("damageCapClick", 0.6F);
+            return Float.isFinite(click) && click > 0F && !now.onHead(b) ? Math.min(scheme, click * b.maxHealth()) : scheme;
+        }
+        float[] st = drainSet(kit);
+        // NTM's accepted damage takes an electric hit on a powered chestplate five times (EntityDamageUtil)
+        if (kit != Kit.EUPHEMIUM && hurts.is(hurt, Hurts.NTM_ELECTRIC) && (powered == null ? poweredChest(b) : powered.of(b.worn(Body.CHEST))))
+            amount *= BalanceArmorBase.electricPowered(5F);
+        float s = BalanceArmorBase.CAT_ENERGY.equals(cat) ? st[0] * Math.min(1F, ReaimTimes.number("balanceEnShare", 0.75F)) : st[0];
+        boolean squeeze = !BalanceArmorBase.CAT_EXPLOSION.equals(cat) || amount <= ReaimTimes.number("balanceExplRawLimit", 60F) || BalanceArmorBase.bulletBlastNow();
+        // a weapon's blast as BalanceArmor takes it (balanceBlastPower, set around the blast's hurt)
+        float power = BalanceArmorBase.CAT_EXPLOSION.equals(cat) && squeeze ? BalanceArmorBase.BLAST_POWER.get() : 1F;
+        // by the kit's tier (8, 9): the power itself, a rocket's direct hit too
+        int tier = kit == Kit.EUPHEMIUM ? 9 : 8;
+        if (power > 1F) power = BalanceArmorBase.pieceBlastPower(tier, amount, power);
+        // the gun table's floor of the shot's pair, as BalanceArmor takes it
+        boolean expl = BalanceArmorBase.CAT_EXPLOSION.equals(cat);
+        float floor = !expl || BalanceArmorBase.bulletBlastNow() ? BalanceGunsBase.floorOf(now.floorExtra(hurt, expl), tier) : 1F;
+        float drain = Math.min(amount, BalanceArmorRule.full(new BalanceArmorRule.Hit(amount * power, now.ntmPierce(b, PIERCE_DT), now.ntmPierce(b, PIERCE_DR), squeeze), s, st[1],
+                BalanceArmorRule.Tune.DEFAULT, floor));
+        float click = ReaimTimes.number("damageCapClick", 0.6F);
+        if (Float.isFinite(click) && click > 0F) drain = Math.min(drain, click * b.maxHealth());
+        return drain;
     }
 
     /** a set with the pool: its keys' prefix, its table name (the drain's rating), its pool by default, its message */

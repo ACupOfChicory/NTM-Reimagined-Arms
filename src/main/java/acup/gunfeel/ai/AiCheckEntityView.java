@@ -614,6 +614,7 @@ final class AiCheckEntityView {
             eq(w + "sleeping", b.sleeping(), le.isSleeping());
             eq(w + "lying", b.lying(), Prone.lying(le));
             eq(w + "speed", b.speed(), le.getAttributeValue(Attributes.MOVEMENT_SPEED));
+            eq(w + "maxHealth", b.maxHealth(), le.getMaxHealth());
         }
         if (e instanceof Mob m) eq(w + "leftHanded", b.leftHanded(), m.isLeftHanded());
     }

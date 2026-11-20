@@ -5,9 +5,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.WeakHashMap;
 
-import com.hbm.interfaces.NtmDamageContext;
-import com.hbm.util.DamageResistanceHandler;
-
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -122,30 +119,7 @@ public final class EuphImmunity extends EuphImmunityBase {
         if (cat == null) return 0F;
         // the final scheme: the pool takes the scheme's damage of the hit (balance.final)
         float scheme = BalanceFinal.drain(player, source);
-        if (!Float.isNaN(scheme)) {
-            float click = ReaimTimes.number("damageCapClick", 0.6F);
-            return Float.isFinite(click) && click > 0F && !HeadDamage.onHead(player) ? Math.min(scheme, click * player.getMaxHealth()) : scheme;
-        }
-        float[] st = drainSet(kit);
-        // NTM's accepted damage takes an electric hit on a powered chestplate five times (EntityDamageUtil)
-        if (kit != Kit.EUPHEMIUM && BalanceArmorBase.HurtPort.HURTS.is(source, acup.gunfeel.host.Hurts.NTM_ELECTRIC) && poweredChest(EntityBody.of(player)))
-            amount *= BalanceArmor.electricPowered(5F);
-        NtmDamageContext ctx = (NtmDamageContext) player;
-        float s = DamageResistanceHandler.CATEGORY_ENERGY.equals(cat) ? st[0] * Math.min(1F, ReaimTimes.number("balanceEnShare", 0.75F)) : st[0];
-        boolean squeeze = !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) || amount <= ReaimTimes.number("balanceExplRawLimit", 60F) || BalanceArmor.bulletBlastNow();
-        // a weapon's blast as BalanceArmor takes it (balanceBlastPower, set around the blast's hurt)
-        float power = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat) && squeeze ? BalanceArmor.BLAST_POWER.get() : 1F;
-        // by the kit's tier (8, 9): the power itself, a rocket's direct hit too
-        int tier = kit == Kit.EUPHEMIUM ? 9 : 8;
-        if (power > 1F) power = BalanceArmor.pieceBlastPower(tier, amount, power);
-        // the gun table's floor of the shot's pair, as BalanceArmor takes it
-        boolean expl = DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat);
-        float floor = !expl || BalanceArmor.bulletBlastNow() ? BalanceGuns.floorOf(BalanceArmor.floorShot(source, expl), tier) : 1F;
-        float drain = Math.min(amount, BalanceArmorRule.full(new BalanceArmorRule.Hit(amount * power, ctx.hbm$pierceDT(), ctx.hbm$pierceDR(), squeeze), s, st[1],
-                BalanceArmorRule.Tune.DEFAULT, floor));
-        float click = ReaimTimes.number("damageCapClick", 0.6F);
-        if (Float.isFinite(click) && click > 0F) drain = Math.min(drain, click * player.getMaxHealth());
-        return drain;
+        return drainOf(kit, EntityBody.of(player), source, amount, cat, scheme);
     }
 
     /**
@@ -236,6 +210,15 @@ public final class EuphImmunity extends EuphImmunityBase {
     /** NTM's reads for core's ArmorSuits (ArmorSuitsPort): the suits' full sets, a powered piece */
     static final class Reads {
         private Reads() {
+        }
+
+        /** NTM's piercing of the current hit, DT or DR */
+        static float pierce(LivingEntity e, int which) {
+            return switch (which) {
+                case acup.gunfeel.host.HurtNow.PIERCE_DT -> ((com.hbm.interfaces.NtmDamageContext) e).hbm$pierceDT();
+                case acup.gunfeel.host.HurtNow.PIERCE_DR -> ((com.hbm.interfaces.NtmDamageContext) e).hbm$pierceDR();
+                default -> throw new IllegalArgumentException("no pierce " + which);
+            };
         }
 
         /** NTM's own check of the full set of a suit (ArmorSuits.DNS, DIGAMMA, EUPHEMIUM), the pieces' charge with it */
