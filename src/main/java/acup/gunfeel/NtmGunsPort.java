@@ -5,7 +5,7 @@ import acup.gunfeel.host.Body;
 /**
  * 26.2's NtmGuns as Wiring gives it, no call of NTM's of its own: ApiProbe counts a call of NTM's in the system of the
  * class it stands in, so each read is in its system's class, the AI's in AiGunner.Guns (MOB_AI), the ammo menu's in
- * AmmoLock.Reads (AMMO_CHOICE)
+ * AmmoLock.Reads (AMMO_CHOICE), the HUD's in Hud.Reads (HUD)
  */
 final class NtmGunsPort extends acup.gunfeel.ai.AiGunner.Guns {
     @Override
@@ -31,5 +31,10 @@ final class NtmGunsPort extends acup.gunfeel.ai.AiGunner.Guns {
     @Override
     public void roundStats(int round, float[] out) {
         AmmoLock.Reads.roundStats(round, out);
+    }
+
+    @Override
+    public int hudBlocks(Body holder, int hand, int[] ints, float[] floats, Object[] objects, String[] texts) {
+        return Hud.Reads.hudBlocks(holder, hand, ints, floats, objects, texts);
     }
 }

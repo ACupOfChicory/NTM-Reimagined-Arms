@@ -12,7 +12,8 @@ import net.minecraft.world.damagesource.DamageSource;
 /**
  * The game's hurts for core (Hurts): no call of NTM's here. Each of NTM's reads is made by the class whose system it
  * is (NtmApiTest counts them by it): the damage types the cap exempts by DamageCap.Reads (CORE), the IR beam's fire,
- * the direct entity's kind and NTM's category by BalanceArmor.Reads (BALANCE); the game's tags and the type's key here.
+ * the electric type, the direct entity's kind and NTM's category by BalanceArmor.Reads (BALANCE); the game's tags and
+ * the type's key here.
  */
 final class HurtsPort implements Hurts {
     /** the type's key as text, one String a key (ResourceKey is interned: the same in every world) */
@@ -27,6 +28,7 @@ final class HurtsPort implements Hurts {
             case FALL -> s.is(DamageTypeTags.IS_FALL);
             case NTM_NUCLEAR_BLAST, NTM_DIGAMMA, NTM_RADIATION -> DamageCap.Reads.is(s, what);
             case NTM_FIRE -> BalanceArmor.Reads.ntmFire(s);
+            case NTM_ELECTRIC -> BalanceArmor.Reads.ntmElectric(s);
             default -> throw new IllegalArgumentException("no question " + what);
         };
     }
