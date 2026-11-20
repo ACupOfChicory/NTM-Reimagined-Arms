@@ -11,6 +11,11 @@ public final class Intent {
     public static final int QUEUE = 2;
     /** over the glass: after the translucent terrain, and the clouds and rain behind it (holes on glass) */
     public static final int OVER_GLASS = 3;
+    /**
+     * after the solid features, first: solid geometry that belongs in the depth the frame's later passes copy (the
+     * smoke's), NTM's casings
+     */
+    public static final int AFTER_OPAQUE_SOLID = 4;
 
     private Intent() {
     }

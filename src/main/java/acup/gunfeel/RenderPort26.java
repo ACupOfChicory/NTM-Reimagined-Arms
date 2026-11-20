@@ -48,10 +48,11 @@ import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 //   OVER_GLASS    AfterWeather, a pass of its own               SubmitCustomGeometryEvent, order -1 (with the late
 //                                                               render types moved after the translucent terrain:
 //                                                               MixinSubmitNodeCollection)
+//   AFTER_OPAQUE_SOLID  AfterOpaqueFeatures, first (HIGHEST: before the smoke copies the depth), CasingInstances.draw
 public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     public static final RenderPort26 INSTANCE = new RenderPort26();
 
-    private static final int SUBMIT = 1, AFTER_OPAQUE = 2, AFTER_WEATHER = 3;
+    private static final int SUBMIT = 1, AFTER_OPAQUE = 2, AFTER_WEATHER = 3, AFTER_OPAQUE_SOLID = 4;
 
     private final List<RenderType> materials = new ArrayList<>();
     private final Map<MaterialSpec, Integer> materialOf = new HashMap<>();
@@ -60,7 +61,20 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     private final List<SubmitNodeCollector.CustomGeometryRenderer> partRenderers = new ArrayList<>();
     // the late parts' vertices drawn by the pass of its own (AfterWeather), a buffer a part, grown as needed
     private final Map<Integer, GpuBuffer> ownPass = new HashMap<>();
-    private final Drawer[][] drawers = new Drawer[Intent.OVER_GLASS + 1][0];
+    private final Drawer[][] drawers = new Drawer[Intent.AFTER_OPAQUE_SOLID + 1][0];
+    // the instanced materials (MESH_ENTITY), by handle; null for a render type's
+    private final List<Instanced> instanced = new ArrayList<>();
+    private final Map<String, Instanced> instancedSources = new HashMap<>();
+    // params buffers: handles from PARAMS on (apart from the kept buffers', both freed by free), their names
+    private static final int PARAMS = 1 << 24;
+    private final List<GpuBuffer> params = new ArrayList<>();
+    private final List<String> paramNames = new ArrayList<>();
+    // a place's instanced draws, sent together at flush
+    private int pending;
+    private int[] pendingMaterial = new int[16], pendingMesh = new int[16], pendingParams = new int[16], pendingOffset = new int[16], pendingN = new int[16];
+    private org.joml.Matrix4fc viewRef;
+    // the place's command encoder: the upload's, used again by its pass (one a frame, as the casings' draw had)
+    private com.mojang.blaze3d.systems.CommandEncoder encoder;
     private VertexFormat decalFormat;
     private PrimitiveTopology decalTopology;
 
@@ -72,9 +86,19 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     private double camX, camY, camZ;
     private long nanos;
 
-    // a kept buffer: its GpuBuffer once written
+    // a kept buffer: its GpuBuffer once written (a mesh the version made: its index count and topology too)
     private static final class Kept {
         GpuBuffer vb;
+        int indexCount;
+        PrimitiveTopology topology;
+    }
+
+    /**
+     * An instanced program whose texture, target and scissor are a render type's the version has this frame: its
+     * pipeline, the name of its params' uniform and the bytes a draw reads of it, the pass's name.
+     */
+    record Instanced(com.mojang.blaze3d.pipeline.RenderPipeline pipeline, java.util.function.Supplier<RenderType> type, String uniform,
+            int block, java.util.function.Supplier<String> passName) {
     }
 
     private final Writer queueWriter = new Writer(), passWriter = new Writer();
@@ -83,6 +107,7 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
 
     private RenderPort26() {
         materials.add(null);
+        instanced.add(null);
         buffers.add(null);
         parts.add(null);
         partRenderers.add(null);
@@ -127,6 +152,24 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
         }
     }
 
+    /**
+     * AfterOpaqueFeatures, first (CasingInstances.draw, the line where NTM's casings were drawn before the port): the
+     * event's view as it is, copied only by a draw (as the casings' draw copied it)
+     */
+    public static void afterOpaqueSolid(org.joml.Matrix4fc modelView) {
+        RenderPort26 p = INSTANCE;
+        p.at(AFTER_OPAQUE_SOLID, Minecraft.getInstance().gameRenderer.mainCamera().position(), 0, null);
+        p.viewRef = modelView;
+        try {
+            p.run(Intent.AFTER_OPAQUE_SOLID);
+        } finally {
+            p.place = 0;
+            p.viewRef = null;
+            p.pending = 0;
+            p.encoder = null;
+        }
+    }
+
     private void at(int where, Vec3 cam, long now, Matrix4f modelView) {
         place = where;
         camX = cam.x;
@@ -149,7 +192,10 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
 
     private void run(int intent) {
         drawing = intent;
-        for (Drawer d : drawers[intent]) d.draw(this);
+        for (Drawer d : drawers[intent]) {
+            d.draw(this);
+            if (pending > 0) flush();
+        }
         drawing = 0;
     }
 
@@ -159,10 +205,33 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
 
     // ---- RenderPort
 
+    /** an instanced program for core's material of that name (a version's own: CasingInstances), before core asks */
+    void instancedSource(String name, Instanced source) {
+        instancedSources.put(name, source);
+    }
+
+    /** a mesh the version made itself (MESH_ENTITY), as a kept buffer's handle */
+    int keep(GpuBuffer vb, int indexCount, PrimitiveTopology topology) {
+        Kept k = new Kept();
+        k.vb = vb;
+        k.indexCount = indexCount;
+        k.topology = topology;
+        buffers.add(k);
+        return buffers.size() - 1;
+    }
+
     @Override
     public int material(MaterialSpec spec) {
         Integer known = materialOf.get(spec);
         if (known != null) return known;
+        if (spec.layout() == Layouts.MESH_ENTITY) {
+            Instanced source = instancedSources.get(spec.name());
+            if (source == null) throw new IllegalArgumentException("no instanced program here for " + spec);
+            materials.add(null);
+            instanced.add(source);
+            materialOf.put(spec, materials.size() - 1);
+            return materials.size() - 1;
+        }
         RenderType type = HoleRender.of(spec);
         if (spec.layout() == Layouts.DECAL) {
             if (decalFormat == null) {
@@ -173,6 +242,7 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
             }
         }
         materials.add(type);
+        instanced.add(null);
         materialOf.put(spec, materials.size() - 1);
         return materials.size() - 1;
     }
@@ -194,6 +264,13 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
 
     @Override
     public void free(int buffer) {
+        if (buffer >= PARAMS) {
+            // a params buffer: its GpuBuffer let go (made again by the next upload)
+            GpuBuffer ub = params.get(buffer - PARAMS);
+            if (ub != null) ub.close();
+            params.set(buffer - PARAMS, null);
+            return;
+        }
         Kept k = buffers.get(buffer);
         if (k == null) return;
         if (k.vb != null) k.vb.close();
@@ -210,6 +287,18 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
             part.write(queueWriter);
         });
         return handle;
+    }
+
+    @Override
+    public int params(String name) {
+        params.add(null);
+        paramNames.add(name);
+        return PARAMS + params.size() - 1;
+    }
+
+    @Override
+    public int paramsAlignment() {
+        return RenderSystem.getDevice().getDeviceInfo().limits().minUniformOffsetAlignment();
     }
 
     @Override
@@ -276,6 +365,97 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
                 var indices = RenderSystem.getSequentialBuffer(mesh.drawState().primitiveTopology());
                 int count = mesh.drawState().indexCount();
                 type.prepare().drawFromBuffer(vb, indices.getBuffer(count), indices.type(), 0, 0, count);
+            }
+        }
+    }
+
+    @Override
+    public void upload(int handle, java.nio.ByteBuffer data, int length) {
+        var device = RenderSystem.getDevice();
+        GpuBuffer ub = params.get(handle - PARAMS);
+        if (ub == null || ub.size() < length) {
+            if (ub != null) ub.close();
+            String name = paramNames.get(handle - PARAMS);
+            ub = device.createBuffer(() -> name, GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, length);
+            params.set(handle - PARAMS, ub);
+        }
+        if (encoder == null) encoder = device.createCommandEncoder();
+        // writeToBuffer takes data from its position to its limit: 0..length whatever they are, and given back as they were
+        int position = data.position(), limit = data.limit();
+        data.limit(length).position(0);
+        try {
+            encoder.writeToBuffer(ub.slice(0, length), data);
+        } finally {
+            data.limit(limit).position(position);
+        }
+    }
+
+    @Override
+    public void drawInstanced(int material, int mesh, int paramsHandle, int offset, int n) {
+        if (place != AFTER_OPAQUE_SOLID) throw new IllegalStateException("drawInstanced only in a pass of the mod's own");
+        if (instanced.get(material) == null) throw new IllegalArgumentException("not an instanced material: " + material);
+        // one index buffer a pass, the first mesh's kind: the place's meshes all of its topology
+        if (pending > 0) oneTopology(buffers.get(pendingMesh[0]).topology, buffers.get(mesh).topology, mesh);
+        if (pending == pendingMesh.length) {
+            int m = pending * 2;
+            pendingMaterial = java.util.Arrays.copyOf(pendingMaterial, m);
+            pendingMesh = java.util.Arrays.copyOf(pendingMesh, m);
+            pendingParams = java.util.Arrays.copyOf(pendingParams, m);
+            pendingOffset = java.util.Arrays.copyOf(pendingOffset, m);
+            pendingN = java.util.Arrays.copyOf(pendingN, m);
+        }
+        pendingMaterial[pending] = material;
+        pendingMesh[pending] = mesh;
+        pendingParams[pending] = paramsHandle;
+        pendingOffset[pending] = offset;
+        pendingN[pending++] = n;
+    }
+
+    static void oneTopology(PrimitiveTopology first, PrimitiveTopology next, int mesh) {
+        if (first != next) throw new IllegalArgumentException("mesh " + mesh + " is " + next + ", the place's first " + first + ": one flush, one topology");
+    }
+
+    // the place's instanced draws in one pass: the first material's render type gives the target, scissor and textures
+    // (CasingInstances' draw before the port, its calls in its order)
+    @Override
+    public void flush() {
+        int draws = pending;
+        pending = 0;
+        if (draws == 0) return;
+        Instanced first = instanced.get(pendingMaterial[0]);
+        int mostIndices = 0;
+        for (int d = 0; d < draws; d++) mostIndices = Math.max(mostIndices, buffers.get(pendingMesh[d]).indexCount);
+        if (encoder == null) encoder = RenderSystem.getDevice().createCommandEncoder();
+        PreparedRenderType prepared = first.type().get().prepare();
+        com.mojang.blaze3d.pipeline.RenderTarget target = prepared.outputTarget().getRenderTarget();
+        com.mojang.blaze3d.textures.GpuTextureView color = RenderSystem.outputColorTextureOverride != null ? RenderSystem.outputColorTextureOverride
+                : target.getColorTextureView();
+        com.mojang.blaze3d.textures.GpuTextureView depth = !target.useDepth ? null
+                : RenderSystem.outputDepthTextureOverride != null ? RenderSystem.outputDepthTextureOverride : target.getDepthTextureView();
+        var transforms = RenderSystem.getDynamicUniforms().writeTransform(new Matrix4f(viewRef), new Vector4f(1F, 1F, 1F, 1F), new Vector3f(),
+                new Matrix4f());
+        // the index buffer for the largest mesh got before the pass (it grows by being made anew)
+        var indices = RenderSystem.getSequentialBuffer(buffers.get(pendingMesh[0]).topology);
+        GpuBuffer indexBuffer = indices.getBuffer(mostIndices);
+        try (var pass = encoder.createRenderPass(first.passName(), color, java.util.Optional.empty(), depth, java.util.OptionalDouble.empty())) {
+            Instanced now = null;
+            for (int d = 0; d < draws; d++) {
+                Instanced m = instanced.get(pendingMaterial[d]);
+                if (m != now) {
+                    PreparedRenderType pr = m == first ? prepared : m.type().get().prepare();
+                    pass.setPipeline(m.pipeline());
+                    var scissor = pr.scissorState();
+                    if (scissor.enabled()) pass.enableScissor(scissor.x(), scissor.y(), scissor.width(), scissor.height());
+                    RenderSystem.bindDefaultUniforms(pass);
+                    pass.setUniform("DynamicTransforms", transforms);
+                    for (var t : pr.textures()) pass.bindTexture(t.name(), t.textureView(), t.sampler());
+                    pass.setIndexBuffer(indexBuffer, indices.type());
+                    now = m;
+                }
+                Kept mesh = buffers.get(pendingMesh[d]);
+                pass.setVertexBuffer(0, mesh.vb.slice());
+                pass.setUniform(m.uniform(), params.get(pendingParams[d] - PARAMS).slice(pendingOffset[d], m.block()));
+                pass.drawIndexed(mesh.indexCount, pendingN[d], 0, 0, 0);
             }
         }
     }

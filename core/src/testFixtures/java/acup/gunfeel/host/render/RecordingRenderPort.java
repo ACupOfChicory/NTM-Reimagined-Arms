@@ -9,7 +9,8 @@ import java.util.Map;
  * A render port that draws nothing and keeps what it was asked: core's tests run their drawers through it ({@link #run})
  * at a frame they set, and read {@link #log}. Lines: {@code fill <buffer> <room> -> <elements>}, {@code drawAt <material>
  * <buffer> <first> <count> <ox> <oy> <oz> <pull>}, {@code queue <material> <part> <room> -> <elements>} (a queued part is
- * written at once), {@code free <buffer>}.
+ * written at once), {@code free <buffer>}, {@code upload <params> <length> <crc32 of the bytes>}, {@code drawInstanced
+ * <material> <mesh> <params> <offset> <n>}, {@code flush}. A params handle is 1000 on.
  */
 public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame {
     public final List<String> log = new ArrayList<>();
@@ -22,6 +23,16 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
     public long nanos;
     public int translucency = PLAIN;
     private boolean filling;
+    /** the alignment of a draw's params ({@link #paramsAlignment}) */
+    public int alignment = 256;
+    /** a drawer's flush throws this, once, when set (a GPU's error) */
+    public RuntimeException failFlush;
+    /** the bytes of the last upload */
+    public byte[] uploaded;
+    private int paramsMade;
+    // meshes made by meshOf: their topology (a version's kept meshes; here only a number)
+    private final Map<Integer, Integer> topologyOf = new HashMap<>();
+    private int firstTopology = -1;
 
     public RecordingRenderPort() {
         parts.add(null);
@@ -72,6 +83,10 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
 
     @Override
     public void free(int buffer) {
+        if (buffer >= 1000) {
+            log.add("free " + buffer);
+            return;
+        }
         buffers.set(buffer, false);
         log.add("free " + buffer);
     }
@@ -80,6 +95,53 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
     public int part(Part part) {
         parts.add(part);
         return parts.size() - 1;
+    }
+
+    @Override
+    public int params(String name) {
+        return 1000 + paramsMade++;
+    }
+
+    @Override
+    public int paramsAlignment() {
+        return alignment;
+    }
+
+    @Override
+    public void upload(int params, java.nio.ByteBuffer data, int length) {
+        uploaded = new byte[length];
+        data.duplicate().clear().get(uploaded, 0, length);
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(uploaded);
+        log.add("upload " + params + " " + length + " " + Long.toHexString(crc.getValue()));
+    }
+
+    @Override
+    public void drawInstanced(int material, int mesh, int params, int offset, int n) {
+        Integer t = topologyOf.get(mesh);
+        if (t != null) {
+            if (firstTopology < 0) firstTopology = t;
+            else if (firstTopology != t) throw new IllegalArgumentException("mesh " + mesh + ": one flush, one topology");
+        }
+        log.add("drawInstanced " + material + " " + mesh + " " + params + " " + offset + " " + n);
+    }
+
+    @Override
+    public void flush() {
+        firstTopology = -1;
+        log.add("flush");
+        if (failFlush != null) {
+            RuntimeException e = failFlush;
+            failFlush = null;
+            throw e;
+        }
+    }
+
+    /** a kept mesh of a topology (any number: the version's kinds), for drawInstanced */
+    public int meshOf(int topology) {
+        int h = buffer(Layouts.MESH_ENTITY, 0);
+        topologyOf.put(h, topology);
+        return h;
     }
 
     @Override
