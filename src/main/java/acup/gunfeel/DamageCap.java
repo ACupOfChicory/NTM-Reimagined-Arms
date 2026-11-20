@@ -7,6 +7,7 @@ import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.host.Body;
 import acup.gunfeel.host.CapNow;
+import acup.gunfeel.host.NtmBullets;
 import acup.gunfeel.host.NtmGuns;
 
 import com.hbm.entity.projectile.EntityBulletBeamBase;
@@ -85,12 +86,7 @@ public final class DamageCap extends DamageCapBase {
 
     /** the living entity that fired {@code e}, or {@code e} itself when it is living */
     static @Nullable LivingEntity shooter(@Nullable Entity e) {
-        if (e == null) return null;
-        if (e instanceof LivingEntity living) return living;
-        if (e instanceof EntityBulletBeamBase beam) return beam.getThrower();
-        if (e instanceof EntityThrowableNT thrown && thrown.getThrower() != null) return thrown.getThrower();
-        if (e instanceof Projectile p && p.getOwner() instanceof LivingEntity owner) return owner;
-        return null;
+        return (LivingEntity) EntityBody.entity(BulletsPort.BULLETS.shooter(e));
     }
 
     /** the wait between shots of the gun in the shooter's main hand (NTM's guns fire from there; akimbo guns are one item) */
@@ -102,10 +98,14 @@ public final class DamageCap extends DamageCapBase {
         static final NtmGuns GUNS = CoreServices.load(NtmGuns.class, NtmGuns.NONE);
     }
 
+    private static final class BulletsPort {
+        static final NtmBullets BULLETS = CoreServices.load(NtmBullets.class, NtmBullets.MISSING);
+    }
+
     private static void joined(EntityJoinLevelEvent e) {
         if (!(e.getLevel() instanceof ServerLevel level) || e.getEntity() instanceof LivingEntity) return;
         Entity entity = e.getEntity();
-        if (!(entity instanceof Projectile || entity instanceof EntityBulletBeamBase)) return;
+        if (!BulletsPort.BULLETS.capProjectile(entity)) return;
         LivingEntity shooter = shooter(entity);
         if (shooter == null) return;
         SHOTS.put(entity, new Shot(level.getGameTime(), gunDelay(shooter) >= limits().sniperDelay() && !pellet(entity)));
@@ -116,9 +116,7 @@ public final class DamageCap extends DamageCapBase {
      * one pellet in the head would lift the whole click's cap to the sniper's
      */
     static boolean pellet(Entity entity) {
-        com.hbm.items.weapon.sedna.BulletConfig c = entity instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b ? b.config
-                : entity instanceof EntityBulletBeamBase beam ? beam.config : null;
-        return c != null && c.projectilesMax > 1;
+        return BulletsPort.BULLETS.pellet(entity);
     }
 
     // ---------------------------------------------------------------- the hurt
@@ -128,9 +126,34 @@ public final class DamageCap extends DamageCapBase {
         return exemptOf(source);
     }
 
-    /** The cap's live reads for core (CapNow and HurtsPort); NTM probes count them as CORE. */
-    static final class Reads implements CapNow {
+    /** The cap's live reads for core (CapNow, NtmBullets and HurtsPort); NTM probes count them as CORE. */
+    static final class Reads implements CapNow, NtmBullets {
         Reads() {
+        }
+
+        @Override public @Nullable Body shooter(@Nullable Object e) {
+            if (e == null) return null;
+            if (e instanceof LivingEntity living) return EntityBody.of(living);
+            if (e instanceof EntityBulletBeamBase beam) {
+                Entity by = beam.getThrower();
+                return by == null ? null : EntityBody.of(by);
+            }
+            if (e instanceof EntityThrowableNT thrown && thrown.getThrower() != null) {
+                Entity by = thrown.getThrower();
+                return by == null ? null : EntityBody.of(by);
+            }
+            if (e instanceof Projectile p && p.getOwner() instanceof LivingEntity owner) return EntityBody.of(owner);
+            return null;
+        }
+
+        @Override public boolean capProjectile(Object e) {
+            return e instanceof Projectile || e instanceof EntityBulletBeamBase;
+        }
+
+        @Override public boolean pellet(Object entity) {
+            com.hbm.items.weapon.sedna.BulletConfig c = entity instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b ? b.config
+                    : entity instanceof EntityBulletBeamBase beam ? beam.config : null;
+            return c != null && c.projectilesMax > 1;
         }
 
         static int maxDelay(ItemStack stack) {
