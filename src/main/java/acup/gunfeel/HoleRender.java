@@ -70,6 +70,18 @@ public final class HoleRender {
         });
     }
 
+    // a material of the render port (RenderPort26) as the render type the holes had before the port: only what these
+    // pipelines draw (the spec says how; a spec they do not draw is the caller's mistake)
+    static RenderType of(acup.gunfeel.host.render.MaterialSpec spec) {
+        boolean late = spec.name().equals("ntmgunfeel_bullet_hole_late");
+        if (!spec.program().equals("ntmgunfeel:core/bullet_hole") || !late && !spec.name().equals("ntmgunfeel_bullet_hole")
+                || spec.layout() != acup.gunfeel.host.render.Layouts.DECAL || spec.blend() != acup.gunfeel.host.render.Blend.TRANSLUCENT
+                || spec.alphaCutout() != 0.1F || !spec.depthTest() || spec.depthWrite() || spec.biasScale() != 1.0F || spec.biasConstant() != 10.0F
+                || !spec.lightmap() || !spec.overlay() || spec.texture() == null)
+            throw new IllegalArgumentException("no pipeline here draws " + spec);
+        return type(Identifier.parse(spec.texture()), late, spec.cull());
+    }
+
     public static boolean isLate(RenderType type) {
         return !LATE_TYPES.isEmpty() && LATE_TYPES.contains(type);
     }

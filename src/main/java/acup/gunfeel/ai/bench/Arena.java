@@ -163,7 +163,7 @@ public final class Arena {
             if (bot == null) throw new IllegalStateException("an FBI tagged armsai is not an AI mob");
             if (every > 0 && i / 2 % every == 0) {
                 if (gun != null) m.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.parse(gun))));
-                if (role != null) acup.gunfeel.ai.AiRole.give(m, role);
+                if (role != null) acup.gunfeel.ai.AiRoles.give(m, role);
             }
             bot.gunner.ammo.setInfinite();
             bot.gunner.loadFree();

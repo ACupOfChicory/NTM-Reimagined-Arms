@@ -77,9 +77,12 @@ final class AiCheckEntityView {
             level.getScoreboard().addPlayerToTeam(dummy.getScoreboardName(), team);
             stand = net.minecraft.world.entity.EntityTypes.ARMOR_STAND.create(level, EntitySpawnReason.COMMAND);
             stand.setPos(X + 2.5, y + 1, Z + 0.5);
+            // a tag on the stand and the arrow (Body.tagged), none on the dummy
+            stand.addTag("gunfeel_check");
             level.addFreshEntity(stand);
             arrow = net.minecraft.world.entity.EntityTypes.ARROW.create(level, EntitySpawnReason.COMMAND);
             arrow.setPos(X - 1.5, y + 2, Z + 1.5);
+            arrow.addTag("gunfeel_check");
             arrow.setNoGravity(true);
             arrow.setDeltaMovement(Vec3.ZERO);
             level.addFreshEntity(arrow);
@@ -602,6 +605,9 @@ final class AiCheckEntityView {
         eq(w + "alive", b.alive(), e.isAlive());
         eq(w + "removed", b.removed(), e.isRemoved());
         eq(w + "team", b.team(), e.getTeam() == null ? null : e.getTeam().getName());
+        eq(w + "tagged", b.tagged(AiBots.TARGET_TAG), e.entityTags().contains(AiBots.TARGET_TAG));
+        eq(w + "tagged gunfeel_check", b.tagged("gunfeel_check"), e.entityTags().contains("gunfeel_check"));
+        if (b.level() != e.level()) wrong.add(w + "level");
         if (e instanceof LivingEntity le) {
             eq(w + "climbing", b.climbing(), le.onClimbable());
             eq(w + "fallFlying", b.fallFlying(), le.isFallFlying());
@@ -704,7 +710,7 @@ final class AiCheckEntityView {
             if (!(item instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) continue;
             net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
             dummy.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, stack);
-            AiRole now = AiRole.by(db, stack);
+            AiRole now = AiRoles.by(db, stack);
             AiRole was = oldBase(gun, stack) ? AiRole.BASE : AiGrenadier.shell(stack) != null ? AiRole.GRENADIER
                     : acup.gunfeel.PistolHold.scoped(stack) ? AiRole.MARKSMAN : AiRole.RIFLE;
             String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).toString();

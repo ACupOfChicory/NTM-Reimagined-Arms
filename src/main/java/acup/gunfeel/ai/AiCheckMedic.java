@@ -172,7 +172,7 @@ final class AiCheckMedic {
         ours.add(medic);
         AiBot mb = AiBots.get(medic);
         if (mb != null) {
-            AiRole.assign(mb, AiRole.MEDIC);
+            AiRoles.assign(mb, AiRole.MEDIC);
             mb.medic = null;
             mb.mob.getPersistentData().remove(AiMedic.KITS_TAG);
         }

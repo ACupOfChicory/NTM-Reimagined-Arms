@@ -2,13 +2,10 @@ package acup.gunfeel.ai;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
 
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.smoke.SmokeClouds;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
@@ -26,7 +23,7 @@ import net.minecraft.world.phys.Vec3;
  * Server thread only.
  */
 public final class AiBots {
-    public static final String TARGET_TAG = "armsai_target";
+    public static final String TARGET_TAG = AiTeamsBase.TARGET_TAG;
     /** sounds this close to an AI mob are its own or its fellows' (steps, shots): not news */
     static final double OWN_SOUND = 1.5;
     /** a sound this near a player in creative or spectator (from their middle) is theirs */
@@ -41,18 +38,12 @@ public final class AiBots {
     private AiBots() {
     }
 
-    static final class PerLevel {
+    /** the level's own besides its bots and their cover (AiBotsBase): the level, its targets, its voxels */
+    static final class PerLevel extends AiBotsBase.PerLevelBase<AiBot> {
         final ServerLevel level;
-        final Int2ObjectOpenHashMap<AiBot> bots = new Int2ObjectOpenHashMap<>();
         final List<LivingEntity> targets = new ArrayList<>();
         long targetsTick = Long.MIN_VALUE;
         final LiveVoxels voxels;
-        /** cover cells held: cell -> the mob's id */
-        final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap claims = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
-        /** mob id -> its cell */
-        final it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap claimOf = new it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap();
-        /** mob id -> the cell beside its cover it steps out to (its peek), if it has one */
-        final it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap peekOf = new it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap();
 
         PerLevel(ServerLevel level) {
             this.level = level;
@@ -60,10 +51,17 @@ public final class AiBots {
         }
     }
 
-    private static final Map<ServerLevel, PerLevel> LEVELS = new WeakHashMap<>();
+    /** the level's own, null before its first AI mob (core's AiBotsBase.LEVELS) */
+    private static @Nullable PerLevel of(ServerLevel level) {
+        return (PerLevel) AiBotsBase.LEVELS.get(level);
+    }
+
+    private static PerLevel make(ServerLevel level) {
+        return (PerLevel) AiBotsBase.LEVELS.computeIfAbsent(level, k -> new PerLevel((ServerLevel) k));
+    }
 
     public static AiBot attach(Mob mob, AiProfile profile) {
-        PerLevel l = LEVELS.computeIfAbsent((ServerLevel) mob.level(), PerLevel::new);
+        PerLevel l = make((ServerLevel) mob.level());
         AiBot bot = l.bots.get(mob.getId());
         if (bot == null || bot.mob != mob) {
             bot = new AiBot(mob, profile);
@@ -74,31 +72,31 @@ public final class AiBots {
 
     public static @Nullable AiBot get(Entity e) {
         if (!(e.level() instanceof ServerLevel level)) return null;
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         if (l == null) return null;
         AiBot bot = l.bots.get(e.getId());
         return bot != null && bot.mob == e ? bot : null;
     }
 
     public static int count(ServerLevel level) {
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         return l == null ? 0 : l.bots.size();
     }
 
     /** the level's AI mobs as they are (no copy): read only, on the server thread, not while one is added or let go */
     static java.util.Collection<AiBot> bots(ServerLevel level) {
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         return l == null ? List.of() : l.bots.values();
     }
 
     public static List<AiBot> all(ServerLevel level) {
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         return l == null ? List.of() : new ArrayList<>(l.bots.values());
     }
 
     /** a bot thinks: the Goal calls this every tick of the mob */
     public static void think(AiBot bot, long tick) {
-        PerLevel l = LEVELS.get((ServerLevel) bot.mob.level());
+        PerLevel l = of((ServerLevel) bot.mob.level());
         if (l == null) return;
         bot.tick(l.voxels, SmokeClouds.get(l.level), targets(l, tick), tick);
     }
@@ -110,7 +108,7 @@ public final class AiBots {
 
     /** holds a cover cell (none: Long.MIN_VALUE) and the peek beside it */
     public static void claim(AiBot bot, long cell, long peek) {
-        PerLevel l = LEVELS.get((ServerLevel) bot.mob.level());
+        PerLevel l = of((ServerLevel) bot.mob.level());
         if (l == null) return;
         int id = bot.mob.getId();
         l.peekOf.remove(id);
@@ -127,7 +125,7 @@ public final class AiBots {
 
     /** the cover cells (first) and peeks (second) that the AI mobs on its side hold, not its own */
     public static long[][] friendsSpots(AiBot bot) {
-        PerLevel l = LEVELS.get((ServerLevel) bot.mob.level());
+        PerLevel l = of((ServerLevel) bot.mob.level());
         if (l == null) return new long[][] {{}, {}};
         it.unimi.dsi.fastutil.longs.LongArrayList covers = new it.unimi.dsi.fastutil.longs.LongArrayList(), peeks = new it.unimi.dsi.fastutil.longs.LongArrayList();
         int self = bot.mob.getId();
@@ -143,13 +141,13 @@ public final class AiBots {
 
     /** cells another mob holds */
     public static java.util.function.LongPredicate heldByOthers(AiBot bot) {
-        PerLevel l = LEVELS.get((ServerLevel) bot.mob.level());
+        PerLevel l = of((ServerLevel) bot.mob.level());
         int id = bot.mob.getId();
         return l == null ? k -> false : k -> l.claims.containsKey(k) && l.claims.get(k) != id;
     }
 
     public static VoxelRay.Source voxels(ServerLevel level) {
-        return LEVELS.computeIfAbsent(level, PerLevel::new).voxels;
+        return make(level).voxels;
     }
 
     /**
@@ -177,12 +175,12 @@ public final class AiBots {
 
     /** the stands: look the targets up now, not within the second */
     public static void refreshTargets(ServerLevel level) {
-        PerLevel l = LEVELS.computeIfAbsent(level, PerLevel::new);
+        PerLevel l = make(level);
         l.targetsTick = Long.MIN_VALUE;
     }
 
     public static void tick(ServerLevel level) {
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         if (l == null || l.bots.isEmpty()) {
             // none left: their squads hold none of them (nor the level) any more
             AiSquads.forget(level);
@@ -273,7 +271,7 @@ public final class AiBots {
 
     private static void tickBot0(AiBot bot) {
         if (!bot.active || !acup.gunfeel.compat.Feature.MOB_AI.on() || !(bot.mob.level() instanceof ServerLevel level)) return;
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         if (l == null) return;
         long tick = level.getGameTime();
         TacticalMap map = TacticalMap.of(level);
@@ -305,10 +303,10 @@ public final class AiBots {
     }
 
     public static void forget(ServerLevel level) {
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         // their pools of DNS, FAU or euphemium: the same world loaded again in this run must not find them
         if (l != null) for (AiBot b : l.bots.values()) acup.gunfeel.EuphImmunity.forget(b.mob);
-        LEVELS.remove(level);
+        AiBotsBase.LEVELS.remove(level);
         // the level goes with its mobs: what the squads, the staff and the voices kept of them holds the level
         // through them (an operation's members, a group's mobs, the one who spoke) and would keep it in memory, the
         // weak key never letting go; tick forgets these only while the level still ticks
@@ -325,7 +323,7 @@ public final class AiBots {
     static final double SHOT_SOUND = 3;
 
     public static void sound(ServerLevel level, double x, double y, double z, Holder<SoundEvent> sound, SoundSource source, float volume) {
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         if (l == null || l.bots.isEmpty()) return;
         switch (source) {
             case MUSIC, RECORDS, AMBIENT, WEATHER, UI, VOICE -> {
@@ -429,7 +427,7 @@ public final class AiBots {
     /** the AI mobs of its own side within r blocks of it */
     static List<Mob> ownNear(ServerLevel level, Mob shooter, double r) {
         List<Mob> out = new java.util.ArrayList<>();
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         if (l == null) return out;
         for (AiBot b : l.bots.values())
             if (b.mob != shooter && b.mob.isAlive() && AiTeams.own(shooter, b.mob) && b.mob.distanceToSqr(shooter) < r * r) out.add(b.mob);
@@ -500,7 +498,7 @@ public final class AiBots {
      * fire a shot keeps clear.
      */
     static boolean friendInLine(ServerLevel level, Mob shooter, Vec3 from, Vec3 to, double coneDegrees) {
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         if (l == null) return false;
         Vec3 d = to.subtract(from);
         double len = d.length();
@@ -655,7 +653,7 @@ public final class AiBots {
      */
     public static void died(LivingEntity victim) {
         if (!(victim.level() instanceof ServerLevel level)) return;
-        PerLevel l = LEVELS.get(level);
+        PerLevel l = of(level);
         if (l == null) return;
         if (!fighter(victim)) return;
         long tick = level.getGameTime();

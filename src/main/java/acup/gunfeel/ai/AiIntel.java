@@ -142,7 +142,7 @@ public final class AiIntel {
             // it thinks (a player near, or all awake): the side's squads may go for it (those farther stand, AiBots)
             boolean awake = AiBots.awake;
             for (Player p : level.players()) if (!awake && !p.isSpectator() && p.distanceToSqr(m) <= r2) awake = true;
-            foes.add(foe(m, own, AiRole.of(b).ordinal(), awake));
+            foes.add(foe(m, own, AiRoles.of(b).ordinal(), awake));
             byId.put(m.getId(), m);
         }
         for (Player p : level.players()) {

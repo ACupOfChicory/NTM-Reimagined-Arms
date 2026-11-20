@@ -244,7 +244,7 @@ final class AiCheckSupply {
         // the first of ours is the supplier, by word, in both rounds (off: a role's name and no more)
         AiBot supplier = out() || red() && r % 2 == 0 ? null : AiBots.get(ours.get(0));
         if (supplier != null) {
-            AiRole.assign(supplier, AiRole.SUPPLIER);
+            AiRoles.assign(supplier, AiRole.SUPPLIER);
             supplier.supply = null;
             supplier.mob.getPersistentData().remove(AiSupply.STOCK_KEY);
         }

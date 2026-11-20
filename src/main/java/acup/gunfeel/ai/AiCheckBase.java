@@ -116,7 +116,7 @@ final class AiCheckBase {
             }
             AiBot gb = AiBots.get(squad.get(GUNNER));
             check.out(String.format(Locale.ROOT, "     base, round %d: the gunner (%s): pulls %d, held for a friend %d, for its cover %d, bursts for those moving %d; %s", round + 1,
-                    gb == null ? "-" : AiRole.of(gb), gb == null ? 0 : gb.gunner.pulls, gb == null ? 0 : gb.gunner.holds, gb == null ? 0 : gb.gunner.coverHolds,
+                    gb == null ? "-" : AiRoles.of(gb), gb == null ? 0 : gb.gunner.pulls, gb == null ? 0 : gb.gunner.holds, gb == null ? 0 : gb.gunner.coverHolds,
                     gb != null && gb.brain instanceof AiSoldier gs ? gs.suppressions : 0, whys));
             whys.clear();
             results.add(new double[] {round % 2, moveTicks, moveHeld, held, scaleSum / ticks, flanks, gunnerFlanks, gunnerHunts, gunnerShots, shots, hitsMoving, hitsFoe, sup});

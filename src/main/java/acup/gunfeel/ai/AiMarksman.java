@@ -83,7 +83,7 @@ public final class AiMarksman {
 
     /** it is a marksman that fights from perches */
     static boolean is(AiBot bot) {
-        return on() && AiRole.of(bot) == AiRole.MARKSMAN;
+        return on() && AiRoles.of(bot) == AiRole.MARKSMAN;
     }
 
     /**

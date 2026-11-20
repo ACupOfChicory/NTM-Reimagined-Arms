@@ -54,7 +54,7 @@ public final class AiSupply {
             alive++;
             AiAmmo ammo = b.gunner.ammo;
             if (ammo.infinite() || ammo.reserve() > 0 || b.gunner.capacity() <= 0) return;
-            if (AiRole.of(b) == AiRole.SUPPLIER && stock(b)[0] > 0) return;
+            if (AiRoles.of(b) == AiRole.SUPPLIER && stock(b)[0] > 0) return;
             fight |= b.memory.focus(b.mob.getX(), b.mob.getZ()) != null;
         }
         if (alive == 0 || !fight) return;
@@ -134,7 +134,7 @@ public final class AiSupply {
 
     /** an AI mob is down: a supplier's stock stays where it fell, for one of its side to take up */
     static void fell(ServerLevel level, AiBot bot, long tick) {
-        if (!on() || AiRole.of(bot) != AiRole.SUPPLIER) return;
+        if (!on() || AiRoles.of(bot) != AiRole.SUPPLIER) return;
         int[] stock = stock(bot);
         if (stock[0] + stock[1] + stock[2] <= 0) return;
         java.util.List<Left> all = LEFT.computeIfAbsent(level, l -> new java.util.ArrayList<>());
@@ -155,7 +155,7 @@ public final class AiSupply {
     private static boolean fetch(AiSoldier s, AiBot bot, ServerLevel level, long tick) {
         Left mine = bot.supplyFetch;
         // the base of fire keeps its place, a medic its kits: neither goes for one
-        if (mine == null && ((tick + bot.mob.getId()) % HEIR_EVERY != 0 || tick < bot.supplyNext || AiRole.of(bot) == AiRole.BASE || AiRole.of(bot) == AiRole.MEDIC)) return false;
+        if (mine == null && ((tick + bot.mob.getId()) % HEIR_EVERY != 0 || tick < bot.supplyNext || AiRoles.of(bot) == AiRole.BASE || AiRoles.of(bot) == AiRole.MEDIC)) return false;
         java.util.List<Left> all = LEFT.get(level);
         if (mine == null) {
             if (all == null || all.isEmpty() || !free(bot, tick) || seesFoe(bot)) return false;
@@ -191,10 +191,10 @@ public final class AiSupply {
         if (dx * dx + dz * dz <= HAND * HAND && Math.abs(mine.y - bot.mob.getY()) < 2) {
             all.remove(mine);
             bot.supplyFetch = null;
-            int[] stock = AiRole.of(bot) == AiRole.SUPPLIER ? stock(bot) : new int[3];
+            int[] stock = AiRoles.of(bot) == AiRole.SUPPLIER ? stock(bot) : new int[3];
             for (int i = 0; i < 3; i++) stock[i] = Math.min(64, stock[i] + mine.stock[i]);
             bot.supply = stock;
-            if (AiRole.of(bot) != AiRole.SUPPLIER) AiRole.assign(bot, AiRole.SUPPLIER);
+            if (AiRoles.of(bot) != AiRole.SUPPLIER) AiRoles.assign(bot, AiRole.SUPPLIER);
             keep(bot);
             taken++;
             s.note(bot, tick, "supplies: takes up a fallen supplier's stock, has " + stock[0] + "/" + stock[1] + "/" + stock[2]);
@@ -268,8 +268,8 @@ public final class AiSupply {
     static boolean step(AiSoldier s, AiBot bot, ServerLevel level, long tick) {
         if (!on()) return false;
         // a fallen supplier's stock first: anyone of its side, a supplier on no run
-        if ((AiRole.of(bot) != AiRole.SUPPLIER || bot.supplyTo == null) && fetch(s, bot, level, tick)) return true;
-        if (AiRole.of(bot) != AiRole.SUPPLIER) return false;
+        if ((AiRoles.of(bot) != AiRole.SUPPLIER || bot.supplyTo == null) && fetch(s, bot, level, tick)) return true;
+        if (AiRoles.of(bot) != AiRole.SUPPLIER) return false;
         int[] stock = stock(bot);
         AiBot to = bot.supplyTo;
         if (to == null) {
