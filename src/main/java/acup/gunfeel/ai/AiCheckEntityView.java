@@ -175,6 +175,7 @@ final class AiCheckEntityView {
         }
         check.check("entityview: BodyControl.place is the game's setPos, on a mob and on an arrow; the Body reads the place and its box at once", placed);
         spawnPlaces();
+        worldReads();
         // ItemTable: the item in hand by its number is the registry's id, the same String each time; air 0; no item for
         // a number none has
         acup.gunfeel.host.ItemTable items = CoreServices.load(acup.gunfeel.host.ItemTable.class, acup.gunfeel.host.ItemTable.MISSING);
@@ -237,6 +238,52 @@ final class AiCheckEntityView {
                 }
         check.out(String.format(Locale.ROOT, "     entityview: SpawnPlace and the game's code: %d of %d alike, %d of them free", same, tried, free));
         check.check("entityview: SpawnPlace puts a mob as AiSpawn's own code did, to the bit, from the same seed", same == tried && free > 0 && free < tried);
+    }
+
+    /**
+     * WorldView's tops, chunks and lowest y as the game's own (every heightmap, by the stand's floor and off it; a kind
+     * the game has not throws), and the water's port (LevelFluids, StaffGround's liquids) as getFluidState: none where
+     * there is none, water where the game's water tag is, on a source, flowing water, lava and a slab with water in it
+     */
+    private void worldReads() {
+        acup.gunfeel.host.WorldView w = acup.gunfeel.Wiring.world(level);
+        var kinds = net.minecraft.world.level.levelgen.Heightmap.Types.values();
+        boolean tops = kinds.length == 6;
+        for (int[] c : new int[][] {{X, Z}, {X + 3, Z - 2}, {X - 40, Z + 25}})
+            for (int k = 0; k < kinds.length; k++) tops &= w.height(c[0], c[1], k) == level.getHeight(kinds[k], c[0], c[1]);
+        for (int k : new int[] {-1, kinds.length}) {
+            try {
+                w.height(X, Z, k);
+                tops = false;
+            } catch (IllegalArgumentException e) {
+                // the game has no such heightmap
+            }
+        }
+        tops &= w.hasChunk(X >> 4, Z >> 4) == level.hasChunk(X >> 4, Z >> 4) && w.hasChunk(X >> 4, Z >> 4)
+                && w.hasChunk(100_000 >> 4, 100_000 >> 4) == level.hasChunk(100_000 >> 4, 100_000 >> 4) && !w.hasChunk(100_000 >> 4, 100_000 >> 4)
+                && w.minY() == level.getMinY();
+        check.check("entityview: WorldView's tops by every heightmap, its chunks loaded and its lowest y are the game's", tops);
+        // a row of liquids on the floor, each alone (no updates: none flows meanwhile), then air again
+        var water = Blocks.WATER.defaultBlockState();
+        net.minecraft.world.level.block.state.BlockState[] row = {water, water.setValue(net.minecraft.world.level.block.LiquidBlock.LEVEL, 3),
+                Blocks.LAVA.defaultBlockState(), Blocks.OAK_SLAB.defaultBlockState().setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.WATERLOGGED, true),
+                Blocks.AIR.defaultBlockState(), Blocks.STONE.defaultBlockState()};
+        var fluids = acup.gunfeel.water.LevelFluids.of(level);
+        boolean same = true;
+        StringBuilder seen = new StringBuilder();
+        for (int i = 0; i < row.length; i++) {
+            BlockPos p = new BlockPos(X - 4 + i, y + 1, Z + 4);
+            level.setBlock(p, row[i], 2 | 16);
+            var fs = level.getFluidState(p);
+            var cell = fluids.at(p.getX(), p.getY(), p.getZ());
+            boolean empty = cell == null, wet = cell != null && cell.liquid() == acup.gunfeel.water.LiquidEvents.Liquid.WATER;
+            same &= empty == fs.isEmpty() && wet == fs.is(net.minecraft.tags.FluidTags.WATER);
+            seen.append(i == 0 ? "" : ", ").append(empty ? "none" : cell.liquid());
+            level.setBlock(p, Blocks.AIR.defaultBlockState(), 2 | 16);
+        }
+        check.out("     entityview: the water's port on a source, flowing water, lava, a waterlogged slab, air, stone: " + seen);
+        check.check("entityview: LevelFluids.at is getFluidState: none where it is empty, water where the game's water tag is", same
+                && seen.toString().equals("WATER, WATER, LAVA, WATER, none, none"));
     }
 
     /** AiSpawn.place as it was before core's SpawnPlace (589b844), for the comparison above */

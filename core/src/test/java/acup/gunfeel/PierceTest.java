@@ -133,6 +133,21 @@ class PierceTest {
                     double y1, double z1) {
                 throw new AssertionError("not asked");
             }
+
+            @Override
+            public int height(int x, int z, int kind) {
+                throw new AssertionError("not asked");
+            }
+
+            @Override
+            public boolean hasChunk(int cx, int cz) {
+                throw new AssertionError("not asked");
+            }
+
+            @Override
+            public int minY() {
+                throw new AssertionError("not asked");
+            }
         };
     }
 
