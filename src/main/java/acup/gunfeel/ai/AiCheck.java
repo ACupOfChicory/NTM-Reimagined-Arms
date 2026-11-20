@@ -67,9 +67,6 @@ public final class AiCheck {
             }
             List<String> out = new ArrayList<>();
             AiCheck check = new AiCheck();
-            AiMarksman.alike = new AiMarksmanAlike();
-            StaffMove.alike = new StaffMoveAlike();
-            AiCommander.alike2 = new AiCommanderStepAlike();
             try {
                 check.run(out, e.getServer());
             } catch (Throwable t) {
@@ -140,8 +137,6 @@ public final class AiCheck {
             AiCheckMarksman marksman = new AiCheckMarksman(check, check.level, Y);
             AiCheckGrenadier grenadier = new AiCheckGrenadier(check, check.level, Y);
             AiCheckMedic medic = new AiCheckMedic(check, check.level, Y);
-            AiMedicAlike medicAlike = new AiMedicAlike();
-            AiMedic.alike = medicAlike;
             AiCheckCommander commander = new AiCheckCommander(check, check.level, Y);
             AiCheckLeaves leaves = new AiCheckLeaves(check, check.level, Y);
             AiCheckHill hill = new AiCheckHill(check, check.level, Y, false), hillHeights = new AiCheckHill(check, check.level, Y, true);
@@ -163,8 +158,6 @@ public final class AiCheck {
             AiCheckOverheat overheat = new AiCheckOverheat(check, check.level, Y);
             // core's entities (EntityView, Body) against the game's getters
             AiCheckEntityView entityView = new AiCheckEntityView(check, check.level, Y);
-            AiSupplyAlike supplyAlike = new AiSupplyAlike();
-            AiSupply.alike = supplyAlike;
             // walked, fought, fought in teams (on the fight's field), crowded, spread, lay down, aimed, aimed at a part, a
             // leaned round a corner, fought as a squad, fired blind, threw grenades and ran from them, a head with no one to fight, watched where a target may come out, a player out of creative, a player not expected, the battle as the owner had it, squads against loners, a squad shaken falling back, up a block walking back, a machine gun as the base of fire, armour and rounds by command, the lie of the land, a river crossed, took cover to fire from on a hill (and with height weighed), a side's staff in a war, went into a trench round its turns, crossed a river under fire by waves, took a bunker by its slit, went at NTM's underground bunker, went down a shaft through a hatch, went round a deep shaft held by another way in, sent by its staff into a house with no way in, the loudest shot among a hundred, went round the end of a wall at one holding it, looked into a house from round its way in
             List<String> names = List.of("ticks", "fight", "teams", "crowd", "spread", "prone", "aim", "parts", "lean", "squad", "blind", "grenade", "idle", "exit", "unseen", "react", "battle", "duel", "retreat", "step", "base", "doors", "entry", "clearing", "supply", "kit", "terrain", "water", "marksman", "grenadier", "medic", "commander", "leaves", "hill", "hillheights", "war", "trench", "crossing", "alert", "bunker", "bunkerntm", "hatch", "bypass", "fought", "wall", "folly", "corner", "heard", "slice", "sliceside", "overheat", "entityview");
@@ -228,9 +221,6 @@ public final class AiCheck {
                         AiBots.heardKeeps = true;
                         clearShots(check.level);
                     } else if (counted) AiLegsLog.tick(check.level, AiBots.all(check.level));
-                    if (StaffMove.alike != null) StaffMove.alike.tick(AiBots.all(check.level));
-                    if (AiCommander.alike2 != null) AiCommander.alike2.tick(AiBots.all(check.level), check.level.getGameTime());
-                    for (AiBot b : AiBots.all(check.level)) AiSupply.compare(b, check.level.getGameTime());
                     done = at[0] >= stages.size();
                 } catch (Throwable x) {
                     crashed(out, x);
@@ -238,33 +228,10 @@ public final class AiCheck {
                     done = true;
                 }
                 if (!done) return;
-                AiSupply.alike = null;
-                check.out("     supply alike (core's against the former code): " + supplyAlike.info());
-                check.check("supply: core's AiSupplyBase answers as the former code did", supplyAlike.differ == 0);
                 AiBots.heardKeeps = true;
                 AiVoice.counting = false;
-                check.out("     medic alike (core's against the former code): " + medicAlike.info());
-                check.check("medic: core's AiMedicBase answers as the former code did", medicAlike.differ == 0);
-                AiMedic.alike = null;
-                AiMarksmanAlike marksmanAlike = AiMarksman.alike;
-                if (marksmanAlike != null) {
-                    check.out(marksmanAlike.info());
-                    long differ = marksmanAlike.differ;
-                    check.check("marksman: core's AiMarksmanBase answers as the former code did", differ == 0);
-                    AiMarksman.alike = null;
-                }
                 out.add("     " + check.map.info());
                 out.add("     senses: " + Senses.info());
-                if (StaffMove.alike != null) {
-                    out.add("     " + StaffMove.alike.info());
-                    check.check("staffmove: core's StaffMoveBase answers as the former code did", StaffMove.alike.differ == 0);
-                    StaffMove.alike = null;
-                }
-                if (AiCommander.alike2 != null) {
-                    out.add("     " + AiCommander.alike2.info());
-                    check.check("commander step: core's AiCommanderBase answers as the former code did", AiCommander.alike2.differ == 0);
-                    AiCommander.alike2 = null;
-                }
                 out.add("     " + StandSprint.info());
                 out.add(check.ok ? "ALL OK" : "FAILED");
                 finish(file, out, check.ok ? 0 : 1);

@@ -1,5 +1,8 @@
 package acup.gunfeel.host;
 
-/** A launcher's loaded grenade. */
-public record Shell(float velocity, double gravity, int expires) {
+/** A holder for the loaded grenade's numbers, one per soldier. */
+public final class Shell {
+    public float velocity;
+    public double gravity;
+    public int expires;
 }
