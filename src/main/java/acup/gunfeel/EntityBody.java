@@ -121,6 +121,10 @@ public final class EntityBody implements Body {
     }
     @Override public boolean alive() { return e.isAlive(); }
     @Override public boolean removed() { return e.isRemoved(); }
+    @Override public float health() { return ((LivingEntity) e).getHealth(); }
+    @Override public float maxHealth() { return ((LivingEntity) e).getMaxHealth(); }
+    @Override public boolean spectator() { return e instanceof Player p && p.isSpectator(); }
+    @Override public boolean creative() { return e instanceof Player p && p.isCreative(); }
     @Override public boolean leftHanded() { return ((Mob) e).isLeftHanded(); }
     @Override
     public int held(int hand) {
@@ -135,7 +139,6 @@ public final class EntityBody implements Body {
         return ItemNumbers.number(((LivingEntity) e).getItemBySlot(WORN[slot]).getItem());
     }
     @Override public double speed() { return ((LivingEntity) e).getAttributeValue(Attributes.MOVEMENT_SPEED); }
-    @Override public float maxHealth() { return ((LivingEntity) e).getMaxHealth(); }
     @Override
     public int effectAmplifier(int which) {
         var effect = ((LivingEntity) e).getEffect(switch (which) {

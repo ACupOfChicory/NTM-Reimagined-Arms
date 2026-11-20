@@ -94,6 +94,7 @@ final class AiCheckEntityView {
         for (Entity e : List.of(dummy, stand, arrow)) same("standing " + name(e), e);
         oneBody(view);
         near(view);
+        players(view);
         livingOnly();
         dummy.setPos(dummy.getX() + 0.3, dummy.getY(), dummy.getZ() - 0.2);
         dummy.setYRot(37);
@@ -605,17 +606,20 @@ final class AiCheckEntityView {
         eq(w + "sprinting", b.sprinting(), e.isSprinting());
         eq(w + "alive", b.alive(), e.isAlive());
         eq(w + "removed", b.removed(), e.isRemoved());
+        eq(w + "spectator", b.spectator(), e instanceof net.minecraft.world.entity.player.Player p && p.isSpectator());
+        eq(w + "creative", b.creative(), e instanceof net.minecraft.world.entity.player.Player p && p.isCreative());
         eq(w + "team", b.team(), e.getTeam() == null ? null : e.getTeam().getName());
         eq(w + "tagged", b.tagged(AiBots.TARGET_TAG), e.entityTags().contains(AiBots.TARGET_TAG));
         eq(w + "tagged gunfeel_check", b.tagged("gunfeel_check"), e.entityTags().contains("gunfeel_check"));
         if (b.level() != e.level()) wrong.add(w + "level");
         if (e instanceof LivingEntity le) {
+            eq(w + "health", b.health(), le.getHealth());
+            eq(w + "maxHealth", b.maxHealth(), le.getMaxHealth());
             eq(w + "climbing", b.climbing(), le.onClimbable());
             eq(w + "fallFlying", b.fallFlying(), le.isFallFlying());
             eq(w + "sleeping", b.sleeping(), le.isSleeping());
             eq(w + "lying", b.lying(), Prone.lying(le));
             eq(w + "speed", b.speed(), le.getAttributeValue(Attributes.MOVEMENT_SPEED));
-            eq(w + "maxHealth", b.maxHealth(), le.getMaxHealth());
             var regen = le.getEffect(net.minecraft.world.effect.MobEffects.REGENERATION);
             var res = le.getEffect(net.minecraft.world.effect.MobEffects.RESISTANCE);
             eq(w + "regeneration", b.effectAmplifier(Body.EFFECT_REGENERATION), regen == null ? -1 : regen.getAmplifier());
@@ -655,10 +659,23 @@ final class AiCheckEntityView {
                 ok && counts.toString().equals(" 2 1 1"));
     }
 
+    private void players(EntityView view) {
+        var game = level.players();
+        Body[] out = new Body[game.size() + 3];
+        int n = view.players(out);
+        boolean ok = n == game.size();
+        for (int i = 0; i < Math.min(n, game.size()); i++) {
+            ok &= out[i] == EntityBody.of(game.get(i));
+            same("player " + i, game.get(i));
+        }
+        if (!game.isEmpty()) ok &= view.players(new Body[game.size() - 1]) == -game.size();
+        check.check("entityview: players are level.players, including spectators, in order, nothing cut", ok);
+    }
+
     private void livingOnly() {
         Body a = EntityBody.of(arrow), s = EntityBody.of(stand);
         check.check("entityview: on the arrow (not living) the living ones throw", throwsOn(a::climbing) && throwsOn(a::speed) && throwsOn(a::lying) && throwsOn(a::sleeping)
-                && throwsOn(a::leftHanded) && throwsOn(a::fallFlying));
+                && throwsOn(a::leftHanded) && throwsOn(a::fallFlying) && throwsOn(a::health) && throwsOn(a::maxHealth));
         check.check("entityview: on the stand (living, no mob) leftHanded throws", throwsOn(s::leftHanded));
     }
 

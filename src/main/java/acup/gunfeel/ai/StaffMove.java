@@ -27,10 +27,7 @@ import net.minecraft.world.phys.Vec3;
  * </ul>
  * Only with a task (C2) and a way (C1); straight legs take the mode's pace alone.
  */
-final class StaffMove {
-    enum Mode {
-        MARCH, BOUND, CREEP, ASSAULT
-    }
+final class StaffMove extends StaffMoveBase {
 
     /** the server setting; off only for the stands' "before" (C2: all walk) */
     public static final String KEY = "aiCommanderMoves";
@@ -74,21 +71,6 @@ final class StaffMove {
 
     static boolean on() {
         return on && ReaimTimes.flag(KEY, true);
-    }
-
-    /** a squad's (its task's): its mode and since when, the nearest enemy, its bounds or rushes */
-    static final class State {
-        @Nullable Mode mode;
-        long since, next = Long.MIN_VALUE;
-        /** the nearest enemy the side knows of: where it faces it from cover, the radius of its circle (none known: false) */
-        double foeX, foeZ, foeR;
-        boolean foe;
-        /** bounds and rushes begun in this mode; the half going (bounds) or the first rushing (creeping); since when; where along the way the bound ends */
-        int turn, moving;
-        long turnAt;
-        double to;
-        /** bounds: the half covering is in its cover (or had its time to get there), the other goes */
-        boolean set;
     }
 
     /** a soldier's step: go to x, z (the cover cell, else the ground there) at speed, or hold where it is facing the enemy; low: crouching; again: its leg set again so soon at the latest, ticks */

@@ -675,6 +675,9 @@ tasks.withType<Test>().configureEach {
     // the tests read src/main/resources and src/test/pinned from the repository root
     workingDir = root
     inputs.property("pinUpdate", providers.environmentVariable("PIN_UPDATE").orElse(""))
+    // SmokeInfoBitTest's OldInfo.info (SmokeInfo's block before its matrices were kept) crashes the JIT's C2 of JDK 25
+    // compiled (notes/ports-base/bugs.md): run uncompiled, so that the test fails only by its bytes
+    jvmArgs("-XX:CompileCommand=quiet", "-XX:CompileCommand=exclude,acup.gunfeel.smoke.client.SmokeInfoBitTest\$OldInfo::info")
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

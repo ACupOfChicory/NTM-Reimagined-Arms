@@ -7,7 +7,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import acup.gunfeel.ai.StaffMove.Mode;
+import acup.gunfeel.ai.StaffMoveBase.Mode;
 
 // How a squad goes along its staff's way (stage 7, C3): its mode, a bound's halves, places along the way.
 class StaffMoveTest {

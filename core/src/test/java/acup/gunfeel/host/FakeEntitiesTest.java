@@ -12,6 +12,31 @@ import acup.gunfeel.ai.Stance;
 // The entities' contract (EntityViewContract) on a level of plain fakes: a mob at 1.5 64 2.5, a projectile, a player
 // watching, a second mob and one removed. Each version's check runs the same promises on its own entities.
 class FakeEntitiesTest extends EntityViewContract {
+    @org.junit.jupiter.api.Test
+    void playersInOrderIncludingSpectators() {
+        Body first = level.byId(3);
+        Fake second = level.add(new Fake(7, EntityView.LIVING, true, true, false, 0, 64, 0));
+        Body[] out = new Body[3];
+        org.junit.jupiter.api.Assertions.assertEquals(-2, level.players(new Body[1]));
+        org.junit.jupiter.api.Assertions.assertEquals(-2, level.players(new Body[0]));
+        org.junit.jupiter.api.Assertions.assertEquals(2, level.players(out));
+        org.junit.jupiter.api.Assertions.assertSame(first, out[0]);
+        org.junit.jupiter.api.Assertions.assertSame(second, out[1]);
+        org.junit.jupiter.api.Assertions.assertTrue(first.spectator());
+        org.junit.jupiter.api.Assertions.assertFalse(second.spectator());
+        org.junit.jupiter.api.Assertions.assertFalse(second.creative());
+        org.junit.jupiter.api.Assertions.assertEquals(20, second.health());
+        org.junit.jupiter.api.Assertions.assertEquals(20, second.maxHealth());
+        Body projectile = level.byId(2);
+        org.junit.jupiter.api.Assertions.assertThrows(ClassCastException.class, projectile::health);
+        org.junit.jupiter.api.Assertions.assertThrows(ClassCastException.class, projectile::maxHealth);
+        org.junit.jupiter.api.Assertions.assertFalse(projectile.spectator());
+        org.junit.jupiter.api.Assertions.assertFalse(projectile.creative());
+        level.remove(second);
+        level.remove((Fake) first);
+        org.junit.jupiter.api.Assertions.assertEquals(0, level.players(new Body[0]));
+    }
+
     static final class Fake implements Body {
         final java.util.UUID uuid = java.util.UUID.randomUUID();
         final int id;
@@ -86,11 +111,14 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public boolean flying() { return false; }
         @Override public boolean alive() { return !removed; }
         @Override public boolean removed() { return removed; }
+        @Override public float health() { livingOnly(); return 20; }
+        @Override public float maxHealth() { livingOnly(); return 20; }
+        @Override public boolean spectator() { return player && spectator; }
+        @Override public boolean creative() { return false; }
         @Override public boolean leftHanded() { livingOnly(); return false; }
         @Override public int held(int hand) { livingOnly(); return 0; }
         @Override public int worn(int slot) { livingOnly(); return 0; }
         @Override public double speed() { livingOnly(); return 0.25; }
-        @Override public float maxHealth() { livingOnly(); return 20; }
         @Override public int effectAmplifier(int which) {
             livingOnly();
             if (which != EFFECT_REGENERATION && which != EFFECT_RESISTANCE) throw new IllegalArgumentException("no effect " + which);
@@ -117,6 +145,14 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override
         public @Nullable Body byId(int id) {
             return byId.get(id);
+        }
+
+        @Override
+        public int players(Body[] out) {
+            List<Fake> found = byId.values().stream().filter(f -> f.player).toList();
+            if (found.size() > out.length) return -found.size();
+            for (int i = 0; i < found.size(); i++) out[i] = found.get(i);
+            return found.size();
         }
 
         @Override
@@ -245,5 +281,10 @@ class FakeEntitiesTest extends EntityViewContract {
     @Override
     protected int[] livingInBox() {
         return new int[] {1, 4};
+    }
+
+    @Override
+    protected int[] players() {
+        return new int[] {3};
     }
 }

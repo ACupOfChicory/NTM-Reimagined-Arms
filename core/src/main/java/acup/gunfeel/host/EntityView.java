@@ -15,6 +15,12 @@ public interface EntityView {
     @Nullable Body byId(int id);
 
     /**
+     * The level's players, including players watching only (spectators), in the game's order, into out from 0;
+     * how many. When out is too short nothing is cut: it is -(how many), and the asker asks again with room for them.
+     */
+    int players(Body[] out);
+
+    /**
      * The entities of a kind whose boxes meet the box, players watching only (spectators) left out, in the game's
      * order, into out from 0; how many. When out is too short nothing is cut: it is -(how many), and the asker asks
      * again with room for them.
