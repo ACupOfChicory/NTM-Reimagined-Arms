@@ -41,6 +41,7 @@ class BalanceFinalStep1Test {
     };
 
     private static final class Reads implements HurtNow {
+        @Override public float headMultiplier() { throw new UnsupportedOperationException(); }
         final List<String> calls = new ArrayList<>();
         final Body body;
         final BiFunction<Body, Integer, String> worn;

@@ -7,7 +7,7 @@ import acup.gunfeel.host.HurtNow;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 
-/** The game's current hit for core; EuphImmunity.Reads makes NTM's reads. */
+/** The game's current hit for core; each system keeps its version reads. */
 final class HurtNowPort implements HurtNow {
     @Override public boolean gas() { return acup.gunfeel.gas.GasServer.gasNow(); }
     @Override public int reach(Object hurt) { return EuphImmunity.reach((DamageSource) hurt); }
@@ -35,4 +35,5 @@ final class HurtNowPort implements HurtNow {
         if (which != PIERCE_DT && which != PIERCE_DR) throw new IllegalArgumentException("no pierce " + which);
         return EuphImmunity.Reads.pierce((LivingEntity) ((EntityBody) b).entity(), which);
     }
+    @Override public float headMultiplier() { return BalanceFinal.Reads.headMultiplier(); }
 }

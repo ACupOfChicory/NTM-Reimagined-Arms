@@ -27,6 +27,9 @@ public interface HurtNow {
     /** NTM's piercing of this hit, DT or DR; one version read */
     float ntmPierce(Body target, int which);
 
+    /** The current head multiplier. */
+    float headMultiplier();
+
     /** where the version gives none: each method throws */
     HurtNow MISSING = new HurtNow() {
         @Override public boolean gas() { throw new UnsupportedOperationException("no HurtNow here"); }
@@ -47,5 +50,6 @@ public interface HurtNow {
         public float ntmPierce(Body target, int which) {
             throw new UnsupportedOperationException("no HurtNow here");
         }
+        @Override public float headMultiplier() { throw new UnsupportedOperationException("no HurtNow here"); }
     };
 }

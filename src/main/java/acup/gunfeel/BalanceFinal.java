@@ -28,193 +28,44 @@ public final class BalanceFinal extends BalanceFinalBase {
     private BalanceFinal() {
     }
 
-    // ---------------------------------------------------------------- the shot's pair
-
-    /** the pair (gun.ammo) a projectile was fired with, by the projectile */
-    private static final Map<Entity, String> PAIR = Collections.synchronizedMap(new WeakHashMap<>());
-
-    /** a share of its pair's damage a projectile does (ShockServer's repeated hit: a part of a slug's) */
-    private static final Map<Entity, Float> SHARE = Collections.synchronizedMap(new WeakHashMap<>());
-
-    /**
-     * a hit of {@code projectile} (fired with {@code from}) on one shocked or immune to a shock: it does {@code share}
-     * of a shot of the same gun with {@code as}, by the scheme's pair of it when there is one (the target's armour and
-     * the range as for that shot); the share of the projectile's own damage that makes it so off the scheme (a target
-     * not the scheme's), 1 with the balance off
-     */
-    public static float hitAs(Entity projectile, LivingEntity shooter, com.hbm.items.weapon.sedna.BulletConfig from, com.hbm.items.weapon.sedna.BulletConfig as,
-            float share) {
-        if (projectile == null || shooter == null || shooter.level().isClientSide() || !BalanceGuns.on()) return 1F;
-        net.minecraft.world.item.Item gunItem = BalanceGuns.gunOf(shooter);
-        if (gunItem == null) return 1F;
-        try {
-            String gun = gunName(gunItem);
-            String id = gun + "." + ammoName(as);
-            if (on() && gun != null && state().pairs().containsKey(id)) {
-                PAIR.put(projectile, id);
-                SHARE.put(projectile, share);
-            }
-            return share * BalanceGuns.as(gunItem, from, as);
-        } catch (RuntimeException | LinkageError e) {
-            // a hit must never fail over the tables: the shell's own damage
-            return 1F;
-        }
-    }
-
-    /**
-     * a hit of {@code projectile} (fired with {@code from}) that does {@code share} of a shot of the same gun with
-     * {@code as} (a Duplex round's bullet: of the SP's): hitAs, and {@code share} of its own damage where hitAs leaves
-     * it (the balance off, no gun in the shooter's hands, the tables failing), {@code from} being as heavy as {@code as}
-     * in NTM's numbers
-     */
-    public static float shareOf(Entity projectile, LivingEntity shooter, com.hbm.items.weapon.sedna.BulletConfig from,
-            com.hbm.items.weapon.sedna.BulletConfig as, float share) {
-        if (projectile == null || shooter == null || shooter.level().isClientSide() || !BalanceGuns.on()) return share;
-        net.minecraft.world.item.Item gunItem = BalanceGuns.gunOf(shooter);
-        if (gunItem == null) return share;
-        // hitAs's own, but a table failing leaves the share (hitAs would give the whole damage: two bullets of a full SP)
-        try {
-            String gun = gunName(gunItem);
-            String id = gun + "." + ammoName(as);
-            if (on() && gun != null && state().pairs().containsKey(id)) {
-                PAIR.put(projectile, id);
-                SHARE.put(projectile, share);
-            }
-            return share * BalanceGuns.as(gunItem, from, as);
-        } catch (RuntimeException | LinkageError e) {
-            return share;
-        }
-    }
-
-    private static float share(DamageSource source) {
-        Float k = SHARE.get(source.getDirectEntity());
-        return k == null ? 1F : k;
-    }
-
-    /** the last pair each shooter fired, and when (an NTM blast of its shot, the Tesla Cannon's, has no projectile) */
-    private record Last(String pair, long tick) {
-    }
-
-    private static final Map<Entity, Last> LAST = Collections.synchronizedMap(new WeakHashMap<>());
-
-    /**
-     * a shot of {@code shooter}'s {@code gunItem} with {@code ammo} has been made (BalanceGuns.shot): its pair by the
-     * ammo's name, or by the round loaded in the gun when the shot's config is not an ammo of the table (the Shredder
-     * fires a shell as plasma of a config of its own)
-     */
-    static void fired(Entity projectile, LivingEntity shooter, net.minecraft.world.item.Item gunItem, com.hbm.items.weapon.sedna.BulletConfig ammo) {
-        if (projectile == null || shooter == null || shooter.level().isClientSide() || !on()) return;
-        try {
-            fired0(projectile, shooter, gunItem, ammo);
-        } catch (RuntimeException | LinkageError e) {
-            // the shot goes on without a pair: NTM's machine takes it
-        }
-    }
-
-    private static void fired0(Entity projectile, LivingEntity shooter, net.minecraft.world.item.Item gunItem, com.hbm.items.weapon.sedna.BulletConfig ammo) {
-        String gun = gunName(gunItem);
-        if (gun == null || ammo == null) return;
-        String id = gun + "." + ammoName(ammo);
-        if (!state().pairs().containsKey(id)) {
-            String loaded = loadedAmmo(shooter, gunItem);
-            if (loaded != null && state().pairs().containsKey(gun + "." + loaded)) id = gun + "." + loaded;
-        }
-        PAIR.put(projectile, id);
-        LAST.put(shooter, new Last(id, shooter.level().getGameTime()));
-        var count = standShots;
-        if (count != null) count.merge(shooter, 1, Integer::sum);
-        if (BalanceLog.on()) BalanceLog.shot(projectile, shooter, gunItem);
-    }
-
-    /** the gun's name of the scheme: NTM's, or the GL-54's "gl54" (a launcher of balance.final.blast.launchers) */
-    static String gunName(net.minecraft.world.item.Item item) {
-        String g = BalanceGuns.gunName(item);
-        if (g != null) return g;
-        var id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
-        return id != null && id.getNamespace().equals(acup.gunfeel.gl54.Gl54Items.NAMESPACE) && id.getPath().equals("gun_gl54") ? "gl54" : null;
-    }
-
-    /** the ammo's name of the scheme: NTM's, or a GL-54 grenade's kind (he, airburst, ap, inc, ...) */
-    static String ammoName(com.hbm.items.weapon.sedna.BulletConfig ammo) {
-        if (ammo instanceof acup.gunfeel.gl54.GrenadeType g) {
-            var k = g.grenade();
-            return k != null ? k.key : g.kind;
-        }
-        return BalanceGuns.ammoName(ammo);
-    }
-
-    /** the stand (pass ps): the projectiles each shooter fired, counted while not null */
     static volatile Map<Entity, Integer> standShots;
 
-    /** a submunition of {@code thrower}'s (made from a shot of its, the Shredder's plasma): the pair it has just fired */
+    public static float hitAs(Entity projectile, LivingEntity shooter, com.hbm.items.weapon.sedna.BulletConfig from, com.hbm.items.weapon.sedna.BulletConfig as,
+            float share) {
+        return BalanceFinalBase.hitAs(projectile, shooter == null ? null : EntityBody.of(shooter), from, as, share, ShotsPort.READS, BalanceFinalBase::on);
+    }
+
+    public static float shareOf(Entity projectile, LivingEntity shooter, com.hbm.items.weapon.sedna.BulletConfig from,
+            com.hbm.items.weapon.sedna.BulletConfig as, float share) {
+        return BalanceFinalBase.shareOf(projectile, shooter == null ? null : EntityBody.of(shooter), from, as, share, ShotsPort.READS, BalanceFinalBase::on);
+    }
+
+    static void fired(Entity projectile, LivingEntity shooter, net.minecraft.world.item.Item gunItem, com.hbm.items.weapon.sedna.BulletConfig ammo) {
+        BalanceFinalBase.fired(projectile, shooter == null ? null : EntityBody.of(shooter), gunItem, ammo, ShotsPort.READS, BalanceFinalBase::on);
+    }
+
     public static void submunition(Entity projectile, LivingEntity thrower) {
-        if (projectile == null || thrower == null || thrower.level().isClientSide() || !on() || PAIR.containsKey(projectile)) return;
-        Last l = LAST.get(thrower);
-        if (l != null && thrower.level().getGameTime() - l.tick() <= 2) PAIR.put(projectile, l.pair());
+        BalanceFinalBase.submunition(projectile, thrower == null ? null : EntityBody.of(thrower), ShotsPort.READS, BalanceFinalBase::on);
     }
 
-    /** the Tesla Cannon's IR arcs that took their shooter's pair (beamSub) */
-    private static final Map<Entity, Boolean> IR_SUBS = Collections.synchronizedMap(new WeakHashMap<>());
-
-    /**
-     * a beam made by the 3-argument constructor (MixinBalanceFinalBeamSub): the IR capacitor's arc (energy_tesla_ir_sub)
-     * takes the pair its shooter has just fired (Fable №2, 2.5). Its hit on the creature the
-     * click's arc has just struck is nothing (againThisTick): an IR click is the table's click; on anyone else, a click
-     * of the pair with no range rule.
-     */
     public static void beamSub(Entity beam, LivingEntity thrower, com.hbm.items.weapon.sedna.BulletConfig config) {
-        if (beam == null || thrower == null || thrower.level().isClientSide() || !on()) return;
-        try {
-            if (config != com.hbm.items.weapon.sedna.factory.XFactoryEnergy.energy_tesla_ir_sub) return;
-        } catch (RuntimeException | LinkageError e) {
-            return;
-        }
-        Last l = LAST.get(thrower);
-        if (l == null || thrower.level().getGameTime() - l.tick() > 2) return;
-        PAIR.put(beam, l.pair());
-        IR_SUBS.put(beam, Boolean.TRUE);
+        BalanceFinalBase.beamSub(beam, thrower == null ? null : EntityBody.of(thrower), config, ShotsPort.READS, BalanceFinalBase::on);
     }
 
-    /** the ammo name of the round loaded in the shooter's gun (its first receiver that has one), or null */
-    private static String loadedAmmo(LivingEntity shooter, net.minecraft.world.item.Item gunItem) {
-        var stack = shooter.getMainHandItem().getItem() == gunItem ? shooter.getMainHandItem() : shooter.getOffhandItem();
-        if (!(stack.getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) return null;
-        try {
-            for (int c = 0; c < gun.getConfigCount(); c++)
-                for (var rec : gun.getConfig(stack, c).getReceivers(stack))
-                    if (rec.getMagazine(stack).getType(stack, null) instanceof com.hbm.items.weapon.sedna.BulletConfig b) return BalanceGuns.ammoName(b);
-        } catch (RuntimeException e) {
-            return null;
-        }
-        return null;
+    static String pairOf(Entity projectile) {
+        return BalanceFinalBase.pairOf(projectile);
     }
 
-    /** a blast of a shot (not a launcher's round) the scheme takes: the pair its shooter fired in the last ticks */
-    private static String blastPair(DamageSource source) {
-        Entity shooter = source.getEntity();
-        Last l = shooter == null ? null : LAST.get(shooter);
-        if (l == null || shooter.level().getGameTime() - l.tick() > 5) return null;
-        // a beam's pair alone: an NTM blast after a bullet's shot (a fire's, a launcher's) is not the pair's
-        var pr = state().pairs().get(l.pair());
-        return pr != null && !pr.cat().equals("PHYS") ? l.pair() : null;
+    static String gunName(net.minecraft.world.item.Item item) {
+        return Reads.gunName0(item);
     }
 
-    /** a blast's hit of the scheme on a target: the blast (by its source) and its tick; one blast a click counts */
-    private record BlastHit(int source, int shooter, long tick) {
-    }
-
-    private static final Map<Entity, BlastHit> BLAST_HITS = Collections.synchronizedMap(new WeakHashMap<>());
-
-    /**
-     * a second blast of the same shooter's on the target in the tick (the Tesla Cannon's arc again), or the IR arc's beam
-     * on the target its click's arc has just struck: nothing
-     */
-    private static boolean irSub(DamageSource source) {
-        return source.getDirectEntity() != null && IR_SUBS.containsKey(source.getDirectEntity());
+    static String ammoName(com.hbm.items.weapon.sedna.BulletConfig ammo) {
+        return Reads.ammoName0(ammo);
     }
 
     private static boolean againThisTick(LivingEntity target, DamageSource source) {
-        boolean irSub = irSub(source);
+        boolean irSub = BalanceFinalBase.irSub(source, ShotsPort.READS);
         // the Tesla Cannon's arc (a beam's class, not an explosion): an explosive shell's pellets each have their own blast
         if (!(BalanceArmor.vntBlastNow() || irSub) || source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)
                 || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(BalanceArmor.category(source))) return false;
@@ -227,10 +78,8 @@ public final class BalanceFinal extends BalanceFinalBase {
         return false;
     }
 
-    /** the pair the projectile was fired with, or null */
-    static String pairOf(Entity projectile) {
-        return projectile == null ? null : PAIR.get(projectile);
-    }
+    private record BlastHit(int source, int shooter, long tick) {}
+    private static final Map<Entity, BlastHit> BLAST_HITS = Collections.synchronizedMap(new WeakHashMap<>());
 
     // ---------------------------------------------------------------- a hit
 
@@ -247,27 +96,7 @@ public final class BalanceFinal extends BalanceFinalBase {
      * that are not players and wear nothing of the table)
      */
     static Hit hit(LivingEntity target, DamageSource source) {
-        if (target.level().isClientSide() || !on()) return null;
-        String cat = BalanceArmor.category(source);
-        if (cat == null) return null;
-        State s = state();
-        Entity projectile;
-        if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) {
-            // an explosive bullet's blast on the creature it struck: its direct hit (variant C); the rest of the blast as before
-            if (!BalanceArmor.bulletBlastNow() || ExplosiveDamage.struckNow() != target) return null;
-            projectile = ExplosiveDamage.bulletNow();
-        } else projectile = source.getDirectEntity();
-        String id = pairOf(projectile);
-        // an NTM blast of a beam or a bullet of a pair (the Tesla Cannon's arc): the pair its shooter just fired
-        if (id == null && BalanceArmor.vntBlastNow() && !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) id = blastPair(source);
-        if (id == null) return null;
-        var pr = s.pairs().get(id);
-        if (pr == null) return null;
-        var armor = armorOf(target, s);
-        if (armor == null) return null;
-        BalanceFinalRule.Armor fau = s.sets().get("fau");
-        double click = s.cache().computeIfAbsent(new CacheKey(id, armor), k -> BalanceFinalRule.clickDamage(pr, armor, fau, s.refs(), s.params()));
-        return new Hit(pr, armor, click);
+        return BalanceFinalBase.hit(target == null ? null : EntityBody.of(target), source, ShotsPort.READS, BalanceFinalBase::on, EuphImmunityBase.NowPort.NOW);
     }
 
     /** the stand: the damage of one projectile of pair {@code id} on {@code target}'s body (its health's scale), NaN when not the scheme's */
@@ -288,49 +117,13 @@ public final class BalanceFinal extends BalanceFinalBase {
      * NaN when the hit is not the scheme's
      */
     static float damage(LivingEntity target, DamageSource source) {
-        float b = blastOrFrag(target, source);
-        if (!Float.isNaN(b)) return b * target.getMaxHealth() / (float) BalanceFinalRule.HP;
-        Hit h = hit(target, source);
-        if (h == null) return Float.NaN;
-        if (againThisTick(target, source)) return 0F;
-        if (BalanceLog.on()) BalanceLog.hit(target, source, null, h.pair().id(), h.pair().tier(), HeadDamage.onHead(target));
-        float scale = target.getMaxHealth() / (float) BalanceFinalRule.HP;
-        return h.projectile() * scale * range(target, source, h) * share(source);
-    }
-
-    /**
-     * the hit's share by range (balance.final.range; Fable 10.4): by the pair's role and the shooter's distance to the
-     * target now; 1 for a blast (an explosive shell's direct hit), the Tesla Cannon's arc and its IR beam, no shooter, the rule off.
-     * A gun of a line of its own (balance.final.range.lineOf: the Shredder) takes it on every hit of its the scheme takes:
-     * its beam's flash, the drops the beam leaves where it strikes (all its damage on a creature) and a drop's blast on
-     * the creature it struck, by the shooter's distance to the target
-     */
-    private static float range(LivingEntity target, DamageSource source, Hit h) {
-        var r = state().range();
-        String role = BalanceFinalRule.roleOf(h.pair(), state().params());
-        boolean own = r.lineOf().containsKey(h.pair().gun());
-        // an explosive shell's direct hit takes the shell's line, or its role's (Fable №2, 2.1; №3); other blasts none
-        boolean shell = !own && expl(source) && h.pair().explosive() && (role.equals("shotgun") || role.equals("slug"));
-        // the IR arc's beam: no range, like the arc (Fable's answer 6, 5)
-        // the shell's direct hit comes in NTM's blast (vntBlastNow): the shell's line all the same; so does a drop's blast of a gun's own line
-        if (!r.on() || (BalanceArmor.vntBlastNow() || expl(source)) && !shell && !(own && expl(source)) || irSub(source) || source.getEntity() == null) return 1F;
-        double d = source.getEntity().position().distanceTo(target.position());
-        // the gun's own line; the shell's (Fable №3), or its role's when the rule has none (X942)
-        return (float) BalanceRangeRule.hit(r, h.pair().gun(), role, shell, d);
+        return BalanceFinalBase.damage(target == null ? null : EntityBody.of(target), source, ShotsPort.READS, BalanceFinalBase::on, EuphImmunityBase.NowPort.NOW);
     }
 
 
     /** what a hit takes from a full set's pool (EuphImmunity), or NaN when it is not the scheme's */
     static float drain(LivingEntity target, DamageSource source) {
-        float b = blastOrFrag(target, source);
-        if (!Float.isNaN(b)) return b;
-        Hit h = hit(target, source);
-        if (h == null) return Float.NaN;
-        if (againThisTick(target, source)) return 0F;
-        boolean head = HeadDamage.onHead(target);
-        if (BalanceLog.on()) BalanceLog.hit(target, source, null, h.pair().id(), h.pair().tier(), head);
-        float d = h.projectile() * range(target, source, h) * share(source);
-        return head ? Math.min(d * ModelHeads.multiplier(true, false), DamageCap.limits().head() * (float) BalanceFinalRule.HP) : d;
+        return BalanceFinalBase.drain(target == null ? null : EntityBody.of(target), source, ShotsPort.READS, BalanceFinalBase::on, EuphImmunityBase.NowPort.NOW);
     }
 
     /**
@@ -338,18 +131,7 @@ public final class BalanceFinal extends BalanceFinalBase {
      * 2026-11-12: NTM's damage as it is): NTM's threshold and resistance, then vanilla's armour, no formula C
      */
     static boolean ntmShot(LivingEntity target, DamageSource source) {
-        if (!on()) return false;
-        String cat = BalanceArmor.category(source);
-        if (cat == null || DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) return false;
-        // a player's shot of no pair (a launcher's submunition, another game's gun) keeps X908's machine
-        if (!(source.getEntity() instanceof LivingEntity shooter) || shooter instanceof Player) return false;
-        String id = pairOf(source.getDirectEntity());
-        if (id == null && BalanceArmor.vntBlastNow()) id = blastPair(source);
-        if (id == null) return true;
-        State s = state();
-        // a GL-54 fragment grenade's (BalanceFinal.frag): the scheme's, like a pair's
-        if (s.blast().on() && id.startsWith("gl54.") && s.blast().frags().containsKey(id.substring(5))) return false;
-        return !s.pairs().containsKey(id);
+        return BalanceFinalBase.ntmShot(null, source, ShotsPort.READS, BalanceFinalBase::on);
     }
 
     // ---------------------------------------------------------------- blasts (balance.final.blast; Fable 11.2, 12.3)
@@ -539,5 +321,75 @@ public final class BalanceFinal extends BalanceFinalBase {
         if (log && BalanceLog.on()) BalanceLog.hit(target, source, projectile, id, tier, false);
         // the click is a burst whose cone all hits (the ring's fragments are the side spray, each the same)
         return (float) (click / Math.max(1, spec.cone()));
+    }
+
+    /** The version's live reads; the pair state is core's. */
+    static final class Reads implements acup.gunfeel.host.FinalShots {
+        static float headMultiplier() { return ModelHeads.multiplier(true, false); }
+        private static LivingEntity living(acup.gunfeel.host.Body b) { return (LivingEntity) EntityBody.entity(b); }
+        @Override public Object raw(acup.gunfeel.host.Body b) { return EntityBody.entity(b); }
+        @Override public boolean client(acup.gunfeel.host.Body b) { return living(b).level().isClientSide(); }
+        @Override public boolean gunsOn() { return BalanceGuns.on(); }
+        @Override public Object gunOf(acup.gunfeel.host.Body b) { return BalanceGuns.gunOf(living(b)); }
+        @Override public String gunName(Object gun) { return gunName0((net.minecraft.world.item.Item) gun); }
+        @Override public String ammoName(Object ammo) { return ammoName0((com.hbm.items.weapon.sedna.BulletConfig) ammo); }
+        @Override public float as(Object gun, Object from, Object as) { return BalanceGuns.as((net.minecraft.world.item.Item) gun, (com.hbm.items.weapon.sedna.BulletConfig) from, (com.hbm.items.weapon.sedna.BulletConfig) as); }
+        @Override public String loadedAmmo(acup.gunfeel.host.Body b, Object gun) { return loadedAmmo0(living(b), (net.minecraft.world.item.Item) gun); }
+        @Override public long time(Object entity) { return ((Entity) entity).level().getGameTime(); }
+        @Override public boolean irConfig(Object config) { return config == com.hbm.items.weapon.sedna.factory.XFactoryEnergy.energy_tesla_ir_sub; }
+        @Override public Object direct(Object source) { return ((DamageSource) source).getDirectEntity(); }
+        @Override public Object entity(Object source) { return ((DamageSource) source).getEntity(); }
+        @Override public String category(Object source) { return BalanceArmor.category((DamageSource) source); }
+        @Override public Object hitProjectile(acup.gunfeel.host.Body b, Object source, String cat) {
+            if (DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)) {
+                if (!BalanceArmor.bulletBlastNow() || ExplosiveDamage.struckNow() != living(b)) return NO_PROJECTILE;
+                return ExplosiveDamage.bulletNow();
+            }
+            return ((DamageSource) source).getDirectEntity();
+        }
+        @Override public String fallbackPair(Object source, String cat) {
+            return BalanceArmor.vntBlastNow() && !DamageResistanceHandler.CATEGORY_EXPLOSION.equals(cat)
+                    ? BalanceFinalBase.blastPair(source, this) : null;
+        }
+        @Override public boolean vnt() { return BalanceArmor.vntBlastNow(); }
+        @Override public boolean again(acup.gunfeel.host.Body b, Object source) { return againThisTick(living(b), (DamageSource) source); }
+        @Override public float blastOrFrag(acup.gunfeel.host.Body b, Object source) { return BalanceFinal.blastOrFrag(living(b), (DamageSource) source); }
+        @Override public boolean mobShooter(Object source) { return ((DamageSource) source).getEntity() instanceof LivingEntity shooter && !(shooter instanceof Player); }
+        @Override public double distance(acup.gunfeel.host.Body b, Object source) { return ((DamageSource) source).getEntity().position().distanceTo(living(b).position()); }
+        @Override public boolean logOn() { return BalanceLog.on(); }
+        @Override public void logShot(Object projectile, acup.gunfeel.host.Body shooter, Object gun) { BalanceLog.shot((Entity) projectile, living(shooter), (net.minecraft.world.item.Item) gun); }
+        @Override public void logHit(acup.gunfeel.host.Body b, Object source, String id, double tier, boolean head) { BalanceLog.hit(living(b), (DamageSource) source, null, id, tier, head); }
+        @Override public void countShot(acup.gunfeel.host.Body shooter) {
+            var count = standShots;
+            if (count != null) count.merge(living(shooter), 1, Integer::sum);
+        }
+        @Override public float headCap() { return DamageCap.limits().head(); }
+        @Override public boolean balanceOn() { return BalanceOn.ON.getAsBoolean(); }
+        @Override public String worn(acup.gunfeel.host.Body b, int slot) { return BalanceArmorBase.setOfWorn(b, slot); }
+    static String gunName0(net.minecraft.world.item.Item item) {
+        String g = BalanceGuns.gunName(item);
+        if (g != null) return g;
+        var id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item);
+        return id != null && id.getNamespace().equals(acup.gunfeel.gl54.Gl54Items.NAMESPACE) && id.getPath().equals("gun_gl54") ? "gl54" : null;
+    }
+    static String ammoName0(com.hbm.items.weapon.sedna.BulletConfig ammo) {
+        if (ammo instanceof acup.gunfeel.gl54.GrenadeType g) {
+            var k = g.grenade();
+            return k != null ? k.key : g.kind;
+        }
+        return BalanceGuns.ammoName(ammo);
+    }
+    private static String loadedAmmo0(LivingEntity shooter, net.minecraft.world.item.Item gunItem) {
+        var stack = shooter.getMainHandItem().getItem() == gunItem ? shooter.getMainHandItem() : shooter.getOffhandItem();
+        if (!(stack.getItem() instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) return null;
+        try {
+            for (int c = 0; c < gun.getConfigCount(); c++)
+                for (var rec : gun.getConfig(stack, c).getReceivers(stack))
+                    if (rec.getMagazine(stack).getType(stack, null) instanceof com.hbm.items.weapon.sedna.BulletConfig b) return BalanceGuns.ammoName(b);
+        } catch (RuntimeException e) {
+            return null;
+        }
+        return null;
+    }
     }
 }
