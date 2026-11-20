@@ -5,8 +5,6 @@ import java.util.Map;
 import com.hbm.lib.ModDamageTypes;
 import com.hbm.util.DamageResistanceHandler;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -47,10 +45,8 @@ public final class BalanceArmor extends BalanceArmorBase {
 
     /** the set's name of a piece worn in slot {@code i}, or null when it is not an NTM armour piece of that slot */
     static String setOf(ItemStack stack, int i) {
-        if (stack.isEmpty()) return null;
-        Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        if (id == null || !id.getNamespace().equals("hbm")) return null;
-        return setName(id.getPath(), i);
+        // an empty stack's item is air's (BalanceArmorBase.setOfItem: no set)
+        return setOfItem(ItemNumbers.number(stack.getItem()), i);
     }
 
     /** the category the formula takes (PHYS, EN, EXPL), or null when the hit is NTM's (BalanceArmorBase.categoryOf) */
@@ -104,11 +100,7 @@ public final class BalanceArmor extends BalanceArmorBase {
         // the final scheme: its hits get through, a shot it leaves to NTM meets NTM's own check
         if (BalanceFinal.takes(target, source)) return true;
         if (BalanceFinal.ntmShot(target, source)) return false;
-        for (int i = 0; i < 4; i++) {
-            String set = setOf(target.getItemBySlot(SLOTS[i]), i);
-            if (set != null && (rofl(set) || rating(set) > 0F)) return true;
-        }
-        return false;
+        return wearsRated(EntityBody.of(target));
     }
 
     /**
