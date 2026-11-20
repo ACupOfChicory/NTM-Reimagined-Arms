@@ -123,6 +123,9 @@ neoForge {
             systemProperty("ntmgunfeel.glassBack",providers.gradleProperty("glassBack").map { it.ifBlank { "fancy" } }.orElse("").get())
             // -PspectatorStand: may a spectator use an NTM gun (SpectatorStand)
             systemProperty("ntmgunfeel.spectatorStand",providers.gradleProperty("spectatorStand").isPresent.toString())
+            // -PlevelLeakStand: two teams of AI mobs fight, the player leaves to the title screen, the world's levels must go
+            // from memory (LevelLeakStand)
+            systemProperty("ntmgunfeel.levelLeakStand",providers.gradleProperty("levelLeakStand").isPresent.toString())
             // -PhudShots: real frames of the corner HUD and the ammo menu into notes/gl54/hud-real (HudShots); the window is
             // 1920 x 1080; -PhudShotsGl54=<quads file>: that model's silhouette made with the mod's code
             systemProperty("ntmgunfeel.hudShots",providers.gradleProperty("hudShots").isPresent.toString())

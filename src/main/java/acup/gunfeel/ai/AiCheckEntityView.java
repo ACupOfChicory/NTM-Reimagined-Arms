@@ -159,6 +159,7 @@ final class AiCheckEntityView {
         }
         dummy.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, before);
         check.check("entityview: ItemTable names the item in hand by its number as the registry does, the same String each time", named);
+        roles();
         removed(view);
         dimension(view);
         check.out(String.format(Locale.ROOT, "     entityview: %d differences from the game's getters%s", wrong.size(),
@@ -329,4 +330,45 @@ final class AiCheckEntityView {
         }
         check.check("entityview: gone to another dimension, its held Body is the one left (removed), the one there another", ok);
     }
+
+    // AiRole's role of each of NTM's guns in the registry (a fresh stack) by the port (AiRoleBase, NtmGuns.fireTraits)
+    // against AiRole.byFire as it was before it, copied below: the same, the whole table in the result
+    private void roles() {
+        List<String> differ = new ArrayList<>();
+        java.util.Map<AiRole, Integer> count = new java.util.EnumMap<>(AiRole.class);
+        net.minecraft.world.item.ItemStack before = dummy.getMainHandItem();
+        Body db = EntityBody.of(dummy);
+        for (net.minecraft.world.item.Item item : net.minecraft.core.registries.BuiltInRegistries.ITEM) {
+            if (!(item instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) continue;
+            net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
+            dummy.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, stack);
+            AiRole now = AiRole.by(db, stack);
+            AiRole was = oldBase(gun, stack) ? AiRole.BASE : AiGrenadier.shell(stack) != null ? AiRole.GRENADIER
+                    : acup.gunfeel.PistolHold.scoped(stack) ? AiRole.MARKSMAN : AiRole.RIFLE;
+            String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).toString();
+            count.merge(now, 1, Integer::sum);
+            check.out("     roles: " + id + " " + was + (now == was ? "" : " -> " + now));
+            if (now != was) differ.add(id + " " + was + " -> " + now);
+        }
+        dummy.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, before);
+        check.check("roles: each NTM gun's role by the port is AiRole.byFire's before it, " + count + (differ.isEmpty() ? "" : ": " + differ),
+                differ.isEmpty() && count.getOrDefault(AiRole.BASE, 0) > 0);
+    }
+
+    // AiRole.byFire as it was before NtmGuns.fireTraits (2026-11-20), the stand's "before"
+    @SuppressWarnings("rawtypes")
+    private static boolean oldBase(com.hbm.items.weapon.sedna.ItemGunBaseNT gun, net.minecraft.world.item.ItemStack stack) {
+        try {
+            com.hbm.items.weapon.sedna.Receiver rec = gun.getConfig(stack, 0).getReceivers(stack)[0];
+            com.hbm.items.weapon.sedna.mags.IMagazine mag = rec.getMagazine(stack);
+            if (mag == null || !rec.getRefireOnHold(stack) || rec.getDelayAfterFire(stack) > 4) return false;
+            if (!(mag.getType(stack, null) instanceof com.hbm.items.weapon.sedna.BulletConfig b) || b.velocity < 5F
+                    || acup.gunfeel.BeamLasers.laser(b)) return false;
+            int need = Math.max(1, Math.round(acup.gunfeel.ReaimTimes.number(AiRoleBase.MAG_KEY, 40)));
+            return !(mag instanceof com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase) || mag.getCapacity(stack) >= need;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
 }

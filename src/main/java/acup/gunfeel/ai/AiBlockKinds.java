@@ -2,9 +2,9 @@ package acup.gunfeel.ai;
 
 import java.util.List;
 
+import acup.gunfeel.BlockStates;
 import acup.gunfeel.BulletRules;
 import acup.gunfeel.ReaimTimes;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -62,9 +62,9 @@ public final class AiBlockKinds {
         known = new boolean[0];
     }
 
+    /** the state's kind, worked out once per state by our number for it (BlockStates: the same all the game's run) */
     public static byte of(BlockState state) {
-        int id = Block.BLOCK_STATE_REGISTRY.getId(state);
-        if (id < 0) return classify(state);
+        int id = BlockStates.number(state);
         if (id >= values.length) {
             int size = Math.max(id + 1, Math.max(1024, values.length * 2));
             values = java.util.Arrays.copyOf(values, size);

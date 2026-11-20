@@ -1203,7 +1203,6 @@ MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilDecay F
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilHorizontal F
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilRebound F
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT recoilVertical F
-MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState IDLE Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI field com/hbm/items/weapon/sedna/ItemGunBaseNT$GunState RELOADING Lcom/hbm/items/weapon/sedna/ItemGunBaseNT$GunState;
 MOB_AI field com/hbm/main/ResourceManager dummy_tex Lnet/minecraft/resources/Identifier;
 MOB_AI field com/hbm/main/ResourceManager fbi_tex Lnet/minecraft/resources/Identifier;
@@ -1238,6 +1237,7 @@ MOB_AI method com/hbm/items/weapon/sedna/Receiver getMagazine (Lnet/minecraft/wo
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getProjectileOffset (Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/phys/Vec3;
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getProjectileOffsetScoped (Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/phys/Vec3;
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getRecoil (Lnet/minecraft/world/item/ItemStack;)Ljava/util/function/BiConsumer;
+MOB_AI method com/hbm/items/weapon/sedna/Receiver getRefireOnHold (Lnet/minecraft/world/item/ItemStack;)Z
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getReloadBeginDuration (Lnet/minecraft/world/item/ItemStack;)I
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getReloadCockOnEmptyPost (Lnet/minecraft/world/item/ItemStack;)I
 MOB_AI method com/hbm/items/weapon/sedna/Receiver getReloadCockOnEmptyPre (Lnet/minecraft/world/item/ItemStack;)I

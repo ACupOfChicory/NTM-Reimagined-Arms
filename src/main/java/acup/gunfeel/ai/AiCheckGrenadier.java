@@ -110,12 +110,13 @@ final class AiCheckGrenadier {
     /** the gun for the grenadier: one that makes a grenadier (AiRole), the preferred first */
     private Item launcher() {
         List<String> found = new ArrayList<>();
+        net.minecraft.world.entity.Mob holder = AiCheck.holder(level);
         Item first = null;
         for (Item item : BuiltInRegistries.ITEM) {
             Identifier id = BuiltInRegistries.ITEM.getKey(item);
             ItemStack stack = new ItemStack(item);
             try {
-                if (AiRole.by(stack) != AiRole.GRENADIER) continue;
+                if (AiCheck.role(holder, stack) != AiRole.GRENADIER) continue;
             } catch (RuntimeException e) {
                 continue;
             }
