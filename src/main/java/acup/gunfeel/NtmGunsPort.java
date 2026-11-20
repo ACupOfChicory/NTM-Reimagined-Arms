@@ -37,4 +37,12 @@ final class NtmGunsPort extends acup.gunfeel.ai.AiGunner.Guns {
     public int hudBlocks(Body holder, int hand, int[] ints, float[] floats, Object[] objects, String[] texts) {
         return Hud.Reads.hudBlocks(holder, hand, ints, floats, objects, texts);
     }
+
+    @Override
+    public int reach(Body holder, int hand) {
+        net.minecraft.world.item.ItemStack stack = net.minecraft.world.item.ItemStack.EMPTY;
+        if (EntityBody.entity(holder) instanceof net.minecraft.world.entity.LivingEntity l)
+            stack = hand == Body.MAIN_HAND ? l.getMainHandItem() : l.getOffhandItem();
+        return EuphImmunity.reachOf(stack);
+    }
 }

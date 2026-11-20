@@ -298,5 +298,17 @@ public interface NtmGuns {
         public int fill(Body holder, int hand) {
             return NO_ROUNDS;
         }
+
+        @Override
+        public int reach(Body holder, int hand) {
+            return 0;
+        }
     };
+
+    /**
+     * ticks the gun in that hand takes from a shot to the next one after a reload from empty (begin, a cycle per
+     * round after the first of a one-at-a-time magazine, end, the empty gun's cocking), the longest of its configs;
+     * 0: not an NTM gun
+     */
+    int reach(Body holder, int hand);
 }
