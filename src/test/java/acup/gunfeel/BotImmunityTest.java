@@ -32,8 +32,12 @@ class BotImmunityTest {
         for (String sig : new String[] {"Kit kitOf(LivingEntity", "boolean early(Kit kit, LivingEntity", "boolean accepted(Kit kit, LivingEntity",
                 "boolean absorbs(Kit kit, LivingEntity", "void forget(LivingEntity"})
             assertTrue(imm.contains(sig), sig);
-        // euphemium by the pool's hook for a soldier only: a player's goes by NTM's own check (MixinEuphImmunity)
-        assertTrue(imm.contains("!(player instanceof Player) && com.hbm.items.armor.ArmorSuitEffects.hasFullSet(player, com.hbm.items.armor.ModArmorItem.Suit.EUPHEMIUM)"));
+        // euphemium by the pool's hook for a soldier only: a player's goes by NTM's own check (MixinEuphImmunity); the
+        // kit is core's (EuphImmunityBase.kitOfWorn), NTM's suit EuphImmunity.Reads'
+        assertTrue(imm.contains("return kitOfWorn(EntityBody.of(player), BalanceOn.ON);"), "kitOf: core's on the body");
+        assertTrue(Files.readString(Path.of("core/src/main/java/acup/gunfeel/EuphImmunityBase.java"), StandardCharsets.UTF_8)
+                .contains("if (!b.player() && a.fullSet(b, acup.gunfeel.host.ArmorSuits.EUPHEMIUM))"), "euphemium: a soldier's only");
+        assertTrue(imm.contains("case acup.gunfeel.host.ArmorSuits.EUPHEMIUM -> com.hbm.items.armor.ModArmorItem.Suit.EUPHEMIUM;"));
         // the window's message: a player's only
         assertTrue(imm.contains("if (player instanceof net.minecraft.server.level.ServerPlayer sp) sp.sendSystemMessage(Component.translatable(kit.message"));
 
