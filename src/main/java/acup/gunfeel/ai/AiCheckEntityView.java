@@ -142,6 +142,23 @@ final class AiCheckEntityView {
         net.minecraft.world.entity.ai.control.LookControl lc = dummy.getLookControl();
         turnSet &= lc.getWantedX() == cx + 0.5 && lc.getWantedY() == cy + 1.25 && lc.getWantedZ() == cz + 5.5;
         check.check("entityview: BodyControl turns the body, head and look by the game's setters, the Body reads them back", turnSet);
+        // ItemTable: the item in hand by its number is the registry's id, the same String each time; air 0; no item for
+        // a number none has
+        acup.gunfeel.host.ItemTable items = CoreServices.load(acup.gunfeel.host.ItemTable.class, acup.gunfeel.host.ItemTable.MISSING);
+        net.minecraft.world.item.ItemStack before = dummy.getMainHandItem();
+        dummy.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK));
+        int stick = db.held(Body.MAIN_HAND);
+        String name = items.name(stick);
+        boolean named = name.equals(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(net.minecraft.world.item.Items.STICK).toString())
+                && name.equals("minecraft:stick") && items.name(stick) == name && items.name(acup.gunfeel.host.ItemTable.AIR).equals("minecraft:air");
+        try {
+            items.name(Integer.MAX_VALUE);
+            named = false;
+        } catch (IllegalArgumentException e) {
+            // none has it
+        }
+        dummy.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, before);
+        check.check("entityview: ItemTable names the item in hand by its number as the registry does, the same String each time", named);
         removed(view);
         dimension(view);
         check.out(String.format(Locale.ROOT, "     entityview: %d differences from the game's getters%s", wrong.size(),

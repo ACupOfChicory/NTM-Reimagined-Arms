@@ -59,6 +59,17 @@ public abstract class AiGunnerBase {
     boolean hasExact;
     double exactX, exactY, exactZ;
     long exactUntil = Long.MAX_VALUE;
+    // the burst: shots so far, the tick of the last, where its sideways wander is
+    private int burstShots;
+    private long lastShot = Long.MIN_VALUE;
+    private float drift;
+    // the barrel's heat: waiting for it to cool, and no pull before this tick (a pause cut into a burst)
+    private boolean cooling;
+    private long heatPauseUntil = Long.MIN_VALUE;
+    private static final acup.gunfeel.host.ItemTable ITEMS = CoreServices.load(acup.gunfeel.host.ItemTable.class,
+            acup.gunfeel.host.ItemTable.MISSING);
+    /** OverheatBase.Gun by ordinal (NtmGuns.heatGun), once: values() makes an array each call */
+    private static final OverheatBase.Gun[] HEAT_GUNS = OverheatBase.Gun.values();
     /** its body's random numbers (the game's own generator), and their gaussian for its hand, made once */
     private final acup.gunfeel.GameRandom random;
     private final java.util.function.DoubleSupplier gauss;
@@ -157,6 +168,56 @@ public abstract class AiGunnerBase {
         face(y, p, skill);
         return on;
     }
+
+    /**
+     * Each shot's kick on the view, from NTM's recoil for the gun and the part of it that stays, as on a player's camera
+     * (AiRecoil), aiming or not, lying or not; AiAim keeps it.
+     */
+    void recoil(int shots, long tick) {
+        float strength = AiRecoil.strength();
+        String id = ITEMS.name(body.held(Body.MAIN_HAND));
+        AiRecoil.Kick k = strength <= 0F ? null : AiRecoil.of(id);
+        // the burst is counted with no kick too: the barrel's heat cuts it by its shots (heatHolds)
+        boolean first = lastShot == Long.MIN_VALUE || tick - lastShot > BURST_GAP;
+        lastShot = tick;
+        if (first) burstShots = 0;
+        if (k == null) {
+            burstShots += shots;
+            return;
+        }
+        AiSkill skill = AiSkill.current();
+        boolean aiming = GUNS.aiming(body, Body.MAIN_HAND), lying = recoilLying();
+        for (int i = 0; i < shots; i++) {
+            burstShots++;
+            drift = AiRecoil.drift(drift, first && i == 0, (float) random.nextGaussian());
+            float[] d = AiRecoil.degrees(k, id, strength, burstShots, drift, aiming, lying, gauss);
+            float[] moved = sight.kick(d[0], d[1], d[2], d[3], k.rebound(), skill);
+            face(body.yHeadRot() + moved[0], Math.max(-90F, Math.min(90F, body.xRot() + moved[1])), skill);
+        }
+    }
+
+    /**
+     * The barrel's heat holds its fire (Overheat): from AI_WAIT until it is down to AI_RESUME; warmer than AI_SHORT, a burst
+     * is cut at the gun's aiBurst shots and the pause after it is longer than a burst's gap (BURST_GAP), the hotter the
+     * longer: the next burst starts its climb over.
+     */
+    boolean heatHolds(long time) {
+        int gun = GUNS.heatGun(body, Body.MAIN_HAND);
+        if (gun < 0) return false;
+        OverheatBase.Gun g = HEAT_GUNS[gun];
+        float h = GUNS.heat(body, Body.MAIN_HAND, time);
+        if (h >= OverheatBase.AI_WAIT) cooling = true;
+        else if (h <= OverheatBase.AI_RESUME) cooling = false;
+        if (cooling || time < heatPauseUntil) return true;
+        if (h > OverheatBase.AI_SHORT && burstShots >= g.aiBurst && lastShot != Long.MIN_VALUE && time - lastShot <= BURST_GAP) {
+            heatPauseUntil = time + heatPause(h);
+            return true;
+        }
+        return false;
+    }
+
+    /** it lies for its recoil: the prone feature on and it lying (Feature.PRONE, Prone.lying) */
+    abstract boolean recoilLying();
 
     /** the eye it aims from, leaned as it leans (AiLean.eye) */
     abstract void leanEye(double[] out);
