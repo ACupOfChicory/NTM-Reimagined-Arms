@@ -308,6 +308,11 @@ public interface NtmGuns {
         public int maxDelay(Body holder, int hand) {
             return 0;
         }
+
+        @Override
+        public boolean grenadeShell(Body holder, Shell into) {
+            return false;
+        }
     };
 
     /**
@@ -319,4 +324,10 @@ public interface NtmGuns {
 
     /** Longest delay after fire across all configs and receivers; 0 with no NTM gun. Not caught. */
     int maxDelay(Body holder, int hand);
+
+    /**
+     * 26.2: AiGrenadier.shell in the main hand, its velocity, gravity and expires into {@code into}; false with no
+     * grenade, {@code into} left as it was.
+     */
+    boolean grenadeShell(Body holder, Shell into);
 }

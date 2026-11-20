@@ -28,8 +28,6 @@ import net.minecraft.server.level.ServerLevel;
  * no orders. No places set by command, no buildings as targets.
  */
 public final class AiCommander extends AiCommanderBase {
-    static @Nullable AiCommanderStepAlike alike2;
-
     static final class Job extends AiCommanderBase.Job<AiBot, Job> {
         Job(StaffPlan.Kind kind, long since, List<AiBot> bots, int[] ids) {
             super(kind, since, bots, ids);
@@ -146,7 +144,7 @@ public final class AiCommander extends AiCommanderBase {
 
     private static boolean go(AiBot bot, ServerLevel level, double x, double z, double speed) { return goGround(STAFF, bot, level, x, z, speed); }
 
-    private static boolean mateIn(AiBot bot, Order o, long tick) { return alike2 == null ? mateInside(STAFF, bot, o, tick) : alike2.answer("mateIn", mateInside(STAFF, bot, o, tick), AiCommanderStepAlike.oldMateIn(bot, o, tick)); }
+    private static boolean mateIn(AiBot bot, Order o, long tick) { return mateInside(STAFF, bot, o, tick); }
 
     static long stand(ServerLevel level, int bx, int bz, int ownY) { return standingCell(STAFF, level, bx, bz, ownY); }
 
@@ -154,20 +152,9 @@ public final class AiCommander extends AiCommanderBase {
 
     private static void room(Order o, AiBot bot, ServerLevel level) { findRoom(STAFF, o, bot, level); }
 
-    private static boolean inRoom(Order o, double x, double z) { return alike2 == null ? insideRoom(STAFF, o, x, z) : alike2.answer("inRoom", insideRoom(STAFF, o, x, z), AiCommanderStepAlike.oldInRoom(o, x, z)); }
+    private static boolean inRoom(Order o, double x, double z) { return insideRoom(STAFF, o, x, z); }
 
-    private static boolean bad(Order o, double x, double z) { return alike2 == null ? badPlace(STAFF, o, x, z) : alike2.answer("bad", badPlace(STAFF, o, x, z), AiCommanderStepAlike.oldBad(o, x, z)); }
-
-    static void sampleStep(AiBot b, long tick) {
-        Order o = STAFF.order(b);
-        if (o == null) return;
-        mateIn(b, o, tick);
-        inRoom(o, b.mob.getX(), b.mob.getZ());
-        bad(o, b.mob.getX(), b.mob.getZ());
-        inRoom(o, o.x, o.z);
-        bad(o, o.x, o.z);
-        for (double[] p : o.badPlaces) bad(o, p[0], p[1]);
-    }
+    private static boolean bad(Order o, double x, double z) { return badPlace(STAFF, o, x, z); }
 
     private static void ready(ServerLevel level, Job f, long now) { signalReady(STAFF, level, f, now); }
 

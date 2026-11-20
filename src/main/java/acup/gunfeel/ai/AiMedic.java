@@ -14,8 +14,6 @@ import net.minecraft.world.phys.Vec3;
 
 /** 26.2's medic operations for core. */
 public final class AiMedic extends AiMedicBase {
-    static @Nullable AiMedicAlike alike;
-
     private AiMedic() {
     }
 
@@ -34,21 +32,21 @@ public final class AiMedic extends AiMedicBase {
         @Override public EntityView entities(Object level) { return new LevelEntities((ServerLevel) level); }
     };
 
-    public static boolean on() { return alike == null ? enabled(STAFF) : alike.answer("on", enabled(STAFF), AiMedicOld::on); }
-    static boolean cover() { return alike == null ? careUnderFire(STAFF) : alike.answer("cover", careUnderFire(STAFF), AiMedicOld::cover); }
+    public static boolean on() { return enabled(STAFF); }
+    static boolean cover() { return careUnderFire(STAFF); }
     static boolean waits(AiBot bot) { return awaitsCare(STAFF, bot); }
-    static float share() { return alike == null ? medicShare(STAFF) : alike.answer("share", medicShare(STAFF), AiMedicOld::share); }
+    static float share() { return medicShare(STAFF); }
     static int kits(AiBot bot) { return kitCount(STAFF, bot); }
     private static State state(AiBot bot) { return stateOf(STAFF, bot); }
     private static void keep(AiBot bot) { keepStock(STAFF, bot); }
     static boolean medic(AiBot bot) { return isMedic(STAFF, bot); }
-    static boolean hurt(LivingEntity e) { return alike == null ? wounded(STAFF, EntityBody.of(e)) : alike.answer("hurt", wounded(STAFF, EntityBody.of(e)), () -> AiMedicOld.hurt(e)); }
-    static boolean step(AiSoldier s, AiBot bot, ServerLevel level, long tick) { return alike == null ? tickMedic(STAFF, s, bot, level, tick) : alike.after(bot, level, tickMedic(STAFF, s, bot, level, tick), () -> fight(bot), id -> served(level, bot, id)); }
+    static boolean hurt(LivingEntity e) { return wounded(STAFF, EntityBody.of(e)); }
+    static boolean step(AiSoldier s, AiBot bot, ServerLevel level, long tick) { return tickMedic(STAFF, s, bot, level, tick); }
     private static void treat(AiSoldier s, AiBot bot, LivingEntity to, long tick) { useKit(STAFF, s, bot, EntityBody.of(to), tick); }
     private static long cell(Entity e) { return patientCell(STAFF, EntityBody.of(e)); }
     private static @Nullable LivingEntity pick(AiBot bot, ServerLevel level) { return (LivingEntity) EntityBody.entity(choosePatient(STAFF, bot, level)); }
-    private static TargetMemory.@Nullable Contact fight(AiBot bot) { return alike == null ? visibleFoe(STAFF, bot) : alike.fight(bot, () -> visibleFoe(STAFF, bot)); }
-    private static boolean served(ServerLevel level, AiBot bot, int id) { return alike == null ? patientTaken(STAFF, level, bot, id) : alike.served(level, bot, id, patientTaken(STAFF, level, bot, id)); }
+    private static TargetMemory.@Nullable Contact fight(AiBot bot) { return visibleFoe(STAFF, bot); }
+    private static boolean served(ServerLevel level, AiBot bot, int id) { return patientTaken(STAFF, level, bot, id); }
     static void fell(AiBot bot) { medicFell(STAFF, bot); }
     static String shown(AiBot bot) { return kitLabel(STAFF, bot); }
     public static String info() { return medicInfo(STAFF); }

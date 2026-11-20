@@ -8,8 +8,6 @@ import net.minecraft.server.level.ServerLevel;
 
 /** 26.2's supplier: the mob's fields and game calls for core. */
 public final class AiSupply extends AiSupplyBase {
-    static @Nullable AiSupplyAlike alike;
-
     private AiSupply() {
     }
 
@@ -48,23 +46,13 @@ public final class AiSupply extends AiSupplyBase {
     private static void hand(AiSoldier s, AiBot bot, AiBot to, int[] stock, long tick) { handStock(STAFF, s, bot, to, stock, tick); }
     static String shown(AiBot bot) { return shownStock(STAFF, bot); }
 
-    public static boolean on() { return alike == null ? enabled() : alike.answer("on", enabled(), () -> AiSupplyOld.on()); }
-    static boolean outOn() { return alike == null ? outEnabled() : alike.answer("outOn", outEnabled(), () -> AiSupplyOld.outOn && acup.gunfeel.ReaimTimes.flag(OUT_KEY, true)); }
-    static float share() { return alike == null ? supplierShare() : alike.answer("share", supplierShare(), () -> AiSupplyOld.share()); }
-    static double need(AiBot b, int[] stock) { return alike == null ? supplyNeed(STAFF, b, stock) : alike.answer("need", supplyNeed(STAFF, b, stock), () -> AiSupplyOld.need(b, stock)); }
-    private static long cell(AiBot b) { return alike == null ? botCell(STAFF, b) : alike.answer("cell", botCell(STAFF, b), () -> AiSupplyOld.cell(b)); }
-    static boolean free(AiBot b, long tick) { return alike == null ? supplierFree(STAFF, b, tick) : alike.focus("free", b, () -> supplierFree(STAFF, b, tick), () -> AiSupplyOld.free(b, tick)); }
-    static boolean exposed(AiBot b) { return alike == null ? recipientExposed(STAFF, b) : alike.focus("exposed", b, () -> recipientExposed(STAFF, b), () -> AiSupplyOld.exposed(b)); }
-    private static boolean seesFoe(AiBot b) { return alike == null ? foeVisible(STAFF, b) : alike.focus("seesFoe", b, () -> foeVisible(STAFF, b), () -> AiSupplyOld.seesFoe(b)); }
+    public static boolean on() { return enabled(); }
+    static boolean outOn() { return outEnabled(); }
+    static float share() { return supplierShare(); }
+    static double need(AiBot b, int[] stock) { return supplyNeed(STAFF, b, stock); }
+    private static long cell(AiBot b) { return botCell(STAFF, b); }
+    static boolean free(AiBot b, long tick) { return supplierFree(STAFF, b, tick); }
+    static boolean exposed(AiBot b) { return recipientExposed(STAFF, b); }
+    private static boolean seesFoe(AiBot b) { return foeVisible(STAFF, b); }
 
-    /** The stand also asks queries used only inside core's writes. */
-    static void compare(AiBot b, long tick) {
-        int focus = b.memory.focusId;
-        try {
-            on(); outOn(); share(); cell(b); free(b, tick); exposed(b); seesFoe(b);
-            need(b, new int[] {1, 1, 1});
-        } finally {
-            b.memory.focusId = focus;
-        }
-    }
 }
