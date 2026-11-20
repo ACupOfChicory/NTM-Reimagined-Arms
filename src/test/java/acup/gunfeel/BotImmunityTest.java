@@ -51,7 +51,8 @@ class BotImmunityTest {
         String bots = src("ai/AiBots.java");
         assertEquals(2, bots.split("acup\\.gunfeel\\.EuphImmunity\\.forget\\(b\\.mob\\);", -1).length - 1, "a soldier gone, and the world unloaded, forgotten");
         // the void and /kill go through on a soldier: it has no way out of them as a player has
-        assertTrue(imm.contains("!(player instanceof Player) && source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;"));
+        assertTrue(Files.readString(Path.of("core/src/main/java/acup/gunfeel/EuphImmunityBase.java"), StandardCharsets.UTF_8)
+                .contains("if (!b.player() && hurts.is(hurt, Hurts.BYPASSES_INVULNERABILITY)) return false;"), "the void and /kill: a soldier's only");
     }
 
     @Test
