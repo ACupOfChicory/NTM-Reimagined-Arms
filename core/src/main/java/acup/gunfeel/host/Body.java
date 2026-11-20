@@ -63,6 +63,12 @@ public interface Body {
     /** the step it made over its last tick, as the server counts it (lastKnownSpeed) */
     void lastSpeed(double[] out);
 
+    /**
+     * its known speed as the game gives it to the living spread (getKnownSpeed: a player riding and steering it
+     * gives the player's), not {@link #lastSpeed}
+     */
+    void knownSpeed(double[] out);
+
     /** its box (getBoundingBox) */
     void box(double[] out);
 
@@ -96,6 +102,15 @@ public interface Body {
 
     /** lying down (the mod's own prone); living */
     boolean lying();
+
+    /** in the swimming pose out of water (isVisuallyCrawling: under a trapdoor, the mod's prone), not {@link #lying} */
+    boolean crawling();
+
+    /** gliding on elytra (isFallFlying); living */
+    boolean fallFlying();
+
+    /** a player flying as in creative (its abilities' flying); false for any other */
+    boolean flying();
 
     /**
      * Its stance by the game's pose: standing {@link acup.gunfeel.ai.Stance#STAND}, crouching CROUCH, the swimming
