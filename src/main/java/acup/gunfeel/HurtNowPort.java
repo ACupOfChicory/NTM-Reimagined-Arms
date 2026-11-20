@@ -36,4 +36,10 @@ final class HurtNowPort implements HurtNow {
         return EuphImmunity.Reads.pierce((LivingEntity) ((EntityBody) b).entity(), which);
     }
     @Override public float headMultiplier() { return BalanceFinal.Reads.headMultiplier(); }
+    @Override public float floorOf(Object direct, int tier) {
+        return BalanceGuns.floorOf((net.minecraft.world.entity.Entity) direct, tier);
+    }
+    @Override public float[] underOf(Object direct, int tier) {
+        return BalanceGuns.underOf((net.minecraft.world.entity.Entity) direct, tier);
+    }
 }

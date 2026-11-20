@@ -29,6 +29,8 @@ class BalanceFinalStep2Test {
     }
 
     static class Reads implements FinalShots, HurtNow {
+        @Override public float floorOf(Object direct, int tier) { throw new UnsupportedOperationException(); }
+        @Override public float[] underOf(Object direct, int tier) { throw new UnsupportedOperationException(); }
         final List<Object> calls = new ArrayList<>();
         final Map<Body, Object> entities = new IdentityHashMap<>();
         final Map<Object, Integer> count = new HashMap<>();

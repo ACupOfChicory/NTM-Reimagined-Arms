@@ -63,6 +63,7 @@ class FakeEntitiesTest extends EntityViewContract {
         }
 
         @Override public int id() { return id; }
+        @Override public int typeNumber() { return player ? 3 : kind + 10; }
         @Override public java.util.UUID uuid() { return uuid; }
         @Override public boolean living() { return living; }
         @Override public boolean player() { return player; }
@@ -190,6 +191,11 @@ class FakeEntitiesTest extends EntityViewContract {
     @Override
     protected EntityView view() {
         return level;
+    }
+
+    @Override
+    protected int typeNumber(int entity) {
+        return entity == 3 ? 3 : entity == 2 ? EntityView.PROJECTILE + 10 : EntityView.MOB + 10;
     }
 
     /** the fakes' control: a walk is the cells given, done once stopped; the point wanted kept; never stuck */

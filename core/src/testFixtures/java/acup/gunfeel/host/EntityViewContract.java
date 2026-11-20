@@ -40,6 +40,9 @@ public abstract class EntityViewContract {
     /** a player watching (a spectator)'s number, in the box */
     protected abstract int spectator();
 
+    /** the expected type number of an entity */
+    protected abstract int typeNumber(int entity);
+
     /** the Body of a mob taken while it was there, the mob removed since */
     protected abstract Body removed();
 
@@ -78,6 +81,18 @@ public abstract class EntityViewContract {
         for (Body b : new Body[] {view().byId(mob()), view().byId(projectile())}) {
             assertNotNull(b.uuid());
             assertSame(b.uuid(), b.uuid());
+        }
+    }
+
+    @Test
+    void typeNumberIsTheTypesAndStable() {
+        for (int id : new int[] {mob(), spectator(), projectile()}) {
+            Body b = view().byId(id);
+            assertNotNull(b);
+            int type = b.typeNumber();
+            assertEquals(typeNumber(id), type);
+            assertEquals(type, b.typeNumber());
+            assertEquals(type, view().byId(id).typeNumber());
         }
     }
 

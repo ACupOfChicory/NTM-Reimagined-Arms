@@ -549,6 +549,7 @@ final class AiCheckEntityView {
         Body b = EntityBody.of(e);
         String w = at + ": ";
         eq(w + "id", b.id(), e.getId());
+        eq(w + "typeNumber", b.typeNumber(), EntityBody.typeNumber(e.getType()));
         eq(w + "uuid", b.uuid(), e.getUUID());
         eq(w + "living", b.living(), e instanceof LivingEntity);
         eq(w + "player", b.player(), e instanceof net.minecraft.world.entity.player.Player);

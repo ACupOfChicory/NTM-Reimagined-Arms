@@ -51,5 +51,13 @@ public interface HurtNow {
             throw new UnsupportedOperationException("no HurtNow here");
         }
         @Override public float headMultiplier() { throw new UnsupportedOperationException("no HurtNow here"); }
+        @Override public float floorOf(Object direct, int tier) { throw new UnsupportedOperationException("no HurtNow here"); }
+        @Override public float[] underOf(Object direct, int tier) { throw new UnsupportedOperationException("no HurtNow here"); }
     };
+
+    /** The shot's floor at this tier (26.2: BalanceGuns.floorOf). */
+    float floorOf(Object direct, int tier);
+
+    /** The shot's under= shift at this tier (26.2: BalanceGuns.underOf). */
+    float @Nullable [] underOf(Object direct, int tier);
 }

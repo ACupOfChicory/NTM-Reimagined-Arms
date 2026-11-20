@@ -42,13 +42,7 @@ public final class BulletRules extends BulletRulesBase {
     // %mod: a machine (a block entity, drawn by a renderer) or a block that is not a full cube; BlockStates keeps it
     // by the state's number (BlockTable.machineOrPartial)
     static boolean machineOrPartial(BlockState st) {
-        if (st.hasBlockEntity() || st.getRenderShape() != net.minecraft.world.level.block.RenderShape.MODEL) return true;
-        try {
-            return !net.minecraft.world.level.block.Block.isShapeFullBlock(
-                    st.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO));
-        } catch (RuntimeException e) {
-            return true;
-        }
+        return machineOrPartial(BlockStates.number(st));
     }
 
     // ---- answers: the state's number, then core's
@@ -95,7 +89,7 @@ public final class BulletRules extends BulletRulesBase {
 
     // "entity" (hit) or "kill" by the creature's type (EntityTypeNumbers)
     public static Effect entity(String kind, Entity e) {
-        return entity(kind, EntityTypeNumbers.number(e.getType()));
+        return entity(kind, EntityBody.of(e));
     }
 
     public static Whizz whizz() {
