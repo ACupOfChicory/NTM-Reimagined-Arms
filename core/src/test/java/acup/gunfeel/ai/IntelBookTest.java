@@ -104,15 +104,20 @@ class IntelBookTest {
         Path dir = Path.of("src/main/java/acup/gunfeel/ai");
         if (!Files.isDirectory(dir)) dir = Path.of("../../src/main/java/acup/gunfeel/ai");
         assertTrue(Files.isDirectory(dir), "sources at " + dir.toAbsolutePath());
-        List<String> may = List.of("AiCommander.java", "AiIntel.java", "IntelBook.java", "AiHqMap.java", "HqGrid.java", "StaffPlan.java", "StaffMove.java");
+        List<String> may = List.of("AiCommander.java", "AiIntel.java", "AiIntelBase.java", "AiIntelOld.java", "AiIntelAlike.java",
+                "IntelBook.java", "AiHqMap.java", "HqGrid.java", "StaffPlan.java", "StaffMove.java");
         int read = 0;
-        try (var files = Files.list(dir)) {
-            for (Path p : files.toList()) {
-                String f = p.getFileName().toString();
-                if (!f.endsWith(".java") || may.contains(f) || f.startsWith("AiCheck")) continue;
-                String s = Files.readString(p);
-                assertFalse(s.contains("AiIntel") || s.contains("IntelBook"), f + " reads the staff's picture");
-                read++;
+        Path core = dir.resolve("../../../../../../core/src/main/java/acup/gunfeel/ai").normalize();
+        assertTrue(Files.isDirectory(core), "core sources at " + core.toAbsolutePath());
+        for (Path source : List.of(dir, core)) {
+            try (var files = Files.list(source)) {
+                for (Path p : files.toList()) {
+                    String f = p.getFileName().toString();
+                    if (!f.endsWith(".java") || may.contains(f) || f.startsWith("AiCheck")) continue;
+                    String s = Files.readString(p);
+                    assertFalse(s.contains("AiIntel") || s.contains("IntelBook"), p + " reads the staff's picture");
+                    read++;
+                }
             }
         }
         // the soldier's own among them

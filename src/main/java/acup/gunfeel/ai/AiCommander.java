@@ -9,7 +9,7 @@ import java.util.WeakHashMap;
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.ReaimTimes;
-import acup.gunfeel.ai.AiIntel.Group;
+import acup.gunfeel.ai.AiIntelBase.Group;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
