@@ -103,6 +103,11 @@ class PierceTest {
             }
 
             @Override
+            public boolean machineOrPartial(int state) {
+                throw new AssertionError("not asked");
+            }
+
+            @Override
             public long gameTime() {
                 throw new AssertionError("not asked");
             }

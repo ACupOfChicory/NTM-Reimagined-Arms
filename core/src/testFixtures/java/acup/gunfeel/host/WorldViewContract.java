@@ -16,7 +16,8 @@ import acup.gunfeel.BlockFacts;
  * one number has one facts and one key, the key is the block's id then its properties sorted by name. A version's
  * test extends this with a world of its own: plain air at {@link #air}, stone at {@link #stone}, a block with
  * properties at {@link #withProperties}, cave air at {@link #caveAir}. Air is the game's: plain and cave air are, stone
- * and a fence are not; the destroy speed at a place is the game's there.
+ * and a fence are not; the destroy speed at a place is the game's there; machine or partial (the bullet rules' %mod) is
+ * the game's: not stone, a slab and air.
  *
  * <p>The level's own questions: its tick grows by one a tick, its side is the game's; the game's ray from the air next to
  * the stone (on one of its faces, {@link #air} and {@link #stone} side by side) hits the stone's face there, and one
@@ -93,6 +94,15 @@ public abstract class WorldViewContract {
             assertTrue(nv[0].compareTo(last) > 0, key);
             last = nv[0];
         }
+    }
+
+    @Test
+    void machineOrPartialTheGames() {
+        // %mod's test: stone is one full cube drawn as a model, a bottom slab is not a full cube, air is drawn by none
+        assertFalse(world().machineOrPartial(at(stone())));
+        assertTrue(world().machineOrPartial(at(slab())));
+        assertTrue(world().machineOrPartial(at(air())));
+        assertEquals(world().machineOrPartial(at(slab())), world().machineOrPartial(at(slab())));
     }
 
     @Test
