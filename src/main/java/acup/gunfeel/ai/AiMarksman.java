@@ -10,8 +10,6 @@ import net.minecraft.server.level.ServerLevel;
 
 /** 26.2: the marksman's map, terrain and soldier actions for core. */
 public final class AiMarksman extends AiMarksmanBase {
-    static @Nullable AiMarksmanAlike alike;
-
     private AiMarksman() {
     }
 
@@ -35,17 +33,13 @@ public final class AiMarksman extends AiMarksmanBase {
     };
 
     public static boolean on() { return enabled(); }
-    static boolean is(AiBot bot) { return checked(bot, 0, usesPerches(STAFF, bot)); }
+    static boolean is(AiBot bot) { return usesPerches(STAFF, bot); }
     static boolean step(AiSoldier s, AiBot bot, ServerLevel level, TargetMemory.Contact c, long tick) { return fightFrom(STAFF, s, bot, level, c, tick); }
     private static void leave(State m, long tick, boolean wait) { abandonPerch(m, tick, wait); }
-    static boolean perched(AiBot bot) { return checked(bot, 1, hasPerch(STAFF, bot)); }
-    static boolean there(AiBot bot) { return checked(bot, 2, atPerch(STAFF, bot)); }
+    static boolean perched(AiBot bot) { return hasPerch(STAFF, bot); }
+    static boolean there(AiBot bot) { return atPerch(STAFF, bot); }
     private static long pick(AiBot bot, ServerLevel level, TargetMemory.Contact c, State m) { return choosePerch(STAFF, bot, level, c, m); }
-    private static boolean near(State m, int x, int z) { return alike == null ? nearHistory(m, x, z) : alike.near(m, x, z, nearHistory(m, x, z)); }
+    private static boolean near(State m, int x, int z) { return nearHistory(m, x, z); }
     public static String info() { return statistics(); }
 
-    private static boolean checked(AiBot bot, int method, boolean answer) {
-        if (alike != null) alike.answer(bot, method, answer);
-        return answer;
-    }
 }

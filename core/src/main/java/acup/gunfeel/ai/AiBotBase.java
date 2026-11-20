@@ -3,6 +3,7 @@ package acup.gunfeel.ai;
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.host.Body;
+import acup.gunfeel.host.Shell;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 /**
@@ -23,6 +24,8 @@ public abstract class AiBotBase {
     public final AiConfidence confidence = new AiConfidence();
     /** a grenadier's lobs; null till it is one in a fight */
     AiGrenadierBase.@Nullable State grenadier;
+    /** this bot's shell numbers, needed before its grenadier state exists */
+    final Shell grenadeShell = new Shell();
     /** what it is to its squad, worked out for the gun in its hands (the version's AiRoles.of) */
     AiRole role = AiRole.RIFLE;
     /** the role it was given by word (/armsai spawn … role, /armsai kit … role), null: by its gun */

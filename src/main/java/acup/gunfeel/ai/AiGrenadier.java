@@ -53,7 +53,13 @@ public final class AiGrenadier extends AiGrenadierBase {
     }
 
     /** the loaded shell's numbers, at their original API read site */
-    static acup.gunfeel.host.@Nullable Shell shellNumbers(@Nullable BulletConfig b) { return b == null ? null : new acup.gunfeel.host.Shell(b.velocity, b.gravity, b.expires); }
+    static boolean shellNumbers(@Nullable BulletConfig b, acup.gunfeel.host.Shell into) {
+        if (b == null) return false;
+        into.velocity = b.velocity;
+        into.gravity = b.gravity;
+        into.expires = b.expires;
+        return true;
+    }
 
     /** its gun's shells go as its lobs only (AiGunner): a grenadier with 40 mm grenades in its gun */
     static boolean lobsOnly(Mob mob, ItemStack stack) {

@@ -33,9 +33,11 @@ class AiGrenadierBaseTest {
         float accept = 20;
         Vec3d target = new Vec3d(30, 0, 0), eye = new Vec3d(0, 2, 0), aim;
         Body seen;
-        Shell shell = new Shell(3, 0.1F, 100);
+        Shell shell = shell(3, 0.1F, 100);
+        Shell secondShell;
         final List<double[]> flights = new ArrayList<>();
         final List<String> events = new ArrayList<>();
+        final List<String> reads = new ArrayList<>();
         final GameRandom random = proxy(GameRandom.class, (p, m, a) -> {
             assertEquals("nextGaussian", m.getName());
             return draws++ % 2 == 0 ? gx : gz;
@@ -52,8 +54,16 @@ class AiGrenadierBaseTest {
         final NtmGuns guns = proxy(NtmGuns.class, (p, m, a) -> {
             assertEquals("grenadeShell", m.getName());
             assertSame(body, a[0]);
+            assertSame(this.bot.grenadeShell, a[1]);
+            reads.add("shell");
             shellReads++;
-            return shellMissing || secondMissing && shellReads % 2 == 0 ? null : shell;
+            if (shellMissing || secondMissing && shellReads % 2 == 0) return false;
+            Shell into = (Shell) a[1];
+            Shell read = secondShell != null && shellReads % 2 == 0 ? secondShell : shell;
+            into.velocity = read.velocity;
+            into.gravity = read.gravity;
+            into.expires = read.expires;
+            return true;
         });
         final Bot bot = new Bot(this);
         final TargetMemory.Contact contact = new TargetMemory.Contact(7);
@@ -64,7 +74,7 @@ class AiGrenadierBaseTest {
         }
 
         boolean step(long tick) { return AiGrenadierBase.fight(this, guns, this, bot, level, contact, tick); }
-        AiGrenadierBase.Lob plan(double d) { return AiGrenadierBase.trajectory(this, level, bot, target, shell, d); }
+        AiGrenadierBase.Lob plan(double d) { return AiGrenadierBase.trajectory(this, level, bot, target, shell, d, state()); }
         AiGrenadierBase.State state() {
             if (bot.grenadier == null) bot.grenadier = new AiGrenadierBase.State();
             return bot.grenadier;
@@ -81,6 +91,7 @@ class AiGrenadierBaseTest {
         @Override public Vec3d burst(VoxelRay.Source src, double x, double y, double z, double vx, double vy, double vz,
                 int ticks, int minY, double gravity, double[] land) {
             assertSame(voxels, src);
+            assertSame(state().land, land);
             assertEquals(-64, minY);
             flights.add(new double[] {x, y, z, vx, vy, vz, ticks, gravity});
             boolean low = y != eye.y();
@@ -162,7 +173,7 @@ class AiGrenadierBaseTest {
         @Override public Object serverLevel() { return r.level; }
         @Override public WorldView world() { return r.world; }
         @Override public AiMoverBase mover() { return mover; }
-        @Override public AiGunnerBase gunner() { return gun; }
+        @Override public AiGunnerBase gunner() { r.reads.add("gunner"); return gun; }
         @Override public AiProneBase prone() { throw new AssertionError(); }
         @Override public AiStoopBase stoop() { throw new AssertionError(); }
         @Override public AiDashBase dash() { throw new AssertionError(); }
@@ -170,12 +181,86 @@ class AiGrenadierBaseTest {
 
     @AfterEach void reset() { AiGrenadierBase.on = true; }
 
+    private static Shell shell(float velocity, double gravity, int expires) {
+        Shell shell = new Shell();
+        shell.velocity = velocity;
+        shell.gravity = gravity;
+        shell.expires = expires;
+        return shell;
+    }
+
+    @Test void shellAndFlightBuffersBelongToOneBotAndAreReused() {
+        Rig r = new Rig(), other = new Rig();
+        Shell into = r.bot.grenadeShell;
+        assertNotSame(into, other.bot.grenadeShell);
+        r.secondShell = shell(4, 0.2, 90);
+        assertTrue(r.step(100));
+        assertEquals(List.of("shell", "gunner", "shell"), r.reads);
+        assertEquals(4, into.velocity);
+        assertEquals(0.2, into.gravity);
+        assertEquals(90, into.expires);
+        assertEquals(90, r.flights.get(0)[6]);
+        assertEquals(0.8, r.flights.get(0)[7]);
+        double[] land = r.state().land, direction = r.state().direction;
+        r.secondShell = null;
+        r.shell = shell(5.5F, 0.25, 12);
+        assertTrue(r.step(101));
+        assertSame(into, r.bot.grenadeShell);
+        assertEquals(5.5F, into.velocity);
+        assertEquals(0.25, into.gravity);
+        assertEquals(12, into.expires);
+        assertEquals(4, r.shellReads);
+        assertEquals(List.of("shell", "gunner", "shell", "shell", "gunner", "shell"), r.reads);
+        r.plan(30);
+        r.plan(30);
+        assertSame(land, r.state().land);
+        assertSame(direction, r.state().direction);
+        assertNotSame(land, other.state().land);
+        assertNotSame(direction, other.state().direction);
+    }
+
+    @Test void switchingToNonLauncherDoesNotUseStaleShellNumbers() {
+        for (boolean secondRead : new boolean[] {false, true})
+            for (long tick : new long[] {101, 200}) {
+                Rig r = new Rig();
+                assertTrue(r.step(100));
+                Shell into = r.bot.grenadeShell;
+                assertEquals(3, into.velocity);
+                assertEquals(0.1F, into.gravity);
+                assertEquals(100, into.expires);
+                int plans = AiGrenadierBase.plans, draws = r.draws, budget = r.budget;
+                int flights = r.flights.size(), aims = r.aims, fires = r.fires, notes = r.notes;
+                r.events.clear();
+                r.reads.clear();
+                r.shellMissing = !secondRead;
+                r.secondMissing = secondRead;
+
+                boolean fighting = r.step(tick);
+
+                assertAll("missing shell on " + (secondRead ? "second" : "first") + " read, tick " + tick,
+                        () -> assertFalse(fighting),
+                        () -> assertEquals(plans, AiGrenadierBase.plans),
+                        () -> assertEquals(draws, r.draws),
+                        () -> assertEquals(budget, r.budget),
+                        () -> assertEquals(flights, r.flights.size()),
+                        () -> assertEquals(aims, r.aims),
+                        () -> assertEquals(fires, r.fires),
+                        () -> assertEquals(notes, r.notes),
+                        () -> assertTrue(r.events.isEmpty()),
+                        () -> assertEquals(secondRead ? List.of("shell", "gunner", "shell") : List.of("shell"), r.reads),
+                        () -> assertSame(into, r.bot.grenadeShell),
+                        () -> assertEquals(3, into.velocity),
+                        () -> assertEquals(0.1F, into.gravity),
+                        () -> assertEquals(100, into.expires));
+            }
+    }
+
     @Test void gaussianOrderAndShellArithmetic() {
         for (float v : new float[] {Math.nextDown(5F), 5F, 5.123456F})
             for (int expires : new int[] {-1, 0, 1, 199, 200, 201}) {
                 Rig r = new Rig();
                 r.gx = 0.25; r.gz = -0.75;
-                r.shell = new Shell(v, 0.123456789012345, expires);
+                r.shell = shell(v, 0.123456789012345, expires);
                 r.plan(30);
                 assertEquals(2, r.draws);
                 double[] f = r.flights.get(0);
@@ -183,7 +268,7 @@ class AiGrenadierBaseTest {
                 float yaw = (float) Math.toDegrees(Math.atan2(-0.75 * 0.04 * 30, 30 + 0.25 * 0.04 * 30)) - 90F;
                 double g = Math.toRadians(-yaw), p = Math.toRadians(20F);
                 assertArrayEquals(new double[] {0, 2, 0, Math.sin(g) * Math.cos(p) * speed, -Math.sin(p) * speed,
-                        Math.cos(g) * Math.cos(p) * speed, expires > 0 ? Math.min(200, expires) : 200, r.shell.gravity() * speed}, f);
+                        Math.cos(g) * Math.cos(p) * speed, expires > 0 ? Math.min(200, expires) : 200, r.shell.gravity * speed}, f);
             }
     }
 
@@ -361,7 +446,11 @@ class AiGrenadierBaseTest {
     @Test void visibleShotAndFallback() {
         Rig r = new Rig();
         assertNull(AiGrenadierBase.burstOf(r.bot));
-        assertNull(NtmGuns.NONE.grenadeShell(r.body));
+        Shell into = shell(5.5F, 0.123456789012345, 123);
+        assertFalse(NtmGuns.NONE.grenadeShell(r.body, into));
+        assertEquals(5.5F, into.velocity);
+        assertEquals(0.123456789012345, into.gravity);
+        assertEquals(123, into.expires);
         assertFalse(AiGrenadierBase.fight(r, r, r.bot, r.level, r.contact, 100));
         assertNull(r.bot.grenadier);
         r.bot.gun.shots = 7;

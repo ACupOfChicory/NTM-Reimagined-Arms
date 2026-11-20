@@ -7,30 +7,28 @@ import net.minecraft.server.level.ServerLevel;
 
 /** The version's access to the squad's movement in core. */
 final class StaffMove extends StaffMoveBase {
-    static @Nullable StaffMoveAlike alike;
-
     private StaffMove() {
     }
 
     static boolean on() { return movesOn(); }
 
-    static Mode mode(double foe, boolean seen, boolean advance, double left) { return alike == null ? movementMode(foe, seen, advance, left) : alike.answer("mode", movementMode(foe, seen, advance, left), StaffMoveOld.mode(foe, seen, advance, left)); }
+    static Mode mode(double foe, boolean seen, boolean advance, double left) { return movementMode(foe, seen, advance, left); }
 
-    static int[] halves(List<AiRole> roles) { return alike == null ? roleHalves(roles) : alike.answer("halves", roleHalves(roles), StaffMoveOld.halves(roles)); }
+    static int[] halves(List<AiRole> roles) { return roleHalves(roles); }
 
-    static int rushing(int n) { return alike == null ? rushCount(n) : alike.answer("rushing", rushCount(n), StaffMoveOld.rushing(n)); }
+    static int rushing(int n) { return rushCount(n); }
 
-    static double along(HqGrid.Route r, double x, double z) { return alike == null ? distanceAlong(r, x, z) : alike.answer("along", distanceAlong(r, x, z), StaffMoveOld.along(r, x, z)); }
+    static double along(HqGrid.Route r, double x, double z) { return distanceAlong(r, x, z); }
 
-    static double[] at(HqGrid.Route r, double s) { return alike == null ? pointAt(r, s) : alike.answer("at", pointAt(r, s), StaffMoveOld.at(r, s)); }
+    static double[] at(HqGrid.Route r, double s) { return pointAt(r, s); }
 
-    static List<AiBot> squad(AiCommander.Job j) { return alike == null ? taskSquad(AiCommander.STAFF, j) : alike.answer("squad", taskSquad(AiCommander.STAFF, j), StaffMoveOld.squad(j)); }
+    static List<AiBot> squad(AiCommander.Job j) { return taskSquad(AiCommander.STAFF, j); }
 
     static void update(ServerLevel level, AiCommander.Order o, long tick) { refreshMode(AiCommander.STAFF, level, o, tick); }
 
     static void afresh(AiCommander.Job j) { restartMode(AiCommander.STAFF, j); }
 
-    static double speed(AiCommander.Order o) { return alike == null ? orderSpeed(AiCommander.STAFF, o) : alike.answer("speed", orderSpeed(AiCommander.STAFF, o), StaffMoveOld.speed(o)); }
+    static double speed(AiCommander.Order o) { return orderSpeed(AiCommander.STAFF, o); }
 
     static double march(StaffPlan.Kind kind) { return marchSpeed(AiCommander.STAFF, kind); }
 
@@ -46,9 +44,9 @@ final class StaffMove extends StaffMoveBase {
 
     private static boolean steps(AiBot b) { return takesSteps(AiCommander.STAFF, b); }
 
-    private static boolean inPlace(AiBot b, AiCommander.Order o) { return alike == null ? atPlace(AiCommander.STAFF, b, o) : alike.answer("inPlace", atPlace(AiCommander.STAFF, b, o), StaffMoveAlike.oldInPlace(b, o)); }
+    private static boolean inPlace(AiBot b, AiCommander.Order o) { return atPlace(AiCommander.STAFF, b, o); }
 
-    static boolean atCover(AiBot b, AiCommander.Order o) { return alike == null ? reachedCover(AiCommander.STAFF, b, o) : alike.answer("atCover", reachedCover(AiCommander.STAFF, b, o), StaffMoveOld.atCover(b, o)); }
+    static boolean atCover(AiBot b, AiCommander.Order o) { return reachedCover(AiCommander.STAFF, b, o); }
 
     static boolean quiet(AiCommander.Job j) { return taskQuiet(AiCommander.STAFF, j); }
 

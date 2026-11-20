@@ -52,6 +52,7 @@ public abstract class AiGrenadierBase {
 
     /** a grenadier's own state */
     static final class State {
+        final double[] land = new double[3], direction = new double[3];
         long next = Long.MIN_VALUE, failed = Long.MIN_VALUE, aimUntil = Long.MIN_VALUE, lostTick = Long.MIN_VALUE, stepped = Long.MIN_VALUE;
         int firedBefore, lostShots;
         /** the lob it is turned for: along the barrel; at a place gone out of sight */
@@ -62,6 +63,10 @@ public abstract class AiGrenadierBase {
     }
 
     protected AiGrenadierBase() {
+    }
+
+    private static State state(AiBotBase bot) {
+        return bot.grenadier == null ? bot.grenadier = new State() : bot.grenadier;
     }
 
     public static boolean enabled() {
@@ -93,11 +98,11 @@ public abstract class AiGrenadierBase {
     }
 
     static <B extends AiBotBase, S> boolean fight(Staff<B, S> staff, NtmGuns guns, S s, B bot, Object level, TargetMemory.Contact c, long tick) {
-        if (!(bot.role() == AiRole.GRENADIER && enabled() && guns.grenadeShell(bot.body) != null)) return false;
+        if (!(bot.role() == AiRole.GRENADIER && enabled() && guns.grenadeShell(bot.body, bot.grenadeShell))) return false;
         AiGunnerBase g = bot.gunner();
-        Shell shell = guns.grenadeShell(bot.body);
-        if (shell == null) return false;
-        State m = bot.grenadier == null ? bot.grenadier = new State() : bot.grenadier;
+        Shell shell = bot.grenadeShell;
+        if (!guns.grenadeShell(bot.body, shell)) return false;
+        State m = state(bot);
         boolean steady = m.stepped == tick - 1;
         m.stepped = tick;
         // turned for a lob: on till it goes or AIM is up (the turn kept a tick at a time: off by itself once it is
@@ -141,7 +146,7 @@ public abstract class AiGrenadierBase {
         // cover and changes it; its launcher silent)
         CoverQuery.Spot spot = staff.spot(s);
         if (spot != null && !bot.mover().arrived() || g.reloading() || g.loaded() == 0 || tick < m.next || !staff.mayPlan(level, tick)) return false;
-        Lob lob = trajectory(staff, level, bot, at, shell, d);
+        Lob lob = trajectory(staff, level, bot, at, shell, d, m);
         if (lob == null) {
             m.failed = tick + AGAIN;
             return false;
@@ -169,7 +174,7 @@ public abstract class AiGrenadierBase {
      * LAND of it, none of its own near; fired from LOW under its eye too (the muzzle is lower, a crest just cleared
      * from the eye may not be from there), within LAND and 2, none near; null if none does.
      */
-    static <B extends AiBotBase, S> @Nullable Lob trajectory(Staff<B, S> staff, Object level, B bot, Vec3d target, Shell shell, double d) {
+    static <B extends AiBotBase, S> @Nullable Lob trajectory(Staff<B, S> staff, Object level, B bot, Vec3d target, Shell shell, double d, State m) {
         plans++;
         var rng = bot.body.random();
         Vec3d at = target.add(rng.nextGaussian() * ERR * d, 0, rng.nextGaussian() * ERR * d);
@@ -177,12 +182,13 @@ public abstract class AiGrenadierBase {
         double dx = at.x() - eye.x(), dz = at.z() - eye.z();
         float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90F;
         // as AiGunner.bulletSpeed: fast bullets faster by bulletSpeed (MixinBulletServer); grenades are slow, as NTM has them
-        double speed = shell.velocity() >= 5F ? shell.velocity() * ReaimTimes.number("bulletSpeed", 1.6F) : shell.velocity(), gravity = shell.gravity() * speed;
-        int ticks = shell.expires() > 0 ? Math.min(FLIGHT, shell.expires()) : FLIGHT;
+        double speed = shell.velocity >= 5F ? shell.velocity * ReaimTimes.number("bulletSpeed", 1.6F) : shell.velocity, gravity = shell.gravity * speed;
+        int ticks = shell.expires > 0 ? Math.min(FLIGHT, shell.expires) : FLIGHT;
         VoxelRay.Source src = staff.voxels(level);
         int minY = bot.world().minY();
         double g = Math.toRadians(-yaw);
-        double[] land = new double[3];
+        double[] land = m.land;
+        java.util.Arrays.fill(land, 0);
         Vec3d best = null;
         float bestPitch = Float.NaN;
         boolean any = false;
@@ -206,7 +212,7 @@ public abstract class AiGrenadierBase {
             else none++;
             return null;
         }
-        double[] direction = new double[3];
+        double[] direction = m.direction;
         GameMath.direction(bestPitch, yaw, direction);
         Vec3d aim = eye.add(new Vec3d(direction[0], direction[1], direction[2]).scale(Math.max(8, d)));
         return new Lob(aim, bestPitch, best);
