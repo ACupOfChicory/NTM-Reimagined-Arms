@@ -75,6 +75,11 @@ public final class AiVoice {
     private AiVoice() {
     }
 
+    /** the level gone: its lines said go (they hold the squad or the mob who spoke, and through it the level) */
+    public static void forget(ServerLevel level) {
+        SAID.remove(level);
+    }
+
     static boolean enabled() {
         return acup.gunfeel.ReaimTimes.flag(KEY, true);
     }

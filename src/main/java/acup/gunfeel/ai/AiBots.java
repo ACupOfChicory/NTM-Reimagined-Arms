@@ -309,6 +309,14 @@ public final class AiBots {
         // their pools of DNS, FAU or euphemium: the same world loaded again in this run must not find them
         if (l != null) for (AiBot b : l.bots.values()) acup.gunfeel.EuphImmunity.forget(b.mob);
         LEVELS.remove(level);
+        // the level goes with its mobs: what the squads, the staff and the voices kept of them holds the level
+        // through them (an operation's members, a group's mobs, the one who spoke) and would keep it in memory, the
+        // weak key never letting go; tick forgets these only while the level still ticks
+        AiCommander.forget(level);
+        AiCrossing.forget(level);
+        AiBunker.forget(level);
+        AiHatch.forget(level);
+        AiVoice.forget(level);
     }
 
     // ------------------------------------------------------------------ hearing
