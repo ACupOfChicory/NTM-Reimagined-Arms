@@ -49,6 +49,11 @@ class AiBotBaseTest {
         }
     }
 
+    /** a bot with no mover, gunner or the rest */
+    static AiBotBase bot() {
+        return new Bot();
+    }
+
     @AfterEach
     void skill() {
         AiSkill.override = null;
