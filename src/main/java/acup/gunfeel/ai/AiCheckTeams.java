@@ -230,7 +230,7 @@ final class AiCheckTeams {
     }
 
     /**
-     * The teams asked of a player of a team (AiTeams.alike counts it; no player of the fights is in one): the stand's
+     * The teams asked of a player of a team (no player of the fights is in one): the stand's
      * player put in red by the scoreboard, then moved to blue, against the AI mobs of both teams and one of none, then
      * let go out of the teams and the level. Asked only: nothing of the fight changes.
      */

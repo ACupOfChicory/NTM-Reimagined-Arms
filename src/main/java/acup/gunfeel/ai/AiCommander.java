@@ -44,8 +44,6 @@ public final class AiCommander extends AiCommanderBase {
     private AiCommander() {
     }
 
-    static @Nullable AiCommanderAlike alike;
-
     private static final Staff<AiBot, Job, Order> STAFF = new Staff<>() {
         @Override public Order order(AiBot b) { return b.order; }
         @Override public void order(AiBot b, @Nullable Order o) { b.order = o; }
@@ -73,33 +71,25 @@ public final class AiCommander extends AiCommanderBase {
         AiReports.forget(level);
         AiIntel.forget(level);
         AiHqMap.forget(level);
-        if (alike != null) AiCommanderOld.forget(level);
     }
 
     static boolean breaksContact(AiBot bot, long tick) {
-        boolean answer = breakingContact(STAFF, bot, tick);
-        if (alike != null) alike.breaksContact(bot, tick, answer);
-        return answer;
+        return breakingContact(STAFF, bot, tick);
     }
 
     static void died(ServerLevel level, AiBot fallen, long tick) { lostBot(STAFF, level, fallen, tick); }
 
     static void tick(ServerLevel level) {
-        if (alike != null) alike.tick(level);
         tickStaff(STAFF, level);
     }
 
     @SuppressWarnings("unchecked")
     static List<AiSquads.Squad> far(ServerLevel level) {
-        List<AiSquads.Squad> answer = (List<AiSquads.Squad>) (List<?>) farSquads(STAFF, level);
-        if (alike != null) alike.far(level, answer);
-        return answer;
+        return (List<AiSquads.Squad>) (List<?>) farSquads(STAFF, level);
     }
 
     static boolean asleep(AiSquads.Squad s) {
-        boolean answer = squadAsleep(STAFF, s);
-        if (alike != null) alike.asleep(s, answer);
-        return answer;
+        return squadAsleep(STAFF, s);
     }
 
     static long @Nullable [] detour(ServerLevel level, int x0, int z0, int y0, double tx, double tz) {
@@ -107,21 +97,15 @@ public final class AiCommander extends AiCommanderBase {
     }
 
     static @Nullable Group going(AiSquads.Squad s, List<Group> groups, long now) {
-        @Nullable Group answer = goingTo(STAFF, s, groups, now);
-        if (alike != null) alike.going(s, groups, now, answer);
-        return answer;
+        return goingTo(STAFF, s, groups, now);
     }
 
     static @Nullable Group counted(AiSquads.Squad s, List<Group> groups, long now) {
-        @Nullable Group answer = countedTo(STAFF, s, groups, now);
-        if (alike != null) alike.counted(s, groups, now, answer);
-        return answer;
+        return countedTo(STAFF, s, groups, now);
     }
 
     static boolean failed(AiSquads.Squad s, Group g, long now) {
-        boolean answer = squadFailed(STAFF, s, g, now);
-        if (alike != null) alike.failed(s, g, now, answer);
-        return answer;
+        return squadFailed(STAFF, s, g, now);
     }
 
     private static HqGrid.@Nullable Route tail(ServerLevel level, Job j, Order o, long tick) {
@@ -156,15 +140,11 @@ public final class AiCommander extends AiCommanderBase {
     private static void takeUp(Order o, AiBot b) { takeWay(STAFF, o, b); }
 
     static List<Group> groups(ServerLevel level, String team) {
-        List<Group> answer = enemyGroups(STAFF, level, team);
-        if (alike != null) alike.groups(level, team, answer);
-        return answer;
+        return enemyGroups(STAFF, level, team);
     }
 
     static boolean has(AiBot bot, long tick) {
-        boolean answer = hasOrder(STAFF, bot, tick);
-        if (alike != null) alike.has(bot, tick, answer);
-        return answer;
+        return hasOrder(STAFF, bot, tick);
     }
 
     static Order fresh(long now) { return freshOrder(STAFF, now); }
@@ -172,15 +152,11 @@ public final class AiCommander extends AiCommanderBase {
     static @Nullable Order crossing(AiBot bot, long tick) { return crossingOrder(STAFF, bot, tick); }
 
     static int passedBy(AiSquads.Squad s, AiBot b, long now) {
-        int answer = passedSquad(STAFF, s, b, now);
-        if (alike != null) alike.passedBy(s, b, now, answer);
-        return answer;
+        return passedSquad(STAFF, s, b, now);
     }
 
     static boolean red(AiBot b) {
-        boolean answer = atRed(STAFF, b);
-        if (alike != null) alike.red(b, answer);
-        return answer;
+        return atRed(STAFF, b);
     }
 
     public static void reported(ServerLevel level, String team) { reportAsked(STAFF, level, team); }
@@ -465,27 +441,19 @@ public final class AiCommander extends AiCommanderBase {
     private static void ready(ServerLevel level, Job f, long now) { signalReady(STAFF, level, f, now); }
 
     static boolean presses(AiBot bot, long tick) {
-        boolean answer = pressesFor(STAFF, bot, tick);
-        if (alike != null) alike.presses(bot, tick, answer);
-        return answer;
+        return pressesFor(STAFF, bot, tick);
     }
 
     static boolean leashed(AiBot bot, int target, long tick) {
-        boolean answer = leashedAt(STAFF, bot, target, tick);
-        if (alike != null) alike.leashed(bot, target, tick, answer);
-        return answer;
+        return leashedAt(STAFF, bot, target, tick);
     }
 
     static boolean goesRound(AiBot bot, TargetMemory.Contact c, long tick) {
-        boolean answer = goesAround(STAFF, bot, c, tick);
-        if (alike != null) alike.goesRound(bot, c, tick, answer);
-        return answer;
+        return goesAround(STAFF, bot, c, tick);
     }
 
     static boolean mapped() {
-        boolean answer = mapReady(STAFF);
-        if (alike != null) alike.mapped(answer);
-        return answer;
+        return mapReady(STAFF);
     }
 
     public static String info() {
