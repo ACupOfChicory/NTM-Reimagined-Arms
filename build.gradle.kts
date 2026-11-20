@@ -181,6 +181,8 @@ neoForge {
             systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
             // -PholeFrames=<dir>: bullet holes' frames, the same each run, base against branch (HoleFrameStand); -PsmokeFabulous as there
             systemProperty("ntmgunfeel.holeFrames",providers.gradleProperty("holeFrames").orElse("").get())
+            // -PcasingFrames=<dir>: NTM's casings' frames, the same each run, base against branch (CasingFrameStand); -PsmokeFabulous as there
+            systemProperty("ntmgunfeel.casingFrames",providers.gradleProperty("casingFrames").orElse("").get())
             // -PchemStand=<dir>: NTM's phosgene creeper and chemical thrower, the clouds, the server's cost and the frames (ChemStand)
             systemProperty("ntmgunfeel.chemStand",providers.gradleProperty("chemStand").orElse("").get())
             // -PwpStand=<dir>: NTM's white phosphorus grenade, its hazes against the mod's white cloud: frames, the server's cost, packets (WpStand)
