@@ -95,6 +95,7 @@ class BulletBlocks26Test {
         Wiring wiring = assertInstanceOf(Wiring.class, CoreServices.root());
         BulletServer.Reads reads = assertInstanceOf(BulletServer.Reads.class, wiring.port(WorldEdit.class));
         assertSame(reads, wiring.port(BulletBlocks.class));
+        assertSame(reads, wiring.port(acup.gunfeel.host.ShotEffects.class));
         BulletServerBase base = new BulletServerBase();
         for (String name : new String[] {"edit", "blocks"}) {
             Field stored = BulletServerBase.class.getDeclaredField(name);

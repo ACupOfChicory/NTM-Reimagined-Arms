@@ -71,6 +71,7 @@ class StateNumbersTest {
                 @Override public double nextDouble() { return rng.nextDouble(); }
                 @Override public boolean nextBoolean() { return rng.nextBoolean(); }
                 @Override public float nextFloat() { return rng.nextFloat(); }
+                @Override public long nextLong() { return rng.nextLong(); }
                 @Override public double nextGaussian() { return rng.nextGaussian(); }
             };
         }

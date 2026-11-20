@@ -86,6 +86,7 @@ class SpawnPlaceTest {
         @Override public double nextDouble() { drawn.add("d"); return r.nextDouble(); }
         @Override public boolean nextBoolean() { throw new UnsupportedOperationException(); }
         @Override public float nextFloat() { drawn.add("f"); return r.nextFloat(); }
+        @Override public long nextLong() { throw new AssertionError("not asked"); }
         @Override public double nextGaussian() { throw new UnsupportedOperationException(); }
     }
 

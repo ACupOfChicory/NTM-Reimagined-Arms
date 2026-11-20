@@ -18,6 +18,7 @@ class GameRandomsTest {
         assertEquals(game.nextInt(41), other.nextInt(41));
         assertEquals(game.nextInt(41), r.nextInt(41));
         for (int i = 0; i < 10_000; i++) {
+            assertEquals(game.nextLong(), r.nextLong());
             switch (i % 3) {
                 case 0 -> assertEquals(Double.doubleToRawLongBits(game.nextDouble()), Double.doubleToRawLongBits(r.nextDouble()));
                 case 1 -> assertEquals(game.nextBoolean(), r.nextBoolean());

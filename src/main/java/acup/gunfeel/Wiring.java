@@ -74,6 +74,7 @@ public final class Wiring implements Ports {
         var bulletBlocks = new BulletServer.Reads();
         put(acup.gunfeel.host.WorldEdit.class, bulletBlocks);
         put(acup.gunfeel.host.BulletBlocks.class, bulletBlocks);
+        put(acup.gunfeel.host.ShotEffects.class, bulletBlocks);
         // ---- the client's only (render: the bullet holes)
         if (client) put(acup.gunfeel.host.render.RenderPort.class, RenderPortClient.port());
     }

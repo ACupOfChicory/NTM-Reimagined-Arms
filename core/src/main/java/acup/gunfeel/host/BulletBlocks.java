@@ -33,8 +33,14 @@ public interface BulletBlocks {
     int shotId(Object bullet);
     /** The diagnostic's hit point (26.2: BlockHitResult.getLocation). */
     Object location(Object hit);
+    /** The machine's rule state (26.2: Cells.ruleState). */
+    int ruleState(Object level, Object pos, int state);
+    /** The diagnostic material (26.2: WorldLog.material). */
+    String material(Object level, Object pos);
 
     BulletBlocks MISSING = new BulletBlocks() {
+        @Override public int ruleState(Object level, Object pos, int state) { throw new UnsupportedOperationException("no BulletBlocks here"); }
+        @Override public String material(Object level, Object pos) { throw new UnsupportedOperationException("no BulletBlocks here"); }
         @Override public int mayBreak(Object level, @Nullable Body owner, Object pos, int state) { throw new UnsupportedOperationException("no BulletBlocks here"); }
         @Override public int parseState(Object level, String text) { throw new UnsupportedOperationException("no BulletBlocks here"); }
         @Override public Object blockToken(int state) { throw new UnsupportedOperationException("no BulletBlocks here"); }
