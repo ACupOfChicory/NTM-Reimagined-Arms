@@ -3,11 +3,31 @@ package acup.gunfeel.ai;
 import java.util.List;
 
 import acup.gunfeel.ModelBox;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 /** The stands' pure answers, after the working call. */
 final class AiLeanAlike {
     long asked, differ;
+
+    float frac(Entity entity, float answer) {
+        asked++;
+        if (Float.floatToRawIntBits(answer) != Float.floatToRawIntBits(AiLeanOld.frac(entity))) differ++;
+        return answer;
+    }
+
+    Vec3 eye(Entity entity, Vec3 answer) {
+        return vector(answer, AiLeanOld.eye(entity));
+    }
+
+    Vec3 eyeShift(LivingEntity entity, Vec3 answer) {
+        return vector(answer, AiLeanOld.eyeShift(entity));
+    }
+
+    Vec3 point(LivingEntity entity, double up, Vec3 answer) {
+        return vector(answer, AiLeanOld.point(entity, up));
+    }
 
     List<ModelBox> boxes(byte stance, boolean aiming, float frac, float yaw, List<ModelBox> answer) {
         asked++;
@@ -31,7 +51,9 @@ final class AiLeanAlike {
 
     private Vec3 vector(Vec3 answer, Vec3 old) {
         asked++;
-        if (Double.compare(answer.x, old.x) != 0 || Double.compare(answer.y, old.y) != 0 || Double.compare(answer.z, old.z) != 0) differ++;
+        if (Double.doubleToRawLongBits(answer.x) != Double.doubleToRawLongBits(old.x)
+                || Double.doubleToRawLongBits(answer.y) != Double.doubleToRawLongBits(old.y)
+                || Double.doubleToRawLongBits(answer.z) != Double.doubleToRawLongBits(old.z)) differ++;
         return answer;
     }
 

@@ -84,6 +84,9 @@ public interface Body {
 
     float yHeadRot();
 
+    /** the body's yaw; living */
+    float yBodyRot();
+
     float xRot();
 
     boolean onGround();

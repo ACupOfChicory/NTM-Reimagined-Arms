@@ -3,9 +3,12 @@ package acup.gunfeel.ai;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 import acup.gunfeel.GameMath;
 import acup.gunfeel.ModelBox;
 import acup.gunfeel.Vec3d;
+import acup.gunfeel.host.Body;
 
 /** Lean geometry shared by the server and the drawn pose. */
 public abstract class AiLeanBase {
@@ -36,6 +39,73 @@ public abstract class AiLeanBase {
     private static final Vec3Maker<Vec3d> VECTOR = Vec3d::new;
 
     protected AiLeanBase() {
+    }
+
+    /** The version's live pose and model boxes. */
+    public interface Staff {
+        @Nullable LeanPose pose(Body body);
+        /** the time of the body's level (26.2: EntityBody.entity(body).level().getGameTime()) */
+        long gameTime(Body body);
+        boolean hitsEnabled();
+        long caught(Object level, Body body);
+        void forget(Object level, Body body, long put);
+        void put(Object level, Body body, float yaw, List<ModelBox> boxes);
+    }
+
+    static boolean may(Staff staff) {
+        return on && staff.hitsEnabled();
+    }
+
+    public static float frac(Staff staff, Body body) {
+        if (!body.living()) return 0F;
+        LeanPose p = staff.pose(body);
+        if (p.lean() == 0 && p.prevLean() == 0) return 0F;
+        return leanFrac(p.prevLean(), p.lean(), p.leanTick(), staff.gameTime(body), 0F);
+    }
+
+    /** Null keeps the host's own eye object on the upright path. */
+    public static <T> @Nullable T eye(Staff staff, Body body, Vec3Maker<T> maker) {
+        float f = frac(staff, body);
+        if (f == 0F || !body.living()) return null;
+        Vec3d offset = eyeOffset(staff.pose(body).stance(), f, body.yBodyRot(), body.eyeHeight());
+        return maker.make(body.x() + offset.x(), body.y() + offset.y(), body.z() + offset.z());
+    }
+
+    /** Null keeps the host's zero vector. */
+    public static <T> @Nullable T eyeShift(Staff staff, Body body, Vec3Maker<T> maker) {
+        float f = frac(staff, body);
+        if (f == 0F) return null;
+        Vec3d offset = eyeOffset(staff.pose(body).stance(), f, body.yBodyRot(), body.eyeHeight());
+        return maker.make(offset.x() - 0, offset.y() - body.eyeHeight(), offset.z() - 0);
+    }
+
+    public static <T> T point(Staff staff, Body body, double up, Vec3Maker<T> maker) {
+        float f = frac(staff, body);
+        if (f == 0F) return maker.make(body.x(), body.y() + up, body.z());
+        Vec3d offset = leanPoint(0, up, 0, staff.pose(body).stance(), f, body.yBodyRot());
+        return maker.make(body.x() + offset.x(), body.y() + offset.y(), body.z() + offset.z());
+    }
+
+    static long drop(Staff staff, Object level, Body body, long put) {
+        if (put != Long.MIN_VALUE && staff.caught(level, body) == put) staff.forget(level, body, put);
+        return Long.MIN_VALUE;
+    }
+
+    /** A client's pose this new or newer is the client's to keep, ticks. */
+    static final int CLIENT_FRESH = 5;
+
+    static long boxes(Staff staff, Object level, Body body, boolean aiming, long put, long tick) {
+        float f = frac(staff, body);
+        if (put == Long.MIN_VALUE && f == 0F) return Long.MIN_VALUE;
+        long caught = staff.caught(level, body);
+        boolean mine = put != Long.MIN_VALUE && caught == put;
+        if (f == 0F || !staff.hitsEnabled() || staff.pose(body).stance() != Stance.STAND) {
+            if (mine) staff.forget(level, body, put);
+            return Long.MIN_VALUE;
+        }
+        if (!mine && caught != Long.MIN_VALUE && tick - caught <= CLIENT_FRESH) return Long.MIN_VALUE;
+        staff.put(level, body, body.yBodyRot(), boxes(Stance.STAND, aiming, f, body.yBodyRot()));
+        return tick;
     }
 
     /**

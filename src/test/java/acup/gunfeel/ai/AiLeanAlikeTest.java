@@ -49,6 +49,15 @@ class AiLeanAlikeTest {
     }
 
     @Test
+    void fracComparisonFindsSignedZero() {
+        AiLeanAlike alike = new AiLeanAlike();
+        assertEquals(0F, alike.frac(null, 0F));
+        alike.frac(null, -0F);
+        assertEquals(2, alike.asked);
+        assertEquals(1, alike.differ);
+    }
+
+    @Test
     void comparisonFindsChangedFieldsAndSignedZero() {
         AiLeanAlike alike = new AiLeanAlike();
         var boxes = new java.util.ArrayList<>(AiLeanOld.boxes(AiPose.STAND, false, 1F, 37F));
