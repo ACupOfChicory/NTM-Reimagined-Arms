@@ -50,6 +50,39 @@ public interface GunBalance {
     /** Off-hand stack (26.2: LivingEntity.getOffhandItem). */
     Object offHand(Object shooter);
 
+    /** Final scheme shot callback (26.2: BalanceFinal.fired). */
+    void fired(Object projectile, Object shooter, Object gun, Object ammo);
+    /** Failed pair warning (26.2: LOGGER.warn with BulletConfig.id). */
+    void warnPair(Object gun, Object ammo, RuntimeException error);
+    /** Named gun lookup (26.2: ITEM.getValue of hbm:gun_name). */
+    Object gun(String name);
+    /** Bound item components (26.2: builtInRegistryHolder().areComponentsBound). */
+    boolean bound(Object item);
+    /** Gun config count (26.2: ItemGunBaseNT.getConfigCount). */
+    int configCount(Object gun);
+    /** Config receiver tokens (26.2: ItemGunBaseNT.getConfig, GunConfig.getReceivers). */
+    Object[] receivers(Object gun, Object stack, int index);
+    /** Receiver magazine field (26.2: ReceiverAccess.gunfeel$magazine). */
+    Object magazine(Object receiver);
+    /** Mutable single-type magazine (26.2: instanceof MagazineSingleTypeBase). */
+    boolean singleMagazine(Object magazine);
+    /** Receiver delay field (26.2: ReceiverAccess.gunfeel$delay). */
+    int delay(Object receiver);
+    /** Receiver auto field (26.2: ReceiverAccess.gunfeel$auto). */
+    boolean auto(Object receiver);
+    /** Receiver damage field (26.2: ReceiverAccess.gunfeel$damage). */
+    float damage(Object receiver);
+    /** Magazine capacity field (26.2: MagazineSingleTypeBase.capacity). */
+    int capacity(Object magazine);
+    /** Write receiver delay (26.2: ReceiverAccess.gunfeel$setDelay). */
+    void delay(Object receiver, int value);
+    /** Write receiver auto (26.2: ReceiverAccess.gunfeel$setAuto). */
+    void auto(Object receiver, boolean value);
+    /** Write receiver damage (26.2: ReceiverAccess.gunfeel$setDamage). */
+    void damage(Object receiver, float value);
+    /** Write magazine capacity (26.2: MagazineSingleTypeBase.capacity). */
+    void capacity(Object magazine, int value);
+
     GunBalance MISSING = new GunBalance() {
         private UnsupportedOperationException missing() { return new UnsupportedOperationException("no GunBalance here"); }
         @Override public Object itemId(Object item) { throw missing(); }
@@ -69,5 +102,21 @@ public interface GunBalance {
         @Override public int max(Object ammo) { throw missing(); }
         @Override public Object mainHand(Object shooter) { throw missing(); }
         @Override public Object offHand(Object shooter) { throw missing(); }
+        @Override public void fired(Object projectile, Object shooter, Object gun, Object ammo) { throw missing(); }
+        @Override public void warnPair(Object gun, Object ammo, RuntimeException error) { throw missing(); }
+        @Override public Object gun(String name) { throw missing(); }
+        @Override public boolean bound(Object item) { throw missing(); }
+        @Override public int configCount(Object gun) { throw missing(); }
+        @Override public Object[] receivers(Object gun, Object stack, int index) { throw missing(); }
+        @Override public Object magazine(Object receiver) { throw missing(); }
+        @Override public boolean singleMagazine(Object magazine) { throw missing(); }
+        @Override public int delay(Object receiver) { throw missing(); }
+        @Override public boolean auto(Object receiver) { throw missing(); }
+        @Override public float damage(Object receiver) { throw missing(); }
+        @Override public int capacity(Object magazine) { throw missing(); }
+        @Override public void delay(Object receiver, int value) { throw missing(); }
+        @Override public void auto(Object receiver, boolean value) { throw missing(); }
+        @Override public void damage(Object receiver, float value) { throw missing(); }
+        @Override public void capacity(Object magazine, int value) { throw missing(); }
     };
 }

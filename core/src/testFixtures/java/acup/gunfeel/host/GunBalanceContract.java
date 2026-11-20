@@ -54,6 +54,10 @@ public abstract class GunBalanceContract {
             Object[] args = new Object[method.getParameterCount()];
             Class<?>[] types = method.getParameterTypes();
             for (int i = 0; i < args.length; i++) if (types[i] == int.class) args[i] = 0;
+            for (int i = 0; i < args.length; i++) {
+                if (types[i] == float.class) args[i] = 0F;
+                if (types[i] == boolean.class) args[i] = false;
+            }
             var error = assertThrows(java.lang.reflect.InvocationTargetException.class,
                     () -> method.invoke(GunBalance.MISSING, args));
             assertInstanceOf(UnsupportedOperationException.class, error.getCause());

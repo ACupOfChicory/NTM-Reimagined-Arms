@@ -24,7 +24,7 @@ class BalanceGunsWalkTest extends GunBalanceContract {
         @Override public String toString() { return name; }
     }
 
-    static final class Fake implements GunBalance {
+    static class Fake implements GunBalance {
         final List<String> calls = new ArrayList<>();
         final Object gun = new Token("gun"), twin = new Token("twin"), foreign = new Token("foreign"), plain = new Token("plain");
         final Object a = new Token("a"), b = new Token("b"), missing = new Token("missing"), shooter = new Token("shooter");
@@ -53,9 +53,10 @@ class BalanceGunsWalkTest extends GunBalanceContract {
         @Override public String path(Object id) { call("path", id); return names.get(id); }
         @Override public boolean isGun(Object item) { call("isGun", item); return item == gun || item == twin || item == foreign; }
         @Override public Object freshStack(Object item) { call("freshStack", item); Object stack = new Token("fresh" + fresh++); stacks.put(stack, item); return stack; }
-        int configCount(Object gun) { call("configCount", gun); return 2; }
+        @Override public int configCount(Object gun) { call("configCount", gun); return 2; }
         Object config(Object gun, Object stack, int index) { call("config", gun, stack, index); return index == 0 ? c0 : c1; }
         Object[] receivers(Object config, Object stack) { call("receivers", config, stack); return config == c0 ? first : second; }
+        @Override public Object[] receivers(Object gun, Object stack, int index) { return receivers(config(gun, stack, index), stack); }
         Object magazine(Object receiver, Object stack) { call("magazine", receiver, stack); return receiver; }
         List<?> accepted(Object magazine) { call("accepted", magazine); return noAmmo ? List.of() : magazine == r0 ? List.of(a, b, a) : List.of(b); }
         float baseDamage(Object receiver, Object stack) { call("baseDamage", receiver, stack); return base; }
@@ -81,6 +82,20 @@ class BalanceGunsWalkTest extends GunBalanceContract {
         @Override public int max(Object ammo) { call("max", ammo); return max; }
         @Override public Object mainHand(Object shooter) { call("mainHand", shooter); stacks.put(shooter, main); return shooter; }
         @Override public Object offHand(Object shooter) { call("offHand", shooter); stacks.put(shooter, off); return shooter; }
+        @Override public void fired(Object projectile, Object shooter, Object gun, Object ammo) { throw new UnsupportedOperationException(); }
+        @Override public void warnPair(Object gun, Object ammo, RuntimeException error) { throw new UnsupportedOperationException(); }
+        @Override public Object gun(String name) { throw new UnsupportedOperationException(); }
+        @Override public boolean bound(Object item) { throw new UnsupportedOperationException(); }
+        @Override public Object magazine(Object receiver) { throw new UnsupportedOperationException(); }
+        @Override public boolean singleMagazine(Object magazine) { throw new UnsupportedOperationException(); }
+        @Override public int delay(Object receiver) { throw new UnsupportedOperationException(); }
+        @Override public boolean auto(Object receiver) { throw new UnsupportedOperationException(); }
+        @Override public float damage(Object receiver) { throw new UnsupportedOperationException(); }
+        @Override public int capacity(Object magazine) { throw new UnsupportedOperationException(); }
+        @Override public void delay(Object receiver, int value) { throw new UnsupportedOperationException(); }
+        @Override public void auto(Object receiver, boolean value) { throw new UnsupportedOperationException(); }
+        @Override public void damage(Object receiver, float value) { throw new UnsupportedOperationException(); }
+        @Override public void capacity(Object magazine, int value) { throw new UnsupportedOperationException(); }
     }
 
     private final Fake f = new Fake();

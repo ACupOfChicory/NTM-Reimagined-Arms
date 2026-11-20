@@ -6,16 +6,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 import acup.gunfeel.host.GunBalance;
 
 /**
  * What BalanceGuns knows without the game: the gun table (the jar's, the server's, config/'s on the stands) and when
  * it is read again, the setting, and the sums on a shot's numbers (one ammo made as heavy as another, the floor by
- * tier), the gun/ammo walk and its identity caches. BalanceGuns supplies each version's live reads through
+ * tier), shot additions, receiver updates, the gun/ammo walk and its identity caches. BalanceGuns supplies live reads through
  * GunBalance; its callers keep their typed entries there.
  */
 public class BalanceGunsBase {
@@ -174,6 +176,126 @@ public class BalanceGunsBase {
         if (reads.isGun(main)) return main;
         Object off = reads.item(reads.offHand(shooter));
         return reads.isGun(off) ? off : null;
+    }
+
+    // ---------------------------------------------------------------- a shot
+
+    /** The additions by the raw projectile, also the hit's direct entity. */
+    private static final Map<Object, float[]> EXTRA = Collections.synchronizedMap(new WeakHashMap<>());
+    /** The pairs of shots whose line has under=. */
+    private static final Map<Object, BalanceGunsRule.Shot> UNDER = Collections.synchronizedMap(new WeakHashMap<>());
+    private static final java.util.Set<Object> FAILED = Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
+    public static float shot(Object projectile, Object shooter, Object ammo, float damage) {
+        return shot(projectile, shooter, ammo, damage, GunPort.READS);
+    }
+
+    static float shot(Object projectile, Object shooter, Object ammo, float damage, GunBalance reads) {
+        if (shooter == null || ammo == null || !on()) return damage;
+        Object gun = gunOf(shooter, reads);
+        if (gun == null) return damage;
+        // The scheme's pair, whatever the table has for it.
+        reads.fired(projectile, shooter, gun, ammo);
+        BalanceGunsRule.Shot s = safePair(gun, ammo, reads);
+        if (s.none()) return damage;
+        if (s.neg() != 0F || s.pen() != 0F || s.floor() != 1F || s.tier() >= 0)
+            EXTRA.put(projectile, new float[] {s.neg(), s.pen(), s.floor(), s.from(), s.tier()});
+        if (!s.under().isEmpty()) UNDER.put(projectile, s);
+        return damage * s.mult();
+    }
+
+    public static float[] underOf(Object direct, int tier) {
+        if (direct == null) return null;
+        BalanceGunsRule.Shot s = UNDER.get(direct);
+        if (s == null) return null;
+        return BalanceGunsRule.underShift(s, tier);
+    }
+
+    public static float[] extra(Object direct) {
+        return direct == null ? null : EXTRA.get(direct);
+    }
+
+    public static float floorOf(Object direct, int tier) {
+        return floorOf(extra(direct), tier);
+    }
+
+    public static float tooltipMult(Object gun, Object ammo) { return tooltipMult(gun, ammo, GunPort.READS); }
+
+    static float tooltipMult(Object gun, Object ammo, GunBalance reads) {
+        if (ammo == null || !on()) return 1F;
+        return safePair(gun, ammo, reads).mult();
+    }
+
+    static BalanceGunsRule.Shot safePair(Object gun, Object ammo, GunBalance reads) {
+        try {
+            return pair(gun, ammo, reads);
+        } catch (RuntimeException e) {
+            if (FAILED.add(gun)) reads.warnPair(gun, ammo, e);
+            return BalanceGunsRule.Shot.NONE;
+        }
+    }
+
+    // ---------------------------------------------------------------- the receivers
+
+    /** A changed receiver's original pause, auto fire and base damage. */
+    private record Before(int delay, boolean auto, float dmg) {
+    }
+
+    private static final Map<Object, Before> BEFORE = new IdentityHashMap<>();
+    /** Original magazine capacities; receivers may share a magazine. */
+    private static final Map<Object, Integer> MAGS = new IdentityHashMap<>();
+    private static boolean applied;
+    private static BalanceGunsRule.Table appliedTable;
+
+    public static synchronized void sync() { sync(GunPort.READS); }
+
+    static synchronized void sync(GunBalance reads) {
+        boolean want = on();
+        BalanceGunsRule.Table t = table();
+        if (want == applied && (!want || t == appliedTable)) return;
+        Map<Object, BalanceGunsRule.GunLine> guns = new java.util.LinkedHashMap<>();
+        if (want) {
+            for (Map.Entry<String, BalanceGunsRule.GunLine> e : t.guns().entrySet()) {
+                Object item = reads.gun(e.getKey());
+                if (!reads.isGun(item)) continue;
+                // Components may not be bound on the loading screen; wait for a later tick.
+                if (!reads.bound(item)) return;
+                guns.put(item, e.getValue());
+            }
+        }
+        restore(reads);
+        guns.forEach((gun, line) -> change(gun, line, reads));
+        applied = want;
+        appliedTable = t;
+    }
+
+    private static void change(Object gun, BalanceGunsRule.GunLine line, GunBalance reads) {
+        if (line.delay() == null && line.auto() == null && line.mag() == null && line.dmg() == null) return;
+        Object stack = reads.freshStack(gun);
+        for (int c = 0; c < reads.configCount(gun); c++) {
+            for (Object rec : reads.receivers(gun, stack, c)) {
+                Object mag = reads.magazine(rec);
+                BEFORE.putIfAbsent(rec, new Before(reads.delay(rec), reads.auto(rec), reads.damage(rec)));
+                if (line.mag() != null && reads.singleMagazine(mag)) MAGS.putIfAbsent(mag, reads.capacity(mag));
+                if (line.delay() != null) reads.delay(rec, line.delay());
+                if (line.auto() != null) reads.auto(rec, line.auto());
+                if (line.dmg() != null) reads.damage(rec, line.dmg());
+                if (line.mag() != null && reads.singleMagazine(mag)) reads.capacity(mag, line.mag());
+            }
+        }
+    }
+
+    private static void restore(GunBalance reads) {
+        for (Map.Entry<Object, Before> e : BEFORE.entrySet()) {
+            Object a = e.getKey();
+            Before b = e.getValue();
+            reads.delay(a, b.delay());
+            reads.auto(a, b.auto());
+            reads.damage(a, b.dmg());
+        }
+        for (Map.Entry<Object, Integer> e : MAGS.entrySet()) reads.capacity(e.getKey(), e.getValue());
+        BEFORE.clear();
+        MAGS.clear();
     }
 
     /** the table as it is now: the server's, the jar's, or config/'s on the stands (looked at every 2 s) */
