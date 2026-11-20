@@ -29,6 +29,9 @@ class DrainTest {
     }
 
     private static final class Reads implements HurtNow, ArmorSuits {
+        @Override public boolean gas() { throw new UnsupportedOperationException(); }
+        @Override public int reach(Object hurt) { throw new UnsupportedOperationException(); }
+        @Override public float schemeDrain(Body b, Object hurt) { throw new UnsupportedOperationException(); }
         final Input in;
         final FakeHurts hurts = new FakeHurts();
         final List<String> calls = hurts.calls;

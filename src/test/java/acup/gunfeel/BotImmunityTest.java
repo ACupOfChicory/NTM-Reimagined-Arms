@@ -39,7 +39,10 @@ class BotImmunityTest {
                 .contains("if (!b.player() && a.fullSet(b, acup.gunfeel.host.ArmorSuits.EUPHEMIUM))"), "euphemium: a soldier's only");
         assertTrue(imm.contains("case acup.gunfeel.host.ArmorSuits.EUPHEMIUM -> com.hbm.items.armor.ModArmorItem.Suit.EUPHEMIUM;"));
         // the window's message: a player's only
-        assertTrue(imm.contains("if (player instanceof net.minecraft.server.level.ServerPlayer sp) sp.sendSystemMessage(Component.translatable(kit.message"));
+        assertTrue(Files.readString(Path.of("core/src/main/java/acup/gunfeel/EuphImmunityBase.java"), StandardCharsets.UTF_8)
+                .contains("control.tellBar(b, kit.message, p.window() / 20);"), "the window's message: core's through BodyControl");
+        assertTrue(src("EntityBodyControl.java").contains("if (EntityBody.entity(b) instanceof net.minecraft.server.level.ServerPlayer sp)"),
+                "the message goes to a player only");
 
         String hooks = src("mixin/MixinBalanceImmunity.java");
         assertFalse(hooks.contains("instanceof Player"), "no player-only gate left in the pool's hooks");
@@ -48,7 +51,8 @@ class BotImmunityTest {
         String bots = src("ai/AiBots.java");
         assertEquals(2, bots.split("acup\\.gunfeel\\.EuphImmunity\\.forget\\(b\\.mob\\);", -1).length - 1, "a soldier gone, and the world unloaded, forgotten");
         // the void and /kill go through on a soldier: it has no way out of them as a player has
-        assertTrue(imm.contains("!(player instanceof Player) && source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) return false;"));
+        assertTrue(Files.readString(Path.of("core/src/main/java/acup/gunfeel/EuphImmunityBase.java"), StandardCharsets.UTF_8)
+                .contains("if (!b.player() && hurts.is(hurt, Hurts.BYPASSES_INVULNERABILITY)) return false;"), "the void and /kill: a soldier's only");
     }
 
     @Test

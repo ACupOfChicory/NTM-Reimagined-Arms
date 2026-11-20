@@ -91,6 +91,16 @@ class HurtKindsTest {
     }
 
     @Test
+    void questionNumbers() {
+        assertEquals(List.of(0, 1, 2, 3, 4, 5, 6, 7, 8), List.of(Hurts.BYPASSES_EFFECTS, Hurts.FIRE, Hurts.FALL,
+                Hurts.NTM_NUCLEAR_BLAST, Hurts.NTM_DIGAMMA, Hurts.NTM_RADIATION, Hurts.NTM_FIRE, Hurts.NTM_ELECTRIC,
+                Hurts.BYPASSES_INVULNERABILITY));
+        FakeHurts h = new FakeHurts();
+        for (int bit = 0; bit <= 8; bit++)
+            for (int q = 0; q <= 8; q++) assertEquals(bit == q, h.is(new FakeHurts.Hurt(1 << bit, 0, null, null), q));
+    }
+
+    @Test
     void shotNameIsShotType() {
         List<String> paths = new ArrayList<>(BalanceArmorRule.SHOT_TYPES);
         paths.addAll(List.of("player_attack", "arrow", "fire", "nuclear_blast", "a/b", "x.y", "laser_", "physical2", ""));
