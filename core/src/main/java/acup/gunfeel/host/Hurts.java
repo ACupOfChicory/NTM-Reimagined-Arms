@@ -52,5 +52,17 @@ public interface Hurts {
         public @Nullable String typeName(Object hurt) {
             throw new UnsupportedOperationException("no Hurts here");
         }
+        @Override public @Nullable Body direct(Object hurt) { throw new UnsupportedOperationException("no Hurts here"); }
+        @Override public @Nullable Body cause(Object hurt) { throw new UnsupportedOperationException("no Hurts here"); }
+        @Override public boolean ntmExplosion(Object hurt) { throw new UnsupportedOperationException("no Hurts here"); }
     };
+
+    /** The direct entity or null (26.2: EntityBody.of(source.getDirectEntity())). */
+    @Nullable Body direct(Object hurt);
+
+    /** The causing entity or null (26.2: EntityBody.of(source.getEntity())). */
+    @Nullable Body cause(Object hurt);
+
+    /** An NTM explosion (26.2: IS_EXPLOSION and the type key's namespace is hbm). */
+    boolean ntmExplosion(Object hurt);
 }

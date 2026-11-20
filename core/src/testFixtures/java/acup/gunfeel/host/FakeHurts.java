@@ -37,4 +37,8 @@ public final class FakeHurts implements Hurts {
         calls.add("typeName");
         return ((Hurt) hurt).typeName();
     }
+
+    @Override public Body direct(Object hurt) { calls.add("direct"); return null; }
+    @Override public Body cause(Object hurt) { calls.add("cause"); return null; }
+    @Override public boolean ntmExplosion(Object hurt) { calls.add("ntmExplosion"); return false; }
 }

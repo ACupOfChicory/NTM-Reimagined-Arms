@@ -5,6 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.host.Hurts;
+import acup.gunfeel.host.Body;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
@@ -48,5 +49,22 @@ final class HurtsPort implements Hurts {
     public @Nullable String typeName(Object hurt) {
         var key = ((DamageSource) hurt).typeHolder().unwrapKey().orElse(null);
         return key == null ? null : NAMES.computeIfAbsent(key, k -> k.identifier().toString());
+    }
+
+    @Override
+    public @Nullable Body direct(Object hurt) {
+        var entity = ((DamageSource) hurt).getDirectEntity();
+        return entity == null ? null : EntityBody.of(entity);
+    }
+
+    @Override
+    public @Nullable Body cause(Object hurt) {
+        var entity = ((DamageSource) hurt).getEntity();
+        return entity == null ? null : EntityBody.of(entity);
+    }
+
+    @Override
+    public boolean ntmExplosion(Object hurt) {
+        return DamageCap.Reads.ntmExplosion((DamageSource) hurt);
     }
 }

@@ -494,6 +494,11 @@ public final class BulletCheck {
                 int kind = (direct instanceof net.minecraft.world.entity.LivingEntity ? acup.gunfeel.host.Hurts.LIVING : 0)
                         | (direct instanceof com.hbm.entity.projectile.EntityBulletBeamBase ? acup.gunfeel.host.Hurts.NTM_BEAM : 0);
                 if (hurts.directKind(s) != kind) wrong.add(at + " directKind");
+                if (hurts.direct(s) != (direct == null ? null : EntityBody.of(direct))) wrong.add(at + " direct");
+                if (hurts.cause(s) != (cause == null ? null : EntityBody.of(cause))) wrong.add(at + " cause");
+                boolean ntmExplosion = s.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)
+                        && s.typeHolder().unwrapKey().map(k -> k.identifier().getNamespace().equals("hbm")).orElse(false);
+                if (hurts.ntmExplosion(s) != ntmExplosion) wrong.add(at + " ntmExplosion");
                 if (!java.util.Objects.equals(hurts.ntmCategory(s), com.hbm.util.DamageResistanceHandler.typeToCategory(s))) wrong.add(at + " ntmCategory");
                 String name = hurts.typeName(s);
                 if (!holder.key().identifier().toString().equals(name) || name != hurts.typeName(s)) wrong.add(at + " typeName");
@@ -506,6 +511,7 @@ public final class BulletCheck {
         // each question true somewhere: the NTM types and the tags the registry has
         check("world: each question yes on some source", true, java.util.Arrays.stream(yes).allMatch(n -> n > 0));
         check("world: a type with no key has no name", null, hurts.typeName(keyless));
+        check("world: a type with no key is no NTM explosion", false, hurts.ntmExplosion(keyless));
         boolean threw = false;
         try {
             hurts.is(keyless, 99);
