@@ -11,6 +11,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import acup.gunfeel.CoreServices;
+import acup.gunfeel.host.AmmoCatalog;
+import acup.gunfeel.host.AmmoCatalogContract;
+
 import com.hbm.items.weapon.sedna.BulletConfig;
 import com.hbm.items.weapon.sedna.factory.XFactory12ga;
 import com.hbm.items.weapon.sedna.factory.XFactory50;
@@ -22,7 +26,7 @@ import com.hbm.items.weapon.sedna.factory.XFactory762mm;
  * (NTM's tracer, the water's ammo name), and the rubber slug and the nuclear .50 leave no hole. Configs made without
  * their constructor (it needs the game), set into the static fields the setups fill.
  */
-class NewAmmoLookalikeTest {
+class NewAmmoLookalikeTest extends AmmoCatalogContract {
     private static final sun.misc.Unsafe U;
 
     static {
@@ -49,6 +53,9 @@ class NewAmmoLookalikeTest {
 
     private BulletConfig d556, d762, rubber, nuke, shock, sp556, sp762, slug, sp50;
     private Object[] was;
+
+    @Override protected AmmoCatalog catalog() { return CoreServices.root().port(AmmoCatalog.class); }
+    @Override protected Object[] rounds() { return new Object[] {d556, d762, rubber, nuke, shock, sp556, sp762, slug, sp50}; }
 
     @BeforeEach
     void set() throws ReflectiveOperationException {

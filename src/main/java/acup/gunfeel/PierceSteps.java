@@ -12,18 +12,16 @@ import net.minecraft.world.phys.Vec3;
 // ground the bullet pierces got what was left after the ground. Now the damage is taken back to before the first block
 // beyond the creature (enter), and the blocks the bullet has not paid for again are paid by the damage it has after
 // the hit (the hit lowers it for some rounds), when it meets the next creature or at the tick's end (finish). The
-// account of the blocks is core's (PierceLedger); here the bullet, its damage and the game's hits.
-public final class PierceSteps {
+// account of the blocks is core's (PierceStepsBase); here the bullet, its damage and the game's hits.
+public final class PierceSteps extends PierceStepsBase {
     // the bullet's own steps (MixinBulletServer)
     public interface Holder {
         PierceSteps gunfeel$steps();
     }
 
-    final Materials.Penetration penetration = new Materials.Penetration();
-
-    // the blocks pierced this tick, and those paid for in bullet.damage
-    private final PierceLedger<BlockHitResult> steps = new PierceLedger<>();
-    private Vec3 from = Vec3.ZERO;
+    public PierceSteps() {
+        from = Vec3.ZERO;
+    }
 
     public static PierceSteps of(EntityBulletBaseMK4 bullet) {
         return ((Holder) bullet).gunfeel$steps();
@@ -31,55 +29,54 @@ public final class PierceSteps {
 
     // a new tick's path from `from`
     public void start(Vec3 from) {
-        this.from = from;
-        steps.clear();
+        startOf(from);
     }
 
     // a block pierced, paid for at once: the damage was `before`
     public void pierced(BlockHitResult in, BlockHitResult out, float before, double spentBefore) {
-        steps.pierced(in.getLocation().distanceTo(from), before, spentBefore, in, out);
+        piercedOf(in, out, before, spentBefore);
     }
 
     // a creature is hit at `at`: the bullet's damage as it is there
     public void enter(EntityBulletBaseMK4 bullet, Vec3 at) {
-        if (steps.size() == 0) return;
-        int k = steps.firstFrom(at.distanceTo(from));
-        if (steps.paidPast(k)) {
-            // the blocks beyond it were paid too early: back to the damage before the first of them
-            bullet.damage = steps.damageBefore(k);
-            penetration.restore(steps.spentBefore(k));
-            steps.unpayTo(k);
-            if (TestLog.server) TestLog.s(bullet.getId(), "pierce_later", "blocks", steps.size() - k, "damage", bullet.damage);
-        } else {
-            payTo(bullet, k);
-        }
+        enterOf(bullet, at);
     }
 
     // the tick is over: what is still owed is paid by the damage the bullet has now
     public void finish(EntityBulletBaseMK4 bullet) {
-        payTo(bullet, steps.size());
-        steps.clear();
+        finishOf(bullet);
     }
 
-    private void payTo(EntityBulletBaseMK4 bullet, int k) {
-        Level level = bullet.level();
-        while (steps.owes(k) && !bullet.isRemoved()) {
-            int i = steps.payNext();
-            BlockHitResult in = steps.wayIn(i), out = steps.wayOut(i);
-            float wk = acup.gunfeel.water.WaterTick.k(bullet, in.getLocation());
-            float left = wk == 1F ? PassableClip.pierced(level, in, out, bullet.damage, bullet.config, penetration)
-                    : wk <= 0F ? -1F : PassableClip.pierced(level, in, out, bullet.damage * wk, bullet.config, penetration) / wk;
-            if (TestLog.server) TestLog.s(bullet.getId(), "block", "block", level.getBlockState(in.getBlockPos()), "pos", in.getBlockPos(),
+    /** The system's live reads and writes, kept here for NTM's CORE probes. */
+    static final class Reads implements acup.gunfeel.host.PierceShots {
+        @Override public Object location(Object hit) { return ((BlockHitResult) hit).getLocation(); }
+        @Override public double distance(Object point, Object from) { return ((Vec3) point).distanceTo((Vec3) from); }
+        @Override public Object level(Object bullet) { return ((EntityBulletBaseMK4) bullet).level(); }
+        @Override public boolean removed(Object bullet) { return ((EntityBulletBaseMK4) bullet).isRemoved(); }
+        @Override public float water(Object bullet, Object in) { return acup.gunfeel.water.WaterTick.k((EntityBulletBaseMK4) bullet, ((BlockHitResult) in).getLocation()); }
+        @Override public float damage(Object bullet) { return ((EntityBulletBaseMK4) bullet).damage; }
+        @Override public void damage(Object bullet, float value) { ((EntityBulletBaseMK4) bullet).damage = value; }
+        @Override public float pierced(Object level, Object in, Object out, float damage, Object bullet, Materials.Penetration penetration) {
+            return PassableClip.pierced((Level) level, (BlockHitResult) in, (BlockHitResult) out, damage,
+                    ((EntityBulletBaseMK4) bullet).config, penetration);
+        }
+        @Override public void stopAt(Object bullet, Object in) {
+            Vec3 p = ((BlockHitResult) in).getLocation();
+            ((EntityBulletBaseMK4) bullet).setPos(p.x, p.y, p.z);
+            ((EntityBulletBaseMK4) bullet).discard();
+        }
+        @Override public int id(Object bullet) { return ((EntityBulletBaseMK4) bullet).getId(); }
+        @Override public void logLater(int id, int blocks, Object raw) {
+            EntityBulletBaseMK4 bullet = (EntityBulletBaseMK4) raw;
+            TestLog.s(id, "pierce_later", "blocks", blocks, "damage", bullet.damage);
+        }
+        @Override public void logBlock(Object raw, Object world, Object hit, float left) {
+            EntityBulletBaseMK4 bullet = (EntityBulletBaseMK4) raw;
+            Level level = (Level) world;
+            BlockHitResult in = (BlockHitResult) hit;
+            TestLog.s(bullet.getId(), "block", "block", level.getBlockState(in.getBlockPos()), "pos", in.getBlockPos(),
                     "at", in.getLocation(), "material", WorldLog.material(level, in), "result", left < 0F ? "stop" : "pierce",
                     "why", "after_entity", "damage", bullet.damage, "left", left);
-            if (left < 0F) {
-                // it stops in this block now that it hit a creature before it
-                Vec3 p = in.getLocation();
-                bullet.setPos(p.x, p.y, p.z);
-                bullet.discard();
-                return;
-            }
-            bullet.damage = left;
         }
     }
 }
