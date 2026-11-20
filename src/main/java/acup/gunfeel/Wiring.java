@@ -68,6 +68,9 @@ public final class Wiring implements Ports {
         put(acup.gunfeel.host.FinalShots.class, new BalanceFinal.Reads());
         put(acup.gunfeel.host.Worlds.Port.class, new WorldsPort());
         put(acup.gunfeel.host.RoundTable.class, new RoundNames());
+        put(acup.gunfeel.host.PierceShots.class, new PierceSteps.Reads());
+        put(acup.gunfeel.host.AmmoCatalog.class, new acup.gunfeel.ammo.NewAmmo.Reads());
+        put(acup.gunfeel.host.GunBalance.class, new BalanceGuns.Reads());
         // ---- the client's only (render: the bullet holes)
         if (client) put(acup.gunfeel.host.render.RenderPort.class, RenderPortClient.port());
     }

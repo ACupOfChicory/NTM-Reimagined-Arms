@@ -1,11 +1,5 @@
 package acup.gunfeel;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -26,7 +20,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.loading.FMLPaths;
+import acup.gunfeel.host.GunBalance;
 
 /**
  * The balance's gun damage (stage 1b, server setting balanceGuns): a shot of an NTM gun does NTM's damage times its
@@ -53,88 +47,19 @@ public final class BalanceGuns extends BalanceGunsBase {
 
     // ---------------------------------------------------------------- the table
 
-    /** the table's reading SHOTS and FROM were worked out of */
-    private static int shotsOf;
-
-    static synchronized BalanceGunsRule.Table table() {
-        BalanceGunsRule.Table t = loadTable();
-        if (shotsOf != tableGeneration) {
-            shotsOf = tableGeneration;
-            SHOTS.clear();
-            FROM.clear();
-        }
-        return t;
-    }
-
-    /** a gun's shots by ammo, worked out when the gun is first fired after the table was (re)read */
-    private static final Map<Item, Map<BulletConfig, BalanceGunsRule.Shot>> SHOTS = new IdentityHashMap<>();
-    /** where each ammo's numbers came from (the stand and the notes) */
-    private static final Map<Item, Map<String, BalanceGunsRule.Resolved>> FROM = new IdentityHashMap<>();
+    static BalanceGunsRule.Table table() { return BalanceGunsBase.table(); }
 
     static String gunName(Item item) {
-        Identifier id = BuiltInRegistries.ITEM.getKey(item);
-        if (id == null || !id.getNamespace().equals("hbm")) return null;
-        String p = id.getPath();
-        return p.startsWith("gun_") ? p.substring(4) : p;
+        return BalanceGunsBase.gunName(item);
     }
 
     public static String ammoName(BulletConfig b) {
-        // a config with no ammo item (N.I.4.N.I.'s arc, NTM's mobs' shots): ammoStack() would throw
-        if (b.ammoItem == null) return "config_" + b.id;
-        ItemStack s;
-        try {
-            s = b.ammoStack();
-        } catch (RuntimeException e) {
-            return "config_" + b.id;
-        }
-        if (s == null || s.isEmpty()) return "config_" + b.id;
-        Identifier id = BuiltInRegistries.ITEM.getKey(s.getItem());
-        String p = id.getPath();
-        if (p.startsWith("ammo_standard_")) return p.substring("ammo_standard_".length());
-        return p.startsWith("ammo_") ? p.substring(5) : p;
-    }
-
-    /** a gun's ammo (every receiver of every config) and NTM's damage of a click with each */
-    private static List<BulletConfig> ammoOf(ItemGunBaseNT gun, ItemStack stack, Map<BulletConfig, Float> click) {
-        List<BulletConfig> out = new ArrayList<>();
-        for (int c = 0; c < gun.getConfigCount(); c++) {
-            for (Receiver rec : gun.getConfig(stack, c).getReceivers(stack)) {
-                for (BulletConfig b : AmmoLock.accepted(rec.getMagazine(stack))) {
-                    if (click.containsKey(b)) continue;
-                    out.add(b);
-                    click.put(b, rec.getBaseDamage(stack) * b.damageMult * (b.projectilesMin + b.projectilesMax) / 2F * rec.getSplitProjectiles(stack));
-                }
-            }
-        }
-        return out;
+        return BalanceGunsBase.ammoName(b);
     }
 
     /** what the pair does to a shot of {@code gun} with {@code ammo}, whether the setting is on or not */
-    static synchronized BalanceGunsRule.Shot pair(Item gunItem, BulletConfig ammo) {
-        BalanceGunsRule.Table t = table();
-        if (!(gunItem instanceof ItemGunBaseNT gun) || ammo == null) return BalanceGunsRule.Shot.NONE;
-        Map<BulletConfig, BalanceGunsRule.Shot> m = SHOTS.get(gunItem);
-        if (m == null || !m.containsKey(ammo)) {
-            String name = gunName(gunItem);
-            m = new IdentityHashMap<>();
-            if (name != null) {
-                Map<BulletConfig, Float> click = new IdentityHashMap<>();
-                List<BulletConfig> all = ammoOf(gun, new ItemStack(gunItem), click);
-                // an ammo its magazines do not list (the Tau's charged shot has a magazine of its own)
-                if (!click.containsKey(ammo)) {
-                    all.add(ammo);
-                    click.put(ammo, ammo.damageMult * (ammo.projectilesMin + ammo.projectilesMax) / 2F);
-                }
-                List<BalanceGunsRule.Ammo> named = new ArrayList<>();
-                for (BulletConfig b : all) named.add(new BalanceGunsRule.Ammo(ammoName(b), click.get(b), (b.projectilesMin + b.projectilesMax) / 2F));
-                Map<String, BalanceGunsRule.Resolved> r = BalanceGunsRule.resolve(t, name, named);
-                for (BulletConfig b : all) m.put(b, r.get(ammoName(b)).shot());
-                FROM.put(gunItem, r);
-            }
-            m.putIfAbsent(ammo, BalanceGunsRule.Shot.NONE);
-            SHOTS.put(gunItem, m);
-        }
-        return m.get(ammo);
+    static BalanceGunsRule.Shot pair(Item gunItem, BulletConfig ammo) {
+        return BalanceGunsBase.pair(gunItem, ammo);
     }
 
     /**
@@ -142,29 +67,51 @@ public final class BalanceGuns extends BalanceGunsBase {
      * it so (the ammo's own and the table's), 1 when the balance is off
      */
     static float as(Item gunItem, BulletConfig from, BulletConfig as) {
-        if (!on() || gunItem == null || from == null || as == null) return 1F;
-        return share(from.damageMult, pair(gunItem, from), as.damageMult, pair(gunItem, as));
+        return BalanceGunsBase.as(gunItem, from, as);
     }
 
     /** where a gun's ammo got its numbers (BalanceGunsRule.Resolved.from), after a shot or pair() */
-    static synchronized Map<String, BalanceGunsRule.Resolved> from(Item gunItem) {
-        BulletConfig first = firstAmmo(gunItem);
-        if (first != null) pair(gunItem, first);
-        return FROM.getOrDefault(gunItem, Map.of());
-    }
-
-    private static BulletConfig firstAmmo(Item item) {
-        if (!(item instanceof ItemGunBaseNT gun)) return null;
-        List<BulletConfig> all = ammoOf(gun, new ItemStack(item), new IdentityHashMap<>());
-        return all.isEmpty() ? null : all.get(0);
+    static Map<String, BalanceGunsRule.Resolved> from(Item gunItem) {
+        return BalanceGunsBase.from(gunItem);
     }
 
     /** the gun a shot of {@code shooter}'s comes from: the NTM gun in its main hand, else in its off hand */
     static Item gunOf(LivingEntity shooter) {
-        Item main = shooter.getMainHandItem().getItem();
-        if (main instanceof ItemGunBaseNT) return main;
-        Item off = shooter.getOffhandItem().getItem();
-        return off instanceof ItemGunBaseNT ? off : null;
+        return (Item) BalanceGunsBase.gunOf(shooter);
+    }
+
+    /** The table's live game and NTM reads, still owned by BALANCE. */
+    static final class Reads implements GunBalance {
+        @Override public Object itemId(Object item) { return BuiltInRegistries.ITEM.getKey((Item) item); }
+        @Override public Object stackId(Object stack) { return BuiltInRegistries.ITEM.getKey(((ItemStack) stack).getItem()); }
+        @Override public String namespace(Object id) { return ((Identifier) id).getNamespace(); }
+        @Override public String path(Object id) { return ((Identifier) id).getPath(); }
+        @Override public boolean isGun(Object item) { return item instanceof ItemGunBaseNT; }
+        @Override public Object freshStack(Object item) { return new ItemStack((Item) item); }
+        @Override public void walk(Object item, Object rawStack, Walk visit, List<Object> out, Map<Object, Float> click) {
+            ItemGunBaseNT gun = (ItemGunBaseNT) item;
+            ItemStack stack = (ItemStack) rawStack;
+            for (int c = 0; c < gun.getConfigCount(); c++) {
+                GunConfig config = gun.getConfig(stack, c);
+                for (Receiver rec : config.getReceivers(stack)) {
+                    for (BulletConfig b : AmmoLock.accepted(rec.getMagazine(stack))) {
+                        if (!visit.begin(b, out, click)) continue;
+                        float damage = visit.damage(b, rec.getBaseDamage(stack), this);
+                        visit.finish(b, damage, rec.getSplitProjectiles(stack), click);
+                    }
+                }
+            }
+        }
+        @Override public Object ammoItem(Object ammo) { return ((BulletConfig) ammo).ammoItem; }
+        @Override public Object ammoStack(Object ammo) { return ((BulletConfig) ammo).ammoStack(); }
+        @Override public int ammoId(Object ammo) { return ((BulletConfig) ammo).id; }
+        @Override public boolean empty(Object stack) { return ((ItemStack) stack).isEmpty(); }
+        @Override public Object item(Object stack) { return ((ItemStack) stack).getItem(); }
+        @Override public float damageMult(Object ammo) { return ((BulletConfig) ammo).damageMult; }
+        @Override public int min(Object ammo) { return ((BulletConfig) ammo).projectilesMin; }
+        @Override public int max(Object ammo) { return ((BulletConfig) ammo).projectilesMax; }
+        @Override public Object mainHand(Object shooter) { return ((LivingEntity) shooter).getMainHandItem(); }
+        @Override public Object offHand(Object shooter) { return ((LivingEntity) shooter).getOffhandItem(); }
     }
 
     // ---------------------------------------------------------------- a shot
@@ -253,25 +200,27 @@ public final class BalanceGuns extends BalanceGunsBase {
     private static BalanceGunsRule.Table appliedTable;
 
     /** the receivers as the setting and the table have them (called every tick on both sides; cheap when nothing changed) */
-    public static synchronized void sync() {
-        boolean want = on();
-        BalanceGunsRule.Table t = table();
-        if (want == applied && (!want || t == appliedTable)) return;
-        Map<ItemGunBaseNT, BalanceGunsRule.GunLine> guns = new java.util.LinkedHashMap<>();
-        if (want) {
-            for (Map.Entry<String, BalanceGunsRule.GunLine> e : t.guns().entrySet()) {
-                Item item = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + e.getKey()));
-                if (!(item instanceof ItemGunBaseNT gun)) continue;
-                // a gun's stack needs the items' components: on the client's loading screen they are not bound yet
-                // (new ItemStack throws), so the lines wait for a later tick
-                if (!item.builtInRegistryHolder().areComponentsBound()) return;
-                guns.put(gun, e.getValue());
+    public static void sync() {
+        synchronized (BalanceGunsBase.class) {
+            boolean want = on();
+            BalanceGunsRule.Table t = table();
+            if (want == applied && (!want || t == appliedTable)) return;
+            Map<ItemGunBaseNT, BalanceGunsRule.GunLine> guns = new java.util.LinkedHashMap<>();
+            if (want) {
+                for (Map.Entry<String, BalanceGunsRule.GunLine> e : t.guns().entrySet()) {
+                    Item item = BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hbm", "gun_" + e.getKey()));
+                    if (!(item instanceof ItemGunBaseNT gun)) continue;
+                    // a gun's stack needs the items' components: on the client's loading screen they are not bound yet
+                    // (new ItemStack throws), so the lines wait for a later tick
+                    if (!item.builtInRegistryHolder().areComponentsBound()) return;
+                    guns.put(gun, e.getValue());
+                }
             }
+            restore();
+            guns.forEach(BalanceGuns::change);
+            applied = want;
+            appliedTable = t;
         }
-        restore();
-        guns.forEach(BalanceGuns::change);
-        applied = want;
-        appliedTable = t;
     }
 
     private static void change(ItemGunBaseNT gun, BalanceGunsRule.GunLine line) {

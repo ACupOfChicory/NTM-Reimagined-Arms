@@ -6,13 +6,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+
+import acup.gunfeel.host.GunBalance;
 
 /**
  * What BalanceGuns knows without the game: the gun table (the jar's, the server's, config/'s on the stands) and when
  * it is read again, the setting, and the sums on a shot's numbers (one ammo made as heavy as another, the floor by
- * tier). BalanceGuns extends it on each version and finds the gun and the ammo of a shot (NTM's items and bullet
- * configs); its callers name these members through it.
+ * tier), the gun/ammo walk and its identity caches. BalanceGuns supplies each version's live reads through
+ * GunBalance; its callers keep their typed entries there.
  */
 public class BalanceGunsBase {
     BalanceGunsBase() {
@@ -43,6 +47,134 @@ public class BalanceGunsBase {
 
     /** goes up each time the table is read anew: what a version worked out of the old one starts over */
     static int tableGeneration;
+
+    private static final class GunPort {
+        static final GunBalance READS = CoreServices.load(GunBalance.class, GunBalance.MISSING);
+    }
+
+    /** The table generation SHOTS and FROM were worked out of. */
+    private static int shotsOf;
+    private static final Map<Object, Map<Object, BalanceGunsRule.Shot>> SHOTS = new IdentityHashMap<>();
+    private static final Map<Object, Map<String, BalanceGunsRule.Resolved>> FROM = new IdentityHashMap<>();
+
+    static synchronized BalanceGunsRule.Table table() {
+        BalanceGunsRule.Table t = loadTable();
+        if (shotsOf != tableGeneration) {
+            shotsOf = tableGeneration;
+            SHOTS.clear();
+            FROM.clear();
+        }
+        return t;
+    }
+
+    static String gunName(Object item) { return gunName(item, GunPort.READS); }
+
+    static String gunName(Object item, GunBalance reads) {
+        Object id = reads.itemId(item);
+        if (id == null || !reads.namespace(id).equals("hbm")) return null;
+        String p = reads.path(id);
+        return p.startsWith("gun_") ? p.substring(4) : p;
+    }
+
+    public static String ammoName(Object b) { return ammoName(b, GunPort.READS); }
+
+    static String ammoName(Object b, GunBalance reads) {
+        // A config without an ammo item cannot provide an ammo stack.
+        if (reads.ammoItem(b) == null) return "config_" + reads.ammoId(b);
+        Object s;
+        try {
+            s = reads.ammoStack(b);
+        } catch (RuntimeException e) {
+            return "config_" + reads.ammoId(b);
+        }
+        if (s == null || reads.empty(s)) return "config_" + reads.ammoId(b);
+        Object id = reads.stackId(s);
+        String p = reads.path(id);
+        if (p.startsWith("ammo_standard_")) return p.substring("ammo_standard_".length());
+        return p.startsWith("ammo_") ? p.substring(5) : p;
+    }
+
+    private static final GunBalance.Walk WALK = new GunBalance.Walk() {
+        @Override public boolean begin(Object ammo, List<Object> out, Map<Object, Float> click) {
+            if (click.containsKey(ammo)) return false;
+            out.add(ammo);
+            return true;
+        }
+        @Override public float damage(Object ammo, float base, GunBalance reads) {
+            return base * reads.damageMult(ammo) * (reads.min(ammo) + reads.max(ammo)) / 2F;
+        }
+        @Override public void finish(Object ammo, float damage, float split, Map<Object, Float> click) {
+            click.put(ammo, damage * split);
+        }
+    };
+
+    /** Every receiver of every config, keeping the first occurrence of each ammo. */
+    static List<Object> ammoOf(Object gun, Object stack, Map<Object, Float> click, GunBalance reads) {
+        List<Object> out = new ArrayList<>();
+        reads.walk(gun, stack, WALK, out, click);
+        return out;
+    }
+
+    static synchronized BalanceGunsRule.Shot pair(Object gunItem, Object ammo) {
+        return pair(gunItem, ammo, GunPort.READS);
+    }
+
+    static synchronized BalanceGunsRule.Shot pair(Object gunItem, Object ammo, GunBalance reads) {
+        BalanceGunsRule.Table t = table();
+        if (!reads.isGun(gunItem) || ammo == null) return BalanceGunsRule.Shot.NONE;
+        Map<Object, BalanceGunsRule.Shot> m = SHOTS.get(gunItem);
+        if (m == null || !m.containsKey(ammo)) {
+            String name = gunName(gunItem, reads);
+            m = new IdentityHashMap<>();
+            if (name != null) {
+                Map<Object, Float> click = new IdentityHashMap<>();
+                List<Object> all = ammoOf(gunItem, reads.freshStack(gunItem), click, reads);
+                // Some shots have a magazine of their own.
+                if (!click.containsKey(ammo)) {
+                    all.add(ammo);
+                    click.put(ammo, reads.damageMult(ammo) * (reads.min(ammo) + reads.max(ammo)) / 2F);
+                }
+                List<BalanceGunsRule.Ammo> named = new ArrayList<>();
+                for (Object b : all) named.add(new BalanceGunsRule.Ammo(ammoName(b, reads), click.get(b), (reads.min(b) + reads.max(b)) / 2F));
+                Map<String, BalanceGunsRule.Resolved> r = BalanceGunsRule.resolve(t, name, named);
+                for (Object b : all) m.put(b, r.get(ammoName(b, reads)).shot());
+                FROM.put(gunItem, r);
+            }
+            m.putIfAbsent(ammo, BalanceGunsRule.Shot.NONE);
+            SHOTS.put(gunItem, m);
+        }
+        return m.get(ammo);
+    }
+
+    static float as(Object gunItem, Object from, Object as) { return as(gunItem, from, as, GunPort.READS); }
+
+    static float as(Object gunItem, Object from, Object as, GunBalance reads) {
+        if (!on() || gunItem == null || from == null || as == null) return 1F;
+        return share(reads.damageMult(from), pair(gunItem, from, reads), reads.damageMult(as), pair(gunItem, as, reads));
+    }
+
+    static synchronized Map<String, BalanceGunsRule.Resolved> from(Object gunItem) { return from(gunItem, GunPort.READS); }
+
+    static synchronized Map<String, BalanceGunsRule.Resolved> from(Object gunItem, GunBalance reads) {
+        Object first = firstAmmo(gunItem, reads);
+        if (first != null) pair(gunItem, first, reads);
+        return FROM.getOrDefault(gunItem, Map.of());
+    }
+
+    static Object firstAmmo(Object item, GunBalance reads) {
+        if (!reads.isGun(item)) return null;
+        List<Object> all = ammoOf(item, reads.freshStack(item), new IdentityHashMap<>(), reads);
+        return all.isEmpty() ? null : all.get(0);
+    }
+
+    static Object gunOf(Object shooter) { return gunOf(shooter, GunPort.READS); }
+
+    static Object gunOf(Object shooter, GunBalance reads) {
+        Object main = reads.item(reads.mainHand(shooter));
+        if (reads.isGun(main)) return main;
+        Object off = reads.item(reads.offHand(shooter));
+        return reads.isGun(off) ? off : null;
+    }
 
     /** the table as it is now: the server's, the jar's, or config/'s on the stands (looked at every 2 s) */
     static synchronized BalanceGunsRule.Table loadTable() {
