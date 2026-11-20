@@ -106,6 +106,8 @@ public final class AiCheck {
                 check.check("sandbags in a row hide and stop bullets; glass, bars and fences in a row hide nothing", sandbagsHide && glassClear);
             }
             // the rest runs with the server ticking
+            AiLeanAlike leanAlike = new AiLeanAlike();
+            AiLean.alike = leanAlike;
             AiCheckTicks ticks = new AiCheckTicks(check, check.level, Y);
             AiCheckFight fight = new AiCheckFight(check, check.level, Y);
             AiCheckCrowd crowd = new AiCheckCrowd(check, check.level, Y);
@@ -228,6 +230,9 @@ public final class AiCheck {
                     done = true;
                 }
                 if (!done) return;
+                AiLean.alike = null;
+                check.out("     lean alike (core's against the former code): " + leanAlike.info());
+                check.check("lean: core's AiLeanBase answers as the former code did", leanAlike.differ == 0);
                 AiBots.heardKeeps = true;
                 AiVoice.counting = false;
                 out.add("     " + check.map.info());

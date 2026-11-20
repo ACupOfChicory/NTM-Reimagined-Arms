@@ -1,6 +1,5 @@
 package acup.gunfeel.ai;
 
-import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -14,16 +13,18 @@ import net.minecraft.world.phys.Vec3;
  * HumanoidModel.setupAnim). Common code only, no client classes.
  */
 public final class AiPoseGeometry {
+    private static final AiLeanBase.Vec3Maker<Vec3> VECTOR = Vec3::new;
+
     /** how far the body tips at a full lean, degrees */
-    public static final float LEAN_DEG = 25F;
+    public static final float LEAN_DEG = AiLeanBase.LEAN_DEG;
     /** how far the hips step aside at a full lean, blocks */
-    public static final double LEAN_SHIFT = 0.25;
+    public static final double LEAN_SHIFT = AiLeanBase.LEAN_SHIFT;
     /** ticks from one lean to the next */
-    public static final float LEAN_TICKS = 4F;
+    public static final float LEAN_TICKS = AiLeanBase.LEAN_TICKS;
     /** HumanoidModel's feet are 1.501 blocks below the model's origin (LivingEntityRenderer) */
-    static final double MODEL_FEET = 1.501;
+    static final double MODEL_FEET = AiLeanBase.MODEL_FEET;
     /** the legs' pivot, model pixels: standing, and in vanilla's crouch */
-    static final double HIP_PX = 12.0, CROUCH_HIP_PX = 12.0;
+    static final double HIP_PX = AiLeanBase.HIP_PX, CROUCH_HIP_PX = AiLeanBase.CROUCH_HIP_PX;
 
     /** blind fire's arms (BotPoser): both straight up over the head, each turned in toward the middle by this */
     public static final float BLIND_ARM_X = (float) (-Math.PI + 0.2), BLIND_ARM_Y = 0.1F;
@@ -40,13 +41,12 @@ public final class AiPoseGeometry {
 
     /** The lean now, −1 (left) .. 1 (right): from prevLean to lean in {@link #LEAN_TICKS} ticks after leanTick. */
     public static float leanFrac(AiPose s, long now, float partial) {
-        float t = Mth.clamp((now - s.leanTick() + partial) / LEAN_TICKS, 0F, 1F);
-        return Mth.lerp(t, s.prevLean() / 100F, s.lean() / 100F);
+        return AiLean.alike == null ? AiLeanBase.leanFrac(s.prevLean(), s.lean(), s.leanTick(), now, partial) : AiLean.alike.leanFrac(s, now, partial, AiLeanBase.leanFrac(s.prevLean(), s.lean(), s.leanTick(), now, partial));
     }
 
     /** The hips above the feet, blocks, and how far they are behind the feet (crouching). */
     static double hipUp(byte stance) {
-        return MODEL_FEET - (stance == AiPose.CROUCH ? CROUCH_HIP_PX : HIP_PX) / 16.0;
+        return AiLeanBase.hipUp(stance);
     }
 
     /**
@@ -55,22 +55,12 @@ public final class AiPoseGeometry {
      * the hips (the legs) only step aside; points above also tip.
      */
     public static Vec3 leanPoint(double right, double up, double forward, byte stance, float frac, float yBodyRot) {
-        double hu = hipUp(stance);
-        double r = right + frac * LEAN_SHIFT, u = up;
-        if (up > hu && frac != 0F) {
-            // tip around the forward line through the hips (how far back they are does not matter for a turn
-            // around a forward line): up turns toward right for + frac
-            double a = Math.toRadians(frac * LEAN_DEG), c = Math.cos(a), s = Math.sin(a);
-            double du = up - hu;
-            r = frac * LEAN_SHIFT + right * c + du * s;
-            u = hu - right * s + du * c;
-        }
-        return toWorld(r, u, forward, yBodyRot);
+        return AiLean.alike == null ? AiLeanBase.leanPoint(right, up, forward, stance, frac, yBodyRot, VECTOR) : AiLean.alike.leanPoint(right, up, forward, stance, frac, yBodyRot, AiLeanBase.leanPoint(right, up, forward, stance, frac, yBodyRot, VECTOR));
     }
 
     /** The eye, an offset from the mob's position: {@code eyeHeight} is the mob's unleaned eye (getEyeHeight). */
     public static Vec3 eyeOffset(byte stance, float frac, float yBodyRot, double eyeHeight) {
-        return leanPoint(0, eyeHeight, 0, stance, frac, yBodyRot);
+        return AiLean.alike == null ? AiLeanBase.eyeOffset(stance, frac, yBodyRot, eyeHeight, VECTOR) : AiLean.alike.eyeOffset(stance, frac, yBodyRot, eyeHeight, AiLeanBase.eyeOffset(stance, frac, yBodyRot, eyeHeight, VECTOR));
     }
 
     /**
@@ -97,9 +87,7 @@ public final class AiPoseGeometry {
 
     /** The mob's frame (right, up, forward) to the world's axes for a body turned yBodyRot (Minecraft yaw). */
     static Vec3 toWorld(double right, double up, double forward, float yBodyRot) {
-        double y = Math.toRadians(yBodyRot), sin = Math.sin(y), cos = Math.cos(y);
-        // forward = (-sin, 0, cos), right = (-cos, 0, -sin)
-        return new Vec3(-forward * sin - right * cos, up, forward * cos - right * sin);
+        return AiLeanBase.toWorld(right, up, forward, yBodyRot, VECTOR);
     }
 
     /** The lean in the model's own terms, for setupAnim: the parts above the hips turn by this around model Z. */
