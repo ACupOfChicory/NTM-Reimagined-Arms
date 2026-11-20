@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fixed the dedicated server failing to start with the mod.
+
 ## X2015
 
 - Leaving a world to the menu no longer keeps it in memory until the game is
