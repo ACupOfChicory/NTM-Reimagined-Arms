@@ -5,14 +5,20 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.function.Supplier;
+
+import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.host.Body;
 import acup.gunfeel.host.CapNow;
 import acup.gunfeel.host.HurtNow;
 import acup.gunfeel.host.Hurts;
+import acup.gunfeel.host.NtmBullets;
+import acup.gunfeel.host.NtmGuns;
+import acup.gunfeel.host.Worlds;
 
-/** The cap's settings, shield snapshots, ledgers and diagnostics; events stay with each version. */
+/** The cap's settings, shots, shield snapshots, ledgers and diagnostics; events stay with each version. */
 class DamageCapBase {
     DamageCapBase() {
     }
@@ -30,6 +36,31 @@ class DamageCapBase {
     private static final class CapPort {
         static final CapNow CAP = CoreServices.load(CapNow.class, CapNow.MISSING);
         static final HurtNow NOW = CoreServices.load(HurtNow.class, HurtNow.MISSING);
+    }
+
+    private static final class ShotPort {
+        static final NtmBullets BULLETS = CoreServices.load(NtmBullets.class, NtmBullets.MISSING);
+        static final NtmGuns GUNS = CoreServices.load(NtmGuns.class, NtmGuns.NONE);
+    }
+
+    /** one projectile: the tick it was fired, its gun waiting {@code sniperDelay} or more between shots */
+    record Shot(long tick, boolean sniper) {}
+    private static final Map<Object, Shot> SHOTS = new WeakHashMap<>();
+
+    static void joinedOf(Object level, Object entity) {
+        joinedOf(level, entity, ShotPort.BULLETS, ShotPort.GUNS, LIVE);
+    }
+
+    static void joinedOf(Object level, Object entity, NtmBullets bullets, NtmGuns guns, Settings settings) {
+        if (!bullets.capProjectile(entity)) return;
+        Body shooter = bullets.shooter(entity);
+        if (shooter == null) return;
+        SHOTS.put(entity, new Shot(Worlds.of(level).gameTime(),
+                guns.maxDelay(shooter, Body.MAIN_HAND) >= limitsOf(settings).sniperDelay() && !bullets.pellet(entity)));
+    }
+
+    static @Nullable Shot shotOf(Object entity) {
+        return SHOTS.get(entity);
     }
 
     private static final Map<UUID, Map<UUID, DamageCapRule.Ledger>> LEDGERS = new HashMap<>();
