@@ -136,6 +136,7 @@ public final class EntityBody implements Body {
     }
     @Override public double speed() { return ((LivingEntity) e).getAttributeValue(Attributes.MOVEMENT_SPEED); }
     @Override public float maxHealth() { return ((LivingEntity) e).getMaxHealth(); }
+    @Override public java.util.UUID uuid() { return e.getUUID(); }
 
     @Override
     public @Nullable String team() {

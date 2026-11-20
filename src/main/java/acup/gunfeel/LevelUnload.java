@@ -18,6 +18,10 @@ public final class LevelUnload {
     @SubscribeEvent
     public static void unload(LevelEvent.Unload e) {
         // the hit boxes' poses and the players' views of them on that level (a view holds its level)
-        if (e.getLevel() instanceof Level level) ModelHits.clear(level);
+        if (e.getLevel() instanceof Level level) {
+            ModelHits.clear(level);
+            // WorldView holds its level, so a weak key alone cannot release it
+            acup.gunfeel.host.Worlds.forget(level);
+        }
     }
 }

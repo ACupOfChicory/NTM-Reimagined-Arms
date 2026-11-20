@@ -3,9 +3,16 @@ package acup.gunfeel;
 import static acup.gunfeel.host.HurtNow.PIERCE_DT;
 import static acup.gunfeel.host.HurtNow.PIERCE_DR;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.WeakHashMap;
+import java.util.function.BooleanSupplier;
+
 import acup.gunfeel.host.Body;
 import acup.gunfeel.host.HurtNow;
 import acup.gunfeel.host.Hurts;
+import acup.gunfeel.host.Worlds;
 
 /**
  * What EuphImmunity knows without the game: the pool of euphemium, DNS and FAU (its numbers by the keys, a wearer's
@@ -16,6 +23,103 @@ import acup.gunfeel.host.Hurts;
  */
 public class EuphImmunityBase {
     EuphImmunityBase() {
+    }
+
+    private static final Map<Kit, Map<UUID, State>> STATES = new java.util.EnumMap<>(Kit.class);
+    private static final Map<Body, Long> IN_RADON = new WeakHashMap<>();
+
+    static {
+        for (Kit k : Kit.values()) STATES.put(k, new HashMap<>());
+    }
+
+    /** the kit each player's pool was last of (balance.immune.shared) */
+    private static final Map<UUID, Kit> LAST_KIT = new HashMap<>();
+
+    /**
+     * balance.immune.shared (true; false: X884): one pool a player for the three kits. The kit put on takes where the
+     * last one was (carry), not a fresh pool of its own: DNS emptied, then FAU on, was a full pool of 45 at once.
+     */
+    static boolean shared() {
+        return ReaimTimes.flag("balance.immune.shared", true);
+    }
+
+    static synchronized State stateOf(Kit kit, Body b, long now) {
+        return stateOf(kit, b, now, EuphImmunityBase::shared);
+    }
+
+    /** the same with the shared key's read given (core's tests) */
+    static synchronized State stateOf(Kit kit, Body b, long now, BooleanSupplier shared) {
+        UUID id = b.uuid();
+        Map<UUID, State> own = STATES.get(kit);
+        if (shared.getAsBoolean()) {
+            Kit was = LAST_KIT.put(id, kit);
+            State from = was == null || was == kit ? null : STATES.get(was).get(id);
+            if (from != null) own.put(id, carry(from, pool(was), pool(kit), now));
+        } else {
+            // off: no kit remembered, so turning it back on carries nothing stale
+            LAST_KIT.remove(id);
+        }
+        return own.computeIfAbsent(id, u -> new State(pool(kit).size(), now));
+    }
+
+    /** the tomb's radon gas touched the entity this tick */
+    static synchronized void inRadonOf(Body b, long now) {
+        IN_RADON.put(b, now);
+    }
+
+    static synchronized boolean radonOf(Body b, long now) {
+        Long t = IN_RADON.get(b);
+        return t != null && now - t <= 1;
+    }
+
+    /** the set's Regeneration and Resistance must not be on the wearer now: the window, or the radon gas */
+    static boolean vulnerableOf(Body b) {
+        return vulnerableOf(b, Worlds::of);
+    }
+
+    static boolean vulnerableOf(Body b, Worlds.Port worlds) {
+        long now = worlds.world(b.level()).gameTime();
+        if (radonOf(b, now)) return true;
+        State s;
+        synchronized (EuphImmunityBase.class) {
+            s = STATES.get(Kit.EUPHEMIUM).get(b.uuid());
+        }
+        return s != null && phase(s, now) == Phase.WINDOW;
+    }
+
+    /** the stand: the wearer's pool now and the phase */
+    static synchronized String describeOf(Kit kit, Body b) {
+        return describeOf(kit, b, Worlds::of);
+    }
+
+    static synchronized String describeOf(Kit kit, Body b, Worlds.Port worlds) {
+        State s = STATES.get(kit).get(b.uuid());
+        if (s == null) return "нет";
+        long now = worlds.world(b.level()).gameTime();
+        return phase(s, now) + " " + Math.round(poolAt(s, now, pool(kit)));
+    }
+
+    /** the stand: the pool now (NaN: no state, or not in the pool's phase) */
+    static synchronized float poolOf(Kit kit, Body b) {
+        return poolOf(kit, b, Worlds::of);
+    }
+
+    static synchronized float poolOf(Kit kit, Body b, Worlds.Port worlds) {
+        State s = STATES.get(kit).get(b.uuid());
+        if (s == null) return Float.NaN;
+        long now = worlds.world(b.level()).gameTime();
+        return phase(s, now) == Phase.POOL ? poolAt(s, now, pool(kit)) : Float.NaN;
+    }
+
+    static synchronized void forgetOf(Body b) {
+        for (Map<UUID, State> m : STATES.values()) m.remove(b.uuid());
+        LAST_KIT.remove(b.uuid());
+    }
+
+    static synchronized void clearAll() {
+        for (Map<UUID, State> m : STATES.values()) m.clear();
+        IN_RADON.clear();
+        LAST_KIT.clear();
     }
 
     /**

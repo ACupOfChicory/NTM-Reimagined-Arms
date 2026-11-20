@@ -13,6 +13,7 @@ import acup.gunfeel.ai.Stance;
 // watching, a second mob and one removed. Each version's check runs the same promises on its own entities.
 class FakeEntitiesTest extends EntityViewContract {
     static final class Fake implements Body {
+        final java.util.UUID uuid = java.util.UUID.randomUUID();
         final int id;
         final boolean living, player, spectator;
         final int kind;
@@ -37,6 +38,7 @@ class FakeEntitiesTest extends EntityViewContract {
         }
 
         @Override public int id() { return id; }
+        @Override public java.util.UUID uuid() { return uuid; }
         @Override public boolean living() { return living; }
         @Override public boolean player() { return player; }
         @Override public double x() { return x; }

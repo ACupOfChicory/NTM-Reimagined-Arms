@@ -3,7 +3,6 @@ package acup.gunfeel;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.WeakHashMap;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.damagesource.DamageSource;
@@ -59,13 +58,6 @@ public final class EuphImmunity extends EuphImmunityBase {
 
     // ---------------------------------------------------------------- the game's side
 
-    private static final Map<Kit, Map<UUID, State>> STATES = new java.util.EnumMap<>(Kit.class);
-    private static final Map<Entity, Long> IN_RADON = new WeakHashMap<>();
-
-    static {
-        for (Kit k : Kit.values()) STATES.put(k, new HashMap<>());
-    }
-
     public static boolean on() {
         return on(Kit.EUPHEMIUM);
     }
@@ -79,39 +71,17 @@ public final class EuphImmunity extends EuphImmunityBase {
         return acup.gunfeel.compat.Feature.BALANCE.on() && !Kit.DNS.mode().equals("ntm");
     }
 
-    /** the kit each player's pool was last of (balance.immune.shared) */
-    private static final Map<UUID, Kit> LAST_KIT = new HashMap<>();
-
-    /**
-     * balance.immune.shared (true; false: X884): one pool a player for the three kits. The kit put on takes where the
-     * last one was (carry), not a fresh pool of its own: DNS emptied, then FAU on, was a full pool of 45 at once.
-     */
-    static boolean shared() {
-        return ReaimTimes.flag("balance.immune.shared", true);
-    }
-
-    static synchronized State state(Kit kit, LivingEntity player, long now) {
-        UUID id = player.getUUID();
-        Map<UUID, State> own = STATES.get(kit);
-        if (shared()) {
-            Kit was = LAST_KIT.put(id, kit);
-            State from = was == null || was == kit ? null : STATES.get(was).get(id);
-            if (from != null) own.put(id, carry(from, pool(was), pool(kit), now));
-        } else {
-            // off: no kit remembered, so turning it back on carries nothing stale
-            LAST_KIT.remove(id);
-        }
-        return own.computeIfAbsent(id, u -> new State(pool(kit).size(), now));
+    static State state(Kit kit, LivingEntity player, long now) {
+        return stateOf(kit, EntityBody.of(player), now);
     }
 
     /** the tomb's radon gas touched the entity this tick */
-    public static synchronized void inRadon(Entity entity, long now) {
-        IN_RADON.put(entity, now);
+    public static void inRadon(Entity entity, long now) {
+        inRadonOf(EntityBody.of(entity), now);
     }
 
-    static synchronized boolean radon(Entity entity, long now) {
-        Long t = IN_RADON.get(entity);
-        return t != null && now - t <= 1;
+    static boolean radon(Entity entity, long now) {
+        return radonOf(EntityBody.of(entity), now);
     }
 
     /** what the hit would do to the kit's drain set (formula C; one hit at most damageCapClick of the health), or 0 */
@@ -156,7 +126,7 @@ public final class EuphImmunity extends EuphImmunityBase {
         boolean keeps = gas || (kit == Kit.EUPHEMIUM ? BalanceArmor.category(source) != null : cat != null);
         Phase before;
         boolean off;
-        synchronized (EuphImmunity.class) {
+        synchronized (EuphImmunityBase.class) {
             before = phase(s, now);
             off = hit(s, now, drain, gas || cat != null, keeps, p, keeps && !gas ? reach(source) : 0);
         }
@@ -252,7 +222,7 @@ public final class EuphImmunity extends EuphImmunityBase {
     /** NTM's early check (allowsAttack) of a hit on DNS or FAU: true calls it off */
     public static boolean early(Kit kit, LivingEntity player, DamageSource source, float amount) {
         boolean off = absorbs(kit, player, source, amount);
-        synchronized (EuphImmunity.class) {
+        synchronized (EuphImmunityBase.class) {
             DECIDED.put(player.getUUID(), new Decided(System.identityHashCode(source), player.level().getGameTime(), off));
         }
         return off;
@@ -264,7 +234,7 @@ public final class EuphImmunity extends EuphImmunityBase {
      */
     public static boolean accepted(Kit kit, LivingEntity player, DamageSource source, float amount) {
         Decided d;
-        synchronized (EuphImmunity.class) {
+        synchronized (EuphImmunityBase.class) {
             d = DECIDED.get(player.getUUID());
         }
         if (d != null && d.source() == System.identityHashCode(source) && d.tick() == player.level().getGameTime()) return d.off();
@@ -274,13 +244,7 @@ public final class EuphImmunity extends EuphImmunityBase {
     /** the set's Regeneration and Resistance must not be on the wearer now: the window, or the radon gas */
     public static boolean vulnerable(Player player) {
         if (!on()) return false;
-        long now = player.level().getGameTime();
-        if (radon(player, now)) return true;
-        State s;
-        synchronized (EuphImmunity.class) {
-            s = STATES.get(Kit.EUPHEMIUM).get(player.getUUID());
-        }
-        return s != null && phase(s, now) == Phase.WINDOW;
+        return vulnerableOf(EntityBody.of(player));
     }
 
     /** the set's own effects (NTM: amplifier 127) */
@@ -295,31 +259,26 @@ public final class EuphImmunity extends EuphImmunityBase {
         return describe(Kit.EUPHEMIUM, player);
     }
 
-    static synchronized String describe(Kit kit, LivingEntity player) {
-        State s = STATES.get(kit).get(player.getUUID());
-        if (s == null) return "нет";
-        long now = player.level().getGameTime();
-        return phase(s, now) + " " + Math.round(poolAt(s, now, pool(kit)));
+    static String describe(Kit kit, LivingEntity player) {
+        return describeOf(kit, EntityBody.of(player));
     }
 
     /** the stand: the pool now (NaN: no state, or not in the pool's phase) */
-    static synchronized float poolOf(Kit kit, LivingEntity player) {
-        State s = STATES.get(kit).get(player.getUUID());
-        if (s == null) return Float.NaN;
-        long now = player.level().getGameTime();
-        return phase(s, now) == Phase.POOL ? poolAt(s, now, pool(kit)) : Float.NaN;
+    static float poolOf(Kit kit, LivingEntity player) {
+        return poolOf(kit, EntityBody.of(player));
     }
 
-    public static synchronized void forget(LivingEntity player) {
-        for (Map<UUID, State> m : STATES.values()) m.remove(player.getUUID());
-        DECIDED.remove(player.getUUID());
-        LAST_KIT.remove(player.getUUID());
+    public static void forget(LivingEntity player) {
+        synchronized (EuphImmunityBase.class) {
+            forgetOf(EntityBody.of(player));
+            DECIDED.remove(player.getUUID());
+        }
     }
 
-    public static synchronized void clear() {
-        for (Map<UUID, State> m : STATES.values()) m.clear();
-        IN_RADON.clear();
-        DECIDED.clear();
-        LAST_KIT.clear();
+    public static void clear() {
+        synchronized (EuphImmunityBase.class) {
+            clearAll();
+            DECIDED.clear();
+        }
     }
 }

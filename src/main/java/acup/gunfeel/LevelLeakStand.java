@@ -40,7 +40,7 @@ final class LevelLeakStand {
     /** the AI's classes with state per level in static maps (charlie's inventory 2026-11-20) */
     private static final List<String> REGISTRIES = List.of("TacticalMap", "AiTerrain", "AiBots", "AiBotsBase", "AiBunker", "AiClearing",
             "AiCommander", "AiCrossing", "AiEntry", "AiGrenades", "AiHatch", "AiHqMap", "AiHqMapBase", "AiIntel", "AiReports", "AiReportsBase",
-            "AiSquads", "AiSquadsBase", "AiSupply", "AiVoice");
+            "AiSquads", "AiSquadsBase", "AiSupply", "AiVoice", "acup.gunfeel.host.Worlds");
 
     private static int step;
     private static long fightUntil, leftAt;
@@ -149,7 +149,7 @@ final class LevelLeakStand {
         for (String name : REGISTRIES) {
             Class<?> c;
             try {
-                c = Class.forName("acup.gunfeel.ai." + name);
+                c = Class.forName(name.contains(".") ? name : "acup.gunfeel.ai." + name);
             } catch (ClassNotFoundException e) {
                 continue;
             }
