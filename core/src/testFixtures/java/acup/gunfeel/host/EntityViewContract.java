@@ -209,6 +209,13 @@ public abstract class EntityViewContract {
         assertThrows(RuntimeException.class, p::lying);
         assertThrows(RuntimeException.class, () -> p.held(Body.MAIN_HAND));
         assertThrows(RuntimeException.class, p::sleeping);
+        assertThrows(RuntimeException.class, p::fallFlying);
+        // what any entity answers: no projectile crawls or flies as a player
+        assertFalse(p.crawling());
+        assertFalse(p.flying());
+        double[] v = {9, 9, 9};
+        p.knownSpeed(v);
+        assertFalse(Double.isNaN(v[0] + v[1] + v[2]));
     }
 
     @Test

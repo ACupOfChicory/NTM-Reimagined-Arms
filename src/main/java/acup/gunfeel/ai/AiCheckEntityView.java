@@ -109,6 +109,20 @@ final class AiCheckEntityView {
             set &= db.stance() == s && dummy.getPose() == (s == Stance.STAND ? Pose.STANDING : s == Stance.CROUCH ? Pose.CROUCHING : Pose.SWIMMING);
         }
         same("lying by BodyControl: dummy", dummy);
+        check.check("entityview: the dummy lying is crawling to its Body, as the game's isVisuallyCrawling", db.crawling() && dummy.isVisuallyCrawling());
+        // a player (the server's fake one): flying as in creative and gliding are its Body's flying and fallFlying
+        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.getMinecraft(level);
+        player.setPos(X + 0.5, y + 1, Z - 1.5);
+        player.getAbilities().flying = true;
+        player.startFallFlying();
+        same("flying and gliding: player", player);
+        Body pb = EntityBody.of(player);
+        boolean flew = pb.flying() && pb.fallFlying() && player.isFallFlying();
+        player.getAbilities().flying = false;
+        player.stopFallFlying();
+        same("landed: player", player);
+        check.check("entityview: a player flying and gliding is flying and fallFlying to its Body, and not once landed",
+                flew && !pb.flying() && !pb.fallFlying());
         check.check("entityview: BodyControl.stance sets the game's pose, the Body's stance() reads it back", set);
         control.stance(db, Stance.CROUCH);
         // BodyControl's walk: the game's navigation takes the cells as one path (a node a cell, its end the last), a stop
@@ -304,6 +318,11 @@ final class AiCheckEntityView {
         eq(w + "onGround", b.onGround(), e.onGround());
         eq(w + "inWater", b.inWater(), e.isInWater());
         eq(w + "passenger", b.passenger(), e.isPassenger());
+        // the living spread's reads (Spread): the known speed (not lastSpeed), crawling (not lying), a player's flight
+        b.knownSpeed(o);
+        eq3(w + "knownSpeed", o, e.getKnownSpeed());
+        eq(w + "crawling", b.crawling(), e.isVisuallyCrawling());
+        eq(w + "flying", b.flying(), e instanceof net.minecraft.world.entity.player.Player p && p.getAbilities().flying);
         // the same generator: from one seed, one number through the Body, the same straight from the entity
         e.getRandom().setSeed(20261120L);
         float r = b.random().nextFloat();
@@ -317,6 +336,7 @@ final class AiCheckEntityView {
         eq(w + "team", b.team(), e.getTeam() == null ? null : e.getTeam().getName());
         if (e instanceof LivingEntity le) {
             eq(w + "climbing", b.climbing(), le.onClimbable());
+            eq(w + "fallFlying", b.fallFlying(), le.isFallFlying());
             eq(w + "sleeping", b.sleeping(), le.isSleeping());
             eq(w + "lying", b.lying(), Prone.lying(le));
             eq(w + "speed", b.speed(), le.getAttributeValue(Attributes.MOVEMENT_SPEED));
@@ -358,7 +378,7 @@ final class AiCheckEntityView {
     private void livingOnly() {
         Body a = EntityBody.of(arrow), s = EntityBody.of(stand);
         check.check("entityview: on the arrow (not living) the living ones throw", throwsOn(a::climbing) && throwsOn(a::speed) && throwsOn(a::lying) && throwsOn(a::sleeping)
-                && throwsOn(a::leftHanded));
+                && throwsOn(a::leftHanded) && throwsOn(a::fallFlying));
         check.check("entityview: on the stand (living, no mob) leftHanded throws", throwsOn(s::leftHanded));
     }
 

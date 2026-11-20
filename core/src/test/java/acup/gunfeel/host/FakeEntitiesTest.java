@@ -54,6 +54,7 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public void view(float partial, double[] out) { look(out); }
         @Override public void motion(double[] out) { out[0] = 0; out[1] = -0.08; out[2] = 0; }
         @Override public void lastSpeed(double[] out) { out[0] = 0; out[1] = 0; out[2] = 0; }
+        @Override public void knownSpeed(double[] out) { out[0] = 0; out[1] = 0; out[2] = 0; }
         @Override public void box(double[] out) { out[0] = x - 0.3; out[1] = y; out[2] = z - 0.3; out[3] = x + 0.3; out[4] = y + bbHeight(); out[5] = z + 0.3; }
         @Override public float yRot() { return yRot; }
         @Override public float yHeadRot() { return yHeadRot; }
@@ -78,6 +79,9 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public String poseName() { return "standing"; }
         @Override public boolean sprinting() { return false; }
         @Override public boolean lying() { livingOnly(); return false; }
+        @Override public boolean crawling() { return stance == Stance.PRONE; }
+        @Override public boolean fallFlying() { livingOnly(); return false; }
+        @Override public boolean flying() { return false; }
         @Override public boolean alive() { return !removed; }
         @Override public boolean removed() { return removed; }
         @Override public boolean leftHanded() { livingOnly(); return false; }

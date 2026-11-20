@@ -74,6 +74,14 @@ public interface NtmGuns {
      */
     int fireTraits(Body holder, int hand, float[] out);
 
+    /**
+     * The rounds its first magazine (receiver 0's) takes, by their {@link RoundTable} numbers in NTM's order (a round
+     * twice as often as NTM lists it), into {@code out}: how many there are, -1 with no gun, no magazine, the GL-54's
+     * (its magazines hold the grenades) or where NTM threw on the way to it; more than {@code out} holds are counted,
+     * not written. The magazine is found once.
+     */
+    int rounds(Body holder, int hand, int[] out);
+
     /** NTM's aiming (the gun's own state: down its sights) */
     boolean aiming(Body holder, int hand);
 
@@ -90,6 +98,18 @@ public interface NtmGuns {
      * no inventory). The hand must hold a gun. Not caught.
      */
     void key(Body holder, int hand, int key, boolean down);
+
+    /** {@link #loadRound}'s answers */
+    int LOAD_UNLISTED = -1, LOAD_OTHER = 0, LOAD_BELT = 1, LOAD_SINGLE = 2;
+
+    /**
+     * Its first magazine loads this round ({@link RoundTable} number) from now on, the magazine found once: NTM's own
+     * number of the round looked up, then a belt has it set as its type and is locked to it (the ammo lock, the mod's
+     * value), a magazine of single rounds of one type has it set as its type. {@link #LOAD_BELT}, {@link #LOAD_SINGLE};
+     * {@link #LOAD_UNLISTED} where NTM does not list the round, {@link #LOAD_OTHER} for another magazine or none,
+     * nothing written then. The hand must hold a gun. Not caught.
+     */
+    int loadRound(Body holder, int hand, int round);
 
     /**
      * A magazine that counts single rounds of one type, found once: its rounds {@code now}, then {@code keep =
@@ -144,6 +164,16 @@ public interface NtmGuns {
         @Override
         public int fireTraits(Body holder, int hand, float[] out) {
             return NO_ROUNDS;
+        }
+
+        @Override
+        public int rounds(Body holder, int hand, int[] out) {
+            return -1;
+        }
+
+        @Override
+        public int loadRound(Body holder, int hand, int round) {
+            throw new IllegalStateException("no gun");
         }
 
         @Override

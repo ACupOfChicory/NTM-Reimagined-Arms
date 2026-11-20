@@ -3,9 +3,7 @@ package acup.gunfeel;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 // The living spread: NTM's bullet spread by the shooter's state, server settings in ntm-gunfeel-server.properties (the
@@ -29,6 +27,7 @@ import net.minecraft.world.item.ItemStack;
 //    chestplate with no line of its own. These are the balance's keys (BalanceKeys): fixed in the mod, the server's
 //    file sets them only on the stands (-Dntmgunfeel.balanceKeys=true).
 public final class Spread {
+    private static final acup.gunfeel.host.ItemTable ITEMS = CoreServices.load(acup.gunfeel.host.ItemTable.class, acup.gunfeel.host.ItemTable.MISSING);
     // per shooter: its bloom (LivingSpread.Bloom)
     private static final Map<LivingEntity, LivingSpread.Bloom> BLOOM = new WeakHashMap<>();
     // the test log: the game tick of each shooter's last logged shot (the first call in a tick is the shot)
@@ -52,41 +51,39 @@ public final class Spread {
     }
 
     public static float apply(LivingEntity e, ItemStack stack, boolean aim, float spread) {
-        String gun = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        // the choke first, on NTM's spread alone: before the mod's multipliers and what it adds (the SPAS-12, which
-        // has no aim, by spreadHipKnee)
-        spread = LivingSpread.choked(gun, aim, spread);
-        boolean crawl = e.isVisuallyCrawling();
-        boolean sneak = !crawl && e.isCrouching();
-        var mv = e.getKnownSpeed(); // blocks moved last tick; for a player, what the client last sent
-        // lying, moving adds nothing: TaCZ's lie comes before its move (InaccuracyType.getInaccuracyType)
-        float pace = crawl ? 0F : SpreadModel.pace((float) Math.sqrt(mv.x * mv.x + mv.z * mv.z));
-        float armor = PowerArmor.spread(e, gun);
-        float[] parts = new float[2];
-        float mult = LivingSpread.mult(gun, aim, crawl, sneak, pace, armor, parts);
-        float live = parts[0], stance = parts[1];
-        float air = inAir(e) ? LivingSpread.key(gun, "spreadAir", 0F) * armor : 0F;
-        float bloom = bloom(e, gun) * armor;
-        float total = SpreadModel.total(spread, mult, LivingSpread.key(gun, "spreadSpeed", 0F), live, air, bloom, stance);
-        if (acup.gunfeel.WorldLog.on(e.level()) && !QUERY.get()) {
+        // the gun's id, one String an item (ItemTable): the keys take it by its text
+        String gun = ITEMS.name(ItemNumbers.number(stack.getItem()));
+        boolean log = acup.gunfeel.WorldLog.on(e.level()) && !QUERY.get();
+        float[] l = log ? new float[7] : null;
+        float total = LivingSpread.apply(EntityBody.of(e), gun, aim, spread, SHOOTER, l);
+        if (log) {
             Long last = LOGGED.put(e, e.level().getGameTime());
             if (last == null || last != e.level().getGameTime())
-                acup.gunfeel.WorldLog.at(e.level(), -1, "spread", "who", e.getPlainTextName(), "gun", gun, "aim", aim, "crawl", crawl, "sneak", sneak,
-                        "sprint", e.isSprinting(), "air", inAir(e), "pace", pace, "armor", armor, "base", spread, "mult", mult, "bloom", bloom, "total", total);
+                acup.gunfeel.WorldLog.at(e.level(), -1, "spread", "who", e.getPlainTextName(), "gun", gun, "aim", aim, "crawl", l[5] != 0F,
+                        "sneak", l[6] != 0F, "sprint", e.isSprinting(), "air", inAir(e), "pace", l[1], "armor", l[2], "base", l[0], "mult", l[3],
+                        "bloom", l[4], "total", total);
         }
         return total;
     }
 
     /** in the air for the spread (spreadAir); the balance stand checks its shooter is not, a click of a share's pass */
     static boolean inAir(LivingEntity e) {
-        if (e.onGround() || e.isPassenger() || e.onClimbable() || e.isInWater() || e.isFallFlying()) return false;
-        return !(e instanceof Player p && p.getAbilities().flying);
+        return LivingSpread.inAir(EntityBody.of(e));
     }
 
-    // NTM works the spread out once per projectile, so the first call in a tick is the shot and the rest are its pellets
-    private static float bloom(LivingEntity e, String gun) {
-        float perShot = LivingSpread.key(gun, "spreadBloom", 0F);
-        if (perShot <= 0F || e.level().isClientSide()) return 0F;
-        return BLOOM.computeIfAbsent(e, k -> new LivingSpread.Bloom()).shot(gun, e.level().getGameTime(), perShot);
-    }
+    // the shooter's power armour and bloom (LivingSpread.Shooter): by the Body's entity, nothing made per call
+    private static final LivingSpread.Shooter SHOOTER = new LivingSpread.Shooter() {
+        @Override
+        public float armor(acup.gunfeel.host.Body b, String gun) {
+            return PowerArmor.spread((LivingEntity) ((EntityBody) b).entity(), gun);
+        }
+
+        // per shooter on the server (a client's crosshair shows none)
+        @Override
+        public float bloom(acup.gunfeel.host.Body b, String gun, float perShot) {
+            LivingEntity e = (LivingEntity) ((EntityBody) b).entity();
+            if (e.level().isClientSide()) return 0F;
+            return BLOOM.computeIfAbsent(e, k -> new LivingSpread.Bloom()).shot(gun, e.level().getGameTime(), perShot);
+        }
+    };
 }
