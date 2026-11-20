@@ -6,10 +6,6 @@ import java.util.List;
 import org.joml.Matrix3x2fStack;
 
 import com.hbm.items.weapon.sedna.BulletConfig;
-import com.hbm.items.weapon.sedna.GunConfig;
-import com.hbm.items.weapon.sedna.ItemGunBaseNT;
-import com.hbm.items.weapon.sedna.Receiver;
-import com.hbm.items.weapon.sedna.mags.IMagazine;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -45,31 +41,37 @@ public final class RadialMenu {
         return types != null;
     }
 
-    // the choices for that gun: what its first magazine takes and the inventory or its bags hold
-    static List<BulletConfig> choices(ItemStack stack) {
+    // the choices' RoundTable numbers (AmmoChoices), what choices() last read
+    private static final int[] CHOICES = new int[MAX];
+    private static int chosen;
+
+    // the choices for the gun in the main hand: what its first magazine takes and the inventory or its bags hold
+    static List<BulletConfig> choices() {
         List<BulletConfig> out = new ArrayList<>();
-        IMagazine<?> mag = AmmoLock.primary(stack);
         var player = Minecraft.getInstance().player;
-        if (mag == null || player == null) return out;
+        chosen = 0;
+        if (player == null) return out;
+        chosen = AmmoChoices.choices(EntityBody.of(player), CHOICES);
         // the GL-54: one entry per distinct contents of the magazines in the inventory (only magazines, not kinds)
-        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine) {
+        if (chosen == acup.gunfeel.host.NtmGuns.ROUNDS_GL54) {
             var inv = player.getInventory();
             for (var e : acup.gunfeel.gl54.MagLogic.entries(acup.gunfeel.gl54.GrenadeType.magazines(inv), acup.gunfeel.gl54.GrenadeType.counts(inv))) {
                 if (out.size() < MAX) out.add(acup.gunfeel.gl54.GrenadeType.entry(e.contents(), e.magazines()));
             }
             return out;
         }
-        for (BulletConfig c : AmmoLock.accepted(mag)) {
-            if (out.size() < MAX && !out.contains(c) && AmmoLock.count(c, player.getInventory()) != 0) out.add(c);
-        }
+        for (int i = 0; i < chosen; i++) out.add(RoundNumbers.round(CHOICES[i]));
         return out;
     }
 
+    // stack: the main hand's (every caller's), the one choices() reads
     static boolean open(ItemStack stack) {
-        List<BulletConfig> list = choices(stack);
+        List<BulletConfig> list = choices();
         if (list.isEmpty()) return false;
+        boolean gl = chosen == acup.gunfeel.host.NtmGuns.ROUNDS_GL54;
+        var holder = EntityBody.of(Minecraft.getInstance().player);
         types = list;
-        stats = statsFor(stack, list);
+        stats = AmmoChoices.stats(holder, CHOICES, list.size(), gl);
         gun = stack;
         if (TestLog.client) for (int i = 0; i < list.size(); i++) {
             AmmoStats a = stats[i];
@@ -77,38 +79,18 @@ public final class RadialMenu {
                     "damage", a == null ? null : a.damage(), "projectiles", a == null ? null : a.projectiles(), "perShot", a == null ? null : a.perShot(),
                     "head", a == null || a.headshotMult() <= 1F ? null : a.headshot(), "armored", a == null ? null : a.perShotArmored());
         }
-        IMagazine<?> mag = AmmoLock.primary(stack);
-        Object t = mag == null ? null : mag.getType(stack, Minecraft.getInstance().player.getInventory());
         // the GL-54: the kind of the magazine in the gun (the barrel's grenade can be the old kind)
         // the entry with the contents the gun is loaded with, else what R would take
-        if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine grenades) {
+        if (gl) {
+            var grenades = (acup.gunfeel.gl54.GrenadeMagazine) AmmoLock.primary(stack);
             var gm = acup.gunfeel.gl54.GrenadeMagazine.gun(stack);
-            t = acup.gunfeel.gl54.GrenadeType.entry(gm.mag().isEmpty() ? grenades.wanted(stack, Minecraft.getInstance().player.getInventory()) : gm.mag(), 0);
+            current = acup.gunfeel.gl54.GrenadeType.entry(gm.mag().isEmpty() ? grenades.wanted(stack, Minecraft.getInstance().player.getInventory()) : gm.mag(), 0);
+        } else {
+            int t = AmmoChoices.current(holder);
+            current = t == 0 ? null : RoundNumbers.round(t);
         }
-        current = t instanceof BulletConfig b ? b : null;
         RadialDial.open(list.size(), GunClock.nanos());
         return true;
-    }
-
-    // the numbers of each choice from that gun, worked out once per opening; null where the gun cannot tell
-    static AmmoStats[] statsFor(ItemStack stack, List<BulletConfig> list) {
-        AmmoStats[] out = new AmmoStats[list.size()];
-        if (!(stack.getItem() instanceof ItemGunBaseNT gun) || gun.getConfigCount() == 0) return out;
-        try {
-            GunConfig cfg = gun.getConfig(stack, 0);
-            Receiver rec = cfg.getReceivers(stack)[0];
-            float wear = AmmoStats.wear(ItemGunBaseNT.getWear(stack, 0), cfg.getDurability(stack));
-            float base = rec.getBaseDamage(stack), split = rec.getSplitProjectiles(stack);
-            for (int i = 0; i < out.length; i++) {
-                BulletConfig b = list.get(i);
-                if (b instanceof acup.gunfeel.gl54.GrenadeType) continue; // its own numbers (glStats), not a bullet's
-                out[i] = AmmoStats.of(base, wear, split, b.damageMult, b.projectilesMin, b.projectilesMax, b.headshotMult,
-                        b.armorThresholdNegation, b.armorPiercingPercent);
-            }
-        } catch (RuntimeException e) {
-            // a gun without receivers: no numbers
-        }
-        return out;
     }
 
     static void close() {

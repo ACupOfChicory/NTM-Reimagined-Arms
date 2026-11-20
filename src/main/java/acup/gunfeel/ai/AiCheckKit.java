@@ -13,6 +13,7 @@ import com.hbm.items.weapon.sedna.mags.IMagazine;
 import com.hbm.items.weapon.sedna.mags.MagazineBelt;
 
 import acup.gunfeel.AmmoLock;
+import acup.gunfeel.AmmoStats;
 import acup.gunfeel.BalanceFinal;
 import acup.gunfeel.BalanceGuns;
 import net.minecraft.commands.CommandSource;
@@ -227,6 +228,7 @@ final class AiCheckKit {
         TacticalMap.of(level).want(X0 + SIZE / 2, y, Z0 + SIZE / 2, SIZE / 2 + 4, 6);
 
         loads();
+        menus();
 
         // kits that make no sense: told in words, no mob made
         int before = AiBots.all(level).size();
@@ -404,6 +406,84 @@ final class AiCheckKit {
         check.check("kit: AiKitBase.load is AiKitCommand.load as it was on each NTM gun and round, the words and the stack's bytes ("
                 + guns + " guns, " + cases + " loads" + (differ.isEmpty() ? ")" : "): " + differ.subList(0, Math.min(8, differ.size()))),
                 differ.isEmpty() && loaded > guns / 2);
+    }
+
+    // AmmoChoices (NtmGuns.menuRounds, reserve, choiceStats, roundStats, loadedRound) and RadialMenu's way from its
+    // numbers to the menu's entries against RadialMenu.choices, statsFor and open's type as they were (copied below), on
+    // a fake player holding each of NTM's guns in the registry with: no ammo, each round its magazine takes, every other
+    // one, and each with the gun loaded with the last of them: the same entries, figures and type, and the stack after
+    // them the same byte for byte
+    private void menus() {
+        var player = net.neoforged.neoforge.common.util.FakePlayerFactory.get(level,
+                new com.mojang.authlib.GameProfile(java.util.UUID.nameUUIDFromBytes("aiCheckMenu".getBytes()), "aiCheckMenu"));
+        acup.gunfeel.host.Body body = acup.gunfeel.EntityBody.of(player);
+        int[] nums = new int[16]; // RadialDial.MAX
+        int guns = 0, cases = 0, entries = 0, typed = 0, most = 0;
+        List<String> differ = new ArrayList<>();
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (!(item instanceof ItemGunBaseNT)) continue;
+            guns++;
+            String id = BuiltInRegistries.ITEM.getKey(item).toString();
+            Map<String, BulletConfig> takes = oldRounds(new ItemStack(item));
+            List<BulletConfig> all = new ArrayList<>(takes.values());
+            for (int s = 0; s < 4; s++) {
+                player.getInventory().clearContent();
+                // the old reads on one stack, the new on another made the same (NTM's reads write a belt's stack the first time)
+                ItemStack stack = new ItemStack(item), other = new ItemStack(item);
+                if (s == 3 && !takes.isEmpty()) {
+                    String last = new ArrayList<>(takes.keySet()).get(takes.size() - 1);
+                    oldLoad(stack, last);
+                    oldLoad(other, last);
+                }
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, stack);
+                for (int i = 0; i < all.size(); i++) {
+                    if (s == 0 || s == 2 && i % 2 == 1) continue;
+                    MenuWas.give(player, all.get(i));
+                }
+                List<BulletConfig> was = MenuWas.choices(stack, player);
+                AmmoStats[] wasStats = MenuWas.statsFor(stack, was);
+                Object wasType = MenuWas.type(stack, player);
+                byte[] wasBytes = bytes(stack);
+                player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, other);
+                stack = other;
+                int n = acup.gunfeel.AmmoChoices.choices(body, nums);
+                boolean gl = n == acup.gunfeel.host.NtmGuns.ROUNDS_GL54;
+                List<BulletConfig> now = new ArrayList<>();
+                if (gl) {
+                    var inv = player.getInventory();
+                    for (var e : acup.gunfeel.gl54.MagLogic.entries(acup.gunfeel.gl54.GrenadeType.magazines(inv), acup.gunfeel.gl54.GrenadeType.counts(inv)))
+                        if (now.size() < 16) now.add(acup.gunfeel.gl54.GrenadeType.entry(e.contents(), e.magazines()));
+                } else for (int i = 0; i < n; i++) now.add(acup.gunfeel.RoundNumbers.round(nums[i]));
+                AmmoStats[] nowStats = was.isEmpty() ? wasStats : acup.gunfeel.AmmoChoices.stats(body, nums, now.size(), gl);
+                Object nowType;
+                if (gl) {
+                    var grenades = (acup.gunfeel.gl54.GrenadeMagazine) AmmoLock.primary(stack);
+                    var gm = acup.gunfeel.gl54.GrenadeMagazine.gun(stack);
+                    nowType = acup.gunfeel.gl54.GrenadeType.entry(gm.mag().isEmpty() ? grenades.wanted(stack, player.getInventory()) : gm.mag(), 0);
+                } else {
+                    int t = acup.gunfeel.AmmoChoices.current(body);
+                    nowType = t == 0 ? null : acup.gunfeel.RoundNumbers.round(t);
+                }
+                cases++;
+                entries += was.size();
+                if (wasType != null) typed++;
+                most = Math.max(most, all.size());
+                String what = (was.equals(now) ? "" : "L") + (java.util.Arrays.equals(wasStats, nowStats) ? "" : "S")
+                        + (java.util.Objects.equals(wasType, nowType) ? "" : "T(" + name(wasType) + "/" + name(nowType) + ")")
+                        + (java.util.Arrays.equals(wasBytes, bytes(stack)) ? "" : "B");
+                if (!what.isEmpty()) differ.add(id + " #" + s + " " + what + " (" + was.size() + " / " + now.size() + ")");
+            }
+        }
+        player.getInventory().clearContent();
+        check.out("     kit: menus compared: " + guns + " guns, " + cases + " inventories, " + entries + " entries, " + typed
+                + " with a type, most rounds a gun takes " + most + ", " + differ.size() + " differ");
+        check.check("kit: AmmoChoices is RadialMenu's choices, figures and type as they were on each NTM gun and inventory ("
+                + guns + " guns, " + cases + " inventories" + (differ.isEmpty() ? ")" : "): " + differ.subList(0, Math.min(8, differ.size()))),
+                differ.isEmpty() && entries > guns && typed > guns);
+    }
+
+    private static String name(Object round) {
+        return round instanceof BulletConfig b ? BalanceGuns.ammoName(b) + "@" + System.identityHashCode(b) : String.valueOf(round);
     }
 
     private byte[] bytes(ItemStack s) {

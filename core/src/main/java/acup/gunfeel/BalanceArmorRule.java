@@ -120,6 +120,18 @@ public final class BalanceArmorRule {
         return !path.equals("physical") || !byCreature;
     }
 
+    /** {@link #SHOT_TYPES} as NTM's type keys, {@code "hbm:<path>"} */
+    static final java.util.Set<String> SHOT_NAMES = SHOT_TYPES.stream().map(p -> "hbm:" + p).collect(java.util.stream.Collectors.toUnmodifiableSet());
+
+    /**
+     * {@link #shotType} by the type's key as text, {@code "namespace:path"} (neither has a ':'): nothing cut out of it
+     * at each hit
+     */
+    public static boolean shotName(String name, boolean byCreature) {
+        if (!SHOT_NAMES.contains(name)) return false;
+        return !name.equals("hbm:physical") || !byCreature;
+    }
+
     /** a weak blast's power floor reaches c·S at this raw damage; a blast's tail below it gets a share as small */
     static final float BLAST_LOW_REF = 7F;
 

@@ -267,4 +267,75 @@ public final class AmmoLock {
         if (!left.isEmpty()) inv.add(left);
         if (!left.isEmpty()) player.drop(left, false);
     }
+
+    /** NtmGuns' reads of the ammo menu (NtmGunsPort): RadialMenu's reads as they were, on the holder's hand */
+    public static final class Reads {
+        private Reads() {
+        }
+
+        private static ItemStack stack(acup.gunfeel.host.Body holder, int hand) {
+            if (!(EntityBody.entity(holder) instanceof net.minecraft.world.entity.LivingEntity l)) return ItemStack.EMPTY;
+            return hand == acup.gunfeel.host.Body.MAIN_HAND ? l.getMainHandItem() : l.getOffhandItem();
+        }
+
+        // a player's inventory; none for a mob
+        private static Container inventory(acup.gunfeel.host.Body holder) {
+            return EntityBody.entity(holder) instanceof net.minecraft.world.entity.player.Player p ? p.getInventory() : null;
+        }
+
+        // RadialMenu.choices' magazine and its rounds
+        public static int menuRounds(acup.gunfeel.host.Body holder, int hand, int[] out) {
+            IMagazine<?> mag = primary(stack(holder, hand));
+            if (mag == null) return -1;
+            if (mag instanceof acup.gunfeel.gl54.GrenadeMagazine) return acup.gunfeel.host.NtmGuns.ROUNDS_GL54;
+            List<BulletConfig> accepted = accepted(mag);
+            int n = accepted.size();
+            for (int i = 0; i < n && i < out.length; i++) out[i] = RoundNumbers.number(accepted.get(i));
+            return n;
+        }
+
+        // RadialMenu.choices' count
+        public static int reserve(acup.gunfeel.host.Body holder, int round) {
+            Container inv = inventory(holder);
+            return inv == null ? 0 : count(RoundNumbers.round(round), inv);
+        }
+
+        // RadialMenu.open's type: what the first magazine has with the holder's inventory
+        public static int loadedRound(acup.gunfeel.host.Body holder, int hand) {
+            ItemStack stack = stack(holder, hand);
+            IMagazine<?> mag = primary(stack);
+            Object t = mag == null ? null : mag.getType(stack, inventory(holder));
+            return t instanceof BulletConfig b ? RoundNumbers.number(b) : 0;
+        }
+
+        // RadialMenu.statsFor's reads of the gun, in its order, under its catch
+        public static boolean choiceStats(acup.gunfeel.host.Body holder, int hand, float[] out) {
+            ItemStack stack = stack(holder, hand);
+            if (!(stack.getItem() instanceof ItemGunBaseNT gun) || gun.getConfigCount() == 0) return false;
+            try {
+                GunConfig cfg = gun.getConfig(stack, 0);
+                Receiver rec = cfg.getReceivers(stack)[0];
+                out[acup.gunfeel.host.NtmGuns.C_WEAR] = ItemGunBaseNT.getWear(stack, 0);
+                out[acup.gunfeel.host.NtmGuns.C_DURABILITY] = cfg.getDurability(stack);
+                out[acup.gunfeel.host.NtmGuns.C_BASE_DAMAGE] = rec.getBaseDamage(stack);
+                out[acup.gunfeel.host.NtmGuns.C_SPLIT] = rec.getSplitProjectiles(stack);
+                return true;
+            } catch (RuntimeException e) {
+                // a gun without receivers: no numbers
+                return false;
+            }
+        }
+
+        // RadialMenu.statsFor's reads of a round
+        public static void roundStats(int round, float[] out) {
+            BulletConfig b = RoundNumbers.round(round);
+            out[acup.gunfeel.host.NtmGuns.S_DAMAGE_MULT] = b.damageMult;
+            out[acup.gunfeel.host.NtmGuns.S_PROJECTILES_MIN] = b.projectilesMin;
+            out[acup.gunfeel.host.NtmGuns.S_PROJECTILES_MAX] = b.projectilesMax;
+            out[acup.gunfeel.host.NtmGuns.S_HEADSHOT_MULT] = b.headshotMult;
+            out[acup.gunfeel.host.NtmGuns.S_THRESHOLD_NEGATION] = b.armorThresholdNegation;
+            out[acup.gunfeel.host.NtmGuns.S_ARMOR_PIERCING] = b.armorPiercingPercent;
+        }
+    }
+
 }
