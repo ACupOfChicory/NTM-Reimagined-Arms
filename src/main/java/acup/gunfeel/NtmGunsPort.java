@@ -45,4 +45,12 @@ final class NtmGunsPort extends acup.gunfeel.ai.AiGunner.Guns {
             stack = hand == Body.MAIN_HAND ? l.getMainHandItem() : l.getOffhandItem();
         return EuphImmunity.reachOf(stack);
     }
+
+    @Override
+    public int maxDelay(Body holder, int hand) {
+        net.minecraft.world.item.ItemStack stack = net.minecraft.world.item.ItemStack.EMPTY;
+        if (EntityBody.entity(holder) instanceof net.minecraft.world.entity.LivingEntity l)
+            stack = hand == Body.MAIN_HAND ? l.getMainHandItem() : l.getOffhandItem();
+        return DamageCap.Reads.maxDelay(stack);
+    }
 }

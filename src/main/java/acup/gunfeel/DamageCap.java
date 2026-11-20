@@ -9,6 +9,9 @@ import java.util.WeakHashMap;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.host.Body;
+import acup.gunfeel.host.NtmGuns;
+
 import com.hbm.entity.projectile.EntityBulletBeamBase;
 import com.hbm.entity.projectile.EntityThrowableNT;
 import com.hbm.extprop.HbmPlayerProps;
@@ -85,25 +88,11 @@ public final class DamageCap extends DamageCapBase {
     }
 
     static boolean on() {
-        return ReaimTimes.flag("damageCap", true);
+        return onOf();
     }
 
     static DamageCapRule.Limits limits() {
-        var d = DamageCapRule.Limits.DEFAULT;
-        return new DamageCapRule.Limits(share("damageCapClick", d.click()), share("damageCapHead", d.head()), share("damageCapWindow", d.window()),
-                ticks("damageCapWindowTicks", d.windowTicks()), share("damageCapSniperHead", d.sniperHead()), ticks("damageCapSniperDelay", d.sniperDelay()));
-    }
-
-    /** a share of max health: above 0, a number (else the default) */
-    private static float share(String key, float def) {
-        float v = ReaimTimes.number(key, def);
-        return Float.isFinite(v) && v > 0F ? v : def;
-    }
-
-    /** ticks: 1 or more (else the default) */
-    private static int ticks(String key, int def) {
-        float v = ReaimTimes.number(key, def);
-        return Float.isFinite(v) && v >= 1F ? Math.round(v) : def;
+        return limitsOf();
     }
 
     // ---------------------------------------------------------------- who fired it
@@ -120,15 +109,11 @@ public final class DamageCap extends DamageCapBase {
 
     /** the wait between shots of the gun in the shooter's main hand (NTM's guns fire from there; akimbo guns are one item) */
     static int gunDelay(LivingEntity shooter) {
-        int out = 0;
-        ItemStack stack = shooter.getMainHandItem();
-        if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return 0;
-        for (int i = 0; i < gun.getConfigCount(); i++) {
-            GunConfig config = gun.getConfig(stack, i);
-            if (config == null) continue;
-            for (Receiver r : config.getReceivers(stack)) out = Math.max(out, r.getDelayAfterFire(stack));
-        }
-        return out;
+        return GunsPort.GUNS.maxDelay(EntityBody.of(shooter), Body.MAIN_HAND);
+    }
+
+    private static final class GunsPort {
+        static final NtmGuns GUNS = CoreServices.load(NtmGuns.class, NtmGuns.NONE);
     }
 
     private static void joined(EntityJoinLevelEvent e) {
@@ -160,6 +145,17 @@ public final class DamageCap extends DamageCapBase {
     /** NTM's reads of a hurt for core (HurtsPort): the cap's (CORE), the types it exempts */
     static final class Reads {
         private Reads() {
+        }
+
+        static int maxDelay(ItemStack stack) {
+            int out = 0;
+            if (!(stack.getItem() instanceof ItemGunBaseNT gun)) return 0;
+            for (int i = 0; i < gun.getConfigCount(); i++) {
+                GunConfig config = gun.getConfig(stack, i);
+                if (config == null) continue;
+                for (Receiver r : config.getReceivers(stack)) out = Math.max(out, r.getDelayAfterFire(stack));
+            }
+            return out;
         }
 
         static boolean is(DamageSource source, int what) {
