@@ -89,6 +89,7 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public void box(double[] out) { out[0] = x - 0.3; out[1] = y; out[2] = z - 0.3; out[3] = x + 0.3; out[4] = y + bbHeight(); out[5] = z + 0.3; }
         @Override public float yRot() { return yRot; }
         @Override public float yHeadRot() { return yHeadRot; }
+        @Override public float yBodyRot() { livingOnly(); return yBodyRot; }
         @Override public float xRot() { return xRot; }
         @Override public boolean onGround() { return true; }
         @Override public boolean inWater() { return false; }
@@ -210,6 +211,11 @@ class FakeEntitiesTest extends EntityViewContract {
     @Override
     protected int lastHurtTime(int id) {
         return level.byId.get(id).lastHurtTime;
+    }
+
+    @Override
+    protected float yBodyRot(int id) {
+        return level.byId.get(id).yBodyRot;
     }
 
     /** the fakes' control: a walk is the cells given, done once stopped; the point wanted kept; never stuck */

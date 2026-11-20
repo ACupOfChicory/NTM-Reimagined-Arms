@@ -31,7 +31,7 @@ import net.neoforged.neoforge.registries.NeoForgeRegistries;
  *                    pose layer walks it with its gun ready, or strolls with it lowered (pose-contract §5)
  */
 public record AiPose(byte stance, byte lean, byte prevLean, int leanTick, byte arms, byte action, int actionTick, short actionTicks,
-        byte alert) {
+        byte alert) implements LeanPose {
     public static final byte CALM = 0, FIGHT = 1;
 
     /** calm */

@@ -1,8 +1,13 @@
 package acup.gunfeel.ai;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import acup.gunfeel.ModelBox;
 import acup.gunfeel.Vec3d;
+import acup.gunfeel.host.Body;
 
 class AiLeanBaseTest {
     private static final byte[] STANCES = {Stance.STAND, Stance.CROUCH, Stance.PRONE, -1};
@@ -17,6 +23,219 @@ class AiLeanBaseTest {
     private static final float[] YAWS = {-180F, -135F, -60F, -0F, 0F, 37F, 90F, 135F, 360F};
     private static final double HIP = 1.501 - 12.0 / 16.0;
     private static final double[] HEIGHTS = {-0.2, 0, 0.4, Math.nextDown(HIP), HIP, Math.nextUp(HIP), 1.27, 1.74, 2.13};
+
+    private record Pose(byte stance, byte lean, byte prevLean, int leanTick) implements LeanPose {
+    }
+
+    private static final class Live implements AiLeanBase.Staff {
+        final Object level = new Object();
+        final List<String> calls = new ArrayList<>();
+        boolean living = true, enabled = true;
+        long now = 14, caught = Long.MIN_VALUE;
+        float yaw = 37F, height = 1.74F;
+        double x = -12.37, y = 65.13, z = 0.29;
+        LeanPose pose = new Pose(Stance.STAND, (byte) 100, (byte) 0, 10);
+        LeanPose nextPose;
+        int poseReads;
+        List<ModelBox> written;
+        float writtenYaw;
+        final Body body = (Body) Proxy.newProxyInstance(Body.class.getClassLoader(), new Class<?>[] {Body.class}, (p, m, a) -> {
+            calls.add(m.getName());
+            return switch (m.getName()) {
+                case "living" -> living;
+                case "x" -> x;
+                case "y" -> y;
+                case "z" -> z;
+                case "yBodyRot" -> yaw;
+                case "eyeHeight" -> height;
+                default -> throw new AssertionError(m.getName());
+            };
+        });
+
+        @Override public LeanPose pose(Body b) {
+            assertSame(body, b);
+            calls.add("pose");
+            poseReads++;
+            LeanPose answer = pose;
+            if (nextPose != null) { pose = nextPose; nextPose = null; }
+            return answer;
+        }
+        @Override public long gameTime(Body b) { assertSame(body, b); calls.add("time"); return now; }
+        @Override public boolean hitsEnabled() { calls.add("enabled"); return enabled; }
+        @Override public long caught(Object l, Body b) { assertSame(level, l); assertSame(body, b); calls.add("caught"); return caught; }
+        @Override public void forget(Object l, Body b, long put) {
+            assertSame(level, l); assertSame(body, b); assertEquals(caught, put);
+            calls.add("forget"); caught = Long.MIN_VALUE;
+        }
+        @Override public void put(Object l, Body b, float yaw, List<ModelBox> boxes) {
+            assertSame(level, l); assertSame(body, b);
+            calls.add("put"); written = boxes; writtenYaw = yaw;
+        }
+    }
+
+    @Test
+    void mayShortCircuitsTheSwitch() {
+        Live s = new Live();
+        boolean before = AiLeanBase.on;
+        try {
+            AiLeanBase.on = false;
+            assertFalse(AiLeanBase.may(s));
+            assertTrue(s.calls.isEmpty());
+            AiLeanBase.on = true;
+            assertTrue(AiLeanBase.may(s));
+            s.enabled = false;
+            assertFalse(AiLeanBase.may(s));
+            assertEquals(List.of("enabled", "enabled"), s.calls);
+        } finally {
+            AiLeanBase.on = before;
+        }
+    }
+
+    @Test
+    void fracTransitionsAndShortCircuitsMatchFormerBits() {
+        Live s = new Live();
+        s.living = false;
+        assertEquals(0F, AiLeanBase.frac(s, s.body));
+        assertEquals(List.of("living"), s.calls);
+        s.living = true;
+        s.pose = new Pose(Stance.STAND, (byte) 0, (byte) 0, 10);
+        s.calls.clear();
+        assertEquals(0F, AiLeanBase.frac(s, s.body));
+        assertEquals(List.of("living", "pose"), s.calls);
+        for (int prev : new int[] {-100, 0, 37, 100}) for (int lean : new int[] {-100, 0, 63, 100})
+            for (long now : new long[] {9, 10, 11, 12, 13, 14, 15}) {
+                s.pose = new Pose(Stance.STAND, (byte) lean, (byte) prev, 10);
+                s.now = now;
+                s.calls.clear();
+                assertEquals(Float.floatToRawIntBits(Former.leanFrac((byte) prev, (byte) lean, 10, now, 0F)),
+                        Float.floatToRawIntBits(AiLeanBase.frac(s, s.body)));
+                assertEquals(prev == 0 && lean == 0 ? List.of("living", "pose") : List.of("living", "pose", "time"), s.calls);
+            }
+    }
+
+    @Test
+    void eyesAndPointsKeepFormerBitsAndReadCounts() {
+        Live s = new Live();
+        Probe maker = new Probe();
+        for (byte stance : STANCES) for (float lean : LEANS) for (float yaw : YAWS) for (double up : HEIGHTS) {
+            s.pose = new Pose(stance, (byte) (lean * 100), (byte) 0, 10);
+            s.yaw = yaw;
+            float f = Former.leanFrac((byte) 0, s.pose.lean(), 10, s.now, 0F);
+            int reads = s.poseReads, made = maker.calls;
+            var eye = AiLeanBase.eye(s, s.body, maker);
+            assertEquals(reads + (f == 0F ? 1 : 2), s.poseReads);
+            if (f == 0F) { assertNull(eye); assertEquals(made, maker.calls); }
+            else {
+                Vec3d offset = Former.eyeOffset(stance, f, yaw, s.height);
+                maker.check(new Vec3d(s.x + offset.x(), s.y + offset.y(), s.z + offset.z()), made + 1);
+            }
+            reads = s.poseReads; made = maker.calls;
+            var shift = AiLeanBase.eyeShift(s, s.body, maker);
+            assertEquals(reads + (f == 0F ? 1 : 2), s.poseReads);
+            if (f == 0F) { assertNull(shift); assertEquals(made, maker.calls); }
+            else {
+                Vec3d offset = Former.eyeOffset(stance, f, yaw, s.height);
+                maker.check(new Vec3d(offset.x() - 0, offset.y() - s.height, offset.z() - 0), made + 1);
+            }
+            reads = s.poseReads; made = maker.calls;
+            AiLeanBase.point(s, s.body, up, maker);
+            assertEquals(reads + (f == 0F ? 1 : 2), s.poseReads);
+            Vec3d offset = Former.leanPoint(0, up, 0, stance, f, yaw);
+            Vec3d expected = f == 0F ? new Vec3d(s.x, s.y + up, s.z)
+                    : new Vec3d(s.x + offset.x(), s.y + offset.y(), s.z + offset.z());
+            maker.check(expected, made + 1);
+        }
+        s.living = false;
+        s.calls.clear();
+        assertNull(AiLeanBase.eye(s, s.body, maker));
+        assertEquals(List.of("living"), s.calls);
+    }
+
+    @Test
+    void poseReplacementIsReadOnEveryCall() {
+        Live s = new Live();
+        assertEquals(1F, AiLeanBase.frac(s, s.body));
+        s.pose = new Pose(Stance.CROUCH, (byte) -100, (byte) 0, 10);
+        assertEquals(-1F, AiLeanBase.frac(s, s.body));
+        Probe maker = new Probe();
+        AiLeanBase.eye(s, s.body, maker);
+        Vec3d offset = Former.eyeOffset(Stance.CROUCH, -1F, s.yaw, s.height);
+        maker.check(new Vec3d(s.x + offset.x(), s.y + offset.y(), s.z + offset.z()), 1);
+        s.pose = new Pose(Stance.STAND, (byte) 100, (byte) 0, 14);
+        assertNull(AiLeanBase.eye(s, s.body, maker));
+        s.now++;
+        assertEquals(0.25F, AiLeanBase.frac(s, s.body));
+        AiLeanBase.eye(s, s.body, maker);
+        offset = Former.eyeOffset(Stance.STAND, 0.25F, s.yaw, s.height);
+        maker.check(new Vec3d(s.x + offset.x(), s.y + offset.y(), s.z + offset.z()), 2);
+    }
+
+    @Test
+    void secondPoseReadIsLiveWithinOneCall() {
+        Live s = new Live();
+        s.nextPose = new Pose(Stance.CROUCH, (byte) -100, (byte) 0, 10);
+        Probe maker = new Probe();
+        AiLeanBase.eye(s, s.body, maker);
+        assertEquals(2, s.poseReads);
+        assertEquals(Stance.CROUCH, s.pose.stance());
+        assertTrue(s.calls.indexOf("time") < s.calls.lastIndexOf("pose"));
+        s.calls.clear();
+        s.nextPose = new Pose(Stance.PRONE, (byte) 0, (byte) 0, 10);
+        AiLeanBase.boxes(s, s.level, s.body, false, Long.MIN_VALUE, 14);
+        assertNull(s.written);
+        assertTrue(s.calls.indexOf("caught") < s.calls.lastIndexOf("pose"));
+    }
+
+    @Test
+    void serverBoxesMatrixKeepsOwnershipFreshnessAndOrder() {
+        for (boolean enabled : new boolean[] {false, true}) for (byte stance : STANCES)
+            for (int lean : new int[] {0, -100, 100}) for (boolean aim : new boolean[] {false, true})
+                for (long put : new long[] {Long.MIN_VALUE, 14})
+                    for (long caught : new long[] {Long.MIN_VALUE, 7, 8, 9, 10, 14, 20}) {
+                        Live s = new Live();
+                        s.enabled = enabled; s.caught = caught;
+                        s.pose = new Pose(stance, (byte) lean, (byte) 0, 10);
+                        long answer = AiLeanBase.boxes(s, s.level, s.body, aim, put, 14);
+                        if (put == Long.MIN_VALUE && lean == 0) {
+                            assertEquals(Long.MIN_VALUE, answer);
+                            assertEquals(List.of("living", "pose"), s.calls);
+                            continue;
+                        }
+                        boolean mine = put != Long.MIN_VALUE && caught == put;
+                        List<String> expected = new ArrayList<>(List.of("living", "pose"));
+                        if (lean != 0) expected.add("time");
+                        expected.add("caught");
+                        if (lean != 0) expected.add("enabled");
+                        if (lean != 0 && enabled) expected.add("pose");
+                        boolean active = lean != 0 && enabled && stance == Stance.STAND;
+                        if (!active) {
+                            if (mine) expected.add("forget");
+                            assertEquals(Long.MIN_VALUE, answer);
+                        } else if (!mine && caught != Long.MIN_VALUE && 14 - caught <= 5) {
+                            assertEquals(Long.MIN_VALUE, answer);
+                        } else {
+                            expected.addAll(List.of("yBodyRot", "yBodyRot", "put"));
+                            assertEquals(14, answer);
+                            assertEquals(Former.boxes(Stance.STAND, aim, lean / 100F, s.yaw), s.written);
+                            assertEquals(s.yaw, s.writtenYaw);
+                        }
+                        assertEquals(expected, s.calls, "put " + put + " caught " + caught + " stance " + stance);
+                        if (!expected.contains("put")) assertNull(s.written);
+                        assertEquals(expected.contains("forget") ? Long.MIN_VALUE : caught, s.caught);
+                    }
+    }
+
+    @Test
+    void dropForgetsOnlyItsOwnAndAlwaysReturnsNone() {
+        for (long put : new long[] {Long.MIN_VALUE, -1, 0, 14})
+            for (long caught : new long[] {Long.MIN_VALUE, -1, 0, 14, 15}) {
+                Live s = new Live(); s.caught = caught;
+                assertEquals(Long.MIN_VALUE, AiLeanBase.drop(s, s.level, s.body, put));
+                boolean mine = put != Long.MIN_VALUE && caught == put;
+                assertEquals(put == Long.MIN_VALUE ? List.of() : mine ? List.of("caught", "forget") : List.of("caught"), s.calls);
+                assertEquals(mine ? Long.MIN_VALUE : caught, s.caught);
+            }
+    }
 
     @Test
     void partTablesKeepEveryField() throws ReflectiveOperationException {

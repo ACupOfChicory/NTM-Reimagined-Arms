@@ -97,6 +97,7 @@ public final class EntityBody implements Body {
 
     @Override public float yRot() { return e.getYRot(); }
     @Override public float yHeadRot() { return e.getYHeadRot(); }
+    @Override public float yBodyRot() { return ((LivingEntity) e).yBodyRot; }
     @Override public float xRot() { return e.getXRot(); }
     @Override public boolean onGround() { return e.onGround(); }
     @Override public boolean inWater() { return e.isInWater(); }
