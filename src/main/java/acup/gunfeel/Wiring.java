@@ -51,6 +51,7 @@ public final class Wiring implements Ports {
         put(acup.gunfeel.host.NtmGuns.class, new acup.gunfeel.ai.AiGunner.Guns());
         put(acup.gunfeel.host.ItemTable.class, new ItemNames());
         put(acup.gunfeel.host.EntityTypeTable.class, new EntityTypeNames());
+        put(acup.gunfeel.host.RoundTable.class, new RoundNames());
     }
 
     // one implementation each: a second for the same port is a mistake of this file
