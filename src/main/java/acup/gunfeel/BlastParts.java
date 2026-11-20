@@ -26,7 +26,7 @@ import net.minecraft.world.phys.Vec3;
  * <p>A mob with no pose, or one whose parts mark no head and no limb, takes NTM's damage. So does a blast that is not
  * a plain one: a CrossSmooth of another damage class (fire, plasma, electric) and the nuclear ones ({@link #NUCLEAR}).
  */
-public final class BlastParts {
+public final class BlastParts extends BlastPartsBase {
     private BlastParts() {
     }
 
@@ -49,23 +49,6 @@ public final class BlastParts {
     /** the stand's cost runs count no parts for it (BlastStand) */
     static volatile boolean standQuiet;
 
-    /** a part as a blast counted it: its distance over the range, the share of its rays clear, NTM's damage */
-    record Counted(String part, float multiplier, double share, double scaled, double seen, float raw) {
-    }
-
-    /**
-     * blastPartsEven: the parts' multipliers divided by their mean over the whole mob (each part's share times its
-     * multiplier), so a mob in the open takes about NTM's damage and a head still hurts more than a limb
-     */
-    static boolean even() {
-        return ReaimTimes.flag("blastPartsEven", true);
-    }
-
-    /** blastPartRays: the rays from each part (its middle, then points along its length), 1 to 9 */
-    static int rays() {
-        return Math.clamp(Math.round(ReaimTimes.number("blastPartRays", 3F)), 1, 9);
-    }
-
     /** one processor's run: the mobs' multipliers, whether it is a plain blast (found when first needed) */
     private static final class Run {
         final boolean plain;
@@ -87,16 +70,6 @@ public final class BlastParts {
     public static void end() {
         var runs = RUNS.get();
         if (!runs.isEmpty()) runs.pop();
-    }
-
-    /** NTM's damage with a part's distance (scaled by the range), visibility and push */
-    @FunctionalInterface
-    public interface Damage {
-        float of(double scaled, double density, double knockback);
-    }
-
-    /** a part as the blast takes it: its box, multiplier and share */
-    record Part(ModelBox box, float multiplier, double share) {
     }
 
     /**
@@ -123,43 +96,27 @@ public final class BlastParts {
         if (run.nuclear == null) run.nuclear = nuclear();
         if (run.nuclear) return whole;
         int rays = rays();
-        double total = 0, weighted = 0;
         List<Counted> counted = stand != null && !standQuiet ? new ArrayList<>() : null;
-        boolean reached = false, limbs = false;
-        double mean = 0;
-        Vec3d[] sight = null;
-        acup.gunfeel.host.WorldView world = null;
-        for (Part p : parts) {
-            limbs |= p.multiplier() < 1;
-            mean += p.share() * p.multiplier();
-            double scaled = scale.applyAsDouble(nearest(p.box(), centre).distanceTo(centre) / size);
-            reached |= scaled <= 1;
-            if (!(scaled <= 1)) {
-                if (counted != null) counted.add(new Counted(p.box().part(), p.multiplier(), p.share(), scaled, 0, 0));
-                continue;
+        float[] m = {Float.NaN, 0F};
+        float out = split(parts, new Vec3d(centre.x, centre.y, centre.z), size, whole, density, calc, scale, push, new Sight() {
+            // NTM sees the whole mob from a node (density 1): no rays, none of this is made; else the game's rays (BlastSight).
+            // Made only below density 1, as before (split asks at density NaN too: the rays then get none, and throw)
+            Vec3d[] sight;
+            acup.gunfeel.host.WorldView world;
+
+            @Override
+            public double seen(ModelBox box) {
+                if (density < 1 && sight == null) {
+                    sight = new Vec3d[nodes.length];
+                    for (int i = 0; i < nodes.length; i++) sight[i] = new Vec3d(nodes[i].x, nodes[i].y, nodes[i].z);
+                    world = Wiring.world(level);
+                }
+                return BlastSight.visibility(world, EntityBody.of(entity), box, sight, rays);
             }
-            // NTM sees the whole mob from a node (density 1): every part is in sight, no rays; else the game's rays (BlastSight)
-            if (density < 1 && sight == null) {
-                sight = new Vec3d[nodes.length];
-                for (int i = 0; i < nodes.length; i++) sight[i] = new Vec3d(nodes[i].x, nodes[i].y, nodes[i].z);
-                world = Wiring.world(level);
-            }
-            double seen = density >= 1 ? 1 : BlastSight.visibility(world, EntityBody.of(entity), p.box(), sight, rays);
-            float raw = Math.max(0F, calc.of(scaled, seen, push.applyAsDouble((1 - scaled) * seen)));
-            total += p.share() * raw;
-            weighted += p.share() * raw * p.multiplier();
-            if (counted != null) counted.add(new Counted(p.box().part(), p.multiplier(), p.share(), scaled, seen, raw));
-        }
+        }, counted, m);
         if (counted != null) standParts = List.copyOf(counted);
-        // at the range's edge NTM's box is in it and no part is: NTM's damage, no part's multiplier
-        if (!reached || !Double.isFinite(total) || !Double.isFinite(weighted)) return whole;
-        float m = total > 0 ? (float) (weighted / total) : 1F;
-        // even: by the whole mob's mean (a mob seen whole takes about NTM's); else a mob with a marked head and no
-        // marked limbs (a pig, a chicken) takes no more than NTM's
-        if (even() && mean > 0) m = (float) (m / mean);
-        else if (!limbs) m = Math.min(m, 1F);
-        run.multiplier.put(entity, m);
-        return (float) total;
+        if (m[1] != 0F) run.multiplier.put(entity, m[0]);
+        return out;
     }
 
     /** the multiplier the running blast found for {@code entity}'s parts, 1 if none */
@@ -198,19 +155,9 @@ public final class BlastParts {
         return of(drawn);
     }
 
-    /** the most boxes a mob's pose may have for the blast to take it by its parts, and how far past its box they may go */
-    static final int MAX_PARTS = 48;
-    static final double REACH = 1.5;
-
-    /** every corner of {@code b} in {@code near}, and none of them NaN */
+    /** every corner of {@code b} in {@code near}, and none of them NaN (BlastPartsBase.inside) */
     static boolean inside(ModelBox b, net.minecraft.world.phys.AABB near) {
-        for (int i = 0; i < 8; i++) {
-            double x = b.x() + (i & 1) * b.ux() + ((i >> 1) & 1) * b.vx() + ((i >> 2) & 1) * b.wx();
-            double y = b.y() + (i & 1) * b.uy() + ((i >> 1) & 1) * b.vy() + ((i >> 2) & 1) * b.wy();
-            double z = b.z() + (i & 1) * b.uz() + ((i >> 1) & 1) * b.vz() + ((i >> 2) & 1) * b.wz();
-            if (!(x >= near.minX && x <= near.maxX && y >= near.minY && y <= near.maxY && z >= near.minZ && z <= near.maxZ)) return false;
-        }
-        return true;
+        return inside(b, near.minX, near.minY, near.minZ, near.maxX, near.maxY, near.maxZ);
     }
 
     /**
@@ -257,42 +204,14 @@ public final class BlastParts {
         return bOuter;
     }
 
-    /** a mesh's box as the box around its mesh (ModelMesh's bounds in the box's own frame), a cube's as it is */
-    static ModelBox carrier(ModelBox b) {
-        if (b.mesh() == 0) return b;
-        ModelMesh shape = ModelMesh.get(b.mesh());
-        double[] k = shape == null ? null : shape.boundsData();
-        if (k == null || k.length < 6) return b;
-        double x = b.x() + b.ux() * k[0] + b.vx() * k[1] + b.wx() * k[2], y = b.y() + b.uy() * k[0] + b.vy() * k[1] + b.wy() * k[2],
-                z = b.z() + b.uz() * k[0] + b.vz() * k[1] + b.wz() * k[2];
-        double su = k[3] - k[0], sv = k[4] - k[1], sw = k[5] - k[2];
-        return new ModelBox(b.part(), x, y, z, b.ux() * su, b.uy() * su, b.uz() * su, b.vx() * sv, b.vy() * sv, b.vz() * sv,
-                b.wx() * sw, b.wy() * sw, b.wz() * sw);
-    }
-
     private static int depth(ModelHits.StandPart p) {
         return p.box().part().split("/").length;
     }
 
-    static double surface(ModelBox b) {
-        Vec3 u = new Vec3(b.ux(), b.uy(), b.uz()), v = new Vec3(b.vx(), b.vy(), b.vz()), w = new Vec3(b.wx(), b.wy(), b.wz());
-        return 2 * (u.cross(v).length() + v.cross(w).length() + w.cross(u).length());
-    }
-
-    /** the box's point nearest {@code p} (its edges taken as square to each other, as a model's cube's are) */
+    /** the box's point nearest {@code p} (BlastPartsBase.nearest) */
     static Vec3 nearest(ModelBox b, Vec3 p) {
-        double[][] e = { { b.ux(), b.uy(), b.uz() }, { b.vx(), b.vy(), b.vz() }, { b.wx(), b.wy(), b.wz() } };
-        double x = b.x(), y = b.y(), z = b.z();
-        double dx = p.x - b.x(), dy = p.y - b.y(), dz = p.z - b.z();
-        for (double[] a : e) {
-            double len2 = a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
-            if (len2 < 1e-12) continue;
-            double t = Math.clamp((dx * a[0] + dy * a[1] + dz * a[2]) / len2, 0, 1);
-            x += a[0] * t;
-            y += a[1] * t;
-            z += a[2] * t;
-        }
-        return new Vec3(x, y, z);
+        Vec3d n = nearest(b, p.x, p.y, p.z);
+        return new Vec3(n.x(), n.y(), n.z());
     }
 
     private static boolean nuclear() {
