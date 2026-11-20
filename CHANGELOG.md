@@ -1,5 +1,10 @@
 # Changelog
 
+## X2015
+
+- Leaving a world to the menu no longer keeps it in memory until the game is
+  closed (the AI's squads and voices or the hit boxes could hold on to it).
+
 ## X1732
 
 - Mister Topaz now takes every arm and recoil setting of the hand flamethrower,
