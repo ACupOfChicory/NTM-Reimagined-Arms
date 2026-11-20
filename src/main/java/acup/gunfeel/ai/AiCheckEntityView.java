@@ -548,6 +548,7 @@ final class AiCheckEntityView {
         Body b = EntityBody.of(e);
         String w = at + ": ";
         eq(w + "id", b.id(), e.getId());
+        eq(w + "uuid", b.uuid(), e.getUUID());
         eq(w + "living", b.living(), e instanceof LivingEntity);
         eq(w + "player", b.player(), e instanceof net.minecraft.world.entity.player.Player);
         eq(w + "x", b.x(), e.getX());
@@ -619,6 +620,7 @@ final class AiCheckEntityView {
             eq(w + "sleeping", b.sleeping(), le.isSleeping());
             eq(w + "lying", b.lying(), Prone.lying(le));
             eq(w + "speed", b.speed(), le.getAttributeValue(Attributes.MOVEMENT_SPEED));
+            eq(w + "maxHealth", b.maxHealth(), le.getMaxHealth());
         }
         if (e instanceof Mob m) eq(w + "leftHanded", b.leftHanded(), m.isLeftHanded());
     }

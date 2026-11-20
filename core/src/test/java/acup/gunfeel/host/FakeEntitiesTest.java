@@ -38,6 +38,7 @@ class FakeEntitiesTest extends EntityViewContract {
     }
 
     static final class Fake implements Body {
+        final java.util.UUID uuid = java.util.UUID.randomUUID();
         final int id;
         final boolean living, player, spectator;
         final int kind;
@@ -62,6 +63,7 @@ class FakeEntitiesTest extends EntityViewContract {
         }
 
         @Override public int id() { return id; }
+        @Override public java.util.UUID uuid() { return uuid; }
         @Override public boolean living() { return living; }
         @Override public boolean player() { return player; }
         @Override public double x() { return x; }
@@ -117,6 +119,7 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public int held(int hand) { livingOnly(); return 0; }
         @Override public int worn(int slot) { livingOnly(); return 0; }
         @Override public double speed() { livingOnly(); return 0.25; }
+        @Override public float maxHealth() { livingOnly(); return 20; }
         @Override public @Nullable String team() { return null; }
         @Override public boolean tagged(String tag) { return false; }
         @Override public Object level() { return this; }

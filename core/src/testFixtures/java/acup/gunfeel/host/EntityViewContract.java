@@ -71,6 +71,14 @@ public abstract class EntityViewContract {
         assertFalse(a.removed());
     }
 
+    @Test
+    void uuidIsTheSameObjectEachCall() {
+        for (Body b : new Body[] {view().byId(mob()), view().byId(projectile())}) {
+            assertNotNull(b.uuid());
+            assertSame(b.uuid(), b.uuid());
+        }
+    }
+
     // the stance BodyControl sets is the one the Body reads; the mob is left standing
     @Test
     void stanceSetIsStanceRead() {
@@ -210,6 +218,7 @@ public abstract class EntityViewContract {
         assertFalse(p.living());
         assertThrows(RuntimeException.class, p::climbing);
         assertThrows(RuntimeException.class, p::speed);
+        assertThrows(RuntimeException.class, p::maxHealth);
         assertThrows(RuntimeException.class, p::lying);
         assertThrows(RuntimeException.class, () -> p.held(Body.MAIN_HAND));
         assertThrows(RuntimeException.class, () -> p.worn(Body.CHEST));
