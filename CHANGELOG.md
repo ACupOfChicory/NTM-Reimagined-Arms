@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The AI tells blocks apart by the mod's own numbering of them, which stays the
+  same when the game renumbers its blocks on joining a server.
+
 ## X1732
 
 - Mister Topaz now takes every arm and recoil setting of the hand flamethrower,
