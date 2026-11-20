@@ -251,6 +251,40 @@ class AiSupplyBaseTest {
     }
 
     @Test
+    void handUnavailablePortionsOnlyPersistStock() {
+        Bot b = supplier(10, 0, 0, 0, 0), to = bot(2, 0);
+        hand(b, to); assertEquals(List.of("stock:[0, 0, 0]"), events);
+        assertEquals(0, to.gun.ammo.reserve()); assertEquals(0, to.grenades); assertEquals(0, to.smokes);
+        b.supply = new int[] {4, 0, 0}; to.capacity = 0; events.clear();
+        hand(b, to); assertArrayEquals(new int[] {4, 0, 0}, b.supply);
+        assertEquals(List.of("stock:[4, 0, 0]"), events);
+        b.supply = new int[] {0, 4, 4}; to.capacity = 30; grenadeLimit = smokeLimit = 0; events.clear();
+        hand(b, to); assertArrayEquals(new int[] {0, 4, 4}, b.supply);
+        assertEquals(List.of("stock:[0, 4, 4]"), events);
+        assertEquals(0, AiSupplyBase.mags); assertEquals(0, AiSupplyBase.grenades); assertEquals(0, AiSupplyBase.smokes);
+    }
+
+    @Test
+    void pickExcludesSelfAndOwnRunFromOtherSuppliers() {
+        Bot b = supplier(10, 0, 4, 0, 0), to = bot(1, 4); squad(b, to);
+        b.gun.ammo.set(0); to.gun.ammo.set(100); assertNull(pick(b));
+        b.gun.ammo.set(100); to.gun.ammo.set(0); b.target = to;
+        assertSame(to, pick(b));
+    }
+
+    @Test
+    void pickUsesDistanceOnlyForEqualNeedInEitherOrder() {
+        Bot b = supplier(10, 0, 4, 4, 0), a = bot(1, 4), c = bot(2, 4); a.grenades = c.grenades = 1;
+        squad(b, a, c);
+        List<Bot> order = AiSquadsBase.squadOf(b).bots.stream().filter(o -> o != b).toList();
+        Bot first = order.get(0), second = order.get(1);
+        first.person.x = 6; second.person.x = 3; assertSame(second, pick(b));
+        first.grenades = 0; assertSame(first, pick(b));
+        first.grenades = 1; second.grenades = 0; first.person.x = 3; second.person.x = 6;
+        assertSame(second, pick(b));
+    }
+
+    @Test
     void pickKeepsFirstEqualCandidateAndNearerEqualNeed() {
         Bot b = supplier(10, 0, 4, 0, 0), a = bot(1, 4), c = bot(2, -4);
         squad(b, a, c);
@@ -278,6 +312,18 @@ class AiSupplyBaseTest {
         Bot b = supplier(10, 0, 4, 0, 0), a = bot(1, 2); squad(b, a);
         a.person.x = 25; a.suppliedAt = now;
         assertNull(pick(b)); assertEquals(1, AiSupplyBase.idle[5]); assertEquals(0, AiSupplyBase.idle[4]);
+    }
+
+    @Test
+    void freedomAndExposureRequireVisibleFoeAndActualCover() {
+        Bot b = bot(1, 0); TargetMemory.Contact c = foe(b, 1);
+        for (TargetMemory.State state : List.of(TargetMemory.State.LOST, TargetMemory.State.SEARCH)) {
+            c.state = state;
+            assertTrue(AiSupplyBase.supplierFree(staff, b, now)); assertFalse(AiSupplyBase.recipientExposed(staff, b));
+        }
+        c.state = TargetMemory.State.VISIBLE; b.arrived = true;
+        assertTrue(AiSupplyBase.recipientExposed(staff, b));
+        b.spot = true; assertFalse(AiSupplyBase.recipientExposed(staff, b));
     }
 
     @Test
@@ -323,6 +369,53 @@ class AiSupplyBaseTest {
     }
 
     @Test
+    void stepFetchesStockForIdleSupplier() {
+        Bot fallen = supplier(10, 10, 4, 0, 0), b = supplier(40, 0, 4, 0, 0); fell(fallen, now);
+        assertTrue(step(b, now)); assertTrue(step(b, now + 1));
+        assertEquals(b.fetching.cell(), b.goal); assertNull(b.target); assertEquals(0, AiSupplyBase.runs);
+        b.person.x = 10; assertFalse(step(b, now + 2)); assertNull(b.fetching);
+        assertArrayEquals(new int[] {8, 0, 0}, b.supply); assertArrayEquals(b.supply, b.kept);
+    }
+
+    @Test
+    void stepFetchesForRifleDespiteStaleRecipient() {
+        Bot fallen = supplier(10, 10, 4, 0, 0), b = bot(40, 0), to = bot(2, 8); fell(fallen, now);
+        b.target = to;
+        assertTrue(step(b, now)); assertTrue(b.fetching != null);
+        assertEquals(AiRole.RIFLE, b.role()); assertSame(to, b.target); assertEquals(0, AiSupplyBase.runs);
+    }
+
+    @Test
+    void stepKeepsRecipientAheadOfFallenStock() {
+        Bot fallen = supplier(10, 16, 4, 0, 0), b = supplier(40, 0, 4, 0, 0), to = bot(2, 8); fell(fallen, now);
+        b.target = to; b.supplyAt = now;
+        assertTrue(step(b, now)); assertNull(b.fetching); assertSame(to, b.target);
+        assertEquals(AiSupplyBase.botCell(staff, to), b.goal); assertEquals(0, AiSupplyBase.taken);
+    }
+
+    @Test
+    void stepRefillsOnlyWhenNeededAndCooldownsAllow() {
+        Bot b = supplier(10, 0, 4, 0, 0); long supplied = b.suppliedAt;
+        assertFalse(step(b, now)); assertEquals(supplied, b.suppliedAt); assertTrue(events.isEmpty());
+        b.gun.ammo.set(0); b.supplyNext = now + 10;
+        assertFalse(step(b, now)); assertEquals(0, b.gun.ammo.reserve()); assertEquals(supplied, b.suppliedAt);
+        b.supplyNext = now; b.suppliedAt = now - AiSupplyBase.AGAIN + 1;
+        assertFalse(step(b, now)); assertEquals(0, b.gun.ammo.reserve()); assertEquals(4, b.supply[0]);
+        b.suppliedAt--;
+        assertFalse(step(b, now)); assertEquals(60, b.gun.ammo.reserve()); assertEquals(2, b.supply[0]);
+        assertEquals(now, b.suppliedAt); assertEquals(2, AiSupplyBase.mags);
+    }
+
+    @Test
+    void stepIgnoresFailureOfAnotherGoal() {
+        Bot b = supplier(10, 0, 4, 0, 0), to = bot(1, 10); b.target = to; b.supplyAt = now;
+        assertTrue(step(b, now)); b.failed = true; b.goal = PosLong.block(99, 64, 0);
+        assertTrue(step(b, now + 1)); assertSame(to, b.target); assertEquals(2, b.walks);
+        assertEquals(AiSupplyBase.botCell(staff, to), b.goal); assertEquals(0, AiSupplyBase.gaveUp);
+        assertFalse(step(b, now + 2)); assertNull(b.target); assertEquals(1, AiSupplyBase.gaveUp);
+    }
+
+    @Test
     void stepStopsForDisabledDeadEmptyAndPinned() {
         Bot b = supplier(10, 0, 4, 0, 0), to = bot(1, 10); b.target = to;
         AiSupplyBase.on = false; assertFalse(step(b, now)); assertSame(to, b.target);
@@ -356,6 +449,61 @@ class AiSupplyBaseTest {
         assertFalse(fetch(heir, 1440));
         Bot next = bot(80, 0); assertTrue(fetch(next, 1440)); assertSame(l, next.fetching);
         next.failed = true; assertFalse(fetch(next, 1441)); assertTrue(l.failed.contains(80));
+    }
+
+    @Test
+    void fetchRejectsClaimMissingFromExistingStockList() {
+        Bot fallen = supplier(10, 10, 4, 0, 0), other = supplier(20, 20, 1, 0, 0), heir = bot(40, 0);
+        fell(fallen, now); assertTrue(fetch(heir, now)); AiSupplyBase.Left stock = heir.fetching;
+        AiSupplyBase.forgetLevel(level); fell(other, now); events.clear();
+        assertFalse(fetch(heir, now + 1)); assertNull(heir.fetching); assertEquals(-1, stock.heir);
+        assertTrue(stock.failed.contains(40)); assertEquals(now + 101, heir.supplyNext);
+        assertEquals(0, AiSupplyBase.taken); assertTrue(events.isEmpty());
+    }
+
+    @Test
+    void fetchIgnoresFailureOfAnotherGoal() {
+        Bot fallen = supplier(10, 10, 4, 0, 0), heir = bot(40, 0); fell(fallen, now);
+        assertTrue(fetch(heir, now)); AiSupplyBase.Left stock = heir.fetching;
+        heir.failed = true; heir.goal = PosLong.block(99, 64, 0);
+        assertTrue(fetch(heir, now + 1)); assertSame(stock, heir.fetching); assertEquals(2, heir.walks);
+        assertEquals(stock.cell(), heir.goal); assertTrue(stock.failed.isEmpty());
+        assertFalse(fetch(heir, now + 2)); assertNull(heir.fetching); assertTrue(stock.failed.contains(40));
+    }
+
+    @Test
+    void fetchRequiresFreeHeirAndMatchingTeam() {
+        Bot fallen = supplier(10, 10, 4, 0, 0), heir = bot(40, 0); fell(fallen, now); events.clear();
+        heir.pinned = true; assertFalse(fetch(heir, now)); assertNull(heir.fetching);
+        assertEquals(Long.MIN_VALUE, heir.supplyNext); assertTrue(events.isEmpty());
+        heir.pinned = false; heir.person.team = "b";
+        assertFalse(fetch(heir, now)); assertNull(heir.fetching);
+        heir.person.team = "a"; assertTrue(fetch(heir, now));
+    }
+
+    @Test
+    void fetchClaimIsExclusiveUntilAbandonedOrTimedOut() {
+        Bot fallen = supplier(10, 10, 4, 0, 0), first = bot(40, 0), next = bot(80, 0); fell(fallen, now);
+        assertTrue(fetch(first, now)); AiSupplyBase.Left stock = first.fetching;
+        assertFalse(fetch(next, now)); assertNull(next.fetching); assertEquals(40, stock.heir);
+        first.fetching = null;
+        assertTrue(fetch(next, now)); assertSame(stock, next.fetching); assertEquals(80, stock.heir);
+        stock.heirAt = now - AiSupplyBase.RUN_MAX;
+        assertFalse(fetch(first, now)); assertEquals(80, stock.heir);
+        assertTrue(fetch(first, now + 40)); assertSame(stock, first.fetching);
+        assertEquals(40, stock.heir); assertEquals(now + 40, stock.heirAt);
+    }
+
+    @Test
+    void fetchAbandonsClaimWhenSupplierBecomesPinned() {
+        Bot fallen = supplier(10, 10, 4, 0, 0), heir = bot(40, 0); fell(fallen, now);
+        assertTrue(fetch(heir, now)); AiSupplyBase.Left stock = heir.fetching;
+        heir.person.x = 10; heir.pinned = true; events.clear();
+        assertFalse(fetch(heir, now + 1)); assertNull(heir.fetching);
+        assertEquals(-1, stock.heir); assertTrue(stock.failed.contains(40));
+        assertEquals(now + 101, heir.supplyNext); assertEquals(0, AiSupplyBase.taken);
+        assertEquals(AiRole.RIFLE, heir.role()); assertNull(heir.supply); assertNull(heir.kept);
+        assertEquals(1, heir.walks); assertTrue(events.isEmpty());
     }
 
     @Test
