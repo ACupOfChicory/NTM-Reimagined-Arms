@@ -69,6 +69,14 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     private static final int PARAMS = 1 << 24;
     private final List<GpuBuffer> params = new ArrayList<>();
     private final List<String> paramNames = new ArrayList<>();
+    // params buffers written in place (map): a ring of the version's mappable buffers each, made at the first map
+    private final List<net.minecraft.client.renderer.MappableRingBuffer> rings = new ArrayList<>();
+    private final List<Integer> ringSizes = new ArrayList<>();
+    private final MapWriter mapWriter = new MapWriter();
+    // textures: handles from TEXTURES on, their texture and view
+    private static final int TEXTURES = 1 << 25;
+    private final List<com.mojang.blaze3d.textures.GpuTexture> textures = new ArrayList<>();
+    private final List<com.mojang.blaze3d.textures.GpuTextureView> textureViews = new ArrayList<>();
     // a place's instanced draws, sent together at flush
     private int pending;
     private int[] pendingMaterial = new int[16], pendingMesh = new int[16], pendingParams = new int[16], pendingOffset = new int[16], pendingN = new int[16];
@@ -264,11 +272,23 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
 
     @Override
     public void free(int buffer) {
+        if (buffer >= TEXTURES) {
+            int i = buffer - TEXTURES;
+            if (textureViews.get(i) != null) textureViews.get(i).close();
+            var t = textures.get(i);
+            if (t != null && !t.isClosed()) t.close();
+            textures.set(i, null);
+            textureViews.set(i, null);
+            return;
+        }
         if (buffer >= PARAMS) {
-            // a params buffer: its GpuBuffer let go (made again by the next upload)
+            // a params buffer: its GpuBuffer (or its ring) let go (made again by the next upload or map)
             GpuBuffer ub = params.get(buffer - PARAMS);
             if (ub != null) ub.close();
             params.set(buffer - PARAMS, null);
+            var ring = rings.get(buffer - PARAMS);
+            if (ring != null) ring.close();
+            rings.set(buffer - PARAMS, null);
             return;
         }
         Kept k = buffers.get(buffer);
@@ -293,7 +313,152 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     public int params(String name) {
         params.add(null);
         paramNames.add(name);
+        rings.add(null);
+        ringSizes.add(0);
         return PARAMS + params.size() - 1;
+    }
+
+    @Override
+    public acup.gunfeel.host.render.ParamsWriter map(int handle, int length) {
+        int i = handle - PARAMS;
+        if (i < 0 || i >= params.size()) throw new IllegalArgumentException("unknown params handle");
+        if (params.get(i) != null) throw new IllegalStateException("params " + paramNames.get(i) + " written by upload, then mapped");
+        if (mapWriter.data != null) throw new IllegalStateException("params " + paramNames.get(i) + " mapped while another is");
+        prepareMap(handle, length);
+        mapWriter.start(rings.get(i).currentBuffer().map(false, true), length);
+        return mapWriter;
+    }
+
+    /** the params buffer's ring made (or grown) before the geometry and the clocks, where the smoke's renderer made it before the port */
+    public void prepareMap(int handle, int length) {
+        int i = handle - PARAMS;
+        var ring = rings.get(i);
+        if (ring == null || ringSizes.get(i) < length) {
+            if (ring != null) ring.close();
+            String name = paramNames.get(i);
+            ring = new net.minecraft.client.renderer.MappableRingBuffer(() -> name, GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_MAP_WRITE, length);
+            rings.set(i, ring);
+            ringSizes.set(i, length);
+        }
+    }
+
+    /** 26.2's own: the buffer a mapped params buffer was last written into, to bind in a pass */
+    public GpuBuffer mapped(int handle) {
+        return rings.get(handle - PARAMS).currentBuffer();
+    }
+
+    /** 26.2's own: a mapped params buffer's next frame goes into the ring's next buffer (after its passes) */
+    public void rotate(int handle) {
+        rings.get(handle - PARAMS).rotate();
+    }
+
+    // the version's mapped memory written as Std140Builder writes it: aligned, then the floats; a matrix by its get
+    static final class MapWriter implements acup.gunfeel.host.render.ParamsWriter {
+        com.mojang.blaze3d.buffers.GpuBufferSlice.MappedView view;
+        java.nio.ByteBuffer data;
+        int start, length;
+
+        void start(com.mojang.blaze3d.buffers.GpuBufferSlice.MappedView v, int size) {
+            view = v;
+            data = v.data();
+            start = data.position();
+            length = size;
+        }
+
+        void start(java.nio.ByteBuffer buffer, int size, Runnable closer) {
+            start(new com.mojang.blaze3d.buffers.GpuBufferSlice.MappedView(null, buffer, closer), size);
+        }
+
+        private java.nio.ByteBuffer at(int size) {
+            if (data == null) throw new IllegalStateException("params written after done");
+            int pos = start + net.minecraft.util.Mth.roundToward(data.position() - start, 16);
+            if ((long) pos + size > (long) start + length) throw new IndexOutOfBoundsException("params element");
+            data.position(pos);
+            return data;
+        }
+
+        @Override
+        public acup.gunfeel.host.render.ParamsWriter vec4(float x, float y, float z, float w) {
+            at(16).putFloat(x).putFloat(y).putFloat(z).putFloat(w);
+            return this;
+        }
+
+        @Override
+        public acup.gunfeel.host.render.ParamsWriter mat4(org.joml.Matrix4fc m) {
+            java.nio.ByteBuffer to = at(64);
+            m.get(to);
+            to.position(to.position() + 64);
+            return this;
+        }
+
+        @Override
+        public void done() {
+            if (data == null) throw new IllegalStateException("params done twice");
+            int written = data.position() - start;
+            abort();
+            if (written != length) throw new IllegalStateException("params size differs from specification");
+        }
+
+        @Override
+        public void abort() {
+            if (data == null) return;
+            data = null;
+            var v = view;
+            view = null;
+            v.close();
+        }
+    }
+
+    @Override
+    public int texture(String name, int width, int height) {
+        var device = RenderSystem.getDevice();
+        var t = device.createTexture(() -> name, com.mojang.blaze3d.textures.GpuTexture.USAGE_COPY_DST | com.mojang.blaze3d.textures.GpuTexture.USAGE_TEXTURE_BINDING,
+                com.mojang.blaze3d.GpuFormat.RGBA8_UNORM, width, height, 1, 1);
+        com.mojang.blaze3d.textures.GpuTextureView view;
+        try {
+            view = device.createTextureView(t);
+        } catch (Throwable failure) {
+            try {
+                t.close();
+            } catch (Throwable closing) {
+                failure.addSuppressed(closing);
+            }
+            throw failure;
+        }
+        textures.add(t);
+        textureViews.add(view);
+        return TEXTURES + textures.size() - 1;
+    }
+
+    @Override
+    public void texels(int texture, int x, int y, int width, int height, java.nio.ByteBuffer data) {
+        var t = textures.get(texture - TEXTURES);
+        if (t == null) throw new IllegalStateException("texture " + texture + " was freed");
+        texelEncoder.writeToTexture(t, data, 0, 0, x, y, width, height);
+    }
+
+    private com.mojang.blaze3d.systems.CommandEncoder texelEncoder;
+
+    public void beginTexels() {
+        texelEncoder = RenderSystem.getDevice().createCommandEncoder();
+    }
+
+    public void endTexels() {
+        texelEncoder = null;
+    }
+
+    @Override
+    public boolean live(int texture) {
+        int i = texture - TEXTURES;
+        if (i < 0 || i >= textures.size()) return false;
+        var t = textures.get(i);
+        return t != null && !t.isClosed();
+    }
+
+    /** 26.2's own: a texture's view, to bind in a pass (null: freed) */
+    public com.mojang.blaze3d.textures.GpuTextureView textureView(int texture) {
+        int i = texture - TEXTURES;
+        return i < 0 || i >= textureViews.size() ? null : textureViews.get(i);
     }
 
     @Override
@@ -371,6 +536,7 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
 
     @Override
     public void upload(int handle, java.nio.ByteBuffer data, int length) {
+        if (rings.get(handle - PARAMS) != null) throw new IllegalStateException("params " + paramNames.get(handle - PARAMS) + " mapped, then uploaded");
         var device = RenderSystem.getDevice();
         GpuBuffer ub = params.get(handle - PARAMS);
         if (ub == null || ub.size() < length) {

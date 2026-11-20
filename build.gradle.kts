@@ -181,6 +181,8 @@ neoForge {
             systemProperty("ntmgunfeel.smokeStand",providers.gradleProperty("smokeStand").orElse("").get())
             // -PholeFrames=<dir>: bullet holes' frames, the same each run, base against branch (HoleFrameStand); -PsmokeFabulous as there
             systemProperty("ntmgunfeel.holeFrames",providers.gradleProperty("holeFrames").orElse("").get())
+            // -PsmokeFrames=<dir>: the smoke's frames, the same each run, base against branch (SmokeFrameStand); -PsmokeFabulous as there
+            systemProperty("ntmgunfeel.smokeFrames",providers.gradleProperty("smokeFrames").orElse("").get())
             // -PcasingFrames=<dir>: NTM's casings' frames, the same each run, base against branch (CasingFrameStand); -PsmokeFabulous as there
             systemProperty("ntmgunfeel.casingFrames",providers.gradleProperty("casingFrames").orElse("").get())
             // -PchemStand=<dir>: NTM's phosgene creeper and chemical thrower, the clouds, the server's cost and the frames (ChemStand)
@@ -674,10 +676,11 @@ tasks.test {
 tasks.withType<Test>().configureEach {
     // the tests read src/main/resources and src/test/pinned from the repository root
     workingDir = root
+    // SmokeMarchBitTest's copy of SmokeRender's lines before the port (OldMarch.info) crashes the JDK 25's C2 when compiled
+    // (LoadNode::can_split_through_phi_base, a JOML matrix get from a phi of two new ones; core's SmokeMarch writes it
+    // otherwise; C2: notes/ports-base/bugs.md): keep the reference interpreted
+    jvmArgs("-XX:CompileCommand=quiet", "-XX:CompileCommand=exclude,acup.gunfeel.smoke.client.SmokeMarchBitTest\$OldMarch::info")
     inputs.property("pinUpdate", providers.environmentVariable("PIN_UPDATE").orElse(""))
-    // SmokeInfoBitTest's OldInfo.info (SmokeInfo's block before its matrices were kept) crashes the JIT's C2 of JDK 25
-    // compiled (notes/ports-base/bugs.md): run uncompiled, so that the test fails only by its bytes
-    jvmArgs("-XX:CompileCommand=quiet", "-XX:CompileCommand=exclude,acup.gunfeel.smoke.client.SmokeInfoBitTest\$OldInfo::info")
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
