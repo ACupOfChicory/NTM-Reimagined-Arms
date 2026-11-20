@@ -1,8 +1,5 @@
 package acup.gunfeel;
 
-import java.util.Map;
-import java.util.WeakHashMap;
-
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.host.Body;
@@ -57,12 +54,6 @@ public final class DamageCap extends DamageCapBase {
     private DamageCap() {
     }
 
-    /** one projectile: the tick it was fired, its gun waiting {@code sniperDelay} or more between shots */
-    private record Shot(long tick, boolean sniper) {
-    }
-
-    private static final Map<Entity, Shot> SHOTS = new WeakHashMap<>();
-
     public static void register() {
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, EntityJoinLevelEvent.class, DamageCap::joined);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, LivingIncomingDamageEvent.class, DamageCap::incoming);
@@ -105,10 +96,7 @@ public final class DamageCap extends DamageCapBase {
     private static void joined(EntityJoinLevelEvent e) {
         if (!(e.getLevel() instanceof ServerLevel level) || e.getEntity() instanceof LivingEntity) return;
         Entity entity = e.getEntity();
-        if (!BulletsPort.BULLETS.capProjectile(entity)) return;
-        LivingEntity shooter = shooter(entity);
-        if (shooter == null) return;
-        SHOTS.put(entity, new Shot(level.getGameTime(), gunDelay(shooter) >= limits().sniperDelay() && !pellet(entity)));
+        joinedOf(level, entity);
     }
 
     /**
@@ -238,7 +226,7 @@ public final class DamageCap extends DamageCapBase {
         // the hurt's raw damage as NTM's armour took it (after NTM's shield), else the hurt's own
         float raw = takeAmountOf(EntityBody.of(target), e.getOriginalDamage());
         if (blast && blastFree(raw)) return;
-        Shot shot = projectile == null ? null : SHOTS.get(projectile);
+        Shot shot = projectile == null ? null : shotOf(projectile);
         if (shot == null) shot = new Shot(projectile == null ? now : now - projectile.tickCount,
                 gunDelay(shooter) >= limits().sniperDelay() && (projectile == null || !pellet(projectile)));
         boolean head = headOf(EntityBody.of(target));
