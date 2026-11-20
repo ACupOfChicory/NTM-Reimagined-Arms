@@ -185,4 +185,69 @@ public class EuphImmunityBase {
             return m.equals("ntm") || m.equals("formula") ? m : "pool";
         }
     }
+
+    // ---------------------------------------------------------------- the suits worn (ArmorSuits)
+
+    /** the game's suits, asked the first time one is */
+    static final class SuitsPort {
+        static final acup.gunfeel.host.ArmorSuits SUITS = CoreServices.load(acup.gunfeel.host.ArmorSuits.class, acup.gunfeel.host.ArmorSuits.MISSING);
+        static final PoweredOf POWERED = new PoweredOf(SUITS);
+    }
+
+    /** the kit's pool is on: the balance's feature ({@code balanceOn}, asked first) and the kit in the mode pool */
+    static boolean onOf(Kit kit, java.util.function.BooleanSupplier balanceOn) {
+        return balanceOn.getAsBoolean() && kit.mode().equals("pool");
+    }
+
+    /**
+     * the full set of DNS or FAU (charged, as NTM counts it) with its pool on, or null; a soldier's (not a player's)
+     * euphemium too. {@code balanceOn}: the balance's feature, asked first and again by the kit found (onOf)
+     */
+    static Kit kitOfWorn(acup.gunfeel.host.Body b, java.util.function.BooleanSupplier balanceOn) {
+        return kitOfWorn(b, balanceOn, SuitsPort.SUITS);
+    }
+
+    static Kit kitOfWorn(acup.gunfeel.host.Body b, java.util.function.BooleanSupplier balanceOn, acup.gunfeel.host.ArmorSuits a) {
+        if (!balanceOn.getAsBoolean()) return null;
+        if (a.fullSet(b, acup.gunfeel.host.ArmorSuits.DNS)) return onOf(Kit.DNS, balanceOn) ? Kit.DNS : null;
+        if (a.fullSet(b, acup.gunfeel.host.ArmorSuits.DIGAMMA)) return onOf(Kit.FAU, balanceOn) ? Kit.FAU : null;
+        if (!b.player() && a.fullSet(b, acup.gunfeel.host.ArmorSuits.EUPHEMIUM)) return onOf(Kit.EUPHEMIUM, balanceOn) ? Kit.EUPHEMIUM : null;
+        return null;
+    }
+
+    /** {@code b}'s chestplate is a powered NTM armour piece (NTM's accepted damage takes an electric hit on it five times) */
+    static boolean poweredChest(acup.gunfeel.host.Body b) {
+        return SuitsPort.POWERED.of(b.worn(acup.gunfeel.host.Body.CHEST));
+    }
+
+    /**
+     * ArmorSuits.powered by the item's number, asked once an item: the answer hangs on the item's kind alone, the same
+     * for its number while the game runs. A race is harmless: a cell 0 is "not asked yet" (asked again), 1 no, 2 yes (a
+     * byte written whole, never torn); a row grown is a copy put in place under the lock, a reader of the new row before
+     * its copy is done sees 0 and asks again, never a wrong answer.
+     */
+    static final class PoweredOf {
+        private final acup.gunfeel.host.ArmorSuits suits;
+        private byte[] row = new byte[0];
+
+        PoweredOf(acup.gunfeel.host.ArmorSuits suits) {
+            this.suits = suits;
+        }
+
+        boolean of(int item) {
+            byte[] r = row;
+            byte got = item >= 0 && item < r.length ? r[item] : 0;
+            if (got == 0) {
+                got = suits.powered(item) ? (byte) 2 : (byte) 1;
+                remember(item, got);
+            }
+            return got == 2;
+        }
+
+        private synchronized void remember(int item, byte got) {
+            byte[] r = row;
+            if (item >= r.length) row = r = java.util.Arrays.copyOf(r, Math.max(item + 1, r.length * 2 + 16));
+            r[item] = got;
+        }
+    }
 }
