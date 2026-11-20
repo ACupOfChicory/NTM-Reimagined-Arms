@@ -60,6 +60,20 @@ public interface NtmGuns {
      */
     boolean muzzle(Body holder, int hand, boolean scoped, double[] out);
 
+    /** {@link #fireTraits}'s places: refire on hold (1, else 0), delay after fire (ticks), a bullet loaded (1, else 0), its velocity, a laser (1, else 0); then whether the magazine counts single rounds of one type (1, else 0) */
+    int T_REFIRE = 0, T_DELAY = 1, T_BULLET = 2, T_VELOCITY = 3, T_LASER = 4, T_SINGLE = 5, T_COUNT = 6;
+
+    /**
+     * What makes the gun an automatic for a mob's role (AiRoleBase): its receiver and magazine found once, then each of
+     * these read once, in this order and none skipped (NTM's getters for them are pure reads; only the magazine's own
+     * lookup runs the weapon mods' writes): into {@code out} ({@link #T_COUNT} long) the receiver's refire on hold and
+     * delay after fire, whether the magazine's type is a bullet, its velocity and whether it is a laser (0 for no
+     * bullet), whether the magazine counts single rounds of one type. Gives that magazine's capacity (0 for another
+     * magazine, not read); {@link #NO_ROUNDS} with no magazine or where NTM threw on the way (a magazine that wants an
+     * inventory), {@code out} then as far as it got. The hand must hold a gun; the hand is read before the catch.
+     */
+    int fireTraits(Body holder, int hand, float[] out);
+
     /** NTM's aiming (the gun's own state: down its sights) */
     boolean aiming(Body holder, int hand);
 
@@ -125,6 +139,11 @@ public interface NtmGuns {
         @Override
         public boolean muzzle(Body holder, int hand, boolean scoped, double[] out) {
             throw new IllegalStateException("no gun");
+        }
+
+        @Override
+        public int fireTraits(Body holder, int hand, float[] out) {
+            return NO_ROUNDS;
         }
 
         @Override
