@@ -226,6 +226,8 @@ final class AiCheckKit {
             }
         TacticalMap.of(level).want(X0 + SIZE / 2, y, Z0 + SIZE / 2, SIZE / 2 + 4, 6);
 
+        loads();
+
         // kits that make no sense: told in words, no mob made
         int before = AiBots.all(level).size();
         String wrongRound = run("armsai spawn dummy 1 " + GUN + " ammo m44_ap");
@@ -316,14 +318,14 @@ final class AiCheckKit {
         for (Item item : BuiltInRegistries.ITEM) {
             if (!(item instanceof ItemGunBaseNT)) continue;
             ItemStack stack = new ItemStack(item);
-            Map<String, BulletConfig> rounds = AiKitCommand.rounds(stack);
+            java.util.Set<String> rounds = AiKitCommand.rounds(stack);
             if (!(AmmoLock.primary(stack) instanceof MagazineBelt) || rounds.size() < 2) continue;
             String id = BuiltInRegistries.ITEM.getKey(item).toString();
             guns.add(id);
             if (beltGun == null || id.equals(BELT)) {
                 beltGun = id;
-                beltRound = new ArrayList<>(rounds.keySet()).get(rounds.size() - 1);
-                for (String r : rounds.keySet()) if (r.endsWith(BELT_ROUND)) beltRound = r;
+                beltRound = new ArrayList<>(rounds).get(rounds.size() - 1);
+                for (String r : rounds) if (r.endsWith(BELT_ROUND)) beltRound = r;
             }
         }
         check.out("     kit: NTM's guns fed by a belt: " + guns);
@@ -370,4 +372,106 @@ final class AiCheckKit {
         IMagazine<?> mag = AmmoLock.primary(stack);
         return mag != null && mag.getType(stack, null) instanceof BulletConfig b ? BalanceGuns.ammoName(b) : "-";
     }
+
+    // AiKitBase.load (NtmGuns.rounds and loadRound, RoundTable) against AiKitCommand.load as it was (copied below), on
+    // each of NTM's guns in the registry, each round its first magazine takes and one it does not: the same words, and
+    // the stack after it the same byte for byte (its stream codec), the fill from nothing included
+    private void loads() {
+        Mob holder = AiCheck.holder(level);
+        AiGunner gunner = new AiGunner(holder, new AiAmmo(0));
+        int guns = 0, cases = 0, loaded = 0;
+        List<String> differ = new ArrayList<>();
+        for (Item item : BuiltInRegistries.ITEM) {
+            if (!(item instanceof ItemGunBaseNT)) continue;
+            guns++;
+            String id = BuiltInRegistries.ITEM.getKey(item).toString();
+            List<String> tries = new ArrayList<>(oldRounds(new ItemStack(item)).keySet());
+            tries.add("hbm:ammo_standard_nosuch");
+            for (String round : tries) {
+                ItemStack a = new ItemStack(item), b = new ItemStack(item);
+                String was = oldLoad(a, round);
+                holder.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, b);
+                String now = AiKitBase.load(gunner, round);
+                ItemStack after = holder.getMainHandItem();
+                cases++;
+                if (was == null) loaded++;
+                if (!java.util.Objects.equals(was, now) || !java.util.Arrays.equals(bytes(a), bytes(after)))
+                    differ.add(id + " " + round + " (" + was + " / " + now + ")");
+            }
+        }
+        holder.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+        check.out("     kit: loads compared: " + guns + " guns, " + cases + " rounds asked, " + loaded + " loaded, " + differ.size() + " differ");
+        check.check("kit: AiKitBase.load is AiKitCommand.load as it was on each NTM gun and round, the words and the stack's bytes ("
+                + guns + " guns, " + cases + " loads" + (differ.isEmpty() ? ")" : "): " + differ.subList(0, Math.min(8, differ.size()))),
+                differ.isEmpty() && loaded > guns / 2);
+    }
+
+    private byte[] bytes(ItemStack s) {
+        var buf = new net.minecraft.network.RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), level.registryAccess());
+        try {
+            ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, s);
+            byte[] out = new byte[buf.readableBytes()];
+            buf.readBytes(out);
+            return out;
+        } finally {
+            buf.release();
+        }
+    }
+
+    // AiKitCommand.rounds, cannotLoad and load before NtmGuns.rounds and loadRound (2026-11-20), the stand's "before";
+    // load's bot.gunner.loadFree() as NtmGuns.fill did it then (AiGunner.Guns.fill)
+    private static Map<String, BulletConfig> oldRounds(ItemStack gun) {
+        Map<String, BulletConfig> out = new java.util.LinkedHashMap<>();
+        if (!(gun.getItem() instanceof ItemGunBaseNT)) return out;
+        com.hbm.items.weapon.sedna.mags.IMagazine<?> mag;
+        try {
+            mag = AmmoLock.primary(gun);
+        } catch (RuntimeException e) {
+            return out;
+        }
+        if (mag == null || mag instanceof acup.gunfeel.gl54.GrenadeMagazine) return out;
+        for (BulletConfig b : AmmoLock.accepted(mag)) out.putIfAbsent(BalanceGuns.ammoName(b), b);
+        return out;
+    }
+
+    private static String oldRoundName(String typed) {
+        String p = typed.startsWith("hbm:") ? typed.substring(4) : typed;
+        if (p.startsWith("ammo_standard_")) return p.substring("ammo_standard_".length());
+        return p.startsWith("ammo_") ? p.substring(5) : p;
+    }
+
+    private static String oldCannotLoad(ItemStack gun, String round) {
+        String name = BuiltInRegistries.ITEM.getKey(gun.getItem()).toString();
+        if (!(gun.getItem() instanceof ItemGunBaseNT)) return (gun.isEmpty() ? "an empty hand" : name) + " is no NTM gun: no round to choose";
+        Map<String, BulletConfig> rounds = oldRounds(gun);
+        if (rounds.isEmpty()) return name + " has no rounds to choose from";
+        if (!rounds.containsKey(oldRoundName(round))) return name + " does not take " + round + "; it takes: " + String.join(", ", rounds.keySet());
+        return null;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static String oldLoad(ItemStack stack, String round) {
+        String why = oldCannotLoad(stack, round);
+        if (why != null) return why;
+        BulletConfig type = oldRounds(stack).get(oldRoundName(round));
+        com.hbm.items.weapon.sedna.mags.IMagazine mag = AmmoLock.primary(stack);
+        int id = BulletConfig.configs.indexOf(type);
+        if (id < 0) return BuiltInRegistries.ITEM.getKey(stack.getItem()) + " cannot be told to load " + round + " (NTM does not list the round)";
+        if (mag instanceof MagazineBelt) {
+            MagazineBelt.setMagType(stack, id);
+            ItemGunBaseNT.setValueInt(stack, AmmoLock.KEY, 1);
+        } else if (mag instanceof com.hbm.items.weapon.sedna.mags.MagazineSingleTypeBase) {
+            mag.setType(stack, type);
+        } else return BuiltInRegistries.ITEM.getKey(stack.getItem()) + " has no rounds to choose from";
+        // loadFree: NtmGuns.fill
+        com.hbm.items.weapon.sedna.mags.IMagazine m;
+        try {
+            m = ((ItemGunBaseNT) stack.getItem()).getConfig(stack, 0).getReceivers(stack)[0].getMagazine(stack);
+        } catch (RuntimeException e) {
+            m = null;
+        }
+        if (m != null) m.reloadAction(stack, null);
+        return null;
+    }
+
 }
