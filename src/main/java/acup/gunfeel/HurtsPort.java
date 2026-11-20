@@ -29,6 +29,7 @@ final class HurtsPort implements Hurts {
             case NTM_NUCLEAR_BLAST, NTM_DIGAMMA, NTM_RADIATION -> DamageCap.Reads.is(s, what);
             case NTM_FIRE -> BalanceArmor.Reads.ntmFire(s);
             case NTM_ELECTRIC -> BalanceArmor.Reads.ntmElectric(s);
+            case BYPASSES_INVULNERABILITY -> s.is(DamageTypeTags.BYPASSES_INVULNERABILITY);
             default -> throw new IllegalArgumentException("no question " + what);
         };
     }

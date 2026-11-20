@@ -31,6 +31,8 @@ public interface BodyControl {
         @Override public void lookAt(Body b, double x, double y, double z, float yMax, float xMax) { throw none(); }
         @Override public void snap(Body b, double x, double y, double z, float yRot, float xRot) { throw none(); }
         @Override public void place(Body b, double x, double y, double z) { throw none(); }
+        @Override public void removeEffect(Body b, int which) { throw none(); }
+        @Override public void tellBar(Body b, String key, int arg) { throw none(); }
     };
 
     /**
@@ -98,6 +100,12 @@ public interface BodyControl {
      * and {@code box} read the new place
      */
     void place(Body b, double x, double y, double z);
+
+    /** removes the living body's effect by Body's number */
+    void removeEffect(Body b, int which);
+
+    /** a translated action bar message to a server player; nothing for another */
+    void tellBar(Body b, String key, int arg);
 
     /** Entity.snapTo: sets position, yaw and pitch, and the old position to that same place. Any body. */
     void snap(Body b, double x, double y, double z, float yRot, float xRot);

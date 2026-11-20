@@ -81,6 +81,9 @@ final class LevelLeakStand {
                 if (server == null || server.overworld().getGameTime() < fightUntil) return;
                 server.submit(() -> {
                     ServerLevel level = server.overworld();
+                    // every level's WorldView made, as a hit on a set does (EuphImmunity): it holds its level, so the
+                    // unload must forget it (Worlds.forget in LevelUnload) for the levels to go
+                    for (ServerLevel l : server.getAllLevels()) acup.gunfeel.host.Worlds.of(l);
                     List<String> held = holding(level);
                     GunFeel.LOGGER.info("[levelleak] after the fight the AI keeps the overworld in: {}", held);
                     ClientSmoke.check(!held.isEmpty(), "уровень: после боя у ИИ есть состояние уровня (" + held + ")");
