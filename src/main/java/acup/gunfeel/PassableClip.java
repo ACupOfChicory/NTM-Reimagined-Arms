@@ -262,18 +262,10 @@ public final class PassableClip extends ClipContext {
     }
 
     // Blocks with a 3D model inside their hitbox (NTM's steel scaffold, poles): 16 x 16 x 16 cells, set where the
-    // model shows a pixel (ntmgunfeel-bullet-shapes.properties, made by the client from its models, see MeshShapes).
-    // Bit x + 16 * (y + 16 * z). Key: block id and its properties, see key().
-    // The jar's shapes; this game's (the jar's, then the config file's and this client's); on another game's server the
-    // jar's and that server's (ServerSettings). The maps are replaced whole, never changed in place: bullets read them
-    // on other threads.
-    private static Map<String, long[]> jar = Map.of();
-    private static volatile Map<String, long[]> local = Map.of();
-    private static volatile @Nullable Map<String, long[]> remote;
-    private static volatile int localVersion;
+    // model shows a pixel (the table: ShapeTable). Bit x + 16 * (y + 16 * z). Key: block id and its properties, see key().
+    // A block state's cells as bullets meet them, till the table or the bullet rules change.
     private static final Map<BlockState, long[]> SHAPE_OF = new java.util.concurrent.ConcurrentHashMap<>();
     private static final long[] NONE = new long[0];
-    private static volatile boolean shapesLoaded;
     private static volatile int shapesOfRules = -1;
 
     public static String key(BlockState state) {
@@ -294,7 +286,7 @@ public final class PassableClip extends ClipContext {
     }
 
     public static long[] shape(BlockState state) {
-        if (!shapesLoaded) loadShapes();
+        ShapeTable.load();
         int g = BulletRules.generation();
         if (g != shapesOfRules) {
             // the bullet rules were read anew: their shape lines may have changed
@@ -319,11 +311,11 @@ public final class PassableClip extends ClipContext {
     private static long @Nullable [] cellsOf(BlockState state) {
         String path = BulletRules.path(state);
         if (path == null || path.equals("model")) {
-            long[] own = shapes().get(key(state));
+            long[] own = ShapeTable.shapes().get(key(state));
             if (own != null || path != null) return own;
         }
         String family = familyKey(state, path);
-        return family == null ? null : shapes().get(family);
+        return family == null ? null : ShapeTable.shapes().get(family);
     }
 
     static @Nullable String familyKey(BlockState state, @Nullable String path) {
@@ -335,16 +327,13 @@ public final class PassableClip extends ClipContext {
         return familyKey(family, props);
     }
 
-    // the family a block takes: the path rule's when it names one (another path: none), else its class's unless it
-    // has a mask
+    // the family a block takes: FenceFamilies.family
     static @Nullable String family(@Nullable String path, @Nullable String byClass, boolean masked) {
-        if (path != null) return FAMILIES.containsKey(path) ? path : null;
-        return masked ? null : byClass;
+        return FenceFamilies.family(path, byClass, masked);
     }
 
-    // the words of a "path" bullet rule: the four ways and the families
-    public static final Set<String> PATH_WORDS = Set.of("hitbox", "pixels", "model", "through", "fence", "fence_gate", "wall",
-            "bamboo_fence", "bamboo_fence_gate");
+    // the words of a "path" bullet rule: FenceFamilies.PATH_WORDS
+    public static final Set<String> PATH_WORDS = FenceFamilies.PATH_WORDS;
 
     // the block's pixel mask, unless a path rule says other than pixels
     static long[] @Nullable [] maskOf(BlockState state) {
@@ -369,30 +358,12 @@ public final class PassableClip extends ClipContext {
         return null;
     }
 
-    // per family the properties that change its model, their values, the first one the default (for a block made a
-    // fence by a rule without the fence's sides: a post), as tools/fence_shapes.py makes them
-    private static final List<String> BOOL = List.of("false", "true");
-    private static final Map<String, List<String>> FENCE = Map.of("east", BOOL, "north", BOOL, "south", BOOL, "west", BOOL);
-    private static final Map<String, List<String>> GATE = Map.of("facing", List.of("north", "east", "south", "west"), "in_wall", BOOL,
-            "open", BOOL);
-    private static final List<String> SIDE = List.of("none", "low", "tall");
-    public static final Map<String, Map<String, List<String>>> FAMILIES = Map.of("fence", FENCE, "fence_gate", GATE,
-            "wall", Map.of("east", SIDE, "north", SIDE, "south", SIDE, "west", SIDE, "up", List.of("true", "false")),
-            "bamboo_fence", FENCE, "bamboo_fence_gate", GATE);
+    // per family the properties that change its model: FenceFamilies.FAMILIES
+    public static final Map<String, Map<String, List<String>>> FAMILIES = FenceFamilies.FAMILIES;
 
-    // the key of the family's cells for a block with these properties (the family's own, the rest left out; one it
-    // lacks or with a value the family has not takes the default)
+    // the key of the family's cells for a block with these properties: FenceFamilies.familyKey
     static String familyKey(String family, Map<String, String> props) {
-        Map<String, List<String>> own = FAMILIES.get(family);
-        StringBuilder k = new StringBuilder("~").append(family).append('[');
-        String sep = "";
-        for (String name : new java.util.TreeSet<>(own.keySet())) {
-            String v = props.get(name);
-            if (v == null || !own.get(name).contains(v)) v = own.get(name).getFirst();
-            k.append(sep).append(name).append('=').append(v);
-            sep = ",";
-        }
-        return k.append(']').toString();
+        return FenceFamilies.familyKey(family, props);
     }
 
     public static boolean shell(BlockState state) {
@@ -400,29 +371,15 @@ public final class PassableClip extends ClipContext {
         return v != null && ShapeCells.shell(v);
     }
 
-    // shapes made by this client: used at once (single player, the client's own tracers); on another game's server they
-    // wait until the client leaves it, as that server goes by its own
+    // shapes made by this client: ShapeTable.put; the cells by block state forgotten under the class's lock
     public static synchronized void putShapes(Map<String, long[]> shapes) {
-        Map<String, long[]> next = new HashMap<>(local());
-        next.putAll(shapes);
-        local = next;
-        localVersion++;
+        ShapeTable.put(shapes);
         forget();
     }
 
-    // the server's shapes beyond the jar's (packed, by key), or null: back to this game's own
+    // the server's shapes beyond the jar's (packed, by key), or null: ShapeTable.useRemote; the cells by block state forgotten
     public static synchronized void useRemoteShapes(@Nullable Map<String, String> packed) {
-        loadShapes();
-        if (packed == null) {
-            remote = null;
-        } else {
-            Map<String, long[]> m = new HashMap<>(jar);
-            for (Map.Entry<String, String> e : packed.entrySet()) {
-                long[] bits = ShapeCells.unpack(e.getValue());
-                if (bits != null) m.put(e.getKey(), bits);
-            }
-            remote = m;
-        }
+        ShapeTable.useRemote(packed);
         forget();
     }
 
@@ -431,87 +388,32 @@ public final class PassableClip extends ClipContext {
         Structures.clear();
     }
 
-    // goes up when this game's shapes change (the server sends them again)
+    // ShapeTable.localVersion
     public static int localVersion() {
-        return localVersion;
+        return ShapeTable.localVersion();
     }
 
-    // this game's shapes that the jar has not (or has other cells for), packed: what the server sends its players
+    // ShapeTable.extra
     public static Map<String, String> extraShapes() {
-        Map<String, long[]> mine = local();
-        Map<String, String> out = new java.util.TreeMap<>();
-        for (Map.Entry<String, long[]> e : mine.entrySet()) {
-            if (!java.util.Arrays.equals(jar.get(e.getKey()), e.getValue())) out.put(e.getKey(), ShapePacking.SHARED.pack(e.getValue()));
-        }
-        return out;
+        return ShapeTable.extra();
     }
 
-    // the cells under a key (block shapes and the cells of big models: see Structures), as bullets meet them; a machine
-    // the jar's pack has (made with this game's NTM) by the pack: the config's may be from an older mod
+    // ShapeTable.byKey
     static long @org.jspecify.annotations.Nullable [] byKey(String key) {
-        long[] packed = ShapePack.get(key);
-        return packed != null ? packed : shapes().get(key);
+        return ShapeTable.byKey(key);
     }
 
-    // the cells under a key that this game knows (not the server's)
+    // ShapeTable.localByKey
     static long @org.jspecify.annotations.Nullable [] localByKey(String key) {
-        return local().get(key);
+        return ShapeTable.localByKey(key);
     }
 
-    // every key and its cells this game knows (the jar's, the config's, this client's)
+    // ShapeTable.all
     public static Map<String, long[]> all() {
-        return new java.util.TreeMap<>(local());
+        return ShapeTable.all();
     }
 
-    // the shapes bullets go by: the server's on another game's server, else this game's
-    private static Map<String, long[]> shapes() {
-        Map<String, long[]> r = remote;
-        return r != null ? r : local();
-    }
-
-    private static Map<String, long[]> local() {
-        if (!shapesLoaded) loadShapes();
-        return local;
-    }
-
-    private static synchronized void loadShapes() {
-        if (shapesLoaded) return;
-        Map<String, long[]> fromJar = new HashMap<>();
-        try (var in = PassableClip.class.getResourceAsStream("/ntmgunfeel-bullet-shapes.properties")) {
-            if (in != null) readShapes(new InputStreamReader(in, StandardCharsets.UTF_8), fromJar);
-        } catch (Exception e) {
-            LOGGER.warn("Could not read the bullet shapes", e);
-        }
-        Map<String, long[]> mine = new HashMap<>(fromJar);
-        // made by a client of this mod version (MeshShapes); wins over the jar's
-        java.nio.file.Path f = net.neoforged.fml.loading.FMLPaths.CONFIGDIR.get().resolve(SHAPES_FILE);
-        if (java.nio.file.Files.exists(f)) {
-            try (var r = java.nio.file.Files.newBufferedReader(f, StandardCharsets.UTF_8)) {
-                readShapes(r, mine);
-            } catch (Exception e) {
-                LOGGER.warn("Could not read {}", SHAPES_FILE, e);
-            }
-        }
-        jar = fromJar;
-        local = mine;
-        shapesLoaded = true;
-    }
-
-    public static final String SHAPES_FILE = "ntm-gunfeel-bullet-shapes.properties";
-
-    // "key = <shape>" or "key = @n" with "@n = <shape>" written once; a shape is 1024 hex digits or "z" and the
-    // deflated 512 bytes in base64, after "!" for a shell
-    private static void readShapes(java.io.Reader r, Map<String, long[]> into) throws java.io.IOException {
-        Properties p = new Properties();
-        p.load(r);
-        for (String k : p.stringPropertyNames()) {
-            if (k.startsWith("@")) continue;
-            String v = p.getProperty(k).trim();
-            if (v.startsWith("@")) v = p.getProperty(v, "").trim();
-            long[] bits = ShapeCells.unpack(v);
-            if (bits != null) into.put(k, bits);
-        }
-    }
+    public static final String SHAPES_FILE = ShapeTable.FILE;
 
     // From where the bullet enters the block's hitbox, along its way, to the first set cell: the hit there, or null
     // when it leaves the block without meeting one (the walk: ShapeCells.march).
