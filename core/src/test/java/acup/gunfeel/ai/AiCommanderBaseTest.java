@@ -496,6 +496,14 @@ class AiCommanderBaseTest {
             @Override public acup.gunfeel.host.WorldView world(Object l) { assertSame(level, l); return world; }
             @Override public acup.gunfeel.host.EntityView entities(Object l) { assertSame(level, l); return entities; }
             @Override public acup.gunfeel.water.LiquidPath.Fluids fluids(Object l) { assertSame(level, l); return fluids; }
+            @Override public TacticalMapBase map(Object l) { throw new AssertionError(); }
+            @Override public VoxelRay.Source voxels(Object l) { throw new AssertionError(); }
+            @Override public java.util.function.LongPredicate heldByOthers(Bot b) { throw new AssertionError(); }
+            @Override public void aim(Bot b, acup.gunfeel.Vec3d at) { throw new AssertionError(); }
+            @Override public void crouch(Bot b, boolean on) { throw new AssertionError(); }
+            @Override public double speed(StaffMoveBase.Pace p) { throw new AssertionError(); }
+            @Override public void held(Bot b, long tick) { throw new AssertionError(); }
+            @Override public boolean movingHeld(Bot b) { throw new AssertionError(); }
         };
 
         @BeforeEach

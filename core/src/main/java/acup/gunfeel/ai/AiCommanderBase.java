@@ -10,6 +10,7 @@ import org.jspecify.annotations.Nullable;
 import acup.gunfeel.CoreServices;
 import acup.gunfeel.GameMath;
 import acup.gunfeel.LevelMap;
+import acup.gunfeel.Vec3d;
 import acup.gunfeel.ai.AiIntelBase.Group;
 import acup.gunfeel.host.Body;
 import acup.gunfeel.host.BodyControl;
@@ -548,6 +549,22 @@ public abstract class AiCommanderBase {
         EntityView entities(Object level);
         /** 26.2: Wiring.liquids. */
         LiquidPath.Fluids fluids(Object level);
+        /** 26.2: TacticalMap.of. */
+        TacticalMapBase map(Object level);
+        /** 26.2: AiBots.voxels. */
+        VoxelRay.Source voxels(Object level);
+        /** 26.2: AiBots.heldByOthers. */
+        java.util.function.LongPredicate heldByOthers(B b);
+        /** 26.2: AiGunner.aim, keeping its retarget contract. */
+        void aim(B b, @Nullable Vec3d at);
+        /** 26.2: AiSoldier.crouch when its brain is a soldier. */
+        void crouch(B b, boolean on);
+        /** 26.2: AiSoldier.RUN, MARCH, WALK, CREEP. */
+        double speed(StaffMoveBase.Pace p);
+        /** 26.2: AiHold.held. */
+        void held(B b, long tick);
+        /** 26.2: AiHold.moving. */
+        boolean movingHeld(B b);
     }
 
     private static final BodyControl CONTROL = CoreServices.load(BodyControl.class, BodyControl.MISSING);

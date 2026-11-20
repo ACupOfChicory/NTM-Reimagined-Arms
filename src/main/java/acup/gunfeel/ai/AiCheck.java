@@ -67,6 +67,7 @@ public final class AiCheck {
             }
             List<String> out = new ArrayList<>();
             AiCheck check = new AiCheck();
+            StaffMove.alike = new StaffMoveAlike();
             try {
                 check.run(out, e.getServer());
             } catch (Throwable t) {
@@ -221,6 +222,7 @@ public final class AiCheck {
                         AiBots.heardKeeps = true;
                         clearShots(check.level);
                     } else if (counted) AiLegsLog.tick(check.level, AiBots.all(check.level));
+                    if (StaffMove.alike != null) StaffMove.alike.tick(AiBots.all(check.level));
                     done = at[0] >= stages.size();
                 } catch (Throwable x) {
                     crashed(out, x);
@@ -232,6 +234,11 @@ public final class AiCheck {
                 AiVoice.counting = false;
                 out.add("     " + check.map.info());
                 out.add("     senses: " + Senses.info());
+                if (StaffMove.alike != null) {
+                    out.add("     " + StaffMove.alike.info());
+                    check.check("staffmove: core's StaffMoveBase answers as the former code did", StaffMove.alike.differ == 0);
+                    StaffMove.alike = null;
+                }
                 out.add("     " + StandSprint.info());
                 out.add(check.ok ? "ALL OK" : "FAILED");
                 finish(file, out, check.ok ? 0 : 1);

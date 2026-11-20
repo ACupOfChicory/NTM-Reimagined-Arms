@@ -7,6 +7,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 import acup.gunfeel.ReaimTimes;
+import acup.gunfeel.Vec3d;
 import acup.gunfeel.ai.AiIntelBase.Group;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -44,7 +45,7 @@ public final class AiCommander extends AiCommanderBase {
     private AiCommander() {
     }
 
-    private static final Staff<AiBot, Job, Order> STAFF = new Staff<>() {
+    static final Staff<AiBot, Job, Order> STAFF = new Staff<>() {
         @Override public Order order(AiBot b) { return b.order; }
         @Override public void order(AiBot b, @Nullable Order o) { b.order = o; }
         @Override public Order order() { return new Order(); }
@@ -64,6 +65,14 @@ public final class AiCommander extends AiCommanderBase {
         @Override public acup.gunfeel.host.WorldView world(Object level) { return acup.gunfeel.host.Worlds.of(level); }
         @Override public acup.gunfeel.host.EntityView entities(Object level) { return new acup.gunfeel.LevelEntities((ServerLevel) level); }
         @Override public acup.gunfeel.water.LiquidPath.Fluids fluids(Object level) { return acup.gunfeel.Wiring.liquids((ServerLevel) level); }
+        @Override public TacticalMapBase map(Object level) { return TacticalMap.of((ServerLevel) level); }
+        @Override public VoxelRay.Source voxels(Object level) { return AiBots.voxels((ServerLevel) level); }
+        @Override public java.util.function.LongPredicate heldByOthers(AiBot b) { return AiBots.heldByOthers(b); }
+        @Override public void aim(AiBot b, @Nullable Vec3d at) { b.gunner.aim(at == null ? null : new net.minecraft.world.phys.Vec3(at.x(), at.y(), at.z())); }
+        @Override public void crouch(AiBot b, boolean on) { if (b.brain instanceof AiSoldier s) s.crouch(on); }
+        @Override public double speed(StaffMoveBase.Pace p) { return switch (p) { case RUN -> AiSoldier.RUN; case MARCH -> AiSoldier.MARCH; case WALK -> AiSoldier.WALK; case CREEP -> AiSoldier.CREEP; }; }
+        @Override public void held(AiBot b, long tick) { AiHold.held(b, tick); }
+        @Override public boolean movingHeld(AiBot b) { return AiHold.moving(b); }
     };
 
     public static void forget(ServerLevel level) {
