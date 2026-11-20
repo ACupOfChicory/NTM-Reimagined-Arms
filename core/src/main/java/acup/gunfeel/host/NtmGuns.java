@@ -82,6 +82,48 @@ public interface NtmGuns {
      */
     int rounds(Body holder, int hand, int[] out);
 
+    /**
+     * The ammo menu's {@link #rounds}, its own read (AMMO_CHOICE's; the kit's is MOB_AI's): the same rounds of the first
+     * magazine into {@code out}, how many; -1 with no gun or no magazine, {@link #ROUNDS_GL54} for the GL-54's (its
+     * magazines hold the grenades, the menu's entries for them are 26.2's). Not caught, as the menu never caught it.
+     */
+    int menuRounds(Body holder, int hand, int[] out);
+
+    /** {@link #menuRounds}'s answer for the GL-54's magazine */
+    int ROUNDS_GL54 = -2;
+
+    /**
+     * Rounds of this one ({@link RoundTable} number) the holder carries (its inventory and its ammo bags; 0 for a
+     * holder with no inventory, a mob), {@link #INFINITE_ROUNDS} where an infinite bag holds it.
+     */
+    int reserve(Body holder, int round);
+
+    /** {@link #reserve}'s answer for an infinite bag */
+    int INFINITE_ROUNDS = -1;
+
+    /**
+     * The type of its first magazine ({@link RoundTable} number) as NTM gives it with the holder's inventory (a
+     * player's; none for a mob): the round loaded, or for a magazine not locked the first the inventory holds; 0 for
+     * none, no magazine or a type that is no bullet. The magazine is found once. Not caught.
+     */
+    int loadedRound(Body holder, int hand);
+
+    /** {@link #choiceStats}'s places, read in this order: the gun's wear and durability, the receiver's damage and split */
+    int C_WEAR = 0, C_DURABILITY = 1, C_BASE_DAMAGE = 2, C_SPLIT = 3, C_COUNT = 4;
+
+    /**
+     * The gun's numbers for the ammo menu's figures into {@code out} ({@link #C_COUNT} long), config 0 and receiver 0
+     * found once; false with no gun, one with no config, or where NTM threw on the way (out then as far as it got).
+     */
+    boolean choiceStats(Body holder, int hand, float[] out);
+
+    /** {@link #roundStats}'s places */
+    int S_DAMAGE_MULT = 0, S_PROJECTILES_MIN = 1, S_PROJECTILES_MAX = 2, S_HEADSHOT_MULT = 3, S_THRESHOLD_NEGATION = 4,
+            S_ARMOR_PIERCING = 5, S_COUNT = 6;
+
+    /** The round's numbers ({@link RoundTable} number) for the ammo menu's figures into {@code out} ({@link #S_COUNT} long). */
+    void roundStats(int round, float[] out);
+
     /** NTM's aiming (the gun's own state: down its sights) */
     boolean aiming(Body holder, int hand);
 
@@ -174,6 +216,31 @@ public interface NtmGuns {
         @Override
         public int loadRound(Body holder, int hand, int round) {
             throw new IllegalStateException("no gun");
+        }
+
+        @Override
+        public int menuRounds(Body holder, int hand, int[] out) {
+            return -1;
+        }
+
+        @Override
+        public int reserve(Body holder, int round) {
+            return 0;
+        }
+
+        @Override
+        public int loadedRound(Body holder, int hand) {
+            return 0;
+        }
+
+        @Override
+        public boolean choiceStats(Body holder, int hand, float[] out) {
+            return false;
+        }
+
+        @Override
+        public void roundStats(int round, float[] out) {
+            throw new IllegalStateException("no round");
         }
 
         @Override
