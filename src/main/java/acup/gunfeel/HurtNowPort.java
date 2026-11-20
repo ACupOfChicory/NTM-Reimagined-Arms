@@ -21,6 +21,11 @@ final class HurtNowPort implements HurtNow {
     }
 
     @Override
+    public float corrosion(Body b) {
+        return acup.gunfeel.gas.GasServer.corrosion((LivingEntity) EntityBody.entity(b));
+    }
+
+    @Override
     public float @Nullable [] floorExtra(Object hurt, boolean blast) {
         return BalanceGuns.extra(BalanceArmor.floorShot((DamageSource) hurt, blast));
     }

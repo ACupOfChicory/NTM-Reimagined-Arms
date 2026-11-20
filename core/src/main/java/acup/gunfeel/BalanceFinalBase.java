@@ -6,8 +6,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
+import java.util.function.BooleanSupplier;
+
+import acup.gunfeel.host.Body;
+import acup.gunfeel.host.HurtNow;
 
 /**
  * What BalanceFinal knows without the game: whether the scheme is on, its keys worked out (balance.final.*: the pairs'
@@ -243,6 +249,48 @@ public class BalanceFinalBase {
 
     // ---------------------------------------------------------------- the set worn
 
+    /** the scheme's view of one hit: its pair and the set it meets */
+    record Hit(BalanceFinalRule.Pair pair, BalanceFinalRule.Armor armor, double clickDamage) {
+        /** the damage of one projectile on the body (before the part hit's multiplier) */
+        float projectile() {
+            return (float) (clickDamage / pair.projectiles());
+        }
+    }
+
+    /** the stand's words for a hit, null outside the scheme */
+    static String describeOf(Hit h) {
+        return h == null ? null : String.format(Locale.ROOT, "%s.%s on %s, %.3f a click", h.pair().gun(), h.pair().ammo(), h.armor().kind(), h.clickDamage());
+    }
+
+    static BalanceFinalRule.Armor armorOf(Body b, State s, HurtNow now, BooleanSupplier on) {
+        return armorOf(b, s, now, on, BalanceArmorBase::setOfWorn);
+    }
+
+    /** the same with the worn items' port given (core's tests) */
+    static BalanceFinalRule.Armor armorOf(Body b, State s, HurtNow now, BooleanSupplier on,
+            BiFunction<Body, Integer, String> worn) {
+        var a = armorOfWorn(b, s, on, worn);
+        if (a == null || !s.acid().on()) return a;
+        // the acid's corrosion takes the set's tier down (balance.final.acid; Fable №2, 2.4)
+        float k = now.corrosion(b);
+        if (!(k > 0F)) return a;
+        double t = s.acid().tierOf(a.tier(), k);
+        return t == a.tier() ? a : new BalanceFinalRule.Armor(a.kind(), t, a.hours(), a.en(), a.pool());
+    }
+
+    static float clickOn(Body b, String id, BooleanSupplier on) {
+        return clickOn(b, id, state(), EuphImmunityBase.NowPort.NOW, on, BalanceArmorBase::setOfWorn);
+    }
+
+    static float clickOn(Body b, String id, State s, HurtNow now, BooleanSupplier on,
+            BiFunction<Body, Integer, String> worn) {
+        var pr = s.pairs().get(id);
+        var armor = pr == null ? null : armorOf(b, s, now, on, worn);
+        if (armor == null) return Float.NaN;
+        double click = BalanceFinalRule.clickDamage(pr, armor, s.sets().get("fau"), s.refs(), s.params());
+        return (float) (click / pr.projectiles()) * b.maxHealth() / (float) BalanceFinalRule.HP;
+    }
+
     /**
      * the set the scheme takes on {@code b} as the slots have it (BalanceFinal.armorOf before the acid): a full set of
      * one kind its own (with its pool), a mixed or incomplete one by the slots' weights (no pool), nothing of the table:
@@ -250,11 +298,16 @@ public class BalanceFinalBase {
      * asked where the old code asked it, only for a player's full set of a kit's
      */
     static BalanceFinalRule.Armor armorOfWorn(acup.gunfeel.host.Body b, State s, java.util.function.BooleanSupplier balanceOn) {
+        return armorOfWorn(b, s, balanceOn, BalanceArmorBase::setOfWorn);
+    }
+
+    static BalanceFinalRule.Armor armorOfWorn(Body b, State s, BooleanSupplier balanceOn,
+            BiFunction<Body, Integer, String> worn) {
         BalanceFinalRule.Armor[] slots = new BalanceFinalRule.Armor[4];
         String first = null;
         boolean same = true, any = false;
         for (int i = 0; i < 4; i++) {
-            String set = BalanceArmorBase.setOfWorn(b, i);
+            String set = worn.apply(b, i);
             var a = set == null ? null : s.sets().get(set);
             slots[i] = a;
             if (a != null) any = true;

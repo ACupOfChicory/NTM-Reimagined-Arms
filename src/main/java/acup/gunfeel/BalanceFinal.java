@@ -239,16 +239,7 @@ public final class BalanceFinal extends BalanceFinalBase {
      * a click on the body ("stg77.r556_ap on hev, 1.18 a click"); null when the hit is not the scheme's
      */
     public static String describe(LivingEntity target, DamageSource source) {
-        Hit h = hit(target, source);
-        return h == null ? null : String.format(java.util.Locale.ROOT, "%s.%s on %s, %.3f a click", h.pair().gun(), h.pair().ammo(), h.armor().kind(), h.clickDamage());
-    }
-
-    /** the scheme's view of one hit: its pair and the set it meets */
-    record Hit(BalanceFinalRule.Pair pair, BalanceFinalRule.Armor armor, double clickDamage) {
-        /** the damage of one projectile on the body (before the part hit's multiplier) */
-        float projectile() {
-            return (float) (clickDamage / pair.projectiles());
-        }
+        return describeOf(hit(target, source));
     }
 
     /**
@@ -281,12 +272,7 @@ public final class BalanceFinal extends BalanceFinalBase {
 
     /** the stand: the damage of one projectile of pair {@code id} on {@code target}'s body (its health's scale), NaN when not the scheme's */
     static float clickOn(LivingEntity target, String id) {
-        State s = state();
-        var pr = s.pairs().get(id);
-        var armor = pr == null ? null : armorOf(target, s);
-        if (armor == null) return Float.NaN;
-        double click = BalanceFinalRule.clickDamage(pr, armor, s.sets().get("fau"), s.refs(), s.params());
-        return (float) (click / pr.projectiles()) * target.getMaxHealth() / (float) BalanceFinalRule.HP;
+        return clickOn(EntityBody.of(target), id, BalanceOn.ON);
     }
 
     /**
@@ -294,17 +280,7 @@ public final class BalanceFinal extends BalanceFinalBase {
      * one by the slots' weights (no pool), nothing of the table: bare (players only); null when not the scheme's
      */
     static BalanceFinalRule.Armor armorOf(LivingEntity target, State s) {
-        var a = armorOf0(target, s);
-        if (a == null || !s.acid().on()) return a;
-        // the acid's corrosion takes the set's tier down (balance.final.acid; Fable №2, 2.4)
-        float k = acup.gunfeel.gas.GasServer.corrosion(target);
-        if (!(k > 0F)) return a;
-        double t = s.acid().tierOf(a.tier(), k);
-        return t == a.tier() ? a : new BalanceFinalRule.Armor(a.kind(), t, a.hours(), a.en(), a.pool());
-    }
-
-    private static BalanceFinalRule.Armor armorOf0(LivingEntity target, State s) {
-        return armorOfWorn(EntityBody.of(target), s, BalanceOn.ON);
+        return armorOf(EntityBody.of(target), s, EuphImmunityBase.NowPort.NOW, BalanceOn.ON);
     }
 
     /**
