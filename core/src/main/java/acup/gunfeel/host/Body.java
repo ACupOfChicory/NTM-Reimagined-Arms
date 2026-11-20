@@ -168,9 +168,6 @@ public interface Body {
     /** its walking speed (the movement speed attribute); living */
     double speed();
 
-    /** its most health (the game's getMaxHealth); living */
-    float maxHealth();
-
     /** its id that outlives a respawn (the game's getUUID): the same object each call */
     java.util.UUID uuid();
 
