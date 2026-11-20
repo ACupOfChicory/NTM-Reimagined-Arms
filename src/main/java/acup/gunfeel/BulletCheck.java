@@ -465,6 +465,55 @@ public final class BulletCheck {
             threw = true;
         }
         check("world: a number no type has throws", true, threw);
+        hurts();
+    }
+
+    // the hurts (Hurts): on a source of every damage type of the registry, by none, by a zombie itself, by an NTM beam
+    // a zombie fired and by a zombie with no direct entity, each answer the game's own call; a type's name one String
+    private static void hurts() {
+        var hurts = acup.gunfeel.CoreServices.load(acup.gunfeel.host.Hurts.class, acup.gunfeel.host.Hurts.MISSING);
+        var types = level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.DAMAGE_TYPE);
+        var zombie = net.minecraft.world.entity.EntityTypes.ZOMBIE.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+        var beam = new com.hbm.entity.projectile.EntityBulletBeamBase(level, new com.hbm.items.weapon.sedna.BulletConfig().setBeam(), 1);
+        java.util.List<String> wrong = new java.util.ArrayList<>();
+        int sources = 0;
+        int[] yes = new int[7];
+        for (var holder : types.listElements().toList()) {
+            for (int way = 0; way < 4; way++) {
+                net.minecraft.world.entity.Entity direct = way == 1 ? zombie : way == 2 ? beam : null, cause = way == 0 ? null : zombie;
+                var s = new net.minecraft.world.damagesource.DamageSource(holder, direct, cause);
+                boolean[] game = {s.is(net.minecraft.tags.DamageTypeTags.BYPASSES_EFFECTS), s.is(net.minecraft.tags.DamageTypeTags.IS_FIRE),
+                        s.is(net.minecraft.tags.DamageTypeTags.IS_FALL), s.is(com.hbm.lib.ModDamageTypes.NUCLEAR_BLAST), s.is(com.hbm.lib.ModDamageTypes.DIGAMMA),
+                        s.is(com.hbm.lib.ModDamageTypes.RADIATION), s.is(com.hbm.lib.ModDamageTypes.FIRE)};
+                String at = holder.key().identifier() + " way " + way;
+                for (int q = 0; q < game.length; q++) {
+                    if (hurts.is(s, q) != game[q]) wrong.add(at + " is " + q);
+                    if (game[q]) yes[q]++;
+                }
+                int kind = (direct instanceof net.minecraft.world.entity.LivingEntity ? acup.gunfeel.host.Hurts.LIVING : 0)
+                        | (direct instanceof com.hbm.entity.projectile.EntityBulletBeamBase ? acup.gunfeel.host.Hurts.NTM_BEAM : 0);
+                if (hurts.directKind(s) != kind) wrong.add(at + " directKind");
+                if (!java.util.Objects.equals(hurts.ntmCategory(s), com.hbm.util.DamageResistanceHandler.typeToCategory(s))) wrong.add(at + " ntmCategory");
+                String name = hurts.typeName(s);
+                if (!holder.key().identifier().toString().equals(name) || name != hurts.typeName(s)) wrong.add(at + " typeName");
+                sources++;
+            }
+        }
+        var keyless = new net.minecraft.world.damagesource.DamageSource(net.minecraft.core.Holder.direct(types.getOrThrow(net.minecraft.world.damagesource.DamageTypes.GENERIC).value()));
+        check("world: hurts are the game's on " + sources + " sources: " + wrong.size() + " wrong" + (wrong.isEmpty() ? "" : " " + wrong.subList(0, Math.min(8, wrong.size()))),
+                0, wrong.size());
+        // each question true somewhere: the NTM types and the tags the registry has
+        check("world: each question yes on some source", true, java.util.Arrays.stream(yes).allMatch(n -> n > 0));
+        check("world: a type with no key has no name", null, hurts.typeName(keyless));
+        boolean threw = false;
+        try {
+            hurts.is(keyless, 99);
+        } catch (IllegalArgumentException e) {
+            threw = true;
+        }
+        check("world: a question the port has not throws", true, threw);
+        beam.discard();
+        zombie.discard();
     }
 
     // ---- the rules' file looked at by the game's ticks (BulletRuleText.tick), not by the clock at each question: a

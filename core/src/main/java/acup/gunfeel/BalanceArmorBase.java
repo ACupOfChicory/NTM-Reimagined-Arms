@@ -2,6 +2,10 @@ package acup.gunfeel;
 
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
+
+import acup.gunfeel.host.Hurts;
+
 /**
  * What BalanceArmor knows without the game: NTM's combat sets the balance has numbers for (rating, tau, tier), the
  * set's name in a piece's item name, the balance's settings of the armour and of a weapon's blast on it (balanceArmor*,
@@ -202,5 +206,67 @@ public class BalanceArmorBase {
     /** balanceExplRawLimit: a blast of more raw damage is not squeezed, nor capped (DamageCap) */
     static float explRawLimit() {
         return positive("balanceExplRawLimit", 60F);
+    }
+
+    // ---------------------------------------------------------------- the hurt (Hurts: the version's source as it is)
+
+    /** NTM's categories as NTM names them (DamageResistanceHandler.CATEGORY_*: compile-time constants of NTM's) */
+    static final String CAT_EXPLOSION = "EXPL", CAT_FIRE = "FIRE", CAT_PHYSICAL = "PHYS", CAT_ENERGY = "EN";
+
+    /** the version's port; its methods are asked only from the hurt's members below */
+    static final class HurtPort {
+        static final Hurts HURTS = CoreServices.load(Hurts.class, Hurts.MISSING);
+    }
+
+    /** the category the formula takes (PHYS, EN, EXPL), or null when the hit is NTM's */
+    static @Nullable String categoryOf(Object hurt) {
+        return categoryOf(HurtPort.HURTS, hurt);
+    }
+
+    /** {@link #categoryOf(Object)} on the port {@code h} (a test's own) */
+    static @Nullable String categoryOf(Hurts h, Object hurt) {
+        String cat = categoryAnyOf(h, hurt);
+        // bullets and beams only: an NTM shot's damage type. Melee (a sword, the Crucible, a mob's blow), vanilla's
+        // arrows, spikes and the rest are NTM's numbers, as before the balance
+        return cat == null || CAT_EXPLOSION.equals(cat) || shotTypeOf(h, hurt) || irBeamOf(h, hurt) ? cat : null;
+    }
+
+    /** an infrared beam: a gun's beam of NTM's fire class, the formula's and the cap's as a beam */
+    static boolean irBeamOf(Object hurt) {
+        return irBeamOf(HurtPort.HURTS, hurt);
+    }
+
+    static boolean irBeamOf(Hurts h, Object hurt) {
+        return (h.directKind(hurt) & Hurts.NTM_BEAM) != 0 && h.is(hurt, Hurts.NTM_FIRE);
+    }
+
+    /**
+     * NTM's category of the hit as the balance reads it (PHYS, EN, EXPL), shot or not, or null: euphemium's pool is
+     * drained by any such hit (melee too), as the formula would take it
+     */
+    static @Nullable String categoryAnyOf(Object hurt) {
+        return categoryAnyOf(HurtPort.HURTS, hurt);
+    }
+
+    static @Nullable String categoryAnyOf(Hurts h, Object hurt) {
+        if (h.is(hurt, Hurts.BYPASSES_EFFECTS)) return null;
+        if (h.is(hurt, Hurts.NTM_NUCLEAR_BLAST) || h.is(hurt, Hurts.NTM_DIGAMMA) || h.is(hurt, Hurts.NTM_RADIATION)) return null;
+        String cat = h.ntmCategory(hurt);
+        // an infrared beam (a gun's beam of NTM's fire class: the IR capacitors of the laser guns and Lacunae) is the
+        // formula's as a beam (EN), not NTM's fire numbers: they let it through the combat sets and the pool
+        if (CAT_FIRE.equals(cat) && irBeamOf(h, hurt)) return CAT_ENERGY;
+        // balanceArmorBlasts off: blasts take NTM's numbers, bullets and beams the formula's
+        if (CAT_EXPLOSION.equals(cat)) return ReaimTimes.flag("balanceArmorBlasts", true) ? cat : null;
+        return CAT_ENERGY.equals(cat) || CAT_PHYSICAL.equals(cat) ? cat : null;
+    }
+
+    /** the hit is an NTM shot's (BalanceArmorRule.shotName): its damage type and whether a creature dealt it itself */
+    static boolean shotTypeOf(Object hurt) {
+        return shotTypeOf(HurtPort.HURTS, hurt);
+    }
+
+    static boolean shotTypeOf(Hurts h, Object hurt) {
+        String name = h.typeName(hurt);
+        return name != null && BalanceArmorRule.shotName(name, (h.directKind(hurt) & Hurts.LIVING) != 0);
     }
 }

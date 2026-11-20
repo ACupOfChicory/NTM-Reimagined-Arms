@@ -51,6 +51,7 @@ public final class Wiring implements Ports {
         put(acup.gunfeel.host.NtmGuns.class, new NtmGunsPort());
         put(acup.gunfeel.host.ItemTable.class, new ItemNames());
         put(acup.gunfeel.host.EntityTypeTable.class, new EntityTypeNames());
+        put(acup.gunfeel.host.Hurts.class, new HurtsPort());
         put(acup.gunfeel.host.RoundTable.class, new RoundNames());
     }
 

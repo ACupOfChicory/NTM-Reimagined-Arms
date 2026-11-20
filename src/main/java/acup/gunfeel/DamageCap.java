@@ -52,7 +52,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * of actuallyHurt); it is read before the hurt and after, counted with the rest, and what it took over the cap is
  * given back. Each shooter has their own cap on each target.
  */
-public final class DamageCap {
+public final class DamageCap extends DamageCapBase {
     private DamageCap() {
     }
 
@@ -154,8 +154,22 @@ public final class DamageCap {
 
     /** not capped: no shooter's gun behind it (nuclear, digamma, fire, falling, radiation) */
     static boolean exempt(DamageSource source) {
-        return source.is(ModDamageTypes.NUCLEAR_BLAST) || source.is(ModDamageTypes.RADIATION) || source.is(ModDamageTypes.DIGAMMA)
-                || (source.is(DamageTypeTags.IS_FIRE) && !BalanceArmor.irBeam(source)) || source.is(DamageTypeTags.IS_FALL);
+        return exemptOf(source);
+    }
+
+    /** NTM's reads of a hurt for core (HurtsPort): the cap's (CORE), the types it exempts */
+    static final class Reads {
+        private Reads() {
+        }
+
+        static boolean is(DamageSource source, int what) {
+            return switch (what) {
+                case acup.gunfeel.host.Hurts.NTM_NUCLEAR_BLAST -> source.is(ModDamageTypes.NUCLEAR_BLAST);
+                case acup.gunfeel.host.Hurts.NTM_DIGAMMA -> source.is(ModDamageTypes.DIGAMMA);
+                case acup.gunfeel.host.Hurts.NTM_RADIATION -> source.is(ModDamageTypes.RADIATION);
+                default -> throw new IllegalArgumentException("not the cap's question " + what);
+            };
+        }
     }
 
     /** the projectile between the shooter and the target, or null for none (melee, no shooter) */
