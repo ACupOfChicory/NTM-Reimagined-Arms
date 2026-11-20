@@ -583,7 +583,7 @@ public final class AiCommander {
                 }
                 // its strength: one with no round besides its gun's at a third (red, a magazine left, still fights)
                 boolean empty = supply && !b.gunner.ammo.infinite() && b.gunner.ammo.reserve() <= 0 && b.gunner.capacity() > 0;
-                strength += weight(AiRole.of(b).ordinal()) * Math.min(1, b.mob.getHealth() / b.mob.getMaxHealth()) * (empty ? 0.3 : 1);
+                strength += weight(AiRoles.of(b).ordinal()) * Math.min(1, b.mob.getHealth() / b.mob.getMaxHealth()) * (empty ? 0.3 : 1);
                 sideX += b.mob.getX();
                 sideZ += b.mob.getZ();
                 all++;

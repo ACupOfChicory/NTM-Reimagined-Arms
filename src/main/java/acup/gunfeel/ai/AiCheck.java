@@ -699,14 +699,14 @@ public final class AiCheck {
     }
 
     /**
-     * The stands: the role a gun makes (AiRole.by), the stack held a moment in the main hand of {@code holder} (a mob
+     * The stands: the role a gun makes (AiRoles.by), the stack held a moment in the main hand of {@code holder} (a mob
      * made for it, silent, not in the world) and the hand given back.
      */
     static AiRole role(net.minecraft.world.entity.Mob holder, net.minecraft.world.item.ItemStack stack) {
         net.minecraft.world.item.ItemStack before = holder.getMainHandItem();
         holder.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, stack);
         try {
-            return AiRole.by(acup.gunfeel.EntityBody.of(holder), stack);
+            return AiRoles.by(acup.gunfeel.EntityBody.of(holder), stack);
         } finally {
             holder.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, before);
         }

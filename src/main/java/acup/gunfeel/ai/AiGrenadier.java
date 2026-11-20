@@ -71,7 +71,7 @@ public final class AiGrenadier {
 
     /** it is a grenadier that lobs: the role, and 40 mm grenades in its gun (else it is as a rifleman) */
     static boolean is(AiBot bot) {
-        return AiRole.of(bot) == AiRole.GRENADIER && on() && shell(bot.mob.getMainHandItem()) != null;
+        return AiRoles.of(bot) == AiRole.GRENADIER && on() && shell(bot.mob.getMainHandItem()) != null;
     }
 
     /** the round in this gun's magazine, if it is a 40 mm grenade (not a rocket: those fly straight) */

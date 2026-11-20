@@ -112,7 +112,7 @@ public final class AiMedic {
 
     /** a medic now: the setting on and the role */
     static boolean medic(AiBot bot) {
-        return on() && AiRole.of(bot) == AiRole.MEDIC;
+        return on() && AiRoles.of(bot) == AiRole.MEDIC;
     }
 
     /** hurt enough to be treated: alive, less than WOUNDED of its health */

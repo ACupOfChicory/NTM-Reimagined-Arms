@@ -53,7 +53,7 @@ public final class AiSquads {
         double cx, cz;
         /** it has a base of fire and riflemen both: the base neither goes round nor after a target */
         boolean based;
-        /** who holds each role's slot: the first of the squad of that role (AiRole.of), null where none is */
+        /** who holds each role's slot: the first of the squad of that role (AiRoles.of), null where none is */
         final java.util.EnumMap<AiRole, AiBot> slots = new java.util.EnumMap<>(AiRole.class);
     }
 
@@ -109,9 +109,9 @@ public final class AiSquads {
                 double bestD = NEAR * NEAR;
                 for (int j = 0; j < free.size(); j++) {
                     if (taken[j] || !team.equals(teams.get(j))) continue;
-                    boolean jBase = AiRole.of(free.get(j)) == AiRole.BASE;
+                    boolean jBase = AiRoles.of(free.get(j)) == AiRole.BASE;
                     for (AiBot in : s.bots) {
-                        double d = apart(in.mob.distanceToSqr(free.get(j).mob), jBase || AiRole.of(in) == AiRole.BASE);
+                        double d = apart(in.mob.distanceToSqr(free.get(j).mob), jBase || AiRoles.of(in) == AiRole.BASE);
                         if (d <= bestD) {
                             bestD = d;
                             best = j;
@@ -171,14 +171,14 @@ public final class AiSquads {
         // its base of fire (AiRole: a machine gun) stays where it is and fires; with riflemen about, one of them goes
         int rifles = 0;
         for (AiBot b : s.bots) {
-            AiRole role = AiRole.of(b);
+            AiRole role = AiRoles.of(b);
             s.slots.putIfAbsent(role, b);
             if (role != AiRole.BASE) rifles++;
         }
         s.based = rifles > 0 && rifles < s.bots.size();
         if (s.target < 0) return;
         for (AiBot b : s.bots)
-            if (flankers.contains(b.mob.getId()) && b.memory.contact(s.target) != null && !(s.based && AiRole.of(b) == AiRole.BASE) && !AiMarksman.is(b) && !AiGrenadier.is(b)) {
+            if (flankers.contains(b.mob.getId()) && b.memory.contact(s.target) != null && !(s.based && AiRoles.of(b) == AiRole.BASE) && !AiMarksman.is(b) && !AiGrenadier.is(b)) {
                 s.flanker = b.mob.getId();
                 return;
             }
@@ -186,7 +186,7 @@ public final class AiSquads {
         for (AiBot b : s.bots) {
             Vec3 t = where(b, s.target);
             // the base of fire, a marksman and a grenadier keep their places
-            if (t == null || b.prone.lying() || s.based && AiRole.of(b) == AiRole.BASE || AiMarksman.is(b) || AiGrenadier.is(b)) continue;
+            if (t == null || b.prone.lying() || s.based && AiRoles.of(b) == AiRole.BASE || AiMarksman.is(b) || AiGrenadier.is(b)) continue;
             double c = cos(b.mob.getX() - t.x, b.mob.getZ() - t.z, s.cx - t.x, s.cz - t.z);
             if (c < most) {
                 most = c;
@@ -198,18 +198,18 @@ public final class AiSquads {
     /** the one of the bot's squad that holds this role's slot and is alive (itself, alone or with squads off, if that is its role), or null */
     static @Nullable AiBot holder(AiBot bot, AiRole role) {
         Squad s = of(bot);
-        if (s == null) return AiRole.of(bot) == role ? bot : null;
+        if (s == null) return AiRoles.of(bot) == role ? bot : null;
         AiBot h = s.slots.get(role);
-        if (h != null && live(h) && AiRole.of(h) == role) return h;
+        if (h != null && live(h) && AiRoles.of(h) == role) return h;
         // the holder is down or has another gun now: the next of that role, till the squads are made again
-        for (AiBot b : s.bots) if (live(b) && AiRole.of(b) == role) return b;
+        for (AiBot b : s.bots) if (live(b) && AiRoles.of(b) == role) return b;
         return null;
     }
 
     /** the level's AI mobs counted by role, as "rifle 5, base 1" */
     static String roles(java.util.Collection<AiBot> all) {
         int[] n = new int[AiRole.values().length];
-        for (AiBot b : all) n[AiRole.of(b).ordinal()]++;
+        for (AiBot b : all) n[AiRoles.of(b).ordinal()]++;
         StringBuilder out = new StringBuilder();
         for (AiRole r : AiRole.values()) if (n[r.ordinal()] > 0) out.append(out.length() == 0 ? "" : ", ").append(r.word()).append(' ').append(n[r.ordinal()]);
         return out.length() == 0 ? "none" : out.toString();
@@ -240,14 +240,14 @@ public final class AiSquads {
      */
     static boolean base(AiBot bot) {
         Squad s = of(bot);
-        return s != null && s.based && AiRole.of(bot) == AiRole.BASE;
+        return s != null && s.based && AiRoles.of(bot) == AiRole.BASE;
     }
 
     /** one of its squad that is no base of fire nor marksman knows of this target */
     private static boolean riflemanKnows(AiBot bot, int target) {
         Squad s = of(bot);
         if (s == null) return false;
-        for (AiBot b : s.bots) if (b != bot && live(b) && AiRole.of(b) != AiRole.BASE && !AiMarksman.is(b) && !AiGrenadier.is(b) && b.memory.contact(target) != null) return true;
+        for (AiBot b : s.bots) if (b != bot && live(b) && AiRoles.of(b) != AiRole.BASE && !AiMarksman.is(b) && !AiGrenadier.is(b) && b.memory.contact(target) != null) return true;
         return false;
     }
 

@@ -22,10 +22,6 @@ public final class AiBot extends AiBotBase {
     public final AiStoop stoop = new AiStoop();
     /** a slide into cover, a roll under fire */
     public final AiDash dash = new AiDash();
-    /** what it is to its squad, and the gun in its hands that was worked out for (AiRole.of) */
-    AiRole role = AiRole.RIFLE;
-    /** the role it was given by word (/armsai spawn … role, /armsai kit … role), null: by its gun */
-    @Nullable AiRole assigned;
     /** a supplier: the one it runs to with supplies, since when; no look for one in need before this tick */
     @Nullable AiBot supplyTo;
     /** a marksman's perch and shots (AiMarksman); null till it is one in a fight */
@@ -38,6 +34,7 @@ public final class AiBot extends AiBotBase {
     AiCommander.@Nullable Order order;
     /** the fallen supplier's stock it goes for (AiSupply) */
     AiSupply.@Nullable Left supplyFetch;
+    /** the gun in its hands its role was worked out for (AiRoles.of) */
     net.minecraft.world.item.@Nullable Item roleFor;
     /** what it does with what it knows; null: it only senses (a stand drives it) */
     public @Nullable AiBrain brain;

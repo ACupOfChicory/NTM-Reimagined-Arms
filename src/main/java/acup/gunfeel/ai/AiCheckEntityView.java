@@ -676,7 +676,7 @@ final class AiCheckEntityView {
             if (!(item instanceof com.hbm.items.weapon.sedna.ItemGunBaseNT gun)) continue;
             net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item);
             dummy.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, stack);
-            AiRole now = AiRole.by(db, stack);
+            AiRole now = AiRoles.by(db, stack);
             AiRole was = oldBase(gun, stack) ? AiRole.BASE : AiGrenadier.shell(stack) != null ? AiRole.GRENADIER
                     : acup.gunfeel.PistolHold.scoped(stack) ? AiRole.MARKSMAN : AiRole.RIFLE;
             String id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).toString();

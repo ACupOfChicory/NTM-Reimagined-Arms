@@ -187,7 +187,7 @@ public final class AiCommand {
         if (team != null) for (var m : mobs) AiTeams.join(c.getSource().getLevel(), m, team);
         // a number and no role named: the roles are dealt among them (each a supplier or a medic by chance, aiSupplyShare,
         // aiMedicShare, from two up)
-        int[] dealt = kit.role() == null ? AiRole.deal(mobs, c.getSource().getLevel().getRandom()) : new int[2];
+        int[] dealt = kit.role() == null ? AiRoles.deal(mobs, c.getSource().getLevel().getRandom()) : new int[2];
         String kitted = kit.putOn(mobs) + (dealt[0] == 0 ? "" : ", " + dealt[0] + (dealt[0] == 1 ? " of them a supplier" : " of them suppliers"))
                 + (dealt[1] == 0 ? "" : ", " + dealt[1] + (dealt[1] == 1 ? " of them a medic" : " of them medics"));
         int n = mobs.size();
