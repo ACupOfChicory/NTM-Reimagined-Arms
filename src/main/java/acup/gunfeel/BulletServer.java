@@ -5,6 +5,8 @@ import java.util.Map;
 
 import org.jspecify.annotations.Nullable;
 
+import acup.gunfeel.host.Body;
+
 import com.hbm.entity.projectile.EntityBulletBaseMK4;
 
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
@@ -39,36 +41,20 @@ public final class BulletServer {
 
     // what bullets did to blocks not broken yet (core: BlockWear), by place (BlockPos.asLong) and block; the cracks
     // and what is gone are the game's
-    private static final BlockWear<ServerLevel> WEAR = new BlockWear<>();
-    private static final BlockWear.Cracks<ServerLevel> CRACKS = (level, pos, stage) -> {
-        BlockPos at = BlockPos.of(pos);
-        level.destroyBlockProgress(crackId(at), at, stage);
-    };
-    private static final BlockWear.Gone<ServerLevel> GONE = new BlockWear.Gone<>() {
-        @Override
-        public boolean gone(ServerLevel level, long pos, Object block) {
-            BlockPos at = BlockPos.of(pos);
-            return !level.isLoaded(at) || level.getBlockState(at).getBlock() != block;
-        }
-
-        @Override
-        public long time(ServerLevel level) {
-            return level.getGameTime();
-        }
-    };
+    private static final BulletServerBase BLOCKS = new BulletServerBase();
 
     // dev (NpcShotSmoke): every block as if no bullet had hit it yet
     static void forgetWear() {
-        WEAR.clear();
+        BLOCKS.forgetWear();
     }
 
     // dev (BulletCheck): the wear as it is now, and back to it (a beam fired on the same block as a bullet)
     static Object wearNow() {
-        return WEAR.now();
+        return BLOCKS.wearNow();
     }
 
     static void wearBack(Object was) {
-        WEAR.back(was);
+        BLOCKS.wearBack(was);
     }
 
     // NTM's old bullet (EntityBullet: the hunter chopper's, the cyber crab's) hit this block, as blockHit; it has no
@@ -81,13 +67,8 @@ public final class BulletServer {
     public static int blockHit(Level world, int id, @Nullable Entity owner, float damage, BlockHitResult hit) {
         if (!(world instanceof ServerLevel level)) return 0;
         BlockPos pos = hit.getBlockPos().immutable();
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) return 0;
-        BulletRuleText.Break rule = BulletRules.breakRule(state);
-        if (rule == null || rule.mode() == 0) return 0;
-        if (!wear(level, new Shooter(id, owner, damage), pos, state, rule, 1F)) return 0;
-        if (TestLog.server) TestLog.s(id, "end", "by", rule.pass() ? "broke_pass" : "broke", "block", state, "pos", pos, "at", hit.getLocation());
-        return rule.pass() ? 2 : 1;
+        return BLOCKS.blockHit(level, acup.gunfeel.host.Worlds.of(level), pos, pos.getX(), pos.getY(), pos.getZ(),
+                null, id, Reads.body(owner), damage, hit);
     }
 
     // the bullet hit this block: 0 = nothing happened, 1 = it broke and the bullet stops, 2 = it broke and the bullet
@@ -95,13 +76,8 @@ public final class BulletServer {
     public static int blockHit(EntityBulletBaseMK4 bullet, BlockHitResult hit) {
         if (!(bullet.level() instanceof ServerLevel level)) return 0;
         BlockPos pos = hit.getBlockPos().immutable();
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) return 0;
-        BulletRuleText.Break rule = BulletRules.breakRule(state);
-        if (rule == null || rule.mode() == 0) return 0;
-        if (!wear(level, bullet, pos, state, rule, acup.gunfeel.water.WaterTick.k(bullet, hit.getLocation()))) return 0;
-        if (TestLog.server) TestLog.s(bullet.getId(), "end", "by", rule.pass() ? "broke_pass" : "broke", "block", state, "pos", pos, "at", hit.getLocation());
-        return rule.pass() ? 2 : 1;
+        return BLOCKS.blockHit(level, acup.gunfeel.host.Worlds.of(level), pos, pos.getX(), pos.getY(), pos.getZ(),
+                bullet, 0, null, 0F, hit);
     }
 
     private static final net.minecraft.sounds.SoundEvent RICOCHET_STEEL = net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
@@ -129,22 +105,16 @@ public final class BulletServer {
     static void wearBy(Level world, int id, @Nullable Entity owner, float damage, BlockHitResult hit) {
         if (!(world instanceof ServerLevel level)) return;
         BlockPos pos = hit.getBlockPos().immutable();
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) return;
-        BulletRuleText.Break rule = BulletRules.breakRule(state);
-        if (rule == null || rule.mode() == 0) return;
-        wear(level, new Shooter(id, owner, damage), pos, state, rule, 1F);
+        BLOCKS.wearBy(level, acup.gunfeel.host.Worlds.of(level), pos, pos.getX(), pos.getY(), pos.getZ(),
+                null, id, Reads.body(owner), damage, hit);
     }
 
     // the bullet flew through a block it always flies through ("through"): counts as a hit on it
     public static void passed(EntityBulletBaseMK4 bullet, BlockHitResult hit) {
         if (!(bullet.level() instanceof ServerLevel level)) return;
         BlockPos pos = hit.getBlockPos().immutable();
-        BlockState state = level.getBlockState(pos);
-        if (TestLog.server) TestLog.s(bullet.getId(), "through", "block", state, "pos", pos, "at", hit.getLocation());
-        BulletRuleText.Break rule = BulletRules.breakRule(state);
-        if (rule == null || rule.mode() == 0) return;
-        wear(level, bullet, pos, state, rule, acup.gunfeel.water.WaterTick.k(bullet, hit.getLocation()));
+        BLOCKS.passed(level, acup.gunfeel.host.Worlds.of(level), pos, pos.getX(), pos.getY(), pos.getZ(),
+                bullet, 0, null, 0F, hit);
     }
 
     // the bullet's path this tick through blocks, piercing them while it has the damage (PassableClip.pierced):
@@ -273,90 +243,88 @@ public final class BulletServer {
         return hit;
     }
 
-    // the bullet that hits a block, as the block's wear needs it: its entity id (the test log), who fired it (null: a
-    // turret) and its damage (the test log's; the hit's is that times the water's share)
-    private record Shooter(int id, @Nullable Entity owner, float damage) {
-        static Shooter of(EntityBulletBaseMK4 bullet) { return new Shooter(bullet.getId(), bullet.getOwner(), bullet.damage); }
-    }
-
-    private static void worn(Shooter bullet, BlockPos pos, BlockState state, String result, Object... more) {
-        if (!TestLog.server) return;
-        Object[] kv = new Object[8 + more.length];
-        Object[] head = {"block", state, "pos", pos, "result", result, "damage", bullet.damage()};
-        System.arraycopy(head, 0, kv, 0, 8);
-        System.arraycopy(more, 0, kv, 8, more.length);
-        TestLog.s(bullet.id(), "wear", kv);
-    }
-
-    // one hit on the block by its rule: true when it broke
-    // k: the share of the bullet's damage left there (water, WaterTick.k)
+    // Used by Shot.pierce until the path moves to core too.
     private static boolean wear(ServerLevel level, EntityBulletBaseMK4 bullet, BlockPos pos, BlockState state, BulletRuleText.Break rule, float k) {
-        return wear(level, Shooter.of(bullet), pos, state, rule, k);
+        return BLOCKS.wear(level, acup.gunfeel.host.Worlds.of(level), bullet, pos,
+                pos.getX(), pos.getY(), pos.getZ(), BlockStates.number(state), rule, k);
     }
 
-    private static boolean wear(ServerLevel level, Shooter bullet, BlockPos pos, BlockState state, BulletRuleText.Break rule, float k) {
-        float damage = bullet.damage() * k;
-        float hardness = state.getDestroySpeed(level, pos);
-        if (hardness < 0F) { // bedrock and the like
-            worn(bullet, pos, state, "unbreakable");
-            return false;
+    public static void tick() { BLOCKS.tick(); }
+
+    /** 26.2's world writes and bullet block reads. */
+    public static final class Reads implements acup.gunfeel.host.WorldEdit, acup.gunfeel.host.BulletBlocks {
+        private static final Map<String, BlockState> PARSED = new HashMap<>();
+
+        private static @Nullable Body body(@Nullable Entity owner) {
+            return owner == null ? null : EntityBody.of(owner);
         }
-        Entity owner = bullet.owner();
-        if (owner instanceof ServerPlayer player) {
-            BreakBlockEvent event = player.mayBuild() ? new BreakBlockEvent(level, pos, state, player) : null;
-            if (event != null) NeoForge.EVENT_BUS.post(event);
-            if (event == null || event.isCanceled()) {
-                worn(bullet, pos, state, "protected");
-                return false;
+
+        @Override public BulletRuleText.@Nullable Break rule(int state) { return BulletRules.breakRule(BlockStates.state(state)); }
+        @Override public float water(Object bullet, Object hit) {
+            return acup.gunfeel.water.WaterTick.k((EntityBulletBaseMK4) bullet, ((BlockHitResult) hit).getLocation());
+        }
+        @Override public BulletServerBase.Shooter shooter(Object shot) {
+            EntityBulletBaseMK4 bullet = (EntityBulletBaseMK4) shot;
+            int id = bullet.getId();
+            Entity owner = bullet.getOwner();
+            float damage = bullet.damage;
+            return new BulletServerBase.Shooter(id, body(owner), damage);
+        }
+        @Override public int shotId(Object bullet) { return ((EntityBulletBaseMK4) bullet).getId(); }
+        @Override public Object location(Object hit) { return ((BlockHitResult) hit).getLocation(); }
+
+        @Override public void cracks(Object level, int breaker, Object pos, int stage) {
+            ((Level) level).destroyBlockProgress(breaker, (BlockPos) pos, stage);
+        }
+
+        @Override public void destroy(Object level, Object pos, boolean drop, @Nullable Body by) {
+            ((Level) level).destroyBlock((BlockPos) pos, drop, EntityBody.entity(by));
+        }
+
+        @Override public void set(Object level, Object pos, int stateNumber, int flags) {
+            ((Level) level).setBlock((BlockPos) pos, BlockStates.state(stateNumber), flags);
+        }
+
+        @Override public int mayBreak(Object world, @Nullable Body by, Object pos, int state) {
+            ServerLevel level = (ServerLevel) world;
+            Entity owner = EntityBody.entity(by);
+            if (owner instanceof ServerPlayer player) {
+                BreakBlockEvent event = player.mayBuild() ? new BreakBlockEvent(level, (BlockPos) pos, BlockStates.state(state), player) : null;
+                if (event != null) NeoForge.EVENT_BUS.post(event);
+                if (event == null || event.isCanceled()) return PROTECTED;
+            } else if (!level.getGameRules().get(GameRules.MOB_GRIEFING)) {
+                return NO_MOB_GRIEFING;
             }
-        } else if (!level.getGameRules().get(GameRules.MOB_GRIEFING)) {
-            worn(bullet, pos, state, "no_mob_griefing");
-            return false;
+            return ALLOW;
         }
-        // too weak to harm it
-        if (rule.tooWeak(damage)) {
-            worn(bullet, pos, state, "too_weak", "min", rule.min());
-            return false;
+
+        @Override public int parseState(Object world, String text) {
+            ServerLevel level = (ServerLevel) world;
+            if (PARSED.containsKey(text)) {
+                BlockState cached = PARSED.get(text);
+                return cached == null ? -1 : BlockStates.number(cached);
+            }
+            BlockState out = null;
+            try {
+                out = BlockStateParser.parseForBlock(level.registryAccess().lookupOrThrow(Registries.BLOCK), text, false).blockState();
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").warn("Bullet rules: bad replace block state {}", text);
+            }
+            PARSED.put(text, out);
+            return out == null ? -1 : BlockStates.number(out);
         }
-        float[] worn = new float[2];
-        int stage = WEAR.hit(level, pos.asLong(), state.getBlock(), damage, hardness, rule, level.getGameTime(), CRACKS, worn);
-        if (stage != BlockWear.BREAKS) {
-            worn(bullet, pos, state, "wear", "done", worn[0], "need", worn[1], "min", rule.min());
-            level.destroyBlockProgress(crackId(pos), pos, stage);
-            return false;
+
+        @Override public Object blockToken(int state) { return BlockStates.state(state).getBlock(); }
+        @Override public boolean gone(Object world, long pos, Object token) {
+            ServerLevel level = (ServerLevel) world;
+            BlockPos at = BlockPos.of(pos);
+            return !level.isLoaded(at) || level.getBlockState(at).getBlock() != token;
         }
-        worn(bullet, pos, state, "broke", "min", rule.min());
-        level.destroyBlock(pos, rule.drop(), owner);
-        if (rule.replace() != null) {
-            BlockState with = parse(level, rule.replace());
-            if (with != null) level.setBlock(pos, with, 3);
-        }
-        return true;
+        @Override public long time(Object level) { return ((ServerLevel) level).getGameTime(); }
+        @Override public Object position(long pos) { return BlockPos.of(pos); }
+        @Override public Object stateObject(int state) { return BlockStates.state(state); }
     }
 
-    // every few server ticks: wear on a block that is no longer there (broken, replaced, its chunk gone) goes with its cracks
-    public static void tick() {
-        WEAR.tick(GONE, CRACKS);
-    }
-
-    // a breaker id per block for its cracks, apart from the entity ids players use
-    private static int crackId(BlockPos pos) {
-        return -1_000_000 - (pos.hashCode() & 0x3fffffff);
-    }
-
-    private static final Map<String, BlockState> PARSED = new HashMap<>();
-
-    private static @Nullable BlockState parse(ServerLevel level, String text) {
-        if (PARSED.containsKey(text)) return PARSED.get(text);
-        BlockState out = null;
-        try {
-            out = BlockStateParser.parseForBlock(level.registryAccess().lookupOrThrow(Registries.BLOCK), text, false).blockState();
-        } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger("ntm-gunfeel").warn("Bullet rules: bad replace block state {}", text);
-        }
-        PARSED.put(text, out);
-        return out;
-    }
 
     // a bullet hit a creature (alive before the hit): its "entity" or, when it died, "kill" effect
     // `damage` and `health`: the bullet's damage and the creature's health before the hit (NaN: not a living one), for
