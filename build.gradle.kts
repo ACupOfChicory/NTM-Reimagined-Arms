@@ -811,8 +811,8 @@ tasks.matching { it.name in setOf("runCheckClient","runCheckMobs","runReviewMobs
         if(holes) root.resolve("notes/hole-bench").mkdirs()
         // in the stand's nested kwin (notes/ports/vkwin.sh) MC_DEBUG_PREFER_WAYLAND has GLFW take its Wayland, and the
         // first mouse grab (wp_pointer_warp_v1) breaks the connection: the client closes in the first phase. The
-        // stand's Xwayland works.
-        if((holes || bench || bots || blast) && System.getenv("XDG_RUNTIME_DIR")?.contains("/vkwin-home/")==true) (this as JavaExec).environment.remove("WAYLAND_DISPLAY")
+        // stand's Xwayland works. Mob check too (bravo 11-21: runCheckMobs closed after the first case).
+        if((holes || bench || bots || blast || (mobs && !review)) && System.getenv("XDG_RUNTIME_DIR")?.contains("/vkwin-home/")==true) (this as JavaExec).environment.remove("WAYLAND_DISPLAY")
         if(bench) root.resolve("notes/mob-bench").mkdirs()
         val source = root.resolve("run-bullets/world")
         require(source.resolve("level.dat").exists()) { "Сначала выполните runCheckBullets: нужен изолированный тестовый мир" }
