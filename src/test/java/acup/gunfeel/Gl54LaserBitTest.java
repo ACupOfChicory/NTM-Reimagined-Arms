@@ -132,12 +132,16 @@ class Gl54LaserBitTest {
         try (var storage = new ByteBufferBuilder(size + 64)) {
             // Initialise padding too: compare the entire ENTITY buffer, without masking bytes.
             org.lwjgl.system.MemoryUtil.memSet(storage.reserve(size), 0x5A, size);
-            storage.clear();
+            // clear() does nothing without results: vertices would follow the filled bytes
+            // into grown, uninitialised memory (CI 2026-11-21).
+            storage.build().close();
             var builder = new BufferBuilder(storage, PrimitiveTopology.QUADS, DefaultVertexFormat.ENTITY);
             submit.renderer().render(submit.pose(), builder);
             try (MeshData mesh = builder.build()) {
                 assertNotNull(mesh); assertEquals(128, mesh.drawState().vertexCount());
-                var data = mesh.vertexBuffer(); byte[] result = new byte[data.remaining()]; data.get(result); return result;
+                var data = mesh.vertexBuffer(); byte[] result = new byte[data.remaining()]; data.get(result);
+                assertEquals(size, result.length, "ENTITY buffer must contain exactly 128 vertices");
+                return result;
             }
         }
     }
