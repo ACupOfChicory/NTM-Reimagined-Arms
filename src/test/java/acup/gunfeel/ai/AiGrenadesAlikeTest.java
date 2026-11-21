@@ -108,6 +108,27 @@ class AiGrenadesAlikeTest {
         }
     }
 
+    @Test void liveObserverUsesTheFormerBurstComparisonAndVariantCounters() {
+        AiGrenadesAlike alike = new AiGrenadesAlike();
+        AiGrenadesBase.BurstObserver observer = alike;
+        VoxelRay.Source floor = (x, y, z) -> y < 0 ? Voxel.SOLID | Voxel.SIGHT : Voxel.OPEN;
+        for (int input = 0; input < 3; input++) {
+            double gravity = input == 1 ? 0.0123456789123 : 0.03, drag = input == 1 ? 1 : 0.99;
+            double[] land = input == 2 ? new double[3] : null;
+            var answer = AiGrenadesBase.burst(floor, -0.0, 2, 0.5, 0.1, -0.04, 0.07, 60, -1, 0.5, -64,
+                    gravity, drag, null, land, acup.gunfeel.Vec3d::new);
+            assertNotNull(answer);
+            observer.burst(floor, -0.0, 2, 0.5, 0.1, -0.04, 0.07, 60, -1, 0.5, -64,
+                    gravity, drag, null, land, answer, input);
+            assertEquals(1, alike.covered[input]);
+            assertEquals(0, alike.differ, alike.info());
+        }
+        observer.burst(floor, -0.0, 2, 0.5, 0.1, -0.04, 0.07, 60, -1, 0.5, -64,
+                0.03, 0.99, null, null, null, 0);
+        assertEquals(2, alike.covered[AiGrenadesAlike.Input.BURST.ordinal()]);
+        assertEquals(1, alike.differ);
+    }
+
     @Test void comparisonFindsChangedImpactLandPathAndSignedZero() {
         AiGrenadesAlike alike = new AiGrenadesAlike();
         VoxelRay.Source wall = (x, y, z) -> x == 1 ? Voxel.SOLID : Voxel.OPEN;
@@ -169,5 +190,18 @@ class AiGrenadesAlikeTest {
             assertTrue(alike.info().contains(input.name().toLowerCase(java.util.Locale.ROOT) + "=1"));
         }
         assertTrue(alike.complete());
+    }
+
+    @Test void liveCoverageRequiresEveryInputAndEveryTransition() {
+        AiGrenadesAlike alike = new AiGrenadesAlike();
+        for (AiGrenadesAlike.LiveInput input : AiGrenadesAlike.LiveInput.values()) {
+            assertFalse(alike.liveComplete()); alike.liveCovered[input.ordinal()]++;
+        }
+        for (AiGrenadesAlike.Event event : AiGrenadesAlike.Event.values()) {
+            assertFalse(alike.liveComplete()); alike.events[event.ordinal()]++;
+            assertTrue(alike.info().contains(event.name() + "=1"));
+        }
+        assertTrue(alike.liveComplete());
+        alike.close();
     }
 }

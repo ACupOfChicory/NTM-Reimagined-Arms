@@ -520,9 +520,15 @@ final class AiGrenadesOld {
     /** NTM's frag with HE and a three seconds' fuze, thrown by the mob with this turn */
     static EntityGrenadeUniversal toss(ServerLevel level, Mob m, Throw t) {
         EntityGrenadeUniversal g = launch(level, m, t, ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.HE, EnumGrenadeFuze.S3), t.share());
-        if (!trace) return g;
+        replayToss(level, m, g, t);
+        return g;
+    }
+
+    static void replayToss(ServerLevel level, Mob m, EntityGrenadeUniversal g, Throw t) {
+        if (!trace) return;
         // the stands: the flight it was planned to take, to set against the one it takes
         traced++;
+        if (journal != null) event("TRACED");
         joined(level, g);
         List<double[]> path = new ArrayList<>();
         from(AiBots.voxels(level), m, t.yaw(), t.pitch(), EnumGrenadeShell.FRAG.getYeetForce() * t.share(), EnumGrenadeShell.FRAG.getBounce(), level.getMinY(), 0, 0, 0, path, null, -1);
@@ -532,12 +538,97 @@ final class AiGrenadesOld {
                 l.start = String.format(java.util.Locale.ROOT, "thrown from %.2f %.2f %.2f (%s, eye %.2f), grenade at %.2f %.2f %.2f moving %.3f %.3f %.3f, planned %.2f %.2f %.2f"
                         + " moving %.3f %.3f %.3f", m.getX(), m.getY(), m.getZ(), m.getPose(), m.getEyeHeight(), g.getX(), g.getY(), g.getZ(), g.getDeltaMovement().x,
                         g.getDeltaMovement().y, g.getDeltaMovement().z, path.get(0)[0], path.get(0)[1], path.get(0)[2], path.get(0)[3], path.get(0)[4], path.get(0)[5]);
+                if (journal != null) event("PATH " + l.start);
             }
-        return g;
+    }
+
+    /** Unspawned inputs: only the working registry writes; the replay never applies game effects. */
+    static void liveCases(ServerLevel level, Mob owner) {
+        var saved = AiGrenadesBase.LEVELS.remove(level);
+        boolean tracing = AiGrenadesBase.trace;
+        int tracedBefore = AiGrenadesBase.traced, partingsBefore = AiGrenadesBase.partings.size();
+        try {
+            AiGrenadesBase.trace = true;
+            for (EnumGrenadeFuze fuze : EnumGrenadeFuze.values()) for (boolean glue : new boolean[] {false, true})
+                for (int timer : new int[] {0, 9, 10, 300, 301}) {
+                    EntityGrenadeUniversal g = new EntityGrenadeUniversal(level, ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.HE, fuze,
+                            glue ? com.hbm.items.weapon.grenade.ItemGrenadeExtra.EnumGrenadeExtra.GLUE : null)) {
+                        @Override public int getTimer() { return timer; }
+                    };
+                    liveCase(level, owner, g);
+                }
+            for (var item : BuiltInRegistries.ITEM) if (item instanceof com.hbm.items.weapon.ItemGenericGrenade grenade) {
+                for (int age : new int[] {0, grenade.getMaxTimer(), grenade.getMaxTimer() + 1}) {
+                    var g = new com.hbm.entity.grenade.EntityGrenadeBouncyGeneric(level).setType(grenade);
+                    g.tickCount = age;
+                    liveCase(level, owner, g);
+                }
+                break;
+            }
+            var config = com.hbm.items.weapon.sedna.BulletConfig.configs.get(0).clone();
+            config.velocity = 1.234567F;
+            config.gravity = 0.0123456789123;
+            for (int expires : new int[] {0, -1, 1, 4, 500}) {
+                config.expires = expires;
+                var g = new com.hbm.entity.projectile.EntityBulletBaseMK4(com.hbm.entity.ModEntities.BULLET_MK4.get(), level);
+                g.config = config;
+                g.accel = 0.123456789123;
+                g.tickCount = 1;
+                liveCase(level, owner, g);
+            }
+            var noConfig = new com.hbm.entity.projectile.EntityBulletBaseMK4(com.hbm.entity.ModEntities.BULLET_MK4.get(), level);
+            liveCase(level, owner, noConfig);
+            liveCase(level, owner, net.minecraft.world.entity.EntityTypes.ARROW.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND));
+            EntityGrenadeUniversal traced = new EntityGrenadeUniversal(level, ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.HE, EnumGrenadeFuze.S3));
+            traced.setOwner(owner);
+            traced.setPos(owner.getX(), owner.getY(), owner.getZ());
+            AiGrenades.joined(level, traced);
+            AiGrenades.tossed(level, owner, traced, new AiGrenades.Throw(0, -45, owner.position(), 1));
+            traced.tickCount = 1;
+            traced.setPos(owner.getX() + 8, owner.getY() + 4, owner.getZ());
+            AiGrenades.tick(level);
+            AiGrenades.parted(level, owner);
+            AiGrenades.bursting(level, owner);
+            AiGrenades.forget(level);
+        } finally {
+            AiGrenades.forget(level);
+            if (saved != null) AiGrenadesBase.LEVELS.put(level, saved);
+            AiGrenadesBase.trace = tracing;
+            AiGrenadesBase.traced = tracedBefore;
+            AiGrenadesBase.partings.subList(partingsBefore, AiGrenadesBase.partings.size()).clear();
+        }
+    }
+
+    private static void liveCase(ServerLevel level, Mob owner, net.minecraft.world.entity.projectile.Projectile g) {
+        g.setOwner(owner);
+        g.setPos(owner.getX() + 0.5, owner.getY() + 4, owner.getZ() + 0.5);
+        g.setDeltaMovement(0.123, 0.04, -0.07);
+        AiGrenades.burstOf(level, g);
+        g.setPos(g.getX(), level.getMinY() - 1, g.getZ());
+        AiGrenades.burstOf(level, g);
+        g.setPos(g.getX(), owner.getY() + 4, g.getZ());
+        AiGrenades.joined(level, g);
+        AiGrenades.joined(level, g);
+        AiGrenades.any(level);
+        AiGrenades.predicted(level, g);
+        AiGrenades.parted(level, owner);
+        AiGrenades.bursting(level, owner);
+        AiGrenades.tick(level);
+        AiGrenades.predicted(level, g);
+        for (int elapsed : new int[] {0, 1, 3, 4}) {
+            AiGrenadesBase.LEVELS.get(level).get(0).at = level.getGameTime() - elapsed;
+            AiGrenades.tick(level);
+        }
+        g.setRemoved(net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+        AiGrenades.tick(level);
+        AiGrenades.any(level);
+        AiGrenades.forget(level);
     }
 
     /** the stands: thrown grenades' planned flights set against the ones they take */
     static boolean trace;
+    static java.util.function.@Nullable Consumer<String> journal;
+    static void event(String event) { if (journal != null) journal.accept(event); }
     /** the stands: grenades thrown so far, and how each one that left its planned flight was thrown and left it */
     static int traced;
     static final List<String> partings = new ArrayList<>();
@@ -574,6 +665,7 @@ final class AiGrenadesOld {
                 + " (a tick before %.2f %.2f %.2f); blocks round it:%s", k, at.x, at.y, at.z, v.x, v.y, v.z, p[0], p[1], p[2], p[3], p[4], p[5], q[0], q[1], q[2],
                 near.length() == 0 ? " none" : near);
         partings.add(g.start + "; " + g.parted);
+        if (journal != null) event("PARTED " + g.parted);
     }
 
     // ------------------------------------------------------------------ grenades in the air
@@ -623,7 +715,7 @@ final class AiGrenadesOld {
     /** its burst worked out again this often, ticks */
     static final int AGAIN = 4;
 
-    private static final Map<ServerLevel, List<Live>> LEVELS = new WeakHashMap<>();
+    static final Map<ServerLevel, List<Live>> LEVELS = new WeakHashMap<>();
 
     /** the stands: the thrower's grenade on its way the longest (the one going off): where it is, where it was to burst */
     static Vec3 @Nullable [] bursting(ServerLevel level, net.minecraft.world.entity.Entity owner) {
@@ -643,35 +735,43 @@ final class AiGrenadesOld {
     /** a grenade comes into a level (thrown or fired by anyone; threat) */
     static void joined(ServerLevel level, net.minecraft.world.entity.projectile.Projectile g) {
         List<Live> l = LEVELS.computeIfAbsent(level, k -> new ArrayList<>());
-        for (Live o : l) if (o.e == g) return;
+        for (Live o : l) if (o.e == g) { if (journal != null) event("DUP " + l.indexOf(o)); return; }
         l.add(new Live(g));
+        if (journal != null) event("JOIN " + (l.size() - 1));
     }
 
     public static void forget(ServerLevel level) {
         LEVELS.remove(level);
         PLANNED.remove(level);
         REFUGES.remove(level);
+        if (journal != null) event("FORGET");
     }
 
     /** every server tick, from AiBots.tick: grenades gone let go, bursts worked out again */
     static void tick(ServerLevel level) {
         List<Live> l = LEVELS.get(level);
         if (l == null) return;
-        l.removeIf(g -> g.e.isRemoved());
+        for (int i = 0; i < l.size();) {
+            if (l.get(i).e.isRemoved()) { if (journal != null) event("REMOVE " + i); l.remove(i); }
+            else i++;
+        }
         if (l.isEmpty()) {
             LEVELS.remove(level);
+            if (journal != null) event("EMPTY");
             return;
         }
         long now = level.getGameTime();
         if (trace) for (Live g : l) follow(level, g);
         for (Live g : l) if (g.at == Long.MIN_VALUE || now - g.at >= (g.e instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 ? 1 : AGAIN)) {
             g.at = now;
+            if (journal != null) event("AT " + l.indexOf(g) + " " + now);
             g.burst = burstOf(level, g.e);
+            if (journal != null) event("BURST " + l.indexOf(g));
         }
     }
 
     /** where this grenade will burst; null with a fuze other than a timer or impact (or out of the world) */
-    private static @Nullable Vec3 burstOf(ServerLevel level, net.minecraft.world.entity.projectile.Projectile p) {
+    static @Nullable Vec3 burstOf(ServerLevel level, net.minecraft.world.entity.projectile.Projectile p) {
         Vec3 v = p.getDeltaMovement();
         if (p instanceof com.hbm.entity.grenade.EntityGrenadeBouncyGeneric b) {
             // its own timer, as many ticks as it has been in the level (saved with it, but near enough); gravity 0.03

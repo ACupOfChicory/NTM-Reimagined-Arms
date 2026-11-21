@@ -293,6 +293,15 @@ public final class AiGunner extends AiGunnerBase {
      */
     // its MOB_AI part; the ammo menu's reads are AmmoLock.Reads' (NtmGunsPort, what Wiring gives)
     public abstract static class Guns implements NtmGuns {
+        @Override public int liveKind(Body p) { return AiGrenades.liveKind(p); }
+        @Override public int grenadeMaxTimer(Body p) { return AiGrenades.grenadeMaxTimer(p); }
+        @Override public double grenadeBounce(Body p) { return AiGrenades.grenadeBounce(p); }
+        @Override public int grenadeFuze(Body p) { return AiGrenades.grenadeFuze(p); }
+        @Override public int grenadeTimer(Body p) { return AiGrenades.grenadeTimer(p); }
+        @Override public boolean grenadeGlue(Body p) { return AiGrenades.grenadeGlue(p); }
+        @Override public boolean mk4Config(Body p, acup.gunfeel.host.Shell into) { return AiGrenades.mk4Config(p, into); }
+        @Override public double mk4Accel(Body p) { return AiGrenades.mk4Accel(p); }
+
         @Override
         public boolean grenadeShell(Body holder, acup.gunfeel.host.Shell into) {
             BulletConfig b = AiGrenadier.shell(stack(holder, Body.MAIN_HAND));
