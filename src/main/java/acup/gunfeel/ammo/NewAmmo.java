@@ -17,6 +17,7 @@ import com.hbm.registration.NeoForgeRegistrar;
 import com.hbm.registration.RegistryHandle;
 
 import acup.gunfeel.ModRegistrar;
+import acup.gunfeel.host.AmmoCatalog;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -32,7 +33,7 @@ import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
  * weapons tab, and its config put into the magazines of the guns that take a given NTM round, at the common setup (on
  * both sides in the same order, so the configs' ids agree).
  */
-public final class NewAmmo {
+public final class NewAmmo extends NewAmmoBase {
     private NewAmmo() {
     }
 
@@ -79,27 +80,35 @@ public final class NewAmmo {
      * each) the 12 gauge slug, the nuclear .50 the .50 SP; any other round (or null) itself
      */
     public static BulletConfig lookalike(BulletConfig c) {
-        if (c == null) return null;
-        if (c == Duplex.r556()) return XFactory556mm.r556_sp;
-        if (c == Duplex.r762()) return XFactory762mm.r762_sp;
-        if (RubberSlug.is(c) || c == acup.gunfeel.shock.ShockAmmo.config()) return XFactory12ga.g12_slug;
-        if (NuclearBmg.is(c)) return XFactory50.bmg50_sp;
-        return c;
+        return (BulletConfig) NewAmmoBase.lookalike(c);
     }
 
     /** as lookalike, for what the round does in water (by its ammo's name): the nuclear .50 stays itself (no SP there) */
     public static BulletConfig waterLike(BulletConfig c) {
-        return NuclearBmg.is(c) ? c : lookalike(c);
+        return (BulletConfig) NewAmmoBase.waterLike(c);
     }
 
     /** a round of the mod's that leaves no hole where it hits: the rubber slug (it bounces off), the shock shell, the nuclear .50 (it goes off) */
     public static boolean noHole(BulletConfig c) {
-        return c != null && (RubberSlug.is(c) || NuclearBmg.is(c) || c == acup.gunfeel.shock.ShockAmmo.config());
+        return NewAmmoBase.noHole(c);
     }
 
     /** the gun's id path ("gun_amat"), or "" */
     static String gunId(Item item) {
         Identifier id = BuiltInRegistries.ITEM.getKey(item);
         return id == null ? "" : id.getPath();
+    }
+
+    /** 26.2's live catalog; constructing it reads no game state. */
+    public static final class Reads implements AmmoCatalog {
+        @Override public Object duplex556() { return Duplex.r556(); }
+        @Override public Object duplex762() { return Duplex.r762(); }
+        @Override public boolean rubber(Object round) { return RubberSlug.is((BulletConfig) round); }
+        @Override public Object shock() { return acup.gunfeel.shock.ShockAmmo.config(); }
+        @Override public boolean nuclear(Object round) { return NuclearBmg.is((BulletConfig) round); }
+        @Override public Object sp556() { return XFactory556mm.r556_sp; }
+        @Override public Object sp762() { return XFactory762mm.r762_sp; }
+        @Override public Object slug() { return XFactory12ga.g12_slug; }
+        @Override public Object sp50() { return XFactory50.bmg50_sp; }
     }
 }
