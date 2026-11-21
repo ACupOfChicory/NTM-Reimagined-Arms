@@ -2,11 +2,7 @@ package acup.gunfeel.gl54;
 
 import org.joml.Vector3f;
 
-import com.hbm.client.render.RenderTextures;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
-import com.hbm.render.item.weapon.sedna.ItemRenderWeaponBase;
-import com.hbm.render.util.Vertices;
 import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -18,11 +14,8 @@ import net.minecraft.world.item.ItemStack;
 // world. The idea is the laser module of TaCZ (GPL), written again here: nothing of its code or assets is used.
 public final class Gl54Laser {
     // how far the beam reaches before it is gone, blocks; its width, blocks
-    public static final double LENGTH_BLOCKS = 2.0, WIDTH_BLOCKS = 0.015;
-    public static final int SEGMENTS = 8;
-    static final int RGB = (255 << 16) | (30 << 8) | 20;
-    // the alpha at the lens
-    static final int ALPHA = 200;
+    public static final double LENGTH_BLOCKS = Gl54LaserGeometry.LENGTH_BLOCKS, WIDTH_BLOCKS = Gl54LaserGeometry.WIDTH_BLOCKS;
+    public static final int SEGMENTS = Gl54LaserGeometry.SEGMENTS;
 
     // dev (Gl54ReflexStand): off, nothing is drawn, for a frame to set the beam's against
     public static volatile boolean ON = true;
@@ -30,41 +23,50 @@ public final class Gl54Laser {
     private Gl54Laser() {
     }
 
-    // The beam in the pose of the model; the length in model units is the blocks over what a unit comes to in the pose.
+    private static boolean drawingUsed;
+
+    /** Release older submissions before collecting a view, using the shared rendered-frame number. */
+    public static void beginFrame() {
+        if (drawingUsed) Drawing.RENDERER.beginFrame(acup.gunfeel.RenderPort26.frameNumber());
+    }
+
+    // The version keeps the aim, lens and model pose; core writes into the same deferred queue.
     public static void render(SubmitNodeCollector collector, PoseStack pose, ItemStack stack) {
         Gl54Reflex r = Gl54Reflex.get();
         if (!ON || !r.present() || !ItemGunBaseNT.getIsAiming(stack)) return;
         float scale = pose.last().pose().transformDirection(new Vector3f(0, 0, 1)).length();
-        if (!(scale > 1e-6F)) return;
-        float length = (float) (LENGTH_BLOCKS / scale), half = (float) (WIDTH_BLOCKS / scale / 2.0);
+        if (!Gl54LaserGeometry.visibleScale(scale)) return;
         double[] e = r.laser();
-        collector.submitCustomGeometry(pose, RenderTypes.entityTranslucent(RenderTextures.WHITE), (p, vc) -> {
-            for (int i = 0; i < SEGMENTS; i++) {
-                float z0 = (float) e[2] + length * i / SEGMENTS, z1 = (float) e[2] + length * (i + 1) / SEGMENTS;
-                int c0 = color(1.0 - (double) i / SEGMENTS), c1 = color(1.0 - (double) (i + 1) / SEGMENTS);
-                // a flat ribbon and an upright one, each seen from both sides
-                Vertices.emit(vc, p, (float) e[0] - half, (float) e[1], z0, c0, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0] + half, (float) e[1], z0, c0, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0] + half, (float) e[1], z1, c1, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0] - half, (float) e[1], z1, c1, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0] - half, (float) e[1], z1, c1, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0] + half, (float) e[1], z1, c1, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0] + half, (float) e[1], z0, c0, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0] - half, (float) e[1], z0, c0, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0], (float) e[1] - half, z0, c0, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0], (float) e[1] + half, z0, c0, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0], (float) e[1] + half, z1, c1, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0], (float) e[1] - half, z1, c1, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0], (float) e[1] - half, z1, c1, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0], (float) e[1] + half, z1, c1, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0], (float) e[1] + half, z0, c0, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-                Vertices.emit(vc, p, (float) e[0], (float) e[1] - half, z0, c0, 0F, 0F, ItemRenderWeaponBase.FULL_BRIGHT, 0F, 1F, 0F);
-            }
-        });
+        var batch = Drawing.RENDERER.begin();
+        if (batch == null) return;
+        batch.item(scale, e);
+        acup.gunfeel.RenderPort26.submitAt(collector, pose, batch);
     }
 
-    // the colour at a share of the beam's strength (1 at the lens, 0 at the end)
+    static final class Drawing {
+        static final Gl54LaserRenderer RENDERER = new Gl54LaserRenderer(acup.gunfeel.RenderPort26.INSTANCE,
+                () -> acup.gunfeel.GunFeel.LOGGER.warn("All 256 GL-54 laser submission slots of this frame are busy; skipping laser submission"));
+        static {
+            RENDERER.beginFrame(acup.gunfeel.RenderPort26.frameNumber());
+            drawingUsed = true;
+        }
+    }
+
+    /** 26.2's NTM bindings stay under GL54's compatibility gate. */
+    public static final class Native {
+        private Native() {}
+
+        public static net.minecraft.client.renderer.rendertype.RenderType material() {
+            return net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(com.hbm.client.render.RenderTextures.WHITE);
+        }
+
+        public static void emit(com.mojang.blaze3d.vertex.VertexConsumer vc, PoseStack.Pose pose,
+                float x, float y, float z, int argb, float u, float v, int light, float nx, float ny, float nz) {
+            com.hbm.render.util.Vertices.emit(vc, pose, x, y, z, argb, u, v, light, nx, ny, nz);
+        }
+    }
+
     public static int color(double strength) {
-        return ((int) Math.round(ALPHA * Math.max(0.0, strength)) << 24) | RGB;
+        return Gl54LaserGeometry.color(strength);
     }
 }

@@ -19,7 +19,7 @@ public final class WaterSurface {
     }
 
     // y = the surface there; fx, fz = getFlow; depth = the water column from the surface to the bottom
-    public record Info(double y, double fx, double fz, boolean still, double depth) {
+    public record Info(double y, double fx, double fz, boolean still, double depth) implements acup.gunfeel.WaterRingGeometry.Surface {
     }
 
     // water for the effects: any liquid but lava
@@ -93,7 +93,7 @@ public final class WaterSurface {
 
     // the surface height at (x, z) on a cell's corners {NW, SW, SE, NE}
     public static double height(double[] c, double u, double v) {
-        return c[0] * (1 - u) * (1 - v) + c[3] * u * (1 - v) + c[1] * (1 - u) * v + c[2] * u * v;
+        return acup.gunfeel.WaterRingGeometry.height(c, u, v);
     }
 
     // FluidRenderer's corner heights of a cell, {NW, SW, SE, NE}, 0..1 above the cell's floor
@@ -147,7 +147,7 @@ public final class WaterSurface {
     private static final int[][] EDGE = {{0, 3, 1, 2}, {1, 2, 0, 3}, {0, 1, 3, 2}, {3, 2, 0, 1}};
     private static final int[] DX = {0, 0, -1, 1}, DZ = {-1, 1, 0, 0};
     // a ring's reach in cells around its own: as far as it grows and drifts, at most MAX_SPAN
-    public static final int MAX_SPAN = 12;
+    public static final int MAX_SPAN = acup.gunfeel.WaterRingGeometry.MAX_SPAN;
     private static final int[] QUEUE = new int[(2 * MAX_SPAN + 1) * (2 * MAX_SPAN + 1)];
 
     // The cells of the surface connected to (cx, cz) within span cells: neighbours whose shared corners agree within

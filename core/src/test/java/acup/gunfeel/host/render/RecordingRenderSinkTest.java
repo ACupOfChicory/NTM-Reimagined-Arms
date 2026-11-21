@@ -2,6 +2,11 @@ package acup.gunfeel.host.render;
 
 /** The recording port (core's tests draw through it) holds to the contract of a version's sink. */
 class RecordingRenderSinkTest extends RenderSinkContract {
+    @Override protected void defer(RenderPort p, boolean enabled) { ((RecordingRenderPort) p).defer = enabled; }
+    @Override protected void drain(RenderPort p) { ((RecordingRenderPort) p).drain(); }
+    @Override protected java.util.List<RecordingRenderPort.Vertex> vertices(RenderPort p) { return ((RecordingRenderPort) p).vertices; }
+    @Override protected java.util.List<RecordingRenderPort.Vertex> kept(RenderPort p, int b) { return ((RecordingRenderPort) p).writtenOf.get(b); }
+
     @org.junit.jupiter.api.Test
     void abortedParamsAreNotRecorded() {
         RecordingRenderPort p = new RecordingRenderPort();
@@ -31,6 +36,7 @@ class RecordingRenderSinkTest extends RenderSinkContract {
     protected void at(RenderPort port, int intent, java.util.function.Consumer<RenderSink> body) {
         RecordingRenderPort r = (RecordingRenderPort) port;
         body.accept(r);
+        r.run(intent);
         r.flush();
     }
 

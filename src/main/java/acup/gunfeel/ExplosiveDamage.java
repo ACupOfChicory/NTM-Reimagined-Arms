@@ -12,110 +12,66 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.*;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-/** Контекст живёт только внутри обработчика снаряда, а не вокруг всех взрывов мира. */
-public final class ExplosiveDamage {
-    public static final class Context {
-        final EntityBulletBaseMK4 bullet;
-        final HitResult impact;
-        boolean exploded;
-        final int depth;
-        Context(EntityBulletBaseMK4 bullet,HitResult impact){this.bullet=bullet;this.impact=impact;this.depth=DEPTH.get();}
-    }
-    public static final class Blast {
-        final Context context;
-        final float base;
-        final ExplosionVNT explosion;
-        boolean contactPaid;
-        Blast(Context context,float base,ExplosionVNT explosion){this.context=context;this.base=base;this.explosion=explosion;}
-    }
+/** The game's typed entry points and live reads for the bullet context. */
+public final class ExplosiveDamage extends ExplosiveDamageBase {
     public interface Processor {
         void gunfeel$bind(ExplosionVNT explosion);
         Blast gunfeel$blast();
         /** its damage class is the explosive one (not fire, plasma, electric) */
         boolean gunfeel$explosive();
     }
-    private static final ThreadLocal<Context> CURRENT=new ThreadLocal<>();
-    private static final ThreadLocal<Boolean> SUPPRESS=ThreadLocal.withInitial(()->false);
-    private static final ThreadLocal<Integer> DEPTH=ThreadLocal.withInitial(()->0);
     private ExplosiveDamage() {}
-    public static boolean suppressed(){return SUPPRESS.get();}
-    public static Context current(){return CURRENT.get();}
-    /** the bullet whose impact is being dealt now (an explosive bullet's blast comes with no bullet of its own), or null */
-    public static net.minecraft.world.entity.Entity bulletNow(){var c=CURRENT.get();return c==null?null:c.bullet;}
-    /** the creature the bullet whose impact is being dealt now struck, or null (a block, none) */
-    public static net.minecraft.world.entity.Entity struckNow(){var c=CURRENT.get();return c!=null && c.impact instanceof net.minecraft.world.phys.EntityHitResult hit?hit.getEntity():null;}
+    public static Entity bulletNow(){return (Entity)ExplosiveDamageBase.bulletNow();}
+    public static Entity struckNow(){return (Entity)ExplosiveDamageBase.struckNow();}
     public static boolean impact(BiConsumer<Object,Object> callback,EntityBulletBaseMK4 bullet,HitResult hit,boolean announce){
-        if(bullet.level().isClientSide()){callback.accept(bullet,hit);return false;}
-        int previousDepth=DEPTH.get();
-        var previous=CURRENT.get();CURRENT.set(new Context(bullet,hit));
-        try {
-            callback.accept(bullet,hit);
-            // Только реально сработавший взрыватель: не оставляем след при отскоке/защите стрелка.
-            // ... and not on water (the surface fuze's hit)
-            if(announce && bullet.isRemoved() && ExplosiveAmmo.heavy(bullet.config) && hit instanceof BlockHitResult block
-                    && !acup.gunfeel.water.WaterTick.surfaceHit(bullet,hit)
+        return ExplosiveDamageBase.impact(callback,bullet,hit,announce);
+    }
+    public static void update(Consumer<Object> callback,EntityBulletBaseMK4 bullet){ExplosiveDamageBase.update(callback,bullet);}
+    public static Blast bind(ExplosionVNT explosion,float base){return ExplosiveDamageBase.bind(explosion,base);}
+    public static EntityBulletBaseMK4 bulletOf(Blast blast){return (EntityBulletBaseMK4)ExplosiveDamageBase.bulletOf(blast);}
+    public static boolean struck(Blast blast,Entity target){return ExplosiveDamageBase.struck(blast,target);}
+    public static boolean rocketDirect(Blast blast,Entity target){return ExplosiveDamageBase.rocketDirect(blast,target);}
+    public static float damage(Blast blast,Entity target,float original){return ExplosiveDamageBase.damage(blast,target,original);}
+    public static boolean attack(LivingEntity target,net.minecraft.world.damagesource.DamageSource source,float damage,
+            boolean first,boolean second,double knockback,float threshold,float piercing){
+        return ExplosiveDamageBase.attack(target,source,damage,first,second,knockback,threshold,piercing);
+    }
+
+    /** The version's live access to bullets, impacts and explosions. */
+    static final class Reads implements acup.gunfeel.host.ExplosiveShots {
+        @Override public boolean client(Object bullet){return ((EntityBulletBaseMK4)bullet).level().isClientSide();}
+        @Override public Object config(Object bullet){return ((EntityBulletBaseMK4)bullet).config;}
+        @Override public Object thrower(Object bullet){return ((EntityBulletBaseMK4)bullet).getThrower();}
+        @Override public Object level(Object bullet){return ((EntityBulletBaseMK4)bullet).level();}
+        @Override public Object world(Object explosion){return ((ExplosionVNT)explosion).world;}
+        @Override public Object exploder(Object explosion){return ((ExplosionVNT)explosion).exploder;}
+        @Override public Object struck(Object impact){return impact instanceof EntityHitResult hit?hit.getEntity():null;}
+        @Override public boolean heavy(Object config){return ExplosiveAmmo.heavy((BulletConfig)config);}
+        @Override public boolean rocket(Object config){return ExplosiveAmmo.rocket((BulletConfig)config);}
+        @Override public boolean removed(Object bullet){return ((EntityBulletBaseMK4)bullet).isRemoved();}
+        @Override public boolean hole(Object raw,Object hit){
+            var bullet=(EntityBulletBaseMK4)raw;
+            if(hit instanceof BlockHitResult block
+                    && !acup.gunfeel.water.WaterTick.surfaceHit(bullet,(HitResult)hit)
                     && block.getType()==HitResult.Type.BLOCK && bullet.level() instanceof ServerLevel level) {
                 Vec3 dir=bullet.getDeltaMovement();
                 if(dir.lengthSqr()<1e-12)dir=new Vec3(-block.getDirection().getStepX(),-block.getDirection().getStepY(),-block.getDirection().getStepZ());
                 var packet=new ImpactHolePayload(bullet.config.id,block.getBlockPos(),block.getDirection(),block.getLocation(),dir.normalize(),bullet.getId());
-                PacketDistributor.sendToPlayersNear(level,null,hit.getLocation().x,hit.getLocation().y,hit.getLocation().z,256,packet);
+                PacketDistributor.sendToPlayersNear(level,null,((HitResult)hit).getLocation().x,((HitResult)hit).getLocation().y,((HitResult)hit).getLocation().z,256,packet);
                 return true;
             }
             return false;
-        } finally {DEPTH.set(previousDepth);if(previous==null)CURRENT.remove();else CURRENT.set(previous);}
-    }
-    public static void update(Consumer<Object> callback,EntityBulletBaseMK4 bullet){
-        if(bullet.level().isClientSide()){callback.accept(bullet);return;}
-        var previous=CURRENT.get();CURRENT.set(new Context(bullet,null));
-        int previousDepth=DEPTH.get();
-        try{callback.accept(bullet);}finally{DEPTH.set(previousDepth);if(previous==null)CURRENT.remove();else CURRENT.set(previous);}
-    }
-    public static void enter(){if(CURRENT.get()!=null)DEPTH.set(DEPTH.get()+1);}
-    public static void exit(){if(CURRENT.get()!=null)DEPTH.set(Math.max(0,DEPTH.get()-1));}
-    public static Blast bind(ExplosionVNT explosion,float base){
-        var context=CURRENT.get();
-        if(context==null || suppressed() || DEPTH.get()!=context.depth || context.bullet.config==null
-                || context.bullet.level()!=explosion.world || context.bullet.getThrower()!=explosion.exploder)return null;
-        context.exploded=true;return new Blast(context,base,explosion);
-    }
-    /** the round or bullet the blast is bound to (its impact set it off), or null */
-    public static EntityBulletBaseMK4 bulletOf(Blast blast){return blast==null?null:blast.context.bullet;}
-    /** the blast's round struck {@code target} and its contact is not paid yet (call before damage()) */
-    public static boolean struck(Blast blast,Entity target){
-        return blast!=null && !blast.contactPaid && blast.context.impact instanceof EntityHitResult hit && hit.getEntity()==target;
-    }
-    /** the blast is a launcher's round's (40 mm, rocket), not an explosive bullet's */
-    public static boolean launched(Blast blast){return blast!=null && ExplosiveAmmo.heavy(blast.context.bullet.config);}
-    /** a rocket's blast on the creature the rocket struck, before its contact share is paid (BalanceArmor's power by tier) */
-    public static boolean rocketDirect(Blast blast,Entity target){
-        return blast!=null && !blast.contactPaid && ExplosiveAmmo.rocket(blast.context.bullet.config)
-                && blast.context.impact instanceof EntityHitResult hit && hit.getEntity()==target;
-    }
-    /** a blast with no bound bullet: none being dealt (a hand grenade), or the bullet now is a launcher's round */
-    public static boolean launchedNow(){var c=CURRENT.get();return c==null || ExplosiveAmmo.heavy(c.bullet.config);}
-    /** the blast's share of an explosive bullet's damage, out of NTM's {@code original} */
-    public static float area(float original){return ExplosiveRule.area(original);}
-    public static float damage(Blast blast,Entity target,float original){
-        if(blast==null)return original;
-        boolean direct=blast.context.impact instanceof EntityHitResult hit && hit.getEntity()==target && !blast.contactPaid;
-        // a blast hits no part of the body: no head's or limb's multiplier
-        if(direct)blast.contactPaid=true;
-        float base=blast.base*ExplosiveRule.onSelf(target==blast.explosion.exploder);
-        return ExplosiveRule.total(original,base,1,direct);
-    }
-    public static boolean attack(LivingEntity target,net.minecraft.world.damagesource.DamageSource source,float damage,
-            boolean first,boolean second,double knockback,float threshold,float piercing){
-        boolean previous=SUPPRESS.get();SUPPRESS.set(true);
-        try{return EntityDamageUtil.attackEntityFromNT(target,source,damage,first,second,knockback,threshold,piercing);}
-        finally{SUPPRESS.set(previous);}
-    }
-    public static void finish(Blast blast){
-        if(blast==null || blast.contactPaid || !(blast.context.impact instanceof EntityHitResult hit)
-                || !(hit.getEntity() instanceof LivingEntity target) || !target.isAlive())return;
-        // Видимая часть крупной модели может находиться за пределами ванильной коробки взрыва.
-        blast.contactPaid=true;var bullet=blast.context.bullet;
-        float damage=blast.base*ExplosiveRule.CONTACT;
-        attack(target,BulletConfig.getDamage(bullet,bullet.getThrower(),bullet.config.dmgClass),damage,true,true,0,
-                bullet.config.armorThresholdNegation,bullet.config.armorPiercingPercent);
+        }
+        @Override public boolean living(Object target){return target instanceof LivingEntity;}
+        @Override public boolean alive(Object target){return ((LivingEntity)target).isAlive();}
+        @Override public boolean attack(Object target,Object source,float damage,boolean first,boolean second,double knockback,float threshold,float piercing){
+            return EntityDamageUtil.attackEntityFromNT((LivingEntity)target,(net.minecraft.world.damagesource.DamageSource)source,
+                    damage,first,second,knockback,threshold,piercing);
+        }
+        @Override public void contact(Object raw,Object target,float damage){
+            var bullet=(EntityBulletBaseMK4)raw;
+            ExplosiveDamage.attack((LivingEntity)target,BulletConfig.getDamage(bullet,bullet.getThrower(),bullet.config.dmgClass),damage,true,true,0,
+                    bullet.config.armorThresholdNegation,bullet.config.armorPiercingPercent);
+        }
     }
 }

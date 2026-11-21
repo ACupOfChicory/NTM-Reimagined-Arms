@@ -127,6 +127,8 @@ class DamageCapStep2Test {
         float apply(Body target, Body shooter, Before shieldBefore, long now, long click, boolean head, boolean sniper,
                 float damage, Reads r) {
             if (head && sniper && r.schemeHit(target, null)) sniper = false;
+            // The pure event getter now precedes numeric applyOf.
+            r.calls.add("getNewDamage");
             float shield = 0F;
             Object props = null;
             if (target.player() && shieldBefore != null && shieldBefore.tick() == now) {
@@ -135,7 +137,6 @@ class DamageCapStep2Test {
             }
             var ledger = ledgers.computeIfAbsent(target.uuid(), k -> new HashMap<>()).computeIfAbsent(shooter.uuid(),
                     k -> new DamageCapRule.Ledger());
-            r.calls.add("getNewDamage");
             float before = damage;
             var result = DamageCapRule.take(ledger, limits(r), now, click, head, sniper, target.maxHealth(), shield, before);
             if (result.shield() > 0F && props != null) r.giveShield(props, result.shield());
@@ -274,8 +275,9 @@ class DamageCapStep2Test {
         assertEquals(head, DamageCapBase.headOf(b.body(target), b.now));
         float expected = old.apply(a.body(target), a.body(source), beforeA, a.tick, click, head, sniper, damage, a);
         boolean effective = DamageCapBase.sniperOf(b.body(target), null, head, sniper, b);
+        b.calls.add("getNewDamage");
         var result = DamageCapBase.applyOf(b.body(target), b.body(source), beforeB, b.tick, click, head, effective,
-                () -> { b.calls.add("getNewDamage"); return damage; }, b, b);
+                damage, b, b);
         if (result.result().damage() < damage) b.calls.add("setNewDamage " + Float.floatToRawIntBits(result.result().damage()));
         DamageCapBase.finishOf(result);
         bits(expected, result.result().damage());

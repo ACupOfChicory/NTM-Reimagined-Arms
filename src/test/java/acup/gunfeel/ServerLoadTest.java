@@ -1,6 +1,7 @@
 package acup.gunfeel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -92,6 +93,7 @@ class ServerLoadTest {
             }
         }
         assertTrue(subscribers.contains(LevelUnload.class.getName()), "subscribers found: " + subscribers);
+        assertFalse(subscribers.contains("acup.gunfeel.RenderFrames"), "the frame counter is client-only");
         // core's roots (META-INF/services) checked and set up: making Wiring is theServersWiring's
         List<String> providers = new ArrayList<>();
         Path dir = Path.of(getClass().getClassLoader().getResource("META-INF/services/" + acup.gunfeel.host.Ports.class.getName()).toURI()).getParent();
