@@ -21,10 +21,10 @@ class AiGrenadesAlikeTest {
         assertFalse(alike.agrees());
     }
 
-    @Test void coverageIsRequiredOnlyForFullRunsOrBothGrenadeStages() {
+    @Test void coverageIsRequiredOnlyForFullRuns() {
         assertTrue(AiGrenadesAlike.needsEveryInput(List.of()));
-        assertTrue(AiGrenadesAlike.needsEveryInput(List.of("grenade", "grenadier")));
-        assertTrue(AiGrenadesAlike.needsEveryInput(List.of("teams", "grenadier", "grenade")));
+        assertFalse(AiGrenadesAlike.needsEveryInput(List.of("grenade", "grenadier")));
+        assertFalse(AiGrenadesAlike.needsEveryInput(List.of("teams", "grenadier", "grenade")));
         assertFalse(AiGrenadesAlike.needsEveryInput(List.of("grenade", "trench", "teams")));
         assertFalse(AiGrenadesAlike.needsEveryInput(List.of("grenade")));
         assertFalse(AiGrenadesAlike.needsEveryInput(List.of("grenadier")));

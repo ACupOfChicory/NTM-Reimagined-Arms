@@ -219,7 +219,7 @@ final class AiGrenadesAlike implements AiGrenadesBase.BurstObserver {
     }
 
     static boolean needsEveryInput(List<String> stages) {
-        return stages.isEmpty() || stages.contains("grenade") && stages.contains("grenadier");
+        return stages.isEmpty();
     }
 
     static boolean bits(double a, double b) { return Double.doubleToRawLongBits(a) == Double.doubleToRawLongBits(b); }
