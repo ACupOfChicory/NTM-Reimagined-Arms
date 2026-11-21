@@ -33,7 +33,7 @@ final class ExplosiveSmoke {
     private static float measure(ServerLevel level,LivingEntity target,BulletConfig config,HitResult hit,boolean original) throws Exception {
         target.setHealth(1000);target.invulnerableTime=0;
         var bullet=new Probe(level,config);bullet.setPos(hit.getLocation().subtract(0,0,.1));
-        var field=ExplosiveDamage.class.getDeclaredField("SUPPRESS");field.setAccessible(true);
+        var field=ExplosiveDamageBase.class.getDeclaredField("SUPPRESS");field.setAccessible(true);
         var guard=(ThreadLocal<Boolean>)field.get(null);boolean previous=guard.get();
         if(original)guard.set(true);
         try{bullet.impact(hit);return 1000-target.getHealth();}
