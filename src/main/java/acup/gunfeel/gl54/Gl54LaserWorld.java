@@ -1,14 +1,14 @@
 package acup.gunfeel.gl54;
 
-import org.joml.Matrix4f;
-
 import com.hbm.items.weapon.sedna.ItemGunBaseNT;
+import acup.gunfeel.RenderPort26;
+import acup.gunfeel.Vecs;
+import acup.gunfeel.host.render.Intent;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
@@ -22,10 +22,6 @@ import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 public final class Gl54LaserWorld {
     // the lens against the shoulder, in blocks: to the body's right, down, forward (along the look); tuned by the stand
     public static double right = 0.14, down = 0.039, forward = 0.5;
-    // the shoulder under the eye, blocks
-    static final double SHOULDER_BELOW_EYE = 0.27;
-    // the players farther than this are left out
-    static final double REACH = 64.0;
     // for the stand: where the beam's start was in the world the last frame, per player
     public static volatile Vec3 lastStart;
 
@@ -48,7 +44,7 @@ public final class Gl54LaserWorld {
             if (p == mc.player && firstPerson) continue;
             ItemStack stack = p.getMainHandItem();
             if (stack.getItem() != gun || !ItemGunBaseNT.getIsAiming(stack)) continue;
-            if (p.distanceToSqr(cam) > REACH * REACH) continue;
+            if (!Gl54LaserGeometry.inRange(p.distanceToSqr(cam))) continue;
             beam(event, p, partial, cam);
         }
     }
@@ -57,44 +53,23 @@ public final class Gl54LaserWorld {
     // rise or fall with the head: the lens is the shoulder (the eye 0.27 lower, `right` to the body's right) plus `forward` along
     // the look and `down` below it. The beam goes along the look.
     public static Vec3[] line(AbstractClientPlayer p, float partial) {
-        Vec3 eye = p.getEyePosition(partial), f = p.getViewVector(partial).normalize();
-        double h = Math.hypot(f.x, f.z);
-        Vec3 r = h < 1e-6 ? new Vec3(-1, 0, 0) : new Vec3(-f.z / h, 0, f.x / h);
-        Vec3 u = r.cross(f);
-        double body = Math.toRadians(net.minecraft.util.Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot));
-        Vec3 bodyRight = new Vec3(-Math.cos(body), 0, -Math.sin(body));
-        Vec3 shoulder = eye.add(0, -SHOULDER_BELOW_EYE, 0);
-        return new Vec3[] {shoulder.add(bodyRight.scale(right)).add(f.scale(forward)).add(u.scale(-down)), f, r, u};
+        var l = new Gl54LaserGeometry.Line();
+        line(l, p, partial);
+        return new Vec3[] {Vecs.mc(l.start), Vecs.mc(l.dir), Vecs.mc(l.side), Vecs.mc(l.up)};
+    }
+
+    private static void line(Gl54LaserGeometry.Line out, AbstractClientPlayer p, float partial) {
+        Vec3 eye = p.getEyePosition(partial), look = p.getViewVector(partial);
+        Gl54LaserGeometry.line(out, eye.x, eye.y, eye.z, look.x, look.y, look.z,
+                net.minecraft.util.Mth.rotLerp(partial, p.yBodyRotO, p.yBodyRot), right, down, forward);
     }
 
     private static void beam(SubmitCustomGeometryEvent event, AbstractClientPlayer p, float partial, Vec3 cam) {
-        Vec3[] l = line(p, partial);
-        Vec3 start = l[0], dir = l[1], side = l[2], up = l[3];
-        lastStart = start;
-        double half = Gl54Laser.WIDTH_BLOCKS / 2.0, length = Gl54Laser.LENGTH_BLOCKS;
-        int n = Gl54Laser.SEGMENTS;
-        Vec3 o = start.subtract(cam);
-        event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), RenderTypes.debugQuads(), (pose, vc) -> {
-            Matrix4f m = pose.pose();
-            for (int i = 0; i < n; i++) {
-                Vec3 a = o.add(dir.scale(length * i / n)), b = o.add(dir.scale(length * (i + 1) / n));
-                int ca = Gl54Laser.color(1.0 - (double) i / n), cb = Gl54Laser.color(1.0 - (double) (i + 1) / n);
-                for (Vec3 w : new Vec3[] {side, up}) {
-                    Vec3 k = w.scale(half);
-                    corner(vc, m, a.subtract(k), ca);
-                    corner(vc, m, a.add(k), ca);
-                    corner(vc, m, b.add(k), cb);
-                    corner(vc, m, b.subtract(k), cb);
-                    corner(vc, m, b.subtract(k), cb);
-                    corner(vc, m, b.add(k), cb);
-                    corner(vc, m, a.add(k), ca);
-                    corner(vc, m, a.subtract(k), ca);
-                }
-            }
-        });
-    }
-
-    private static void corner(com.mojang.blaze3d.vertex.VertexConsumer vc, Matrix4f m, Vec3 v, int argb) {
-        vc.addVertex(m, (float) v.x, (float) v.y, (float) v.z).setColor(argb);
+        var batch = Gl54Laser.Drawing.RENDERER.begin();
+        if (batch == null) return;
+        line(batch.line, p, partial);
+        lastStart = Vecs.mc(batch.line.start);
+        batch.world(cam.x, cam.y, cam.z);
+        RenderPort26.submitAt(event, cam, 0, Intent.QUEUE, batch);
     }
 }

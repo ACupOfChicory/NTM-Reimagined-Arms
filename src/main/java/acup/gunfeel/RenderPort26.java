@@ -94,6 +94,11 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     // the place being drawn, the intent whose drawers run there, and its frame
     private int place, drawing;
     private SubmitCustomGeometryEvent submitted;
+    private SubmitNodeCollector localCollector;
+    private PoseStack localPose;
+    private boolean[] bulkDecals = new boolean[16];
+    private final List<SubmitNodeCollector.CustomGeometryRenderer> bulkPartRenderers = new ArrayList<>();
+    private final Writer bulkQueueWriter = new Writer(true);
     private Matrix4f view, pulled;
     private float pulledBy;
     private double camX, camY, camZ;
@@ -125,6 +130,7 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
         buffers.add(null);
         parts.add(null);
         partRenderers.add(null);
+        bulkPartRenderers.add(null);
     }
 
     // ---- the places (Tracers, the lines where the holes were drawn)
@@ -156,6 +162,17 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
         p.drawing = intent;
         try { drawer.draw(p); }
         finally { p.submitted = null; p.place = 0; p.drawing = 0; }
+    }
+
+    /** The item renderer's current collector and pose, at the original call site. */
+    public static void submitAt(SubmitNodeCollector collector, PoseStack pose, Drawer drawer) {
+        RenderPort26 p = INSTANCE;
+        p.at(SUBMIT, Vec3.ZERO, 0, null);
+        p.localCollector = collector;
+        p.localPose = pose;
+        p.drawing = Intent.QUEUE;
+        try { drawer.draw(p); }
+        finally { p.localCollector = null; p.localPose = null; p.place = 0; p.drawing = 0; }
     }
 
     /** AfterOpaqueFeatures */
@@ -253,6 +270,8 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     public int material(MaterialSpec spec) {
         Integer known = materialOf.get(spec);
         if (known != null) return known;
+        if (materials.size() == bulkDecals.length)
+            bulkDecals = java.util.Arrays.copyOf(bulkDecals, bulkDecals.length * 2);
         if (spec.layout() == Layouts.MESH_ENTITY) {
             Instanced source = instancedSources.get(spec.name());
             if (source == null) throw new IllegalArgumentException("no instanced program here for " + spec);
@@ -273,6 +292,7 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
         materials.add(type);
         instanced.add(null);
         materialOf.put(spec, materials.size() - 1);
+        bulkDecals[materials.size() - 1] = spec.name().equals("ntmgunfeel_gl54_laser_item");
         return materials.size() - 1;
     }
 
@@ -283,7 +303,7 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     static RenderType renderType(MaterialSpec spec) {
         return switch (spec.name()) {
             case "debug_quads" -> RenderTypes.debugQuads();
-            case "entity_translucent" -> RenderTypes.entityTranslucent(net.minecraft.resources.Identifier.parse(spec.texture()));
+            case "ntmgunfeel_gl54_laser_item" -> acup.gunfeel.gl54.Gl54Laser.Native.material();
             case "ntmgunfeel_water_ring" -> HoleRender.create(spec.name(), RenderSetup.builder(net.minecraft.client.renderer.RenderPipelines.TRANSLUCENT_PARTICLE)
                     .withTexture("Sampler0", net.minecraft.resources.Identifier.parse(spec.texture())).useLightmap().sortOnUpload()
                     .setOutputTarget(PARTICLES).createRenderSetup());
@@ -348,13 +368,18 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     public int part(Part part) {
         parts.add(part);
         int handle = parts.size() - 1;
-        partRenderers.add((pose, vc) -> {
-            queueWriter.pose = pose;
-            queueWriter.vc = vc;
-            try { part.write(queueWriter); }
-            finally { queueWriter.vc = null; queueWriter.pose = null; }
-        });
+        partRenderers.add(renderer(part, queueWriter));
+        bulkPartRenderers.add(renderer(part, bulkQueueWriter));
         return handle;
+    }
+
+    private static SubmitNodeCollector.CustomGeometryRenderer renderer(Part part, Writer writer) {
+        return (pose, vc) -> {
+            writer.pose = pose;
+            writer.vc = vc;
+            try { part.write(writer); }
+            finally { writer.vc = null; writer.pose = null; }
+        };
     }
 
     @Override
@@ -547,16 +572,18 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     public void queue(int material, int part, int room) {
         RenderType type = materials.get(material);
         if (place == SUBMIT) {
-            SubmitNodeCollector collector = submitted.getSubmitNodeCollector();
+            SubmitNodeCollector collector = localCollector != null ? localCollector : submitted.getSubmitNodeCollector();
+            PoseStack pose = localPose != null ? localPose : submitted.getPoseStack();
+            var renderer = (bulkDecals[material] ? bulkPartRenderers : partRenderers).get(part);
             // over the glass under the transparency chain: before the translucent particles drawn after the
             // translucent terrain (an order before 0 runs first)
             boolean overGlass = drawing == Intent.OVER_GLASS;
             if (drawing == Intent.AFTER_TERRAIN && collector instanceof SubmitNodeStorage storage)
-                storage.order(0).afterTerrain.submit(new CustomFeatureRenderer.Submit(submitted.getPoseStack().last().copy(), type, partRenderers.get(part)));
+                storage.order(0).afterTerrain.submit(new CustomFeatureRenderer.Submit(pose.last().copy(), type, renderer));
             else if (overGlass && collector instanceof SubmitNodeStorage storage)
-                storage.order(-1).submitCustomGeometry(submitted.getPoseStack(), type, partRenderers.get(part));
+                storage.order(-1).submitCustomGeometry(pose, type, renderer);
             else
-                collector.submitCustomGeometry(submitted.getPoseStack(), type, partRenderers.get(part));
+                collector.submitCustomGeometry(pose, type, renderer);
             return;
         }
         if (place != AFTER_WEATHER) throw new IllegalStateException("queue only into the game's queue or a pass of the mod's own");
@@ -712,6 +739,10 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     static class Writer implements VertexWriter {
         PoseStack.Pose pose;
         VertexConsumer vc;
+        private final boolean bulk;
+
+        Writer() { this(false); }
+        Writer(boolean bulk) { this.bulk = bulk; }
 
         private void active() {
             if (vc == null) throw new IllegalStateException("writer after end");
@@ -730,7 +761,11 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
         @Override
         public void decal(float x, float y, float z, int argb, float u, float v, int light, float nx, float ny, float nz) {
             active();
-            vc.addVertex(pose, x, y, z).setColor(argb).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, nx, ny, nz);
+            if (bulk) {
+                acup.gunfeel.gl54.Gl54Laser.Native.emit(vc, pose, x, y, z, argb, u, v, light, nx, ny, nz);
+            } else {
+                vc.addVertex(pose, x, y, z).setColor(argb).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, nx, ny, nz);
+            }
         }
 
         @Override

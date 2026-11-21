@@ -118,7 +118,7 @@ class RenderPort26RibbonsTest {
         assertEquals("OutputTarget[ntmgunfeel_particles_target]", particle.outputTarget().toString());
         MaterialSpec entity = new MaterialSpec("entity_translucent", "entity", Layouts.DECAL, Blend.TRANSLUCENT,
                 0.1F, true, true, 0, 0, true, "minecraft:test", true, true);
-        assertSame(RenderTypes.entityTranslucent(net.minecraft.resources.Identifier.parse("minecraft:test")), RenderPort26.renderType(entity));
+        assertThrows(IllegalArgumentException.class, () -> RenderPort26.renderType(entity));
     }
 
     @Test void afterTerrainOrderZeroAndForeignCollectorFallback() {
