@@ -316,6 +316,14 @@ public interface NtmGuns {
 
         @Override public double fragForce() { return 0; }
         @Override public double fragBounce() { return 0; }
+        @Override public int liveKind(Body p) { return OTHER; }
+        @Override public int grenadeMaxTimer(Body p) { return 0; }
+        @Override public double grenadeBounce(Body p) { return 0; }
+        @Override public int grenadeFuze(Body p) { return -1; }
+        @Override public int grenadeTimer(Body p) { return 0; }
+        @Override public boolean grenadeGlue(Body p) { return false; }
+        @Override public boolean mk4Config(Body p, Shell into) { return false; }
+        @Override public double mk4Accel(Body p) { return 0; }
     };
 
     /**
@@ -339,4 +347,19 @@ public interface NtmGuns {
 
     /** 26.2: EnumGrenadeShell.FRAG.getBounce. */
     double fragBounce();
+
+    /** Live flight families, independent of whether the AI runs from them. */
+    int OTHER = 0, BOUNCY = 1, MK4 = 2, UNIVERSAL = 3;
+    int FUZE_S3 = 0, FUZE_S7 = 1, FUZE_S15 = 2, FUZE_IMPACT = 3;
+
+    int liveKind(Body p);
+    int grenadeMaxTimer(Body p);
+    double grenadeBounce(Body p);
+    /** Unknown fuze: -1, handled by the flight's default branch. */
+    int grenadeFuze(Body p);
+    int grenadeTimer(Body p);
+    boolean grenadeGlue(Body p);
+    /** False for null config, leaving into untouched. */
+    boolean mk4Config(Body p, Shell into);
+    double mk4Accel(Body p);
 }

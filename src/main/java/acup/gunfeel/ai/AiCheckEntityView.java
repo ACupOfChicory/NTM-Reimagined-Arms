@@ -94,6 +94,7 @@ final class AiCheckEntityView {
         for (Entity e : List.of(dummy, stand, arrow)) same("standing " + name(e), e);
         commanderPorts();
         oneBody(view);
+        owners();
         near(view);
         players(view);
         livingOnly();
@@ -796,6 +797,23 @@ final class AiCheckEntityView {
         dummy.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, before);
         check.check("roles: each NTM gun's role by the port is AiRole.byFire's before it, " + count + (differ.isEmpty() ? "" : ": " + differ),
                 differ.isEmpty() && count.getOrDefault(AiRole.BASE, 0) > 0);
+    }
+
+    private void owners() {
+        var projectile = (net.minecraft.world.entity.projectile.Projectile) arrow;
+        Body body = EntityBody.of(arrow);
+        boolean same = EntityBody.of(dummy).owner() == null && EntityBody.of(stand).owner() == null;
+        for (Entity owner : new Entity[] {null, dummy, stand, arrow, null}) {
+            projectile.setOwner(owner);
+            Body expected = owner == null ? null : EntityBody.of(owner);
+            same &= body.owner() == expected && body.owner() == expected;
+            if (expected != null) {
+                same &= expected.living() == (owner instanceof net.minecraft.world.entity.LivingEntity);
+                if (owner instanceof net.minecraft.world.entity.LivingEntity living)
+                    same &= AiTeamsBase.own(EntityBody.of(dummy), expected) == AiTeams.own(dummy, living);
+            }
+        }
+        check.check("entityview: projectile owner is live, nullable and canonical, including a nonliving owner", same);
     }
 
     // AiRole.byFire as it was before NtmGuns.fireTraits (2026-11-20), the stand's "before"

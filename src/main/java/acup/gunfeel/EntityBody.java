@@ -131,6 +131,10 @@ public final class EntityBody implements Body {
     }
     @Override public boolean alive() { return e.isAlive(); }
     @Override public boolean removed() { return e.isRemoved(); }
+    @Override public @Nullable Body owner() {
+        Entity owner = e instanceof net.minecraft.world.entity.projectile.Projectile p ? p.getOwner() : null;
+        return owner == null ? null : of(owner);
+    }
     @Override public float health() { return ((LivingEntity) e).getHealth(); }
     @Override public int lastHurtTime() { return ((LivingEntity) e).getLastHurtByMobTimestamp(); }
     @Override public @Nullable Body lastHurtBy() {

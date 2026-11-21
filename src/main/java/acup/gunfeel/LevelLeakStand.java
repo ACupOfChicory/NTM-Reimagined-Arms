@@ -84,6 +84,9 @@ final class LevelLeakStand {
                     // every level's WorldView made, as a hit on a set does (EuphImmunity): it holds its level, so the
                     // unload must forget it (Worlds.forget in LevelUnload) for the levels to go
                     for (ServerLevel l : server.getAllLevels()) acup.gunfeel.host.Worlds.of(l);
+                    var grenade = net.minecraft.world.entity.EntityTypes.ARROW.create(level, net.minecraft.world.entity.EntitySpawnReason.COMMAND);
+                    acup.gunfeel.ai.AiGrenades.leakProbe(level, grenade);
+                    ClientSmoke.check(acup.gunfeel.ai.AiGrenadesBase.any(level), "grenades: registry is populated before disconnect");
                     List<String> held = holding(level);
                     GunFeel.LOGGER.info("[levelleak] after the fight the AI keeps the overworld in: {}", held);
                     ClientSmoke.check(!held.isEmpty(), "уровень: после боя у ИИ есть состояние уровня (" + held + ")");
@@ -99,6 +102,10 @@ final class LevelLeakStand {
             }
             case 1 -> {
                 if (mc.getSingleplayerServer() != null || mc.level != null || !(mc.gui.screen() instanceof TitleScreen)) return;
+                for (WeakReference<ServerLevel> reference : levels) {
+                    ServerLevel level = reference.get();
+                    if (level != null) ClientSmoke.check(!acup.gunfeel.ai.AiGrenadesBase.any(level), "grenades: unload cleared the forced live entry");
+                }
                 leftAt = System.currentTimeMillis();
                 step = 2;
             }

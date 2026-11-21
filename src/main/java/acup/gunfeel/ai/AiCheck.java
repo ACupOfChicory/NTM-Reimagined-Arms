@@ -234,10 +234,13 @@ public final class AiCheck {
                 if (!done) return;
                 AiLean.alike = null;
                 AiGrenades.alike = null;
+                grenadesAlike.close();
                 check.out("     grenades alike (core's against the former code): " + grenadesAlike.info());
                 check.check("grenades: core's AiGrenadesBase answers as the former code did", grenadesAlike.agrees());
-                if (AiGrenadesAlike.needsEveryInput(only))
+                if (AiGrenadesAlike.needsEveryInput(only)) {
                     check.check("grenades alike: every input compared", grenadesAlike.complete());
+                    check.check("grenades alike: every live input and transition compared", grenadesAlike.liveComplete());
+                }
                 check.out("     lean alike (core's against the former code): " + leanAlike.info());
                 check.check("lean: core's AiLeanBase answers as the former code did", leanAlike.differ == 0);
                 AiBots.heardKeeps = true;

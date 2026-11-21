@@ -133,6 +133,7 @@ final class AiCheckGrenade {
             counting = this;
             AiBots.awake = true;
             start(0);
+            AiGrenadesOld.liveCases(level, soldier);
             return false;
         }
         ticks++;

@@ -2,8 +2,6 @@ package acup.gunfeel.ai;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
 
 import org.jspecify.annotations.Nullable;
 
@@ -19,9 +17,7 @@ import acup.gunfeel.Vecs;
 import acup.gunfeel.host.Body;
 import acup.gunfeel.host.NtmGuns;
 
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
@@ -56,6 +52,10 @@ public final class AiGrenades extends AiGrenadesBase {
     };
     private static final NtmGuns GUNS = CoreServices.load(NtmGuns.class, NtmGuns.NONE);
     private static final Staff STAFF = new Staff() {
+        @Override public @Nullable BurstObserver flightObserver() { return alike; }
+        @Override public Object burstRef(Body body, acup.gunfeel.Vec3d burst, boolean position) {
+            return position ? EntityBody.entity(body).position() : new Vec3(burst.x(), burst.y(), burst.z());
+        }
         @Override public VoxelRay.Source voxels(Object level) { return AiBots.voxels((ServerLevel) level); }
         @Override public boolean ownNear(Object level, VoxelRay.Source src, Body mob, double bx, double by, double bz, double down) {
             return AiGrenades.ownNear((ServerLevel) level, src, (Mob) EntityBody.entity(mob), bx, by, bz, down);
@@ -220,82 +220,26 @@ public final class AiGrenades extends AiGrenadesBase {
     /** NTM's frag with HE and a three seconds' fuze, thrown by the mob with this turn */
     static EntityGrenadeUniversal toss(ServerLevel level, Mob m, Throw t) {
         EntityGrenadeUniversal g = launch(level, m, t, ItemGrenadeUniversal.make(EnumGrenadeShell.FRAG, EnumGrenadeFilling.HE, EnumGrenadeFuze.S3), t.share());
-        if (!trace) return g;
-        // the stands: the flight it was planned to take, to set against the one it takes
-        traced++;
-        joined(level, g);
-        List<double[]> path = new ArrayList<>();
-        from(AiBots.voxels(level), m, t.yaw(), t.pitch(), EnumGrenadeShell.FRAG.getYeetForce() * t.share(), EnumGrenadeShell.FRAG.getBounce(), level.getMinY(), 0, 0, 0, path, null, -1);
-        for (Live l : LEVELS.get(level))
-            if (l.e == g) {
-                l.path = path;
-                l.start = String.format(java.util.Locale.ROOT, "thrown from %.2f %.2f %.2f (%s, eye %.2f), grenade at %.2f %.2f %.2f moving %.3f %.3f %.3f, planned %.2f %.2f %.2f"
-                        + " moving %.3f %.3f %.3f", m.getX(), m.getY(), m.getZ(), m.getPose(), m.getEyeHeight(), g.getX(), g.getY(), g.getZ(), g.getDeltaMovement().x,
-                        g.getDeltaMovement().y, g.getDeltaMovement().z, path.get(0)[0], path.get(0)[1], path.get(0)[2], path.get(0)[3], path.get(0)[4], path.get(0)[5]);
-            }
+        tossed(level, m, g, t);
         return g;
     }
 
-    /** the stands: thrown grenades' planned flights set against the ones they take */
-    static boolean trace;
-    /** the stands: grenades thrown so far, and how each one that left its planned flight was thrown and left it */
-    static int traced;
-    static final List<String> partings = new ArrayList<>();
-
-    /** the stands: how the thrower's grenade going off left its planned flight; null if it is not known */
-    static @Nullable String parted(ServerLevel level, net.minecraft.world.entity.Entity owner) {
-        List<Live> l = LEVELS.get(level);
-        Live best = null;
-        if (l != null) for (Live g : l) if (g.e.getOwner() == owner && (best == null || g.e.tickCount > best.e.tickCount)) best = g;
-        return best == null || best.start == null ? null : best.start + "; " + (best.parted == null ? "kept to it" : best.parted);
+    static void tossed(ServerLevel level, Mob m, EntityGrenadeUniversal g, Throw t) {
+        if (alike != null) alike.before(level);
+        AiGrenadesBase.tossed(STAFF, GUNS, level, EntityBody.of(m), EntityBody.of(g), t.yaw(), t.pitch(), t.share());
+        if (alike != null) alike.tossed(level, m, g, t);
     }
 
-    /** the stands: the first tick the grenade is half a block off its planned flight, and what is there */
-    private static void follow(ServerLevel level, Live g) {
-        if (g.path == null || g.parted != null) return;
-        int k = g.e.tickCount;
-        if (k <= 0 || k >= g.path.size()) return;
-        double[] p = g.path.get(k), q = g.path.get(k - 1);
-        Vec3 at = g.e.position(), v = g.e.getDeltaMovement();
-        // a tick either way: when in the server's tick its own ticks are counted is not asked
-        for (int j = Math.max(0, k - 1); j <= Math.min(g.path.size() - 1, k + 1); j++) {
-            double[] o = g.path.get(j);
-            if (at.distanceToSqr(o[0], o[1], o[2]) < 0.25) return;
-        }
-        StringBuilder near = new StringBuilder();
-        BlockPos c = BlockPos.containing(at);
-        for (BlockPos b : BlockPos.betweenClosed(c.offset(-1, -1, -1), c.offset(1, 1, 1))) {
-            var st = level.getBlockState(b);
-            if (st.isAir()) continue;
-            near.append(String.format(java.util.Locale.ROOT, " %d %d %d %s%s", b.getX(), b.getY(), b.getZ(), BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath(),
-                    st.getCollisionShape(level, b).isEmpty() ? "(no box)" : Voxel.open(AiBots.voxels(level).voxel(b.getX(), b.getY(), b.getZ())) ? "(open to us)" : ""));
-        }
-        g.parted = String.format(java.util.Locale.ROOT, "tick %d it is at %.2f %.2f %.2f moving %.3f %.3f %.3f, planned at %.2f %.2f %.2f moving %.3f %.3f %.3f"
-                + " (a tick before %.2f %.2f %.2f); blocks round it:%s", k, at.x, at.y, at.z, v.x, v.y, v.z, p[0], p[1], p[2], p[3], p[4], p[5], q[0], q[1], q[2],
-                near.length() == 0 ? " none" : near);
-        partings.add(g.start + "; " + g.parted);
+    static @Nullable String parted(ServerLevel level, net.minecraft.world.entity.@Nullable Entity owner) {
+        String answer = AiGrenadesBase.parted(level, owner == null ? null : EntityBody.of(owner));
+        return alike == null ? answer : alike.parted(level, owner, answer);
     }
 
-    // ------------------------------------------------------------------ grenades in the air
-
-    /**
-     * A grenade in the level (NTM's grenades, its bouncing ones: dynamite and the like, 40 mm grenades and rockets fired
-     * from a gun): where it will burst (worked out again every few ticks, a fired one's every tick), the AI mobs that know
-     * of it.
-     */
-    static final class Live {
-        final net.minecraft.world.entity.projectile.Projectile e;
-        @Nullable Vec3 burst;
-        long at = Long.MIN_VALUE;
-        final IntOpenHashSet known = new IntOpenHashSet();
-        /** the stands: its planned flight (each tick's start), how it was thrown, where it first left that flight */
-        @Nullable List<double[]> path;
-        @Nullable String start, parted;
-
-        Live(net.minecraft.world.entity.projectile.Projectile e) {
-            this.e = e;
-        }
+    private static net.minecraft.world.entity.projectile.Projectile entity(Live live) {
+        return (net.minecraft.world.entity.projectile.Projectile) EntityBody.entity(live.e);
     }
+
+    private static @Nullable Vec3 vector(Live live) { return (Vec3) live.burstRef; }
 
     /** this grenade (a frag's shell: its flight) thrown by the mob with this turn, this share of a frag's force */
     static EntityGrenadeUniversal launch(ServerLevel level, Mob m, Throw t, net.minecraft.world.item.ItemStack item, double force) {
@@ -320,93 +264,89 @@ public final class AiGrenades extends AiGrenadesBase {
                         && (b.config instanceof acup.gunfeel.gl54.GrenadeType || acup.gunfeel.ExplosiveAmmo.heavy(b.config));
     }
 
-    /** its burst worked out again this often, ticks */
-    static final int AGAIN = 4;
-
-    private static final Map<ServerLevel, List<Live>> LEVELS = new WeakHashMap<>();
-
-    /** the stands: the thrower's grenade on its way the longest (the one going off): where it is, where it was to burst */
-    static Vec3 @Nullable [] bursting(ServerLevel level, net.minecraft.world.entity.Entity owner) {
-        List<Live> l = LEVELS.get(level);
-        Live best = null;
-        if (l != null) for (Live g : l) if (g.e.getOwner() == owner && (best == null || g.e.tickCount > best.e.tickCount)) best = g;
-        return best == null ? null : new Vec3[] {best.e.position(), best.burst};
+    static Vec3 @Nullable [] bursting(ServerLevel level, net.minecraft.world.entity.@Nullable Entity owner) {
+        Object[] result = AiGrenadesBase.bursting(STAFF, level, owner == null ? null : EntityBody.of(owner));
+        Vec3[] answer = result == null ? null : new Vec3[] {(Vec3) result[0], (Vec3) result[1]};
+        return alike == null ? answer : alike.bursting(level, owner, answer);
     }
 
-    /** the stands: where this grenade is to burst as last worked out; null if not known */
     static @Nullable Vec3 predicted(ServerLevel level, net.minecraft.world.entity.Entity e) {
-        List<Live> l = LEVELS.get(level);
-        if (l != null) for (Live g : l) if (g.e == e) return g.burst;
-        return null;
+        Vec3 answer = (Vec3) AiGrenadesBase.predicted(level, EntityBody.of(e));
+        return alike == null ? answer : alike.predicted(level, e, answer);
     }
 
-    /** a grenade comes into a level (thrown or fired by anyone; threat) */
     static void joined(ServerLevel level, net.minecraft.world.entity.projectile.Projectile g) {
-        List<Live> l = LEVELS.computeIfAbsent(level, k -> new ArrayList<>());
-        for (Live o : l) if (o.e == g) return;
-        l.add(new Live(g));
+        if (alike != null) alike.before(level);
+        AiGrenadesBase.joined(level, EntityBody.of(g));
+        if (alike != null) alike.joined(level, g);
+    }
+
+    /** A forced live entry for the level-unload stand, without spawning. */
+    public static void leakProbe(ServerLevel level, net.minecraft.world.entity.projectile.Projectile g) {
+        joined(level, g);
     }
 
     public static void forget(ServerLevel level) {
-        LEVELS.remove(level);
+        if (alike != null) alike.before(level);
         AiGrenadesBase.forgetLevel(level);
+        if (alike != null) alike.forgot(level);
     }
 
-    /** every server tick, from AiBots.tick: grenades gone let go, bursts worked out again */
     static void tick(ServerLevel level) {
-        List<Live> l = LEVELS.get(level);
-        if (l == null) return;
-        l.removeIf(g -> g.e.isRemoved());
-        if (l.isEmpty()) {
-            LEVELS.remove(level);
-            return;
-        }
-        long now = level.getGameTime();
-        if (trace) for (Live g : l) follow(level, g);
-        for (Live g : l) if (g.at == Long.MIN_VALUE || now - g.at >= (g.e instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 ? 1 : AGAIN)) {
-            g.at = now;
-            g.burst = burstOf(level, g.e);
-        }
+        if (alike != null) alike.before(level);
+        AiGrenadesBase.tick(STAFF, GUNS, level);
+        if (alike != null) alike.ticked(level);
     }
 
-    /** where this grenade will burst; null with a fuze other than a timer or impact (or out of the world) */
-    private static @Nullable Vec3 burstOf(ServerLevel level, net.minecraft.world.entity.projectile.Projectile p) {
-        Vec3 v = p.getDeltaMovement();
-        if (p instanceof com.hbm.entity.grenade.EntityGrenadeBouncyGeneric b) {
-            // its own timer, as many ticks as it has been in the level (saved with it, but near enough); gravity 0.03
-            int left = b.getGrenade().getMaxTimer() - b.tickCount;
-            if (left <= 0) return b.position();
-            return burst(AiBots.voxels(level), b.getX(), b.getY(), b.getZ(), v.x, v.y, v.z, left, -1, b.getGrenade().getBounceMod(), level.getMinY());
-        }
-        if (p instanceof com.hbm.entity.projectile.EntityBulletBaseMK4 b) {
-            // fired: bursts where it first hits; a tick it goes its speed times the round's, gravity on the speed (no air)
-            if (b.config == null) return null;
-            double m = b.config.velocity + b.accel;
-            int left = b.config.expires > 0 ? Math.min(200, b.config.expires - b.tickCount) : 200;
-            if (left <= 0) return b.position();
-            return burst(AiBots.voxels(level), b.getX(), b.getY(), b.getZ(), v.x * m, v.y * m, v.z * m, left, 0, 0, level.getMinY(), b.config.gravity * m, 1);
-        }
-        if (!(p instanceof EntityGrenadeUniversal e)) return null;
-        EnumGrenadeFuze f = e.getFuze();
-        int left = switch (f) {
-            case S3 -> 60;
-            case S7 -> 140;
-            case S15 -> 300;
-            case IMPACT -> 200;
+    /** Pure flight entry for the stands. */
+    static @Nullable Vec3 burstOf(ServerLevel level, net.minecraft.world.entity.projectile.Projectile p) {
+        Live live = new Live(EntityBody.of(p));
+        var burst = AiGrenadesBase.burstOf(STAFF, GUNS, level, live);
+        Vec3 answer = burst == null ? null : (Vec3) STAFF.burstRef(live.e, burst, live.position);
+        return alike == null ? answer : alike.burstOf(level, p, answer);
+    }
+
+    /** API reads stay in the AI's category. */
+    public static int liveKind(Body p) {
+        var e = EntityBody.entity(p);
+        if (e instanceof com.hbm.entity.grenade.EntityGrenadeBouncyGeneric) return NtmGuns.BOUNCY;
+        if (e instanceof com.hbm.entity.projectile.EntityBulletBaseMK4) return NtmGuns.MK4;
+        return e instanceof EntityGrenadeUniversal ? NtmGuns.UNIVERSAL : NtmGuns.OTHER;
+    }
+
+    public static int grenadeMaxTimer(Body p) {
+        return ((com.hbm.entity.grenade.EntityGrenadeBouncyGeneric) EntityBody.entity(p)).getGrenade().getMaxTimer();
+    }
+
+    public static double grenadeBounce(Body p) {
+        var e = EntityBody.entity(p);
+        return e instanceof com.hbm.entity.grenade.EntityGrenadeBouncyGeneric b ? b.getGrenade().getBounceMod()
+                : ((EntityGrenadeUniversal) e).getShell().getBounce();
+    }
+
+    public static int grenadeFuze(Body p) {
+        return switch (((EntityGrenadeUniversal) EntityBody.entity(p)).getFuze()) {
+            case S3 -> NtmGuns.FUZE_S3;
+            case S7 -> NtmGuns.FUZE_S7;
+            case S15 -> NtmGuns.FUZE_S15;
+            case IMPACT -> NtmGuns.FUZE_IMPACT;
             default -> -1;
         };
-        if (left < 0) return null;
-        if (f != EnumGrenadeFuze.IMPACT) left -= e.getTimer();
-        if (left <= 0) return e.position();
-        if (e.getExtra() == com.hbm.items.weapon.grenade.ItemGrenadeExtra.EnumGrenadeExtra.GLUE) {
-            // glue: it sticks where it first hits, and bursts there
-            double[] land = new double[3];
-            Vec3 b = burst(AiBots.voxels(level), e.getX(), e.getY(), e.getZ(), v.x, v.y, v.z, left, -1, e.getShell().getBounce(), level.getMinY(), GRAVITY, DRAG, null, land);
-            return Double.isNaN(land[0]) ? b : new Vec3(land[0], land[1], land[2]);
-        }
-        return burst(AiBots.voxels(level), e.getX(), e.getY(), e.getZ(), v.x, v.y, v.z, left,
-                f == EnumGrenadeFuze.IMPACT ? Math.max(0, IMPACT_ARMED - e.getTimer()) : -1, e.getShell().getBounce(), level.getMinY());
     }
+
+    public static int grenadeTimer(Body p) { return ((EntityGrenadeUniversal) EntityBody.entity(p)).getTimer(); }
+    public static boolean grenadeGlue(Body p) {
+        return ((EntityGrenadeUniversal) EntityBody.entity(p)).getExtra() == com.hbm.items.weapon.grenade.ItemGrenadeExtra.EnumGrenadeExtra.GLUE;
+    }
+    public static boolean mk4Config(Body p, acup.gunfeel.host.Shell into) {
+        var config = ((com.hbm.entity.projectile.EntityBulletBaseMK4) EntityBody.entity(p)).config;
+        if (config == null) return false;
+        into.velocity = config.velocity;
+        into.gravity = config.gravity;
+        into.expires = config.expires;
+        return true;
+    }
+    public static double mk4Accel(Body p) { return ((com.hbm.entity.projectile.EntityBulletBaseMK4) EntityBody.entity(p)).accel; }
 
     /** a burst to run from, how far off it is out of its reach, and whether it is its own side's (no harm at all) */
     record Danger(Vec3 burst, double clear, boolean own) {
@@ -436,46 +376,46 @@ public final class AiGrenades extends AiGrenadesBase {
         double best = Double.MAX_VALUE;
         VoxelRay.Source src = AiBots.voxels(level);
         for (Live g : l) {
-            if (g.burst == null || g.e.isRemoved()) continue;
+            if (vector(g) == null || g.e.removed()) continue;
             boolean own = ownSide(m, g);
             // the grenade thrown into a room before an entry, it behind the wall beside the way in (or out of its reach): it stays
-            if (own && AiEntry.keeps(level, bot, g.e.getId(), g.burst, src)) continue;
+            if (own && AiEntry.keeps(level, bot, g.e.id(), vector(g), src)) continue;
             // the one thrown in through a bunker's slit, it beside the slit behind the wall (or out of its reach): it stays
-            if (own && AiBunker.keeps(level, bot, g.e.getId(), g.burst, src)) continue;
+            if (own && AiBunker.keeps(level, bot, g.e.id(), vector(g), src)) continue;
             // the one dropped down a shaft, it up out of the shaft: it stays
-            if (own && AiHatch.keeps(level, bot, g.e.getId())) continue;
+            if (own && AiHatch.keeps(level, bot, g.e.id())) continue;
             // its own near throw, it down behind its cover till the burst: it stays down while blocks keep all of it
             // off the burst (worked out again as the grenade flies); else it runs as from any of its own side's
-            if (own && g.e.getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(g.e) && s.downShield(bot, level.getGameTime()) > 0
-                    && shielded(src, m.getX(), m.getY(), m.getZ(), s.downShield(bot, level.getGameTime()), g.burst)) continue;
-            if (trace && own && g.e.getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(g.e) && !s.throwNote.contains("; runs"))
+            if (own && entity(g).getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(entity(g)) && s.downShield(bot, level.getGameTime()) > 0
+                    && shielded(src, m.getX(), m.getY(), m.getZ(), s.downShield(bot, level.getGameTime()), vector(g))) continue;
+            if (trace && own && entity(g).getOwner() == m && bot.brain instanceof AiSoldier s && s.downFor(entity(g)) && !s.throwNote.contains("; runs"))
                 s.throwNote += (s.downShield(bot, level.getGameTime()) > 0 ? "; runs: not hidden from the burst" : "; runs: not down") + s.downWhy(bot, level.getGameTime());
             // its own side's: out to SAFE and OWN_MARGIN (as far as a throw keeps it from its own), 2 more once it runs
             // (no back and forth); it runs to a block past that (OWN_CLEAR)
             double r = own ? SAFE + OWN_MARGIN + (within > DANGER ? 2 : 0) : within;
-            double d = m.distanceToSqr(g.burst);
+            double d = m.distanceToSqr(vector(g));
             // its own side's: where it is on its way to as well (one went to other cover there after the throw and was
             // hit, too late to turn back: the battles)
             long goal = bot.mover.goal();
             if (own && goal != Long.MIN_VALUE && !bot.mover.arrived())
-                d = Math.min(d, g.burst.distanceToSqr(BlockPos.getX(goal) + 0.5, BlockPos.getY(goal), BlockPos.getZ(goal) + 0.5));
+                d = Math.min(d, vector(g).distanceToSqr(BlockPos.getX(goal) + 0.5, BlockPos.getY(goal), BlockPos.getZ(goal) + 0.5));
             if (d >= r * r || d >= best) continue;
             int id = m.getId();
             if (!own && !g.known.contains(id)) {
-                double e2 = g.e.position().distanceToSqr(eye);
-                boolean knows = e2 <= HEAR * HEAR || e2 <= SEE * SEE && VoxelRay.clear(src, eye.x, eye.y, eye.z, g.e.getX(), g.e.getY(), g.e.getZ(), Voxel.SIGHT);
+                double e2 = entity(g).position().distanceToSqr(eye);
+                boolean knows = e2 <= HEAR * HEAR || e2 <= SEE * SEE && VoxelRay.clear(src, eye.x, eye.y, eye.z, g.e.x(), g.e.y(), g.e.z(), Voxel.SIGHT);
                 if (!knows) continue;
                 g.known.add(id);
             }
             best = d;
-            near = new Danger(g.burst, own ? OWN_CLEAR : CLEAR, own);
+            near = new Danger(vector(g), own ? OWN_CLEAR : CLEAR, own);
         }
         return near;
     }
 
     /** its own side's grenade (it threw it, or one of its side) */
     private static boolean ownSide(Mob m, Live g) {
-        return g.e.getOwner() instanceof net.minecraft.world.entity.LivingEntity o && (o == m || AiTeams.own(m, o));
+        return entity(g).getOwner() instanceof net.minecraft.world.entity.LivingEntity o && (o == m || AiTeams.own(m, o));
     }
 
     /** a place in the reach of one of these bursts: its own side's out to OTHER_OWN, others' out to CLEAR unless behind a block */
@@ -483,15 +423,15 @@ public final class AiGrenades extends AiGrenadesBase {
         for (Live g : others) {
             boolean own = ownSide(m, g);
             double r = own ? OTHER_OWN : CLEAR;
-            if (g.burst.distanceToSqr(x, y, z) < r * r && !cover(src, g.burst, x, y, z, own)) return true;
+            if (vector(g).distanceToSqr(x, y, z) < r * r && !cover(src, vector(g), x, y, z, own)) return true;
         }
         return false;
     }
 
     /** whether any grenade is in the level (cheap: most ticks there is none) */
     static boolean any(ServerLevel level) {
-        List<Live> l = LEVELS.get(level);
-        return l != null && !l.isEmpty();
+        boolean answer = AiGrenadesBase.any(level);
+        return alike == null ? answer : alike.any(level, answer);
     }
 
     /**
@@ -525,7 +465,7 @@ public final class AiGrenades extends AiGrenadesBase {
         List<Live> others = new ArrayList<>();
         List<Live> l = LEVELS.get(level);
         if (l != null) for (Live g : l) {
-            if (g.burst == null || g.e.isRemoved() || g.burst == burst) continue;
+            if (vector(g) == null || g.e.removed() || AiGrenadesBase.sameBurst(g, burst)) continue;
             if (ownSide(m, g) || knows(src, m, g)) others.add(g);
         }
         return others;
@@ -543,8 +483,8 @@ public final class AiGrenades extends AiGrenadesBase {
         int id = m.getId();
         if (g.known.contains(id)) return true;
         Vec3 eye = m.getEyePosition();
-        double e2 = g.e.position().distanceToSqr(eye);
-        if (e2 > HEAR * HEAR && (e2 > SEE * SEE || !VoxelRay.clear(src, eye.x, eye.y, eye.z, g.e.getX(), g.e.getY(), g.e.getZ(), Voxel.SIGHT))) return false;
+        double e2 = entity(g).position().distanceToSqr(eye);
+        if (e2 > HEAR * HEAR && (e2 > SEE * SEE || !VoxelRay.clear(src, eye.x, eye.y, eye.z, g.e.x(), g.e.y(), g.e.z(), Voxel.SIGHT))) return false;
         g.known.add(id);
         return true;
     }

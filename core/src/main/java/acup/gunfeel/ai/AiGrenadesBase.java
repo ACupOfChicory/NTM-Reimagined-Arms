@@ -11,6 +11,8 @@ import acup.gunfeel.PosLong;
 import acup.gunfeel.Vec3d;
 import acup.gunfeel.host.Body;
 import acup.gunfeel.host.NtmGuns;
+import acup.gunfeel.host.Shell;
+import acup.gunfeel.host.WorldView;
 import acup.gunfeel.host.Worlds;
 
 /** Shared grenade flight, throw selection and per-level budgets. */
@@ -32,11 +34,219 @@ public abstract class AiGrenadesBase {
         double distanceToSqr(T a, T b);
     }
 
+    @FunctionalInterface
+    interface BurstObserver {
+        void burst(VoxelRay.Source src, double x, double y, double z, double vx, double vy, double vz,
+                int ticks, int armed, double bounce, int minY, double gravity, double drag, @Nullable List<double[]> path,
+                double @Nullable [] land, @Nullable Vec3d answer, int input);
+    }
+
     interface Staff {
         /** 26.2: AiBots.voxels(level). */
         VoxelRay.Source voxels(Object level);
         /** 26.2: AiGrenades.ownNear(level, src, mob, bx, by, bz, down), until G2. */
         boolean ownNear(Object level, VoxelRay.Source src, Body mob, double bx, double by, double bz, double down);
+        /** Publishes a new vector, or the body's original position object for an expired timer. */
+        default Object burstRef(Body body, Vec3d burst, boolean position) { return burst; }
+        /** Optional comparison of live flight calls, before glue selects the landing point. */
+        default @Nullable BurstObserver flightObserver() { return null; }
+    }
+
+    /** A live projectile and its last prediction. The vector token belongs to the host. */
+    protected static final class Live implements Vec3Maker<Live> {
+        public final Body e;
+        public @Nullable Vec3d burst;
+        public @Nullable Object burstRef;
+        public long at = Long.MIN_VALUE;
+        public final it.unimi.dsi.fastutil.ints.IntOpenHashSet known = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
+        public @Nullable List<double[]> path;
+        public @Nullable String start, parted;
+        private final double[] motion = new double[3];
+        private final Shell shell = new Shell();
+        private double bx, by, bz;
+        boolean position;
+
+        public Live(Body e) { this.e = e; }
+        @Override public Live make(double x, double y, double z) { bx = x; by = y; bz = z; return this; }
+    }
+
+    protected static final LevelMap<List<Live>> LEVELS = new LevelMap<>();
+    static final int AGAIN = 4;
+    protected static boolean trace;
+    protected static int traced;
+    protected static final List<String> partings = new ArrayList<>();
+    protected static java.util.function.@Nullable Consumer<String> journal;
+
+    static void event(String event) { if (journal != null) journal.accept(event); }
+
+    static Live joined(Object level, Body body) {
+        List<Live> list = LEVELS.computeIfAbsent(level, k -> new ArrayList<>());
+        for (Live old : list) if (old.e == body) { if (journal != null) event("DUP " + list.indexOf(old)); return old; }
+        Live live = new Live(body);
+        list.add(live);
+        if (journal != null) event("JOIN " + (list.size() - 1));
+        return live;
+    }
+
+    public static boolean any(Object level) {
+        List<Live> list = LEVELS.get(level);
+        return list != null && !list.isEmpty();
+    }
+
+    static @Nullable Object predicted(Object level, Body body) {
+        List<Live> list = LEVELS.get(level);
+        if (list != null) for (Live live : list) if (live.e == body) return live.burstRef;
+        return null;
+    }
+
+    static boolean sameBurst(Live live, Object burst) { return live.burstRef == burst; }
+
+    static @Nullable Live oldest(Object level, @Nullable Body owner) {
+        List<Live> list = LEVELS.get(level);
+        Live best = null;
+        if (list != null) for (Live g : list)
+            if (g.e.owner() == owner && (best == null || g.e.age() > best.e.age())) best = g;
+        return best;
+    }
+
+    static @Nullable String parted(Object level, @Nullable Body owner) {
+        Live best = oldest(level, owner);
+        return best == null || best.start == null ? null : best.start + "; " + (best.parted == null ? "kept to it" : best.parted);
+    }
+
+    static Object @Nullable [] bursting(Staff staff, Object level, @Nullable Body owner) {
+        Live best = oldest(level, owner);
+        return best == null ? null : new Object[] {staff.burstRef(best.e, new Vec3d(best.e.x(), best.e.y(), best.e.z()), true), best.burstRef};
+    }
+
+    static void tick(Staff staff, NtmGuns guns, Object level) {
+        List<Live> list = LEVELS.get(level);
+        if (list == null) return;
+        for (int i = 0; i < list.size();) {
+            if (list.get(i).e.removed()) { if (journal != null) event("REMOVE " + i); list.remove(i); }
+            else i++;
+        }
+        if (list.isEmpty()) {
+            LEVELS.remove(level);
+            if (journal != null) event("EMPTY");
+            return;
+        }
+        WorldView world = Worlds.of(level);
+        long now = world.gameTime();
+        if (trace) for (Live g : list) follow(staff, level, g);
+        for (Live g : list) if (g.at == Long.MIN_VALUE || now - g.at >= (guns.liveKind(g.e) == NtmGuns.MK4 ? 1 : AGAIN)) {
+            g.at = now;
+            if (journal != null) event("AT " + list.indexOf(g) + " " + now);
+            g.burst = burstOf(staff, guns, level, world, g);
+            g.burstRef = g.burst == null ? null : staff.burstRef(g.e, g.burst, g.position);
+            if (journal != null) event("BURST " + list.indexOf(g));
+        }
+    }
+
+    static @Nullable Vec3d burstOf(Staff staff, NtmGuns guns, Object level, Live g) {
+        return burstOf(staff, guns, level, Worlds.of(level), g);
+    }
+
+    private static @Nullable Vec3d burstOf(Staff staff, NtmGuns guns, Object level, WorldView world, Live g) {
+        g.position = false;
+        return flight(staff, guns, level, world, g) == null ? null : new Vec3d(g.bx, g.by, g.bz);
+    }
+
+    private static @Nullable Live position(Live g) {
+        g.position = true;
+        return g.make(g.e.x(), g.e.y(), g.e.z());
+    }
+
+    private static @Nullable Live flight(Staff staff, NtmGuns guns, Object level, WorldView world, Live g) {
+        Body p = g.e;
+        p.motion(g.motion);
+        double vx = g.motion[0], vy = g.motion[1], vz = g.motion[2];
+        int kind = guns.liveKind(p);
+        if (kind == NtmGuns.BOUNCY) {
+            int left = guns.grenadeMaxTimer(p) - p.age();
+            if (left <= 0) return position(g);
+            return flightBurst(staff, staff.voxels(level), p.x(), p.y(), p.z(), vx, vy, vz, left, -1, guns.grenadeBounce(p), world.minY(), GRAVITY, DRAG, null, null, g, 0);
+        }
+        if (kind == NtmGuns.MK4) {
+            if (!guns.mk4Config(p, g.shell)) return null;
+            double m = g.shell.velocity + guns.mk4Accel(p);
+            int left = g.shell.expires > 0 ? Math.min(200, g.shell.expires - p.age()) : 200;
+            if (left <= 0) return position(g);
+            return flightBurst(staff, staff.voxels(level), p.x(), p.y(), p.z(), vx * m, vy * m, vz * m, left, 0, 0, world.minY(), g.shell.gravity * m, 1, null, null, g, 1);
+        }
+        if (kind != NtmGuns.UNIVERSAL) return null;
+        int f = guns.grenadeFuze(p);
+        int left = switch (f) {
+            case NtmGuns.FUZE_S3 -> 60;
+            case NtmGuns.FUZE_S7 -> 140;
+            case NtmGuns.FUZE_S15 -> 300;
+            case NtmGuns.FUZE_IMPACT -> 200;
+            default -> -1;
+        };
+        if (left < 0) return null;
+        if (f != NtmGuns.FUZE_IMPACT) left -= guns.grenadeTimer(p);
+        if (left <= 0) return position(g);
+        if (guns.grenadeGlue(p)) {
+            double[] land = new double[3];
+            Live b = flightBurst(staff, staff.voxels(level), p.x(), p.y(), p.z(), vx, vy, vz, left, -1, guns.grenadeBounce(p), world.minY(), GRAVITY, DRAG, null, land, g, 2);
+            return Double.isNaN(land[0]) ? b : g.make(land[0], land[1], land[2]);
+        }
+        return flightBurst(staff, staff.voxels(level), p.x(), p.y(), p.z(), vx, vy, vz, left,
+                f == NtmGuns.FUZE_IMPACT ? Math.max(0, IMPACT_ARMED - guns.grenadeTimer(p)) : -1, guns.grenadeBounce(p), world.minY(), GRAVITY, DRAG, null, null, g, 0);
+    }
+
+    private static @Nullable Live flightBurst(Staff staff, VoxelRay.Source src, double x, double y, double z,
+            double vx, double vy, double vz, int ticks, int armed, double bounce, int minY, double gravity, double drag,
+            @Nullable List<double[]> path, double @Nullable [] land, Live g, int input) {
+        Live answer = burst(src, x, y, z, vx, vy, vz, ticks, armed, bounce, minY, gravity, drag, path, land, g);
+        BurstObserver observer = staff.flightObserver();
+        if (observer != null) observer.burst(src, x, y, z, vx, vy, vz, ticks, armed, bounce, minY, gravity, drag,
+                path, land, answer == null ? null : new Vec3d(g.bx, g.by, g.bz), input);
+        return answer;
+    }
+
+    static void follow(Staff staff, Object level, Live g) {
+        if (g.path == null || g.parted != null) return;
+        int k = g.e.age();
+        if (k <= 0 || k >= g.path.size()) return;
+        double[] p = g.path.get(k), q = g.path.get(k - 1);
+        double x = g.e.x(), y = g.e.y(), z = g.e.z();
+        g.e.motion(g.motion);
+        for (int j = Math.max(0, k - 1); j <= Math.min(g.path.size() - 1, k + 1); j++) {
+            double[] o = g.path.get(j);
+            double dx = x - o[0], dy = y - o[1], dz = z - o[2];
+            if (dx * dx + dy * dy + dz * dz < 0.25) return;
+        }
+        StringBuilder near = new StringBuilder();
+        WorldView world = Worlds.of(level);
+        int cx = GameMath.floor(x), cy = GameMath.floor(y), cz = GameMath.floor(z);
+        for (int bz = cz - 1; bz <= cz + 1; bz++) for (int by = cy - 1; by <= cy + 1; by++) for (int bx = cx - 1; bx <= cx + 1; bx++) {
+            int state = world.state(bx, by, bz);
+            if (world.air(state)) continue;
+            near.append(String.format(java.util.Locale.ROOT, " %d %d %d %s%s", bx, by, bz, world.facts(state).path(),
+                    world.boxes(bx, by, bz, WorldView.COLLIDER, null, new double[0]) == 0 ? "(no box)"
+                            : Voxel.open(staff.voxels(level).voxel(bx, by, bz)) ? "(open to us)" : ""));
+        }
+        g.parted = String.format(java.util.Locale.ROOT, "tick %d it is at %.2f %.2f %.2f moving %.3f %.3f %.3f, planned at %.2f %.2f %.2f moving %.3f %.3f %.3f"
+                + " (a tick before %.2f %.2f %.2f); blocks round it:%s", k, x, y, z, g.motion[0], g.motion[1], g.motion[2], p[0], p[1], p[2], p[3], p[4], p[5], q[0], q[1], q[2],
+                near.length() == 0 ? " none" : near);
+        partings.add(g.start + "; " + g.parted);
+        if (journal != null) event("PARTED " + g.parted);
+    }
+
+    static void tossed(Staff staff, NtmGuns guns, Object level, Body mob, Body grenade, float yaw, float pitch, double share) {
+        if (!trace) return;
+        traced++;
+        if (journal != null) event("TRACED");
+        Live live = joined(level, grenade);
+        List<double[]> path = new ArrayList<>();
+        from(staff.voxels(level), mob, yaw, pitch, guns.fragForce() * share, guns.fragBounce(), Worlds.of(level).minY(), 0, 0, 0, path, null, -1, Vec3d::new);
+        live.path = path;
+        grenade.motion(live.motion);
+        live.start = String.format(java.util.Locale.ROOT, "thrown from %.2f %.2f %.2f (%s, eye %.2f), grenade at %.2f %.2f %.2f moving %.3f %.3f %.3f, planned %.2f %.2f %.2f"
+                + " moving %.3f %.3f %.3f", mob.x(), mob.y(), mob.z(), mob.poseName(), mob.eyeHeight(), grenade.x(), grenade.y(), grenade.z(), live.motion[0], live.motion[1], live.motion[2],
+                path.get(0)[0], path.get(0)[1], path.get(0)[2], path.get(0)[3], path.get(0)[4], path.get(0)[5]);
+        if (journal != null) event("PATH " + live.start);
     }
 
     /** thrown at a place this far off, blocks */
@@ -460,7 +670,9 @@ public abstract class AiGrenadesBase {
 
     /** Drops both budgets when the level goes. */
     public static void forgetLevel(Object level) {
+        LEVELS.remove(level);
         PLANNED.remove(level);
         REFUGES.remove(level);
+        if (journal != null) event("FORGET");
     }
 }

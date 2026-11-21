@@ -13,6 +13,20 @@ import acup.gunfeel.ai.Stance;
 // watching, a second mob and one removed. Each version's check runs the same promises on its own entities.
 class FakeEntitiesTest extends EntityViewContract {
     @org.junit.jupiter.api.Test
+    void projectileOwnerIsLiveAndCanonical() {
+        Fake projectile = (Fake) level.byId(2);
+        org.junit.jupiter.api.Assertions.assertNull(projectile.owner());
+        for (Body owner : new Body[] {level.byId(1), level.byId(4), projectile, null}) {
+            projectile.owner = owner;
+            org.junit.jupiter.api.Assertions.assertSame(owner, projectile.owner());
+            org.junit.jupiter.api.Assertions.assertSame(owner, projectile.owner());
+        }
+        Fake mob = (Fake) level.byId(1);
+        mob.owner = projectile;
+        org.junit.jupiter.api.Assertions.assertNull(mob.owner());
+    }
+
+    @org.junit.jupiter.api.Test
     void playersInOrderIncludingSpectators() {
         Body first = level.byId(3);
         Fake second = level.add(new Fake(7, EntityView.LIVING, true, true, false, 0, 64, 0));
@@ -45,6 +59,7 @@ class FakeEntitiesTest extends EntityViewContract {
         int age = 300, lastHurtTime = 201;
         double x, y, z;
         boolean removed;
+        @Nullable Body owner;
         byte stance = Stance.STAND;
         float yRot, yHeadRot, yBodyRot, xRot;
 
@@ -118,6 +133,7 @@ class FakeEntitiesTest extends EntityViewContract {
         @Override public boolean flying() { return false; }
         @Override public boolean alive() { return !removed; }
         @Override public boolean removed() { return removed; }
+        @Override public @Nullable Body owner() { return kind == EntityView.PROJECTILE ? owner : null; }
         @Override public Body lastHurtBy() { livingOnly(); return player ? null : this; }
         @Override public int lastHurtTime() { livingOnly(); return lastHurtTime; }
         @Override public Body killCredit() { livingOnly(); return player ? null : this; }

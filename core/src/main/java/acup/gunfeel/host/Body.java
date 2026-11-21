@@ -143,6 +143,9 @@ public interface Body {
 
     boolean removed();
 
+    /** Projectile owner, read live once per call; null for no owner or any other body. Canonical Body, compared by reference. */
+    @Nullable Body owner();
+
     /** its health (getHealth); living */
     float health();
 
