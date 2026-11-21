@@ -168,6 +168,7 @@ public class DamageCapStep3Test {
         assertTrue(start >= 0);
         start = source.indexOf('{', start) + 1;
         String joined = source.substring(start, source.indexOf('\n' + "    }", start));
+        source = Files.readString(Path.of("core/src/main/java/acup/gunfeel/DamageCapBase.java"));
         start = source.indexOf("        Shot shot = projectile == null");
         assertTrue(start >= 0);
         String damage = source.substring(start, source.indexOf("        boolean head =", start));
@@ -177,8 +178,11 @@ public class DamageCapStep3Test {
                 + joined.replace("joinedOf(", "sink.accept(") + "}"
                 + "public static Shot damage(Entity projectile, LivingEntity shooter, long now, Function<Object,Shot> shots, "
                 + "ToIntFunction<LivingEntity> gunDelay, Supplier<DamageCapRule.Limits> limits, Predicate<Object> pellet) {"
-                + damage.replace("shotOf(", "shots.apply(").replace("gunDelay(", "gunDelay.applyAsInt(")
-                        .replace("limits()", "limits.get()").replace("pellet(", "pellet.test(")
+                + damage.replace("shotOf(key)", "shots.apply(projectile)")
+                        .replace("limitsOf(settings)", "limits.get()")
+                        .replace("guns.maxDelay(shooter, Body.MAIN_HAND)", "gunDelay.applyAsInt(shooter)")
+                        .replace("projectile.age()", "projectile.tickCount")
+                        .replace("bullets.pellet(key)", "pellet.test(projectile)")
                 + "return shot; }}";
         var compiler = ToolProvider.getSystemJavaCompiler();
         assertNotNull(compiler);

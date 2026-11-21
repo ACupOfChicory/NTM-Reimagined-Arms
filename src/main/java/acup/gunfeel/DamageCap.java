@@ -182,14 +182,6 @@ public final class DamageCap extends DamageCapBase {
         }
     }
 
-    /** the projectile between the shooter and the target, or null for none (melee, no shooter) */
-    private static @Nullable Entity projectile(DamageSource source, LivingEntity shooter) {
-        Entity direct = source.getDirectEntity(), cause = source.getEntity();
-        if (direct != null && direct != shooter) return direct;
-        if (cause != null && cause != shooter) return cause;
-        return null;
-    }
-
     private static boolean capped(LivingEntity target) {
         return cappedOf(EntityBody.of(target));
     }
@@ -210,32 +202,24 @@ public final class DamageCap extends DamageCapBase {
     private static void damage(LivingDamageEvent.Pre e) {
         LivingEntity target = e.getEntity();
         Before shieldBefore = removeBeforeOf(target);
-        if (!(target.level() instanceof ServerLevel level) || !on() || !capped(target)) return;
-        DamageSource source = e.getSource();
-        LivingEntity shooter = shooter(source.getEntity());
-        if (shooter == null) shooter = shooter(source.getDirectEntity());
-        if (shooter == null || shooter == target || exempt(source)) return;
-        Entity projectile = projectile(source, shooter);
-        // NTM's blasts from a bullet or a grenade name the shooter alone (ExplosionVNT's exploder): NTM's blast is capped
-        // with no projectile, as a click of this tick (a creeper's, vanilla's, is not)
-        // and any NTM blast's hit whatever its class: the Tesla Cannon's is electric (BalanceArmor.vntBlastNow)
-        boolean blast = BalanceArmorBase.HurtPort.HURTS.ntmExplosion(source)
-                || (BalanceArmor.vntBlastNow() && ReaimTimes.flag("damageCapAnyBlast", true));
-        if (projectile == null && !blast) return;
-        long now = level.getGameTime();
-        // the hurt's raw damage as NTM's armour took it (after NTM's shield), else the hurt's own
-        float raw = takeAmountOf(EntityBody.of(target), e.getOriginalDamage());
-        if (blast && blastFree(raw)) return;
-        Shot shot = projectile == null ? null : shotOf(projectile);
-        if (shot == null) shot = new Shot(projectile == null ? now : now - projectile.tickCount,
-                gunDelay(shooter) >= limits().sniperDelay() && (projectile == null || !pellet(projectile)));
-        boolean head = headOf(EntityBody.of(target));
-        // the final scheme's hits on the head (owner 2026-11-12: no one-shots on the head): the plain head cap, whatever
-        // the gun waits
-        if (!sniperOf(EntityBody.of(target), source, head, shot.sniper()) && shot.sniper()) shot = new Shot(shot.tick(), false);
-        var hit = applyOf(EntityBody.of(target), EntityBody.of(shooter), shieldBefore, now, shot.tick(), head, shot.sniper(), e::getNewDamage);
+        if (!(target.level() instanceof ServerLevel level)) return;
+        var hit = damageOf(EntityBody.of(target), level, shieldBefore, e, DamageReads.INSTANCE);
+        if (hit == null) return;
         if (hit.result().damage() < hit.before()) e.setNewDamage(hit.result().damage());
         finishOf(hit);
+    }
+
+    /** Stateless event access (26.2: damageOf calls it only when each read is needed). */
+    private enum DamageReads implements DamageEvent<LivingDamageEvent.Pre> {
+        INSTANCE;
+
+        @Override public Object source(LivingDamageEvent.Pre e) { return e.getSource(); }
+        @Override public float original(LivingDamageEvent.Pre e) { return e.getOriginalDamage(); }
+        @Override public Applied apply(LivingDamageEvent.Pre e, Body target, Body shooter, Before before,
+                long now, Shot shot, boolean head) {
+            float damage = e.getNewDamage();
+            return applyOf(target, shooter, before, now, shot.tick(), head, shot.sniper(), damage);
+        }
     }
 
     /** the stand: what was taken off {@code target} forgotten (its ledgers, by every shooter) */
