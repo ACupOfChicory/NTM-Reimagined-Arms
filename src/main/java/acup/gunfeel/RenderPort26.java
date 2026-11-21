@@ -129,7 +129,7 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
 
     // ---- the places (Tracers, the lines where the holes were drawn)
 
-    static long frameNumber() {
+    public static long frameNumber() {
         return RenderFrames.frame;
     }
 
@@ -149,7 +149,7 @@ public final class RenderPort26 implements RenderPort, RenderSink, CameraFrame {
     }
 
     /** Submit in place, before the adapter's following draws. */
-    static void submitAt(SubmitCustomGeometryEvent event, Vec3 cam, long now, int intent, Drawer drawer) {
+    public static void submitAt(SubmitCustomGeometryEvent event, Vec3 cam, long now, int intent, Drawer drawer) {
         RenderPort26 p = INSTANCE;
         p.at(SUBMIT, cam, now, null);
         p.submitted = event;
