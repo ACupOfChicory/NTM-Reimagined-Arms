@@ -34,6 +34,7 @@ class AiSupplyBaseTest {
         @Override public double nextDouble() { throw new AssertionError(); }
         @Override public boolean nextBoolean() { throw new AssertionError(); }
         @Override public float nextFloat() { throw new AssertionError(); }
+        @Override public long nextLong() { throw new AssertionError(); }
         @Override public double nextGaussian() { throw new AssertionError(); }
     };
 

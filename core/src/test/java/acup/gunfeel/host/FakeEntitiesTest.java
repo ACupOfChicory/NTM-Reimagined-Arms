@@ -101,6 +101,7 @@ class FakeEntitiesTest extends EntityViewContract {
                 @Override public double nextDouble() { return r.nextDouble(); }
                 @Override public boolean nextBoolean() { return r.nextBoolean(); }
                 @Override public float nextFloat() { return r.nextFloat(); }
+                @Override public long nextLong() { return r.nextLong(); }
                 @Override public double nextGaussian() { return r.nextGaussian(); }
             };
         }

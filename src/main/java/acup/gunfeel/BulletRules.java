@@ -22,6 +22,9 @@ public final class BulletRules extends BulletRulesBase {
     private BulletRules() {
     }
 
+    /** Triggers the class init (its rule tick listener) at the moment BulletRules.entity/hit did before core. */
+    public static void init() {}
+
     // the rules' file looked at again a second on, by the game's ticks (BulletRuleText.tick): every level's, both sides
     // (a client's level, a server's), from the first question to the rules on; the first one looks at the file at once
     static {

@@ -360,6 +360,7 @@ class AiCommanderBaseTest {
             @Override public double nextDouble() { throw new AssertionError("not asked"); }
             @Override public boolean nextBoolean() { throw new AssertionError("not asked"); }
             @Override public float nextFloat() { throw new AssertionError("not asked"); }
+            @Override public long nextLong() { throw new AssertionError("not asked"); }
             @Override public double nextGaussian() { throw new AssertionError("not asked"); }
         };
         final acup.gunfeel.host.WorldView world = (acup.gunfeel.host.WorldView) Proxy.newProxyInstance(Body.class.getClassLoader(),
@@ -411,6 +412,7 @@ class AiCommanderBaseTest {
                 @Override public int nextInt(int n) { throw new AssertionError(); }
                 @Override public boolean nextBoolean() { throw new AssertionError(); }
                 @Override public float nextFloat() { throw new AssertionError(); }
+                @Override public long nextLong() { throw new AssertionError("not asked"); }
                 @Override public double nextGaussian() { throw new AssertionError(); }
             };
 

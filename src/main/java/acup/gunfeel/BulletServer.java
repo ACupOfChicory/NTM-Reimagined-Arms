@@ -42,6 +42,7 @@ public final class BulletServer {
     // what bullets did to blocks not broken yet (core: BlockWear), by place (BlockPos.asLong) and block; the cracks
     // and what is gone are the game's
     private static final BulletServerBase BLOCKS = new BulletServerBase();
+    private static final BulletEffectsBase EFFECTS = new BulletEffectsBase();
 
     // dev (NpcShotSmoke): every block as if no bullet had hit it yet
     static void forgetWear() {
@@ -87,17 +88,10 @@ public final class BulletServer {
     // cell by its machine) our steel ricochet where the bullet hit instead, and true; else false (NTM's own plays)
     public static boolean ricochetSound(Level level, net.minecraft.world.phys.HitResult mop) {
         if (!(mop instanceof BlockHitResult hit) || level.isClientSide()) return false;
-        BlockState state = level.getBlockState(hit.getBlockPos());
-        if (state.isAir()) return false;
-        BlockState rule = Cells.ruleState(level, hit.getBlockPos(), state);
-        BulletRuleText.Sound s = BulletRules.hit(rule).sound();
-        boolean steel = Ricochet.steelSound(s == null ? null : s.id());
-        if (TestLog.server) TestLog.s(TestLog.shot(), "ricochet", "block", rule, "pos", hit.getBlockPos(), "material", WorldLog.material(level, hit.getBlockPos()),
-                "result", "bounced", "sound", steel ? "ours" : "ntm");
-        if (!steel) return false;
+        var world = acup.gunfeel.host.Worlds.of(level);
+        BlockPos pos = hit.getBlockPos();
         Vec3 at = hit.getLocation();
-        level.playSound(null, at.x, at.y, at.z, RICOCHET_STEEL, net.minecraft.sounds.SoundSource.PLAYERS, 1.0F, 0.9F + level.getRandom().nextFloat() * 0.2F);
-        return true;
+        return EFFECTS.ricochetSound(level, world, true, pos, pos.getX(), pos.getY(), pos.getZ(), at.x, at.y, at.z);
     }
 
     // a shot without an MK4 bullet (an NTM beam, BeamServer) pierced this block or flew through it ("through"): the
@@ -252,7 +246,7 @@ public final class BulletServer {
     public static void tick() { BLOCKS.tick(); }
 
     /** 26.2's world writes and bullet block reads. */
-    public static final class Reads implements acup.gunfeel.host.WorldEdit, acup.gunfeel.host.BulletBlocks {
+    public static final class Reads implements acup.gunfeel.host.WorldEdit, acup.gunfeel.host.BulletBlocks, acup.gunfeel.host.ShotEffects {
         private static final Map<String, BlockState> PARSED = new HashMap<>();
 
         private static @Nullable Body body(@Nullable Entity owner) {
@@ -272,6 +266,44 @@ public final class BulletServer {
         }
         @Override public int shotId(Object bullet) { return ((EntityBulletBaseMK4) bullet).getId(); }
         @Override public Object location(Object hit) { return ((BlockHitResult) hit).getLocation(); }
+
+        /** The machine's rule state (26.2: Cells.ruleState, then BlockStates.number). */
+        @Override public int ruleState(Object level, Object pos, int state) {
+            BulletRules.init();
+            return BlockStates.number(Cells.ruleState((Level) level, (BlockPos) pos, BlockStates.state(state)));
+        }
+        /** The diagnostic material (26.2: WorldLog.material). */
+        @Override public String material(Object level, Object pos) { return WorldLog.material((Level) level, (BlockPos) pos); }
+        /** Resolve a particle (26.2: BulletServer.particle). */
+        @Override public @Nullable Object particle(String name, int hitState) {
+            return BulletServer.particle(name, hitState < 0 ? null : BlockStates.state(hitState));
+        }
+        @Override public @Nullable Body owner(Object bullet) { return Reads.body(((EntityBulletBaseMK4) bullet).getOwner()); }
+        /** Emit particles (26.2: ServerLevel.sendParticles). */
+        @Override public void particles(Object level, Object particle, double x, double y, double z, int count) {
+            ((ServerLevel) level).sendParticles((ParticleOptions) particle, x, y, z, count, 0.1, 0.1, 0.1, 0.05);
+        }
+        /** Resolve a sound (26.2: Identifier.tryParse, registry or direct Holder). */
+        @Override public @Nullable Object sound(String name) {
+            Identifier id = Identifier.tryParse(name);
+            if (id == null) return null;
+            return BuiltInRegistries.SOUND_EVENT.get(id).<Holder<SoundEvent>>map(h -> h)
+                    .orElseGet(() -> Holder.direct(SoundEvent.createVariableRangeEvent(id)));
+        }
+        /** Play nearby (26.2: Level.playSound, PLAYERS). */
+        @SuppressWarnings("unchecked")
+        @Override public void playAll(Object level, Object sound, double x, double y, double z, float volume, float pitch) {
+            if (sound instanceof SoundEvent event) ((Level) level).playSound(null, x, y, z, event, SoundSource.PLAYERS, volume, pitch);
+            else ((Level) level).playSound(null, x, y, z, (Holder<SoundEvent>) sound, SoundSource.PLAYERS, volume, pitch);
+        }
+        /** Send to one player (26.2: ClientboundSoundPacket with the given seed). */
+        @SuppressWarnings("unchecked")
+        @Override public void playTo(Body player, Object sound, double x, double y, double z, float volume, float pitch, long seed) {
+            ((ServerPlayer) EntityBody.entity(player)).connection.send(new ClientboundSoundPacket((Holder<SoundEvent>) sound,
+                    SoundSource.PLAYERS, x, y, z, volume, pitch, seed));
+        }
+        /** The permanent steel sound (26.2: BulletServer.RICOCHET_STEEL). */
+        @Override public Object ricochetSteel() { return RICOCHET_STEEL; }
 
         @Override public void cracks(Object level, int breaker, Object pos, int stage) {
             ((Level) level).destroyBlockProgress(breaker, (BlockPos) pos, stage);
@@ -338,9 +370,10 @@ public final class BulletServer {
                     "health", health, "after", now, "took", health - now, "left", bullet.damage, "flies", !bullet.isRemoved());
         }
         if (!(bullet.level() instanceof ServerLevel level) || !wasAlive) return;
-        boolean dead = target instanceof LivingEntity living && !living.isAlive();
-        play(level, bullet, target, at, BulletRules.entity("entity", target));
-        if (dead) play(level, bullet, target, at, BulletRules.entity("kill", target));
+        var world = acup.gunfeel.host.Worlds.of(level);
+        BulletRules.init();
+        EFFECTS.entityHit(level, world, true, bullet, EntityBody.of(target),
+                at != null, at == null ? 0 : at.x, at == null ? 0 : at.y, at == null ? 0 : at.z, wasAlive);
     }
 
     // NTM's headshot test (BulletConfig.LAMBDA_STANDARD_ENTITY_HIT): the hit point in the top two head heights
@@ -357,27 +390,6 @@ public final class BulletServer {
         net.minecraft.world.item.ItemStack stack = le.getMainHandItem();
         float dura = gun.getConfig(stack, 0).getDurability(stack), worn = com.hbm.items.weapon.sedna.ItemGunBaseNT.getWear(stack, 0);
         return String.format(java.util.Locale.ROOT, "%.0f/%.0f x%.2f", worn, dura, AmmoStats.wear(worn, dura));
-    }
-
-    private static void play(ServerLevel level, EntityBulletBaseMK4 bullet, Entity target, Vec3 at, BulletRuleText.Effect fx) {
-        if (fx.empty()) return;
-        Vec3 p = at == null ? target.position().add(0, target.getBbHeight() / 2, 0) : at;
-        for (BulletRuleText.Particle part : fx.particles()) {
-            ParticleOptions o = particle(part.id(), null);
-            if (o != null) level.sendParticles(o, p.x, p.y, p.z, part.count(), 0.1, 0.1, 0.1, 0.05);
-        }
-        BulletRuleText.Sound s = fx.sound();
-        if (s == null) return;
-        Identifier id = Identifier.tryParse(s.id());
-        if (id == null) return;
-        Holder<SoundEvent> sound = BuiltInRegistries.SOUND_EVENT.get(id).<Holder<SoundEvent>>map(h -> h)
-                .orElseGet(() -> Holder.direct(SoundEvent.createVariableRangeEvent(id)));
-        float pitch = s.pitch() * (0.95F + level.getRandom().nextFloat() * 0.1F);
-        if (fx.toAll()) {
-            level.playSound(null, p.x, p.y, p.z, sound, SoundSource.PLAYERS, s.volume(), pitch);
-        } else if (bullet.getOwner() instanceof ServerPlayer player) {
-            player.connection.send(new ClientboundSoundPacket(sound, SoundSource.PLAYERS, p.x, p.y, p.z, s.volume(), pitch, level.getRandom().nextLong()));
-        }
     }
 
     // a particle from its rule name: "block" (of `hit`), "block:<id>", or a plain particle id

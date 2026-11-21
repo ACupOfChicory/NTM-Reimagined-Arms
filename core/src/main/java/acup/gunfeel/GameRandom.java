@@ -6,6 +6,8 @@ package acup.gunfeel;
  * and the game's sequence goes on as before; core keeps no generator of its own.
  */
 public interface GameRandom {
+    /** A seed in the same sequence (26.2: RandomSource.nextLong). */
+    long nextLong();
     /** RandomSource.nextInt(bound), in the same sequence as the other draws. */
     int nextInt(int bound);
 

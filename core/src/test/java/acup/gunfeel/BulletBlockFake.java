@@ -13,6 +13,8 @@ import acup.gunfeel.host.WorldEdit;
 import acup.gunfeel.host.WorldView;
 
 final class BulletBlockFake implements WorldEdit, BulletBlocks {
+    @Override public int ruleState(Object level, Object pos, int state) { throw new AssertionError(); }
+    @Override public String material(Object level, Object pos) { throw new AssertionError(); }
     record Position(int x, int y, int z) {}
     static final Object LEVEL = new Object(), TOKEN = new Object(), OTHER = new Object(), BULLET = new Object(), HIT = new Object();
     static final Object[] STATES = {"air", "a[0]", "a[1]", "b"};
