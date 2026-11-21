@@ -19,11 +19,14 @@ public final class AiGrenadier extends AiGrenadierBase {
     }
 
     private static final Staff<AiBot, AiSoldier> STAFF = new Staff<>() {
+        @Override public boolean mayPlan(Object level, long tick) { return AiGrenadesBase.mayPlan(level, tick); }
+        @Override public @Nullable Vec3d burst(VoxelRay.Source src, double x, double y, double z, double vx, double vy, double vz,
+                int ticks, int minY, double gravity, double[] land) {
+            return AiGrenadesBase.burst(src, x, y, z, vx, vy, vz, ticks, 0, 0, minY, gravity, 1, null, land, Vec3d::new);
+        }
         @Override public Vec3d eye(AiBot b) { return Vecs.of(AiLean.eye(b.mob)); }
-        @Override public boolean mayPlan(Object level, long tick) { return AiGrenades.mayPlan((ServerLevel) level, tick); }
         @Override public VoxelRay.Source voxels(Object level) { return AiBots.voxels((ServerLevel) level); }
-        @Override public @Nullable Vec3d burst(VoxelRay.Source src, double x, double y, double z, double vx, double vy, double vz, int ticks, int minY, double gravity, double[] land) { Vec3 b = AiGrenades.burst(src, x, y, z, vx, vy, vz, ticks, 0, 0, minY, gravity, 1, null, land); return b == null ? null : Vecs.of(b); }
-        @Override public boolean ownNear(Object level, VoxelRay.Source src, AiBot b, Vec3d at) { return AiGrenades.ownNear((ServerLevel) level, src, b.mob, Vecs.mc(at), 0); }
+        @Override public boolean ownNear(Object level, VoxelRay.Source src, AiBot b, Vec3d at) { return AiGrenades.ownNear((ServerLevel) level, src, b.mob, at.x(), at.y(), at.z(), 0); }
         @Override public CoverQuery.@Nullable Spot spot(AiSoldier s) { return s.spot(); }
         @Override public void note(AiSoldier s, AiBot b, long tick, String text) { s.note(b, tick, text); }
         @Override public acup.gunfeel.host.EntityView entities(Object level) { return new acup.gunfeel.LevelEntities((ServerLevel) level); }

@@ -108,6 +108,8 @@ public final class AiCheck {
             // the rest runs with the server ticking
             AiLeanAlike leanAlike = new AiLeanAlike();
             AiLean.alike = leanAlike;
+            AiGrenadesAlike grenadesAlike = new AiGrenadesAlike();
+            AiGrenades.alike = grenadesAlike;
             AiCheckTicks ticks = new AiCheckTicks(check, check.level, Y);
             AiCheckFight fight = new AiCheckFight(check, check.level, Y);
             AiCheckCrowd crowd = new AiCheckCrowd(check, check.level, Y);
@@ -231,6 +233,11 @@ public final class AiCheck {
                 }
                 if (!done) return;
                 AiLean.alike = null;
+                AiGrenades.alike = null;
+                check.out("     grenades alike (core's against the former code): " + grenadesAlike.info());
+                check.check("grenades: core's AiGrenadesBase answers as the former code did", grenadesAlike.agrees());
+                if (AiGrenadesAlike.needsEveryInput(only))
+                    check.check("grenades alike: every input compared", grenadesAlike.complete());
                 check.out("     lean alike (core's against the former code): " + leanAlike.info());
                 check.check("lean: core's AiLeanBase answers as the former code did", leanAlike.differ == 0);
                 AiBots.heardKeeps = true;

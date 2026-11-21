@@ -313,6 +313,9 @@ public interface NtmGuns {
         public boolean grenadeShell(Body holder, Shell into) {
             return false;
         }
+
+        @Override public double fragForce() { return 0; }
+        @Override public double fragBounce() { return 0; }
     };
 
     /**
@@ -330,4 +333,10 @@ public interface NtmGuns {
      * grenade, {@code into} left as it was.
      */
     boolean grenadeShell(Body holder, Shell into);
+
+    /** 26.2: EnumGrenadeShell.FRAG.getYeetForce. */
+    double fragForce();
+
+    /** 26.2: EnumGrenadeShell.FRAG.getBounce. */
+    double fragBounce();
 }

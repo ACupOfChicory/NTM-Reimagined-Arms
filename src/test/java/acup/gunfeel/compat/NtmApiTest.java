@@ -41,8 +41,8 @@ class NtmApiTest {
     // Object's own methods: NTM's classes always have them, and an interface would not show them
     static final Set<String> OBJECT = Set.of("equals", "hashCode", "toString", "getClass", "clone", "finalize", "notify",
             "notifyAll", "wait");
-    // the data dumps run only in a dev run (runDumpBlocks): what they read must not turn off the mod for players
-    static final Set<String> DEV_ONLY = Set.of("GunDump", "BlockDump", "Gl54Stand", "Gl54Probe", "BulletCheck", "ClientSmoke", "MobSmoke", "MobReview", "MobReviewSelfTest", "HoleBenchmark", "HeadSmoke", "ExplosiveSmoke", "NpcShotSmoke", "TraceScenario", "GlassBackCheck", "WaterFxStand", "SpreadCheck", "BalanceAim", "ScopeSmokeStand", "MenuWas", "HoleFrameStand", "SmokeFrameStand", "CasingFrameStand", "HudWas");
+    // Dumps and the former grenade code run only in dev stands; their reads do not gate the mod for players.
+    static final Set<String> DEV_ONLY = Set.of("GunDump", "BlockDump", "Gl54Stand", "Gl54Probe", "BulletCheck", "ClientSmoke", "MobSmoke", "MobReview", "MobReviewSelfTest", "HoleBenchmark", "HeadSmoke", "ExplosiveSmoke", "NpcShotSmoke", "TraceScenario", "GlassBackCheck", "WaterFxStand", "SpreadCheck", "BalanceAim", "ScopeSmokeStand", "MenuWas", "HoleFrameStand", "SmokeFrameStand", "CasingFrameStand", "HudWas", "AiGrenadesOld");
 
     @Test
     void listIsUpToDate() throws IOException {
