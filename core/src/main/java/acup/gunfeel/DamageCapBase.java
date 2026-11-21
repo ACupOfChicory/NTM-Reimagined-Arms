@@ -6,7 +6,6 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import java.util.WeakHashMap;
-import java.util.function.Supplier;
 
 import org.jspecify.annotations.Nullable;
 
@@ -91,6 +90,66 @@ class DamageCapBase {
         return SHIELD_BEFORE.remove(target);
     }
 
+    /** Event reads and numeric application (26.2: DamageCap's stateless event adapter). */
+    interface DamageEvent<E> {
+        /** The source when the cap is enabled (26.2: Pre.getSource). */
+        Object source(E event);
+        /** The raw fallback after the projectile check (26.2: Pre.getOriginalDamage). */
+        float original(E event);
+        /** Numeric application after all exits (26.2: Pre.getNewDamage, then applyOf). */
+        Applied apply(E event, Body target, Body shooter, Before before, long now, Shot shot, boolean head);
+    }
+
+    /** The hurt's decisions (26.2: damage after removing the snapshot and checking ServerLevel). */
+    static <E> @Nullable Applied damageOf(Body target, Object level, Before before, E event, DamageEvent<E> reads) {
+        return damageOf(target, level, before, event, reads, BalanceArmorBase.HurtPort.HURTS,
+                ShotPort.BULLETS, ShotPort.GUNS, CapPort.CAP, CapPort.NOW, LIVE);
+    }
+
+    /** The same hurt on recording reads (26.2: the live overload above). */
+    static <E> @Nullable Applied damageOf(Body target, Object level, Before before, E event, DamageEvent<E> reads,
+            Hurts hurts, NtmBullets bullets, NtmGuns guns, CapNow cap, HurtNow hurt, Settings settings) {
+        if (!onOf(settings) || !cappedOf(target, settings)) return null;
+        Object source = reads.source(event);
+        Body cause = hurts.cause(source);
+        Body shooter = bullets.shooter(cause == null ? null : cap.entity(cause));
+        if (shooter == null) {
+            Body direct = hurts.direct(source);
+            shooter = bullets.shooter(direct == null ? null : cap.entity(direct));
+        }
+        if (shooter == null || shooter == target || exemptOf(hurts, source)) return null;
+        Body projectile = projectileOf(source, shooter, hurts);
+        // NTM's blasts from a bullet or a grenade name the shooter alone (ExplosionVNT's exploder): NTM's blast is capped
+        // with no projectile, as a click of this tick (a creeper's, vanilla's, is not)
+        // and any NTM blast's hit whatever its class: the Tesla Cannon's is electric (BalanceArmor.vntBlastNow)
+        boolean blast = hurts.ntmExplosion(source)
+                || (BalanceArmorBase.vntBlastNow() && settings.flag("damageCapAnyBlast", true));
+        if (projectile == null && !blast) return null;
+        long now = Worlds.of(level).gameTime();
+        // the hurt's raw damage as NTM's armour took it (after NTM's shield), else the hurt's own
+        float raw = takeAmountOf(target, reads.original(event), cap);
+        if (blast && blastFreeOf(raw, settings)) return null;
+        Object key = projectile == null ? null : cap.entity(projectile);
+        Shot shot = projectile == null ? null : shotOf(key);
+        if (shot == null) shot = new Shot(projectile == null ? now : now - projectile.age(),
+                guns.maxDelay(shooter, Body.MAIN_HAND) >= limitsOf(settings).sniperDelay()
+                        && (projectile == null || !bullets.pellet(key)));
+        boolean head = headOf(target, hurt);
+        // the final scheme's hits on the head (owner 2026-11-12: no one-shots on the head): the plain head cap, whatever
+        // the gun waits
+        if (!sniperOf(target, source, head, shot.sniper(), cap) && shot.sniper()) shot = new Shot(shot.tick(), false);
+        return reads.apply(event, target, shooter, before, now, shot, head);
+    }
+
+    /** the projectile between the shooter and the target, or null for none (melee, no shooter); both source getters
+     * are read before either comparison (26.2: DamageCap.projectile) */
+    private static @Nullable Body projectileOf(Object source, Body shooter, Hurts hurts) {
+        Body direct = hurts.direct(source), cause = hurts.cause(source);
+        if (direct != null && direct != shooter) return direct;
+        if (cause != null && cause != shooter) return cause;
+        return null;
+    }
+
     static boolean blastFreeOf(float raw) {
         return blastFreeOf(raw, LIVE);
     }
@@ -128,12 +187,12 @@ class DamageCapBase {
     record Applied(long click, boolean head, boolean sniper, float shield, float before, DamageCapRule.Cut result) {}
 
     static Applied applyOf(Body target, Body shooter, Before shieldBefore, long now, long click, boolean head,
-            boolean sniper, Supplier<Float> damage) {
+            boolean sniper, float damage) {
         return applyOf(target, shooter, shieldBefore, now, click, head, sniper, damage, CapPort.CAP, LIVE);
     }
 
     static Applied applyOf(Body target, Body shooter, Before shieldBefore, long now, long click, boolean head,
-            boolean sniper, Supplier<Float> damage, CapNow cap, Settings settings) {
+            boolean sniper, float damage, CapNow cap, Settings settings) {
         // An older snapshot was left by a hurt that stopped short.
         if (target.player() && shieldBefore != null && shieldBefore.tick() == now) {
             return cap.withShield(target, (props, currentShield) -> {
@@ -146,10 +205,10 @@ class DamageCapBase {
     }
 
     private static Applied applyShieldOf(Body target, Body shooter, long now, long click, boolean head, boolean sniper,
-            Supplier<Float> damage, Settings settings, float shield) {
+            float damage, Settings settings, float shield) {
         var ledger = LEDGERS.computeIfAbsent(target.uuid(), k -> new HashMap<>()).computeIfAbsent(shooter.uuid(),
                 k -> new DamageCapRule.Ledger());
-        float before = damage.get();
+        float before = damage;
         var result = DamageCapRule.take(ledger, limitsOf(settings), now, click, head, sniper, target.maxHealth(), shield, before);
         return new Applied(click, head, sniper, shield, before, result);
     }
