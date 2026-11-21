@@ -39,7 +39,7 @@ final class LevelLeakStand {
     private static final BlockPos O = new BlockPos(8, 100, 8);
     /** the AI's classes with state per level in static maps (charlie's inventory 2026-11-20) */
     private static final List<String> REGISTRIES = List.of("TacticalMap", "AiTerrain", "AiBots", "AiBotsBase", "AiBunker", "AiClearing",
-            "AiCommander", "AiCommanderBase", "AiCrossing", "AiEntry", "AiGrenades", "AiHatch", "AiHqMap", "AiHqMapBase", "AiIntel", "AiIntelBase", "AiReports", "AiReportsBase",
+            "AiCommander", "AiCommanderBase", "AiCrossing", "AiEntry", "AiGrenades", "AiGrenadesBase", "AiHatch", "AiHqMap", "AiHqMapBase", "AiIntel", "AiIntelBase", "AiReports", "AiReportsBase",
             "AiSquads", "AiSquadsBase", "AiSupply", "AiSupplyBase", "AiVoice", "acup.gunfeel.host.Worlds");
 
     private static int step;

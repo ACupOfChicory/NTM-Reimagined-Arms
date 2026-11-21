@@ -8,6 +8,9 @@ import acup.gunfeel.host.Body;
  * AmmoLock.Reads (AMMO_CHOICE), the HUD's in Hud.Reads (HUD)
  */
 final class NtmGunsPort extends acup.gunfeel.ai.AiGunner.Guns {
+    @Override public double fragForce() { return acup.gunfeel.ai.AiGrenades.fragForce(); }
+    @Override public double fragBounce() { return acup.gunfeel.ai.AiGrenades.fragBounce(); }
+
     @Override
     public int menuRounds(Body holder, int hand, int[] out) {
         return AmmoLock.Reads.menuRounds(holder, hand, out);

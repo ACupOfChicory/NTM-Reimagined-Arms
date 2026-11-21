@@ -80,6 +80,7 @@ public abstract class AiGrenadierBase {
         VoxelRay.Source voxels(Object level);
         @Nullable Vec3d burst(VoxelRay.Source src, double x, double y, double z, double vx, double vy, double vz,
                 int ticks, int minY, double gravity, double[] land);
+        /** 26.2: AiGrenades.ownNear, until G2. */
         boolean ownNear(Object level, VoxelRay.Source src, B bot, Vec3d burst);
         CoverQuery.@Nullable Spot spot(S soldier);
         void note(S soldier, B bot, long tick, String text);
