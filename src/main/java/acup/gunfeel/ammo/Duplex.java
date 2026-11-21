@@ -10,10 +10,10 @@ import com.hbm.registration.RegistryHandle;
 
 import acup.gunfeel.BalanceFinal;
 import acup.gunfeel.DebugLog;
+import acup.gunfeel.host.DuplexShots;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.IEventBus;
 
 /**
@@ -66,12 +66,9 @@ public final class Duplex {
         return c;
     }
 
-    /** the front bullet of the shot under way on this thread (MixinDuplexShot: the next Duplex bullet is its rear one) */
-    private static final ThreadLocal<EntityBulletBaseMK4> FRONT = new ThreadLocal<>();
-
     /** a shot begins: no front bullet yet */
     public static void shotStart() {
-        FRONT.remove();
+        DuplexBase.shotStart();
     }
 
     /**
@@ -79,30 +76,37 @@ public final class Duplex {
      * of the front before it and is set behind it, off its heading (DuplexRule.rear)
      */
     public static void place(Entity e) {
-        if (!(e instanceof EntityBulletBaseMK4 b) || !is(b.config)) return;
-        EntityBulletBaseMK4 front = FRONT.get();
-        if (front == null || front.config != b.config || front.getThrower() != b.getThrower()) {
-            FRONT.set(b);
-            return;
+        DuplexBase.place(e);
+    }
+
+    /** 26.2's live bullets for the Duplex pair. */
+    public static final class Reads implements DuplexShots {
+        @Override public boolean duplex(Object e) { return e instanceof EntityBulletBaseMK4 b && is(b.config); }
+        @Override public Object config(Object b) { return ((EntityBulletBaseMK4) b).config; }
+        @Override public Object thrower(Object b) { return ((EntityBulletBaseMK4) b).getThrower(); }
+        @Override public double mx(Object b) { return ((EntityBulletBaseMK4) b).getDeltaMovement().x; }
+        @Override public double my(Object b) { return ((EntityBulletBaseMK4) b).getDeltaMovement().y; }
+        @Override public double mz(Object b) { return ((EntityBulletBaseMK4) b).getDeltaMovement().z; }
+        @Override public double px(Object b) { return ((EntityBulletBaseMK4) b).position().x; }
+        @Override public double py(Object b) { return ((EntityBulletBaseMK4) b).position().y; }
+        @Override public double pz(Object b) { return ((EntityBulletBaseMK4) b).position().z; }
+        @Override public double gaussian(Object b) { return ((EntityBulletBaseMK4) b).getRandom().nextGaussian(); }
+
+        @Override
+        public void write(Object rear, double mx, double my, double mz, float yaw, float pitch, double ax, double ay, double az) {
+            EntityBulletBaseMK4 b = (EntityBulletBaseMK4) rear;
+            b.setDeltaMovement(mx, my, mz);
+            b.setYRot(yaw);
+            b.yRotO = yaw;
+            b.setXRot(pitch);
+            b.xRotO = pitch;
+            b.setPos(ax, ay, az);
+            b.xo = ax;
+            b.yo = ay;
+            b.zo = az;
+            b.xOld = ax;
+            b.yOld = ay;
+            b.zOld = az;
         }
-        FRONT.remove();
-        Vec3 v = front.getDeltaMovement();
-        double[] r = DuplexRule.rear(v.x, v.y, v.z, b.getRandom()::nextGaussian);
-        b.setDeltaMovement(r[0], r[1], r[2]);
-        double hyp = Math.sqrt(r[0] * r[0] + r[2] * r[2]);
-        float yaw = (float) Math.toDegrees(Math.atan2(r[0], r[2])), pitch = (float) Math.toDegrees(Math.atan2(r[1], hyp));
-        b.setYRot(yaw);
-        b.yRotO = yaw;
-        b.setXRot(pitch);
-        b.xRotO = pitch;
-        double len = v.length();
-        Vec3 at = len < 1e-9 ? front.position() : front.position().subtract(v.scale(DuplexRule.BEHIND / len));
-        b.setPos(at.x, at.y, at.z);
-        b.xo = at.x;
-        b.yo = at.y;
-        b.zo = at.z;
-        b.xOld = at.x;
-        b.yOld = at.y;
-        b.zOld = at.z;
     }
 }
