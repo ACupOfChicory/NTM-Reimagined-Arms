@@ -32,7 +32,7 @@ jobs:
 
       - uses: actions/setup-java@v6
         with:
-          distribution: temurin
+          distribution: zulu
           # 25 last: it runs Gradle; 8 and 21 are the toolchains of the ports' builds and tests
           java-version: |
             8
