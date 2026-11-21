@@ -9,7 +9,7 @@ import java.util.Map;
  * A render port that draws nothing and keeps what it was asked: core's tests run their drawers through it ({@link #run})
  * at a frame they set, and read {@link #log}. Lines: {@code fill <buffer> <room> -> <elements>}, {@code drawAt <material>
  * <buffer> <first> <count> <ox> <oy> <oz> <pull>}, {@code queue <material> <part> <room> -> <elements>} (a queued part is
- * written at once), {@code free <buffer>}, {@code upload <params> <length> <crc32 of the bytes>}, {@code drawInstanced
+ * written at once unless defer is set), {@code free <buffer>}, {@code upload <params> <length> <crc32 of the bytes>}, {@code drawInstanced
  * <material> <mesh> <params> <offset> <n>}, {@code flush}, {@code map <params> <length> <crc32>} (at done),
  * {@code texture <handle> <name> <w> <h>}, {@code texels <texture> <x> <y> <w> <h> <crc32>}. A params handle is 1000
  * on, a texture's 2000 on.
@@ -36,6 +36,21 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
     public boolean record = true;
     private final List<ParamsState> paramStates = new ArrayList<>();
     private final List<Integer> lengths = new ArrayList<>();
+    private final List<Integer> layouts = new ArrayList<>();
+    /** Vertices with raw float bits, in execution order. */
+    public record Vertex(int layout, int x, int y, int z, int argb, int u, int v, int light, int nx, int ny, int nz) {}
+    public final List<Vertex> vertices = new ArrayList<>();
+    public final Map<Integer, List<Vertex>> writtenOf = new HashMap<>();
+    private final List<Vertex> fillingVertices = new ArrayList<>();
+    /** Delay execution until the caller has prepared several Parts. */
+    public boolean defer;
+    private record Queued(int material, int part, int room) {}
+    private final List<Queued> queued = new ArrayList<>();
+
+    public void drain() {
+        try { for (Queued q : queued) execute(q.material, q.part, q.room); }
+        finally { queued.clear(); }
+    }
     private final Counter fillCounter = new Counter(), queueCounter = new Counter();
     private int fillingBuffer;
     private static final class ParamsState {
@@ -110,6 +125,7 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
         parts.add(null);
         buffers.add(false);
         lengths.add(0);
+        layouts.add(0);
     }
 
     /** the drawers of an intent, in the order registered */
@@ -141,6 +157,8 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
     public int buffer(int layout, int room) {
         buffers.add(true);
         lengths.add(0);
+        layouts.add(layout);
+        writtenOf.put(buffers.size() - 1, new ArrayList<>());
         return buffers.size() - 1;
     }
 
@@ -155,6 +173,9 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
         fillCounter.open = true;
         fillCounter.owner = this;
         fillCounter.room = room;
+        fillCounter.layout = layouts.get(buffer);
+        fillCounter.vertices = fillingVertices;
+        if (record) fillCounter.vertices.clear();
         return fillCounter;
     }
 
@@ -314,8 +335,16 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
     @Override
     public void queue(int material, int part, int room) {
         if (part <= 0 || part >= parts.size()) throw new IllegalArgumentException("unknown part");
+        if (defer) { queued.add(new Queued(material, part, room)); return; }
+        execute(material, part, room);
+    }
+
+    private void execute(int material, int part, int room) {
         Counter c = queueCounter;
         c.n = 0; c.open = true;
+        c.layout = materials.get(material).layout();
+        c.vertices = vertices;
+        c.recorder = this;
         try { parts.get(part).write(c); }
         finally { c.open = false; }
         if (record) log.add("queue " + material + " " + part + " " + room + " -> " + c.n);
@@ -347,14 +376,34 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
     }
 
     private static class Counter implements VertexWriter {
-        int n, room;
+        int n, room, layout;
         boolean open;
         RecordingRenderPort owner;
+        RecordingRenderPort recorder;
+        List<Vertex> vertices;
+
+        private void vertex(int expected, float x, float y, float z, int argb, float u, float v, int light, float nx, float ny, float nz) {
+            if (!open) throw new IllegalStateException("writer after end");
+            // The old contract uses an instanced material as a placeholder for a queued decal.
+            if (layout != expected && layout != Layouts.MESH_ENTITY) throw new IllegalArgumentException("writer layout");
+            n++;
+            RecordingRenderPort p = owner == null ? recorder : owner;
+            if (p != null && p.record) vertices.add(new Vertex(expected, bits(x), bits(y), bits(z), argb, bits(u), bits(v), light, bits(nx), bits(ny), bits(nz)));
+        }
+
+        private static int bits(float f) { return Float.floatToRawIntBits(f); }
+
+        @Override public void color(float x, float y, float z, int argb) {
+            vertex(Layouts.COLOR, x, y, z, argb, 0, 0, 0, 0, 0, 0);
+        }
+
+        @Override public void particle(float x, float y, float z, int argb, float u, float v, int light) {
+            vertex(Layouts.PARTICLE, x, y, z, argb, u, v, light, 0, 0, 0);
+        }
 
         @Override
         public void decal(float x, float y, float z, int argb, float u, float v, int light, float nx, float ny, float nz) {
-            if (!open) throw new IllegalStateException("writer after end");
-            n++;
+            vertex(Layouts.DECAL, x, y, z, argb, u, v, light, nx, ny, nz);
         }
 
         @Override
@@ -363,7 +412,13 @@ public class RecordingRenderPort implements RenderPort, RenderSink, CameraFrame 
             open = false;
             if (owner != null) {
                 owner.filling = false;
-                owner.lengths.set(owner.fillingBuffer, n);
+                if (n > 0) {
+                    owner.lengths.set(owner.fillingBuffer, n);
+                    if (owner.record) {
+                        List<Vertex> kept = owner.writtenOf.get(owner.fillingBuffer);
+                        kept.clear(); kept.addAll(vertices);
+                    }
+                }
                 if (owner.record) owner.log.add("fill " + owner.fillingBuffer + " " + room + " -> " + n);
             }
             return n;

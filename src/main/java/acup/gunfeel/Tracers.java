@@ -15,7 +15,6 @@ import org.joml.Vector3f;
 import com.hbm.client.render.RenderBulletMK4;
 import com.hbm.items.weapon.sedna.BulletConfig;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -26,7 +25,6 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.util.Mth;
-import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -56,13 +54,10 @@ public final class Tracers {
         Decals.Set set = BulletRules.decal(state);
         return config.onImpact != null ? Decals.scorch(set.scorch()) : Decals.hole(set.hole());
     }
-    // the tracer joins the bullet's real path over this many blocks from the muzzle
-    private static final float JOIN = 4F;
-
     private Tracers() {
     }
 
-    private static final class Shot {
+    static final class Shot {
         final int id; // the server's entity id of the bullet (TestLog)
         final BulletConfig config;
         final int owner;
@@ -81,6 +76,7 @@ public final class Tracers {
         double end = Double.NaN; // ticks at which it hit something
         double confirmedEnd=Double.NaN;
         Vec3 stopPoint;
+        private final Vector3d position = new Vector3d(), tailPosition = new Vector3d();
         boolean whizzed; // already whizzed past the player
         boolean suppressed; // already counted as passing the player (Suppression)
         boolean struck; // its stop already counted near the player (Suppression)
@@ -106,7 +102,7 @@ public final class Tracers {
         // its water events for the effects, each with the tick it happens at, handed over as the head passes it
         java.util.ArrayList<Object[]> waterFx;
 
-        Shot(ShotPayload p, BulletConfig config, int[] colors) {
+        Shot(ShotPayload p, BulletConfig config, int[] colors, double born) {
             this.id = p.id();
             this.config = config;
             this.owner = p.owner();
@@ -119,7 +115,7 @@ public final class Tracers {
             this.light = colors[1];
             this.lifeTicks = p.life();
             this.damage = p.damage();
-            this.born = flightTime();
+            this.born = born;
             this.rootBorn=this.born;
         }
 
@@ -191,10 +187,22 @@ public final class Tracers {
 
         // where the bullet is after t ticks (as the server moves it), plus the muzzle offset fading out
         Vec3 at(double t) {
-            if(stopPoint!=null && t>=confirmedEnd-1e-8)return stopPoint;
-            Vec3 p = start.add(v.x * t, v.y * t - 0.5 * g * t * t, v.z * t);
-            double k = Math.max(0.0, 1.0 - speed * t / JOIN);
-            return k > 0 ? p.add(muzzleOffset.scale(k)) : p;
+            if (stopPoint != null && t >= confirmedEnd - 1e-8) return stopPoint;
+            at(t, position);
+            return new Vec3(position.x, position.y, position.z);
+        }
+
+        private Vector3d at(double t, Vector3d out) {
+            if (stopPoint != null && t >= confirmedEnd - 1e-8) return out.set(stopPoint.x, stopPoint.y, stopPoint.z);
+            return TracerGeometry.at(out, start.x, start.y, start.z, v.x, v.y, v.z, g, speed,
+                    muzzleOffset.x, muzzleOffset.y, muzzleOffset.z, t);
+        }
+
+        void ribbon(TracerRibbons.Batch batch, double head, double tail, Vec3 cam, float pixel) {
+            at(head, position);
+            at(tail, tailPosition);
+            batch.add(position.x, position.y, position.z, tailPosition.x, tailPosition.y, tailPosition.z,
+                    cam.x, cam.y, cam.z, light, dark, pixel);
         }
     }
 
@@ -581,7 +589,7 @@ public final class Tracers {
             return;
         }
         ClientSmoke.packet();
-        Shot s = new Shot(p, config, c);
+        Shot s = new Shot(p, config, c, flightTime());
         Minecraft mc = Minecraft.getInstance();
         // the player's own shot leaves the muzzle drawn in their hands
         Vec3 muzzle = mc.player != null && p.owner() == mc.player.getId() ? drawnMuzzle() : null;
@@ -651,21 +659,21 @@ public final class Tracers {
     }
 
     public static void submit(SubmitCustomGeometryEvent event) {
+        if (ribbons != null) ribbons.beginFrame(RenderPort26.frameNumber());
         if(HoleBenchMetrics.ENABLED) HoleBenchmark.applyMode();
         Minecraft mc = Minecraft.getInstance();
         ClientLevel level = mc.level;
         if (level == null) return;
         Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;
         long now = GunClock.nanos();
-        PoseStack pose = event.getPoseStack();
         // a frame's worth of flight, so a fast bullet's tracer does not break into dashes
         double tickNow = flightTime();
-        double frameTicks = Double.isNaN(lastFrame) ? 0.05 : Math.clamp(tickNow - lastFrame, 0.01, 0.25);
+        double frameTicks = TracerGeometry.frameTicks(tickNow, lastFrame);
         lastFrame = tickNow;
         // one screen pixel at one block away, for the tracer's least width
         Minecraft m = Minecraft.getInstance();
-        float pixel = (float) (2.0 * Math.tan(Math.toRadians(m.options.fov().get()) * 0.5) / Math.max(1, m.getWindow().getHeight()));
-        List<float[]> streaks = new ArrayList<>();
+        float pixel = TracerGeometry.pixel(m.options.fov().get(), m.getWindow().getHeight());
+        TracerRibbons.Batch streaks = ribbons().begin();
         BOUNCED.clear();
         Iterator<Shot> it = SHOTS.iterator();
         while (it.hasNext()) {
@@ -675,7 +683,7 @@ public final class Tracers {
             fly(s, level, Math.min(t, s.lifeTicks));
             Perf.add(Perf.FLY, pf);
             if (s.waterFx != null) waterFx(s, level, t);
-            var segment = BulletClock.segment(t, s.end, s.lifeTicks, Math.max(Config.tracerLength / s.speed, frameTicks * 1.5));
+            var segment = TracerGeometry.segment(t, s.end, s.lifeTicks, Config.tracerLength, s.speed, frameTicks);
             double head = segment.head(), tail = segment.tail();
             boolean expired = segment.expired();
             ClientSmoke.segment(t, expired);
@@ -694,22 +702,13 @@ public final class Tracers {
                 double k = s.waterF > 0 ? wf / s.waterF : 1;
                 acup.gunfeel.water.SunkBullets.flying(level, s.config, at, vel, wf, vel.length() * k);
             }
-            if (!Config.tracers || !s.drawn || !segment.visible()) continue;
-            Vec3 h = s.at(head).subtract(cam), b = s.at(tail).subtract(cam);
-            streaks.add(new float[] {(float) h.x, (float) h.y, (float) h.z, (float) b.x, (float) b.y, (float) b.z,
-                    Float.intBitsToFloat(s.light), Float.intBitsToFloat(s.dark), pixel});
+            if (streaks == null || !Config.tracers || !s.drawn || !segment.visible()) continue;
+            s.ribbon(streaks, head, tail, cam, pixel);
         }
         SHOTS.addAll(BOUNCED);
         for(var bounced:BOUNCED)RECENT_SHOTS.put(bounced.id,bounced);
         BOUNCED.clear();
-        if (!streaks.isEmpty()) {
-            event.getSubmitNodeCollector().submitCustomGeometry(pose, RenderTypes.debugQuads(), (p, vc) -> {
-                long pt = Perf.start();
-                for (float[] k : streaks) streak(p.pose(), vc, k);
-                ClientSmoke.tracerDrawn(streaks.size());
-                Perf.add(Perf.TRACERS, pt);
-            });
-        }
+        if (streaks != null) RenderPort26.submitAt(event, cam, now, acup.gunfeel.host.render.Intent.QUEUE, streaks);
         makePending();
         long pd = Perf.start();
         holes(event, cam, now);
@@ -2658,28 +2657,21 @@ public final class Tracers {
         return null;
     }
 
-    // a thin ribbon from tail to head, turned toward the camera; bright at the head, fading to nothing at the tail
-    private static void streak(Matrix4f m, VertexConsumer vc, float[] k) {
-        Vector3f head = new Vector3f(k[0], k[1], k[2]), tail = new Vector3f(k[3], k[4], k[5]);
-        Vector3f along = new Vector3f(head).sub(tail);
-        if (along.lengthSquared() < 1e-8F) return;
-        Vector3f side = new Vector3f(along).cross(head);
-        if (side.lengthSquared() < 1e-10F) return;
-        side.normalize();
-        // never thinner than about 1.5 screen pixels, however far
-        float least = 1.0F * k[8];
-        float wh = Math.max(Config.tracerWidth, least * head.length()), wt = Math.max(Config.tracerWidth * 0.5F, least * tail.length());
-        int lightColor = Float.floatToRawIntBits(k[6]) | 0xFF000000, darkColor = (Float.floatToRawIntBits(k[7]) & 0x00FFFFFF) | 0x30000000;
-        Vector3f hs = new Vector3f(side).mul(wh), ts = new Vector3f(side).mul(wt);
-        Vector3f[] q = {new Vector3f(head).add(hs), new Vector3f(head).sub(hs), new Vector3f(tail).sub(ts), new Vector3f(tail).add(ts)};
-        int[] c = {lightColor, lightColor, darkColor, darkColor};
-        // both windings: seen from either side
-        for (int pass = 0; pass < 2; pass++) {
-            for (int j = 0; j < 4; j++) {
-                int i = pass == 0 ? j : 3 - j;
-                vc.addVertex(m, q[i].x, q[i].y, q[i].z).setColor(c[i]);
+    private static TracerRibbons ribbons;
+
+    private static TracerRibbons ribbons() {
+        if (ribbons == null) ribbons = new TracerRibbons(RenderPort26.INSTANCE, new TracerRibbons.Host() {
+            public float width() { return Config.tracerWidth; }
+            public long start() { return Perf.start(); }
+            public void drawn(int count, long started) {
+                ClientSmoke.tracerDrawn(count);
+                Perf.add(Perf.TRACERS, started);
             }
-        }
+            public void overflow() {
+                GunFeel.LOGGER.warn("All 256 tracer Part slots are busy; skipping tracer submission");
+            }
+        });
+        return ribbons;
     }
 
     private static long blocksChecked;

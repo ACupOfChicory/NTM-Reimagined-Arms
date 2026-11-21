@@ -16,6 +16,8 @@ public final class Intent {
      * smoke's), NTM's casings
      */
     public static final int AFTER_OPAQUE_SOLID = 4;
+    /** After translucent terrain, into the particles target; a foreign collector uses the ordinary queue. */
+    public static final int AFTER_TERRAIN = 5;
 
     private Intent() {
     }
