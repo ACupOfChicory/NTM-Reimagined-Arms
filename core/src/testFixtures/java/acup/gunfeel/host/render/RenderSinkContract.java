@@ -33,6 +33,67 @@ public abstract class RenderSinkContract {
     /** Запись трассы выключается только для проверки выделений. */
     protected abstract void trace(RenderPort port, boolean enabled);
 
+    /** The version holds the queue until drained; tested without a GPU. */
+    protected abstract void defer(RenderPort port, boolean enabled);
+    protected abstract void drain(RenderPort port);
+    protected abstract java.util.List<RecordingRenderPort.Vertex> vertices(RenderPort port);
+    protected abstract java.util.List<RecordingRenderPort.Vertex> kept(RenderPort port, int buffer);
+
+    @Test
+    void newLayoutsCanBeRefilledAndKeepRawData() {
+        RenderPort p = port();
+        for (int layout : new int[] {Layouts.COLOR, Layouts.PARTICLE}) {
+            int b = p.buffer(layout, 1);
+            VertexWriter w = p.fill(b, 1);
+            if (layout == Layouts.COLOR) w.color(-0F, 2, 3, 0xFFABCDEF);
+            else w.particle(-0F, 2, 3, 0xFFABCDEF, .25F, .75F, 0xF000F0);
+            assertEquals(1, w.done());
+            assertEquals(0x80000000, kept(p, b).getFirst().x());
+            assertEquals(0xFFABCDEF, kept(p, b).getFirst().argb());
+            if (layout == Layouts.PARTICLE) {
+                assertEquals(Float.floatToRawIntBits(.25F), kept(p, b).getFirst().u());
+                assertEquals(Float.floatToRawIntBits(.75F), kept(p, b).getFirst().v());
+                assertEquals(0xF000F0, kept(p, b).getFirst().light());
+            }
+            VertexWriter first = w;
+            assertThrows(IllegalStateException.class, () -> first.color(0, 0, 0, 0));
+            assertThrows(IllegalStateException.class, () -> first.particle(0, 0, 0, 0, 0, 0, 0));
+            w = p.fill(b, 1);
+            if (layout == Layouts.COLOR) w.color(9, 8, 7, 6);
+            else w.particle(9, 8, 7, 6, 5, 4, 3);
+            w.done();
+            assertEquals(1, kept(p, b).size());
+            assertEquals(Float.floatToRawIntBits(9), kept(p, b).getFirst().x());
+            assertEquals(0, p.fill(b, 1).done());
+            assertEquals(1, kept(p, b).size(), "an empty fill keeps the old data");
+        }
+    }
+
+    @Test
+    void afterTerrainKeepsSeveralPartsUntilExecution() {
+        RenderPort p = port();
+        defer(p, true);
+        int color = p.material(new MaterialSpec("debug_quads", "position_color", Layouts.COLOR, Blend.TRANSLUCENT,
+                0, true, true, 0, 0, false, null, false, false));
+        int particle = p.material(new MaterialSpec("particle", "particle", Layouts.PARTICLE, Blend.TRANSLUCENT,
+                0, true, true, 0, 0, true, "atlas", true, false));
+        int[] values = {10, 20};
+        VertexWriter[] escaped = new VertexWriter[1];
+        int a = p.part(w -> { escaped[0] = w; w.color(values[0], 2, 3, 4); });
+        int b = p.part(w -> w.particle(values[1], 6, 7, 8, .25F, .75F, 0xF000F0));
+        p.drawer(Intent.AFTER_TERRAIN, s -> { s.queue(color, a, 1); s.queue(particle, b, 1); });
+        // at runs the intent's drawer; Part data is read only at drain.
+        at(p, Intent.AFTER_TERRAIN, s -> {});
+        assertEquals(0, vertices(p).size());
+        values[0] = 11;
+        drain(p);
+        assertEquals(java.util.List.of(Layouts.COLOR, Layouts.PARTICLE), vertices(p).stream().map(RecordingRenderPort.Vertex::layout).toList());
+        assertEquals(Float.floatToRawIntBits(11), vertices(p).getFirst().x());
+        assertEquals(Float.floatToRawIntBits(20), vertices(p).getLast().x());
+        assertThrows(IllegalStateException.class, () -> escaped[0].color(0, 0, 0, 0));
+        assertThrows(IllegalStateException.class, () -> escaped[0].particle(0, 0, 0, 0, 0, 0, 0));
+    }
+
     private static void vertex(VertexWriter w) {
         w.decal(0, 0, 0, -1, 0, 0, 0, 0, 1, 0);
     }
